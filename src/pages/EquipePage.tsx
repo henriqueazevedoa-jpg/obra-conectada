@@ -62,7 +62,6 @@ export default function EquipePage() {
     if (!company) return;
     setLoading(true);
 
-    // Fetch profiles + roles for company members
     const { data: profiles } = await supabase
       .from('profiles')
       .select('user_id, nome, email, status')
@@ -82,14 +81,14 @@ export default function EquipePage() {
     }));
     setMembers(teamMembers);
 
-    // Fetch invites
-    const { data: inviteData } = await supabase
+    // Fetch invites - table not in generated types, use type assertion
+    const { data: inviteData } = await (supabase as any)
       .from('company_user_invites')
       .select('*')
       .eq('company_id', company.id)
       .order('created_at', { ascending: false });
 
-    setInvites((inviteData as unknown as Invite[]) || []);
+    setInvites((inviteData as Invite[]) || []);
 
     // Check limits
     const [gestores, funcionarios, clientes] = await Promise.all([
@@ -142,7 +141,7 @@ export default function EquipePage() {
 
   const LimitCard = ({ label, icon: Icon, resource }: { label: string; icon: any; resource: string }) => {
     const data = limits[resource];
-    const isUnlimited = data?.limit === -1;
+    const isUnlimited = plan?.ilimitado || data?.limit === -1;
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -151,16 +150,26 @@ export default function EquipePage() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {data?.current ?? 0}
-            {!isUnlimited && <span className="text-sm font-normal text-muted-foreground"> / {data?.limit ?? 0}</span>}
+            {data?.current ?? '—'}
+            {!isUnlimited && data && (
+              <span className="text-sm font-normal text-muted-foreground"> / {data.limit}</span>
+            )}
           </div>
-          {!isUnlimited && data && data.current >= data.limit && (
+          {!isUnlimited && data && data.limit > 0 && data.current >= data.limit && (
             <p className="text-xs text-destructive mt-1">Limite atingido</p>
           )}
         </CardContent>
       </Card>
     );
   };
+
+  if (!company) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Nenhuma empresa vinculada.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -176,7 +185,7 @@ export default function EquipePage() {
         <div>
           <h1 className="text-2xl font-bold">Equipe</h1>
           <p className="text-muted-foreground text-sm">
-            Gerencie os membros da {company?.nome || 'empresa'}
+            Gerencie os membros da {company.nome}
           </p>
         </div>
         <Button onClick={() => setModalOpen(true)}>
@@ -185,14 +194,12 @@ export default function EquipePage() {
         </Button>
       </div>
 
-      {/* Limit Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <LimitCard label="Gestores" icon={ShieldCheck} resource="gestores" />
         <LimitCard label="Funcionários" icon={HardHat} resource="funcionarios" />
         <LimitCard label="Clientes" icon={UserCheck} resource="clientes" />
       </div>
 
-      {/* Members Table */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -235,7 +242,6 @@ export default function EquipePage() {
         </CardContent>
       </Card>
 
-      {/* Invites Table */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -280,7 +286,6 @@ export default function EquipePage() {
         </CardContent>
       </Card>
 
-      {/* Invite Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>

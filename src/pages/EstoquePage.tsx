@@ -331,6 +331,7 @@ export default function EstoquePage() {
                       </div>
 
                       <VoiceInputButton
+                        module="estoque"
                         onResult={(parsed: any) => {
                           if (parsed.tipo) {
                             setMovTipo(parsed.tipo === 'saida' ? 'saida' : 'entrada');
