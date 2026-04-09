@@ -57,13 +57,13 @@ interface CompanyContextType {
   needsOnboarding: boolean;
   checkLimit: (resource: 'obras' | 'gestores' | 'funcionarios' | 'clientes') => Promise<PlanLimitResult>;
   refreshCompany: () => Promise<void>;
-  createCompany: (data: {
+  completeOnboarding: (data: {
     nome: string;
     cnpj?: string;
     email?: string;
     telefone?: string;
     planSlug: string;
-  }) => Promise<string | null>;
+  }) => Promise<{ success: boolean; error?: string }>;
 }
 
 const CompanyContext = createContext<CompanyContextType | null>(null);
@@ -78,23 +78,17 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   const fetchPlans = useCallback(async () => {
-    console.log('=== fetchPlans iniciado ===');
-
     const { data, error } = await supabase
       .from('plans')
       .select('*')
       .eq('ativo', true)
       .order('limite_obras', { ascending: true });
 
-    console.log('fetchPlans data:', data);
-    console.log('fetchPlans error:', error);
-
     if (error) {
       console.error('Erro ao buscar planos:', error);
       setPlans([]);
       return;
     }
-
     setPlans((data || []) as unknown as Plan[]);
   }, []);
 
@@ -110,17 +104,11 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
 
-    console.log('=== fetchCompany iniciado ===');
-    console.log('user.id:', user.id);
-
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('company_id')
       .eq('user_id', user.id)
       .single();
-
-    console.log('profile:', profile);
-    console.log('profileError:', profileError);
 
     if (profileError) {
       console.error('Erro ao buscar profile:', profileError);
@@ -141,55 +129,44 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       .eq('id', profile.company_id)
       .single();
 
-    console.log('companyData:', companyData);
-    console.log('companyError:', companyError);
-
-    if (companyError) {
+    if (companyError || !companyData) {
       console.error('Erro ao buscar empresa:', companyError);
       setLoading(false);
       return;
     }
 
-    if (companyData) {
-      setCompany(companyData as unknown as Company);
-      setNeedsOnboarding(false);
+    setCompany(companyData as unknown as Company);
+    setNeedsOnboarding(false);
 
-      if (companyData.plan_id) {
-        const { data: planData, error: planError } = await supabase
-          .from('plans')
-          .select('*')
-          .eq('id', companyData.plan_id)
-          .single();
+    if (companyData.plan_id) {
+      const { data: planData, error: planError } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('id', companyData.plan_id)
+        .single();
 
-        console.log('planData:', planData);
-        console.log('planError:', planError);
-
-        if (!planError && planData) {
-          setPlan(planData as unknown as Plan);
-        } else {
-          setPlan(null);
-        }
+      if (!planError && planData) {
+        setPlan(planData as unknown as Plan);
       } else {
         setPlan(null);
       }
+    } else {
+      setPlan(null);
+    }
 
-      const { data: subData, error: subError } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('company_id', companyData.id)
-        .in('status', ['trial', 'active'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const { data: subData, error: subError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('company_id', companyData.id)
+      .in('status', ['trial', 'active'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-      console.log('subscriptionData:', subData);
-      console.log('subscriptionError:', subError);
-
-      if (!subError && subData) {
-        setSubscription(subData as unknown as Subscription);
-      } else {
-        setSubscription(null);
-      }
+    if (!subError && subData) {
+      setSubscription(subData as unknown as Subscription);
+    } else {
+      setSubscription(null);
     }
 
     setLoading(false);
@@ -212,17 +189,9 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, fetchCompany]);
 
   const checkLimit = useCallback(
-    async (
-      resource: 'obras' | 'gestores' | 'funcionarios' | 'clientes'
-    ): Promise<PlanLimitResult> => {
+    async (resource: 'obras' | 'gestores' | 'funcionarios' | 'clientes'): Promise<PlanLimitResult> => {
       if (!company) {
-        return {
-          allowed: false,
-          current: 0,
-          limit: 0,
-          plan: '',
-          reason: 'Sem empresa vinculada',
-        };
+        return { allowed: false, current: 0, limit: 0, plan: '', reason: 'Sem empresa vinculada' };
       }
 
       const { data, error } = await supabase.rpc('check_plan_limit', {
@@ -232,13 +201,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
       if (error || !data) {
         console.error('Erro ao verificar limite:', error);
-        return {
-          allowed: false,
-          current: 0,
-          limit: 0,
-          plan: '',
-          reason: 'Erro ao verificar limite',
-        };
+        return { allowed: false, current: 0, limit: 0, plan: '', reason: 'Erro ao verificar limite' };
       }
 
       return data as unknown as PlanLimitResult;
@@ -246,103 +209,31 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     [company]
   );
 
-  const createCompany = useCallback(
+  const completeOnboarding = useCallback(
     async (input: {
       nome: string;
       cnpj?: string;
       email?: string;
       telefone?: string;
       planSlug: string;
-    }) => {
-      try {
-        if (!user) {
-          console.error('createCompany: usuário não encontrado');
-          return null;
-        }
+    }): Promise<{ success: boolean; error?: string }> => {
+      const { data, error } = await (supabase.rpc as any)('complete_onboarding', {
+        _nome: input.nome,
+        _cnpj: input.cnpj || '',
+        _email: input.email || '',
+        _telefone: input.telefone || '',
+        _plan_slug: input.planSlug,
+      });
 
-        console.log('=== createCompany iniciado ===');
-        console.log('input:', input);
-        console.log('plans disponíveis:', plans);
-
-        const targetPlan = plans.find((p) => p.slug === input.planSlug);
-
-        if (!targetPlan) {
-          console.error('Plano não encontrado para slug:', input.planSlug);
-          return null;
-        }
-
-        const { data: newCompany, error: companyError } = await supabase
-          .from('companies')
-          .insert({
-            nome: input.nome,
-            cnpj: input.cnpj || '',
-            email: input.email || user.email || '',
-            telefone: input.telefone || '',
-            plan_id: targetPlan.id,
-            status: 'ativo',
-          } as any)
-          .select()
-          .single();
-
-        console.log('newCompany:', newCompany);
-        console.log('companyError:', companyError);
-
-        if (companyError || !newCompany) {
-          console.error('Erro ao criar empresa:', companyError);
-          return null;
-        }
-
-        const companyId = (newCompany as any).id;
-
-        const { error: subError } = await supabase.from('subscriptions').insert({
-          company_id: companyId,
-          plan_id: targetPlan.id,
-          status: 'trial',
-          ciclo: 'mensal',
-          trial_start: new Date().toISOString().split('T')[0],
-          trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .split('T')[0],
-        } as any);
-
-        console.log('subscription insert error:', subError);
-
-        if (subError) {
-          console.error('Erro ao criar subscription:', subError);
-          return null;
-        }
-
-        const { error: profileUpdateError } = await supabase
-          .from('profiles')
-          .update({ company_id: companyId } as any)
-          .eq('user_id', user.id);
-
-        console.log('profile update error:', profileUpdateError);
-
-        if (profileUpdateError) {
-          console.error('Erro ao atualizar profiles.company_id:', profileUpdateError);
-          return null;
-        }
-
-        const { error: roleUpdateError } = await supabase
-          .from('user_roles')
-          .update({ company_id: companyId } as any)
-          .eq('user_id', user.id);
-
-        console.log('user_roles update error:', roleUpdateError);
-
-        if (roleUpdateError) {
-          console.error('Erro ao atualizar user_roles.company_id:', roleUpdateError);
-        }
-
-        await fetchCompany();
-        return companyId;
-      } catch (error) {
-        console.error('Erro inesperado no createCompany:', error);
-        return null;
+      if (error) {
+        console.error('Erro no complete_onboarding:', error);
+        return { success: false, error: error.message };
       }
+
+      await fetchCompany();
+      return { success: true };
     },
-    [user, plans, fetchCompany]
+    [fetchCompany]
   );
 
   return (
@@ -356,7 +247,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         needsOnboarding,
         checkLimit,
         refreshCompany: fetchCompany,
-        createCompany,
+        completeOnboarding,
       }}
     >
       {children}
