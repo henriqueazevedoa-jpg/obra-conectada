@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { statusObraLabels, formatDate, Obra } from '@/data/mockData';
 import { Search, Plus, MapPin, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
 const statusColors: Record<string, string> = {
@@ -37,6 +37,7 @@ const emptyForm = {
 export default function ObrasPage() {
   const { user, hasPermission } = useAuth();
   const { obras, addObra, updateObra, deleteObra, generateCodigo, getResponsaveis } = useObras();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -71,6 +72,17 @@ export default function ObrasPage() {
     setForm({ ...emptyForm, codigo: generateCodigo() });
     setDialogOpen(true);
   };
+
+  useEffect(() => {
+    if (searchParams.get('nova') === '1' && hasPermission('obras:create')) {
+      setEditingId(null);
+      setForm({ ...emptyForm, codigo: generateCodigo() });
+      setDialogOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('nova');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams, hasPermission, generateCodigo]);
 
   const openEditDialog = (obra: Obra, e: React.MouseEvent) => {
     e.preventDefault();
