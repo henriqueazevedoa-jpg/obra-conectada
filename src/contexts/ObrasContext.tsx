@@ -133,6 +133,20 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
       return { id: null, success: false, error: 'Empresa não carregada.' };
     }
 
+    // Use backend RPC to get company_id to ensure RLS match
+    const { data: rpcCompanyId } = await supabase.rpc('get_user_company_id');
+    const companyId = rpcCompanyId || company.id;
+
+    // Check plan limit before inserting
+    const { data: limitData } = await supabase.rpc('check_plan_limit', {
+      _company_id: companyId,
+      _resource: 'obras',
+    });
+    const limit = limitData as unknown as { allowed: boolean; reason?: string } | null;
+    if (limit && !limit.allowed) {
+      return { id: null, success: false, error: limit.reason || 'Limite de obras atingido no seu plano.' };
+    }
+
     const insertData: Record<string, any> = {
       nome: obra.nome,
       codigo: obra.codigo,
@@ -144,7 +158,7 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
       responsavel: obra.responsavel || null,
       percentual_andamento: obra.percentualAndamento || 0,
       descricao: obra.descricao || null,
-      company_id: company.id,
+      company_id: companyId,
     };
 
     const { data, error } = await insertWithColumnFallback(insertData);
