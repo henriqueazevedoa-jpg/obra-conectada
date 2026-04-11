@@ -18,6 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import { CalendarDays, AlertTriangle, CheckCircle2, Clock, Plus, Save, ChevronDown, ChevronRight, BarChart3, List, CalendarIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
+import NoObraState from '@/components/obras/NoObraState';
 import { formatDate, statusEtapaLabels } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
@@ -290,7 +291,12 @@ export default function CronogramaPage() {
         </div>
       </div>
 
-      {!obra && <div className="text-center py-12 text-muted-foreground">Selecione uma obra.</div>}
+      {!obra && (
+        <NoObraState
+          title="Nenhuma obra cadastrada"
+          description="Cadastre uma obra para começar a acompanhar o cronograma das etapas."
+        />
+      )}
 
       {obra && (
         <>

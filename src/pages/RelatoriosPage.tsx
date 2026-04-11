@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import NoObraState from '@/components/obras/NoObraState';
 
 function computePercentual(cat: any): number {
   if (cat.percentualCronograma != null) return cat.percentualCronograma;

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatCurrency } from '@/data/mockData';
 import { DollarSign, Edit, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import CustoRealEditor from '@/components/custo-real/CustoRealEditor';
+import NoObraState from '@/components/obras/NoObraState';
 
 export default function CustoRealPage() {
   const { user } = useAuth();
@@ -64,7 +65,10 @@ export default function CustoRealPage() {
       </div>
 
       {!obra && (
-        <div className="text-center py-12 text-muted-foreground">Selecione uma obra para visualizar os custos reais.</div>
+        <NoObraState
+          title="Nenhuma obra cadastrada"
+          description="Cadastre uma obra para começar a registrar e acompanhar os custos reais."
+        />
       )}
 
       {obra && (
