@@ -246,7 +246,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      return data as PlanLimitResult;
+      return data as unknown as PlanLimitResult;
     },
     [company]
   );
@@ -259,7 +259,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       telefone?: string;
       planSlug: string;
     }): Promise<{ success: boolean; error?: string }> => {
-      const { error } = await supabase.rpc('complete_onboarding', {
+      const { error } = await (supabase as any).rpc('complete_onboarding', {
         _nome: input.nome,
         _cnpj: input.cnpj || '',
         _email: input.email || '',
