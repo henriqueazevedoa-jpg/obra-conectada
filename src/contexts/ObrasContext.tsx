@@ -42,12 +42,16 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
 
   const fetchObras = useCallback(async () => {
     if (!user) { setObras([]); setLoading(false); return; }
-    const { data, error } = await supabase.from('obras').select('*');
+    if (!company) { setObras([]); setLoading(false); return; }
+    const { data, error } = await supabase
+      .from('obras')
+      .select('*')
+      .eq('company_id', company.id);
     if (!error && data) {
       setObras(data.map(dbToObra));
     }
     setLoading(false);
-  }, [user]);
+  }, [user, company]);
 
   useEffect(() => {
     fetchObras();
@@ -83,7 +87,7 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
 
     await fetchObras();
     return data.id;
-  }, [user, fetchObras]);
+  }, [user, company, fetchObras]);
 
   const updateObra = useCallback(async (id: string, data: Partial<Obra>) => {
     const update: any = {};
