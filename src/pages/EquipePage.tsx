@@ -98,6 +98,7 @@ export default function EquipePage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [limits, setLimits] = useState<Record<string, { current: number; limit: number }>>({});
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   // Invite modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -123,51 +124,71 @@ export default function EquipePage() {
   const [cancelling, setCancelling] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!company) return;
+    if (!company) {
+      setMembers([]);
+      setInvites([]);
+      setLimits({});
+      setCurrentUserRole(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('user_id, nome, email, status')
-      .eq('company_id', company.id);
+    try {
+      const [profilesResponse, rolesResponse, invitesResponse, gestores, funcionarios, clientes] = await Promise.all([
+        supabase.from('profiles').select('user_id, nome, email').eq('company_id', company.id),
+        supabase.from('user_roles').select('user_id, role').eq('company_id', company.id),
+        (supabase as any)
+          .from('company_user_invites')
+          .select('*')
+          .eq('company_id', company.id)
+          .order('created_at', { ascending: false }),
+        checkLimit('gestores'),
+        checkLimit('funcionarios'),
+        checkLimit('clientes'),
+      ]);
 
-    const { data: roles } = await supabase
-      .from('user_roles')
-      .select('user_id, role')
-      .eq('company_id', company.id);
+      const { data: profiles, error: profilesError } = profilesResponse;
+      const { data: roles, error: rolesError } = rolesResponse;
+      const { data: inviteData, error: invitesError } = invitesResponse;
 
-    const roleMap = new Map<string, string>();
-    roles?.forEach((r) => roleMap.set(r.user_id, r.role));
+      if (profilesError) throw profilesError;
+      if (rolesError) throw rolesError;
+      if (invitesError) throw invitesError;
 
-    setMembers(
-      (profiles || []).map((p) => ({
-        ...p,
-        role: roleMap.get(p.user_id) || 'funcionario',
-      }))
-    );
+      const roleMap = new Map<string, string>();
+      roles?.forEach((roleEntry) => roleMap.set(roleEntry.user_id, roleEntry.role));
 
-    const { data: inviteData } = await (supabase as any)
-      .from('company_user_invites')
-      .select('*')
-      .eq('company_id', company.id)
-      .order('created_at', { ascending: false });
+      const viewerRole = roles?.find((roleEntry) => roleEntry.user_id === user?.id)?.role ?? null;
+      setCurrentUserRole(viewerRole);
 
-    setInvites((inviteData as Invite[]) || []);
+      setMembers(
+        (profiles || []).map((profile) => ({
+          user_id: profile.user_id,
+          nome: profile.nome,
+          email: profile.email,
+          status: 'ativo',
+          role: roleMap.get(profile.user_id) || 'funcionario',
+        }))
+      );
 
-    const [gestores, funcionarios, clientes] = await Promise.all([
-      checkLimit('gestores'),
-      checkLimit('funcionarios'),
-      checkLimit('clientes'),
-    ]);
-
-    setLimits({
-      gestores: { current: gestores.current, limit: gestores.limit },
-      funcionarios: { current: funcionarios.current, limit: funcionarios.limit },
-      clientes: { current: clientes.current, limit: clientes.limit },
-    });
-
-    setLoading(false);
-  }, [company, checkLimit]);
+      setInvites((inviteData as Invite[]) || []);
+      setLimits({
+        gestores: { current: gestores.current, limit: gestores.limit },
+        funcionarios: { current: funcionarios.current, limit: funcionarios.limit },
+        clientes: { current: clientes.current, limit: clientes.limit },
+      });
+    } catch (error: any) {
+      console.error('Erro ao carregar equipe', error);
+      toast.error(error?.message || 'Erro ao carregar equipe');
+      setMembers([]);
+      setInvites([]);
+      setCurrentUserRole(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [company, checkLimit, user?.id]);
 
   useEffect(() => {
     fetchData();
@@ -274,13 +295,13 @@ export default function EquipePage() {
     }
   };
 
-  // --- Check if current user is gestor/admin or company owner ---
+  // --- Check if current user is gestor/admin ---
   const currentMember = members.find((m) => m.user_id === user?.id);
-  const isOwnerFallback = members.length > 0 && members.length === 1 && members[0].user_id === user?.id;
   const isManager =
+    currentUserRole === 'gestor' ||
+    currentUserRole === 'admin' ||
     currentMember?.role === 'gestor' ||
-    currentMember?.role === 'admin' ||
-    isOwnerFallback;
+    currentMember?.role === 'admin';
 
   const LimitCard = ({
     label,
