@@ -90,23 +90,32 @@ export default function ObrasPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.nome) {
       toast({ title: 'Preencha ao menos o nome da obra.', variant: 'destructive' });
       return;
     }
+
     if (editingId) {
-      updateObra(editingId, form);
+      const result = await updateObra(editingId, form);
+      if (!result.success) {
+        toast({ title: 'Erro ao atualizar obra', description: result.error, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Obra atualizada com sucesso!' });
     } else {
-      const newObra: Obra = {
+      const result = await addObra({
         id: crypto.randomUUID(),
         ...form,
         percentualAndamento: 0,
-      };
-      addObra(newObra);
+      });
+      if (!result.success) {
+        toast({ title: 'Erro ao criar obra', description: result.error, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Obra criada com sucesso!' });
     }
+
     setDialogOpen(false);
     setForm(emptyForm);
     setEditingId(null);
@@ -118,9 +127,13 @@ export default function ObrasPage() {
     setDeleteConfirmId(id);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteConfirmId) {
-      deleteObra(deleteConfirmId);
+      const result = await deleteObra(deleteConfirmId);
+      if (!result.success) {
+        toast({ title: 'Erro ao excluir obra', description: result.error, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Obra excluída.' });
       setDeleteConfirmId(null);
     }

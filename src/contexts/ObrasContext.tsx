@@ -55,7 +55,7 @@ async function insertWithColumnFallback(payload: Record<string, any>) {
   while (Object.keys(nextPayload).length > 0) {
     const { data, error } = await supabase
       .from('obras')
-      .insert(nextPayload)
+      .insert(nextPayload as any)
       .select()
       .maybeSingle();
 
@@ -81,7 +81,7 @@ async function updateWithColumnFallback(id: string, payload: Record<string, any>
   const nextPayload = { ...payload };
 
   while (Object.keys(nextPayload).length > 0) {
-    const { error } = await supabase.from('obras').update(nextPayload).eq('id', id);
+    const { error } = await supabase.from('obras').update(nextPayload as any).eq('id', id);
 
     if (!error) {
       return { error: null };
