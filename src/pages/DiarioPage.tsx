@@ -23,6 +23,7 @@ import { formatDate, statusDiarioLabels, climaLabels, DiarioRegistro, DiarioServ
 import { Plus, Users, CheckCircle2, Clock, XCircle, Trash2, Link2, Package, Pencil, CalendarIcon, Filter, ChevronDown, Printer, Square, CheckSquare } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
+import NoObraState from '@/components/obras/NoObraState';
 
 const statusIcons: Record<string, React.ReactNode> = {
   pendente: <Clock className="h-4 w-4 text-warning" />,
@@ -490,9 +491,10 @@ ${toPrint.map(r => {
 
   if (!obra) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
-        Nenhuma obra cadastrada.
-      </div>
+      <NoObraState
+        title="Nenhuma obra cadastrada"
+        description="Cadastre uma obra para começar a lançar diário e acompanhar a execução do canteiro."
+      />
     );
   }
 

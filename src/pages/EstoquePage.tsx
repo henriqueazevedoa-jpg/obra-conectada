@@ -35,6 +35,7 @@ import {
   X,
 } from 'lucide-react';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
+import NoObraState from '@/components/obras/NoObraState';
 
 const categoriasEstoque = [
   'Cimento',
@@ -87,23 +88,13 @@ export default function EstoquePage() {
   const obra = obras.find((o) => o.id === obraId) || obras[0];
 
   if (!obra) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Estoque</h1>
-        <p className="text-muted-foreground">
-          Controle de materiais e movimentações da obra
-        </p>
-      </div>
-
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-muted-foreground">Nenhuma obra cadastrada.</p>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+    return (
+      <NoObraState
+        title="Nenhuma obra cadastrada"
+        description="Cadastre uma obra para começar a controlar materiais, entradas e saídas de estoque."
+      />
+    );
+  }
 
   const materiais = getMateriaisByObra(obra.id);
   const movimentacoes = getMovimentacoesByObra(obra.id);

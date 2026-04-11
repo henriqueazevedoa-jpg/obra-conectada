@@ -10,13 +10,14 @@ export function useAddonAccess(addonCode: string) {
   const check = useCallback(async () => {
     if (!company) { setStatus('no_company'); setAllowed(false); return; }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('company_addons')
       .select('status, trial_end')
       .eq('company_id', company.id)
       .eq('addon_code', addonCode)
-      .single();
+      .maybeSingle();
 
+    if (error) { setStatus('inactive'); setAllowed(false); return; }
     if (!data) { setStatus('inactive'); setAllowed(false); return; }
 
     const s = (data as any).status;

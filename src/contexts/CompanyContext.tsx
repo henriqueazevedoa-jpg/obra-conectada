@@ -108,7 +108,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       .from('profiles')
       .select('company_id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError) {
       console.error('Erro ao buscar profile:', profileError);
@@ -127,7 +127,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       .from('companies')
       .select('*')
       .eq('id', profile.company_id)
-      .single();
+      .maybeSingle();
 
     if (companyError || !companyData) {
       console.error('Erro ao buscar empresa:', companyError);
@@ -143,7 +143,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         .from('plans')
         .select('*')
         .eq('id', companyData.plan_id)
-        .single();
+        .maybeSingle();
 
       if (!planError && planData) {
         setPlan(planData as unknown as Plan);
