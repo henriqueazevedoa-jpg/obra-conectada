@@ -4,12 +4,21 @@ import { useAuth } from './AuthContext';
 import { useCompany } from './CompanyContext';
 import type { Obra } from '@/data/mockData';
 
+interface MutationResult {
+  success: boolean;
+  error?: string;
+}
+
+interface AddObraResult extends MutationResult {
+  id: string | null;
+}
+
 interface ObrasContextType {
   obras: Obra[];
   loading: boolean;
-  addObra: (obra: Omit<Obra, 'id'> & { id?: string }) => Promise<string | null>;
-  updateObra: (id: string, data: Partial<Obra>) => Promise<void>;
-  deleteObra: (id: string) => Promise<void>;
+  addObra: (obra: Omit<Obra, 'id'> & { id?: string }) => Promise<AddObraResult>;
+  updateObra: (id: string, data: Partial<Obra>) => Promise<MutationResult>;
+  deleteObra: (id: string) => Promise<MutationResult>;
   getObra: (id: string) => Obra | undefined;
   generateCodigo: () => string;
   getResponsaveis: () => string[];
@@ -34,6 +43,61 @@ function dbToObra(row: any): Obra {
   };
 }
 
+function getMissingColumn(error: any) {
+  const message = error?.message || '';
+  const match = message.match(/Could not find the '([^']+)' column/i);
+  return match?.[1] || null;
+}
+
+async function insertWithColumnFallback(payload: Record<string, any>) {
+  const nextPayload = { ...payload };
+
+  while (Object.keys(nextPayload).length > 0) {
+    const { data, error } = await supabase
+      .from('obras')
+      .insert(nextPayload)
+      .select()
+      .maybeSingle();
+
+    if (!error) {
+      return { data, error: null };
+    }
+
+    const missingColumn = getMissingColumn(error);
+    if (!missingColumn || !(missingColumn in nextPayload)) {
+      return { data: null, error };
+    }
+
+    delete nextPayload[missingColumn];
+  }
+
+  return {
+    data: null,
+    error: { message: 'Não foi possível cadastrar a obra com o schema atual do backend.' },
+  };
+}
+
+async function updateWithColumnFallback(id: string, payload: Record<string, any>) {
+  const nextPayload = { ...payload };
+
+  while (Object.keys(nextPayload).length > 0) {
+    const { error } = await supabase.from('obras').update(nextPayload).eq('id', id);
+
+    if (!error) {
+      return { error: null };
+    }
+
+    const missingColumn = getMissingColumn(error);
+    if (!missingColumn || !(missingColumn in nextPayload)) {
+      return { error };
+    }
+
+    delete nextPayload[missingColumn];
+  }
+
+  return { error: null };
+}
+
 export function ObrasProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { company } = useCompany();
@@ -41,15 +105,22 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchObras = useCallback(async () => {
-    if (!user) { setObras([]); setLoading(false); return; }
-    if (!company) { setObras([]); setLoading(false); return; }
+    if (!user || !company) {
+      setObras([]);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('obras')
       .select('*')
-      .eq('company_id', company.id);
+      .eq('company_id', company.id)
+      .order('created_at', { ascending: false });
+
     if (!error && data) {
       setObras(data.map(dbToObra));
     }
+
     setLoading(false);
   }, [user, company]);
 
@@ -57,8 +128,12 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
     fetchObras();
   }, [fetchObras]);
 
-  const addObra = useCallback(async (obra: Omit<Obra, 'id'> & { id?: string }) => {
-    const insertData: any = {
+  const addObra = useCallback(async (obra: Omit<Obra, 'id'> & { id?: string }): Promise<AddObraResult> => {
+    if (!company) {
+      return { id: null, success: false, error: 'Empresa não carregada.' };
+    }
+
+    const insertData: Record<string, any> = {
       nome: obra.nome,
       codigo: obra.codigo,
       cliente: obra.cliente || null,
@@ -68,15 +143,16 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
       data_previsao_termino: obra.dataPrevisaoTermino || null,
       responsavel: obra.responsavel || null,
       percentual_andamento: obra.percentualAndamento || 0,
-      descricao: obra.descricao || '',
+      descricao: obra.descricao || null,
+      company_id: company.id,
     };
-    if (company) insertData.company_id = company.id;
 
-    const { data, error } = await supabase.from('obras').insert(insertData).select().single();
+    const { data, error } = await insertWithColumnFallback(insertData);
 
-    if (error || !data) return null;
+    if (error || !data) {
+      return { id: null, success: false, error: error?.message || 'Não foi possível cadastrar a obra.' };
+    }
 
-    // Auto-add self as gestor
     if (user) {
       await supabase.from('obra_memberships').insert({
         obra_id: data.id,
@@ -86,29 +162,41 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
     }
 
     await fetchObras();
-    return data.id;
+    return { id: data.id, success: true };
   }, [user, company, fetchObras]);
 
-  const updateObra = useCallback(async (id: string, data: Partial<Obra>) => {
-    const update: any = {};
+  const updateObra = useCallback(async (id: string, data: Partial<Obra>): Promise<MutationResult> => {
+    const update: Record<string, any> = {};
     if (data.nome !== undefined) update.nome = data.nome;
     if (data.codigo !== undefined) update.codigo = data.codigo;
-    if (data.cliente !== undefined) update.cliente = data.cliente;
-    if (data.endereco !== undefined) update.endereco = data.endereco;
+    if (data.cliente !== undefined) update.cliente = data.cliente || null;
+    if (data.endereco !== undefined) update.endereco = data.endereco || null;
     if (data.status !== undefined) update.status = data.status;
     if (data.dataInicio !== undefined) update.data_inicio = data.dataInicio || null;
     if (data.dataPrevisaoTermino !== undefined) update.data_previsao_termino = data.dataPrevisaoTermino || null;
-    if (data.responsavel !== undefined) update.responsavel = data.responsavel;
+    if (data.responsavel !== undefined) update.responsavel = data.responsavel || null;
     if (data.percentualAndamento !== undefined) update.percentual_andamento = data.percentualAndamento;
-    if (data.descricao !== undefined) update.descricao = data.descricao;
+    if (data.descricao !== undefined) update.descricao = data.descricao || null;
 
-    await supabase.from('obras').update(update).eq('id', id);
+    const { error } = await updateWithColumnFallback(id, update);
+
+    if (error) {
+      return { success: false, error: error.message || 'Não foi possível atualizar a obra.' };
+    }
+
     await fetchObras();
+    return { success: true };
   }, [fetchObras]);
 
-  const deleteObra = useCallback(async (id: string) => {
-    await supabase.from('obras').delete().eq('id', id);
+  const deleteObra = useCallback(async (id: string): Promise<MutationResult> => {
+    const { error } = await supabase.from('obras').delete().eq('id', id);
+
+    if (error) {
+      return { success: false, error: error.message || 'Não foi possível excluir a obra.' };
+    }
+
     await fetchObras();
+    return { success: true };
   }, [fetchObras]);
 
   const getObra = useCallback((id: string) => {
@@ -135,8 +223,15 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ObrasContext.Provider value={{
-      obras, loading, addObra, updateObra, deleteObra, getObra,
-      generateCodigo, getResponsaveis, refreshObras: fetchObras,
+      obras,
+      loading,
+      addObra,
+      updateObra,
+      deleteObra,
+      getObra,
+      generateCodigo,
+      getResponsaveis,
+      refreshObras: fetchObras,
     }}>
       {children}
     </ObrasContext.Provider>
