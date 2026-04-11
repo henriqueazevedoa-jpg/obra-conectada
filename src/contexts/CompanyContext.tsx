@@ -54,8 +54,11 @@ interface CompanyContextType {
   subscription: Subscription | null;
   plans: Plan[];
   loading: boolean;
+  plansLoading: boolean;
   needsOnboarding: boolean;
-  checkLimit: (resource: 'obras' | 'gestores' | 'funcionarios' | 'clientes') => Promise<PlanLimitResult>;
+  checkLimit: (
+    resource: 'obras' | 'gestores' | 'funcionarios' | 'clientes'
+  ) => Promise<PlanLimitResult>;
   refreshCompany: () => Promise<void>;
   completeOnboarding: (data: {
     nome: string;
@@ -70,33 +73,49 @@ const CompanyContext = createContext<CompanyContextType | null>(null);
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
+
   const [company, setCompany] = useState<Company | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [plansLoading, setPlansLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
-  const fetchPlans = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('plans')
-      .select('*')
-      .eq('ativo', true)
-      .order('limite_obras', { ascending: true });
+  const resetCompanyState = useCallback(() => {
+    setCompany(null);
+    setPlan(null);
+    setSubscription(null);
+  }, []);
 
-    if (error) {
-      console.error('Erro ao buscar planos:', error);
+  const fetchPlans = useCallback(async () => {
+    setPlansLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('ativo', true)
+        .order('limite_obras', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao buscar planos:', error);
+        setPlans([]);
+        return;
+      }
+
+      setPlans((data || []) as Plan[]);
+    } catch (err) {
+      console.error('Erro inesperado ao buscar planos:', err);
       setPlans([]);
-      return;
+    } finally {
+      setPlansLoading(false);
     }
-    setPlans((data || []) as unknown as Plan[]);
   }, []);
 
   const fetchCompany = useCallback(async () => {
     if (!user) {
-      setCompany(null);
-      setPlan(null);
-      setSubscription(null);
+      resetCompanyState();
       setNeedsOnboarding(false);
       setLoading(false);
       return;
@@ -104,73 +123,84 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('company_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error('Erro ao buscar profile:', profileError);
-    }
-
-    if (!profile?.company_id) {
-      setCompany(null);
-      setPlan(null);
-      setSubscription(null);
-      setNeedsOnboarding(true);
-      setLoading(false);
-      return;
-    }
-
-    const { data: companyData, error: companyError } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', profile.company_id)
-      .maybeSingle();
-
-    if (companyError || !companyData) {
-      console.error('Erro ao buscar empresa:', companyError);
-      setLoading(false);
-      return;
-    }
-
-    setCompany(companyData as unknown as Company);
-    setNeedsOnboarding(false);
-
-    if (companyData.plan_id) {
-      const { data: planData, error: planError } = await supabase
-        .from('plans')
-        .select('*')
-        .eq('id', companyData.plan_id)
+    try {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('user_id', user.id)
         .maybeSingle();
 
-      if (!planError && planData) {
-        setPlan(planData as unknown as Plan);
-      } else {
-        setPlan(null);
+      if (profileError) {
+        console.error('Erro ao buscar profile:', profileError);
+        resetCompanyState();
+        setNeedsOnboarding(true);
+        setLoading(false);
+        return;
       }
-    } else {
-      setPlan(null);
+
+      if (!profile?.company_id) {
+        resetCompanyState();
+        setNeedsOnboarding(true);
+        setLoading(false);
+        return;
+      }
+
+      const { data: companyData, error: companyError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', profile.company_id)
+        .maybeSingle();
+
+      if (companyError || !companyData) {
+        console.error('Erro ao buscar empresa:', companyError);
+        resetCompanyState();
+        setNeedsOnboarding(true);
+        setLoading(false);
+        return;
+      }
+
+      setCompany(companyData as Company);
+
+      if (!companyData.plan_id) {
+        setPlan(null);
+        setSubscription(null);
+        setNeedsOnboarding(true);
+        setLoading(false);
+        return;
+      }
+
+      const [{ data: planData, error: planError }, { data: subData, error: subError }] =
+        await Promise.all([
+          supabase.from('plans').select('*').eq('id', companyData.plan_id).maybeSingle(),
+          supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('company_id', companyData.id)
+            .in('status', ['trial', 'active'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
+
+      if (planError) {
+        console.error('Erro ao buscar plano da empresa:', planError);
+      }
+
+      if (subError) {
+        console.error('Erro ao buscar subscription:', subError);
+      }
+
+      setPlan((planData as Plan) || null);
+      setSubscription((subData as Subscription) || null);
+      setNeedsOnboarding(false);
+    } catch (err) {
+      console.error('Erro inesperado ao buscar dados da empresa:', err);
+      resetCompanyState();
+      setNeedsOnboarding(true);
+    } finally {
+      setLoading(false);
     }
-
-    const { data: subData, error: subError } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('company_id', companyData.id)
-      .in('status', ['trial', 'active'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!subError && subData) {
-      setSubscription(subData as unknown as Subscription);
-    } else {
-      setSubscription(null);
-    }
-
-    setLoading(false);
-  }, [user]);
+  }, [user, resetCompanyState]);
 
   useEffect(() => {
     fetchPlans();
@@ -180,18 +210,24 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     if (isAuthenticated) {
       fetchCompany();
     } else {
-      setCompany(null);
-      setPlan(null);
-      setSubscription(null);
+      resetCompanyState();
       setNeedsOnboarding(false);
       setLoading(false);
     }
-  }, [isAuthenticated, fetchCompany]);
+  }, [isAuthenticated, fetchCompany, resetCompanyState]);
 
   const checkLimit = useCallback(
-    async (resource: 'obras' | 'gestores' | 'funcionarios' | 'clientes'): Promise<PlanLimitResult> => {
+    async (
+      resource: 'obras' | 'gestores' | 'funcionarios' | 'clientes'
+    ): Promise<PlanLimitResult> => {
       if (!company) {
-        return { allowed: false, current: 0, limit: 0, plan: '', reason: 'Sem empresa vinculada' };
+        return {
+          allowed: false,
+          current: 0,
+          limit: 0,
+          plan: '',
+          reason: 'Sem empresa vinculada',
+        };
       }
 
       const { data, error } = await supabase.rpc('check_plan_limit', {
@@ -201,10 +237,16 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
       if (error || !data) {
         console.error('Erro ao verificar limite:', error);
-        return { allowed: false, current: 0, limit: 0, plan: '', reason: 'Erro ao verificar limite' };
+        return {
+          allowed: false,
+          current: 0,
+          limit: 0,
+          plan: '',
+          reason: 'Erro ao verificar limite',
+        };
       }
 
-      return data as unknown as PlanLimitResult;
+      return data as PlanLimitResult;
     },
     [company]
   );
@@ -217,7 +259,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       telefone?: string;
       planSlug: string;
     }): Promise<{ success: boolean; error?: string }> => {
-      const { data, error } = await (supabase.rpc as any)('complete_onboarding', {
+      const { error } = await supabase.rpc('complete_onboarding', {
         _nome: input.nome,
         _cnpj: input.cnpj || '',
         _email: input.email || '',
@@ -244,6 +286,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         subscription,
         plans,
         loading,
+        plansLoading,
         needsOnboarding,
         checkLimit,
         refreshCompany: fetchCompany,

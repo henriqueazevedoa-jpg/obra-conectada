@@ -6,11 +6,37 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Users, UserPlus, ShieldCheck, HardHat, UserCheck, Loader2 } from 'lucide-react';
+import {
+  Users,
+  UserPlus,
+  ShieldCheck,
+  HardHat,
+  UserCheck,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TeamMember {
@@ -41,6 +67,7 @@ const roleBadgeVariant: Record<string, 'default' | 'secondary' | 'outline'> = {
   gestor: 'default',
   funcionario: 'secondary',
   cliente: 'outline',
+  admin: 'default',
 };
 
 export default function EquipePage() {
@@ -62,40 +89,51 @@ export default function EquipePage() {
     if (!company) return;
     setLoading(true);
 
-    const { data: profiles } = await supabase
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('user_id, nome, email, status')
       .eq('company_id', company.id);
 
-    const { data: roles } = await supabase
+    if (profilesError) {
+      console.error('Erro ao buscar profiles:', profilesError);
+    }
+
+    const { data: roles, error: rolesError } = await supabase
       .from('user_roles')
       .select('user_id, role')
       .eq('company_id', company.id);
 
-    const roleMap = new Map<string, string>();
-    roles?.forEach(r => roleMap.set(r.user_id, r.role));
+    if (rolesError) {
+      console.error('Erro ao buscar roles:', rolesError);
+    }
 
-    const teamMembers: TeamMember[] = (profiles || []).map(p => ({
+    const roleMap = new Map<string, string>();
+    roles?.forEach((r) => roleMap.set(r.user_id, r.role));
+
+    const teamMembers: TeamMember[] = (profiles || []).map((p) => ({
       ...p,
       role: roleMap.get(p.user_id) || 'funcionario',
     }));
     setMembers(teamMembers);
 
-    // Fetch invites - table not in generated types, use type assertion
-    const { data: inviteData } = await (supabase as any)
+    const { data: inviteData, error: inviteError } = await (supabase as any)
       .from('company_user_invites')
       .select('*')
       .eq('company_id', company.id)
       .order('created_at', { ascending: false });
 
+    if (inviteError) {
+      console.error('Erro ao buscar convites:', inviteError);
+    }
+
     setInvites((inviteData as Invite[]) || []);
 
-    // Check limits
     const [gestores, funcionarios, clientes] = await Promise.all([
       checkLimit('gestores'),
       checkLimit('funcionarios'),
       checkLimit('clientes'),
     ]);
+
     setLimits({
       gestores: { current: gestores.current, limit: gestores.limit },
       funcionarios: { current: funcionarios.current, limit: funcionarios.limit },
@@ -114,34 +152,62 @@ export default function EquipePage() {
       toast.error('Informe o email');
       return;
     }
+
     setSending(true);
+
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      console.log('SESSION:', session);
+
       const { data, error } = await supabase.functions.invoke('invite-company-user', {
-        body: { nome: inviteNome, email: inviteEmail, role: inviteRole },
+        body: {
+          nome: inviteNome,
+          email: inviteEmail.trim().toLowerCase(),
+          role: inviteRole,
+        },
       });
 
-      if (error) throw error;
-      const result = data as any;
-      if (result?.error) {
-        toast.error(result.error);
-      } else {
-        toast.success('Convite enviado com sucesso!');
-        setModalOpen(false);
-        setInviteNome('');
-        setInviteEmail('');
-        setInviteRole('funcionario');
-        fetchData();
+      console.log('FUNCTION RESPONSE:', { data, error });
+
+      if (error) {
+        toast.error(error.message || 'Erro ao enviar convite');
+        return;
       }
-    } catch {
-      toast.error('Erro ao enviar convite');
+
+      if ((data as any)?.error) {
+        toast.error((data as any).error);
+        return;
+      }
+
+      toast.success('Convite enviado com sucesso!');
+      setModalOpen(false);
+      setInviteNome('');
+      setInviteEmail('');
+      setInviteRole('funcionario');
+      fetchData();
+    } catch (err: any) {
+      console.error('INVITE ERROR:', err);
+      toast.error(err?.message || JSON.stringify(err) || 'Erro ao enviar convite');
     } finally {
       setSending(false);
     }
   };
 
-  const LimitCard = ({ label, icon: Icon, resource }: { label: string; icon: any; resource: string }) => {
+  const LimitCard = ({
+    label,
+    icon: Icon,
+    resource,
+  }: {
+    label: string;
+    icon: any;
+    resource: string;
+  }) => {
     const data = limits[resource];
     const isUnlimited = plan?.ilimitado || data?.limit === -1;
+
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -152,7 +218,10 @@ export default function EquipePage() {
           <div className="text-2xl font-bold">
             {data?.current ?? '—'}
             {!isUnlimited && data && (
-              <span className="text-sm font-normal text-muted-foreground"> / {data.limit}</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                {' '}
+                / {data.limit}
+              </span>
             )}
           </div>
           {!isUnlimited && data && data.limit > 0 && data.current >= data.limit && (
@@ -179,6 +248,8 @@ export default function EquipePage() {
     );
   }
 
+  const pendingInvites = invites.filter((i) => i.status === 'pending');
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -188,6 +259,7 @@ export default function EquipePage() {
             Gerencie os membros da {company.nome}
           </p>
         </div>
+
         <Button onClick={() => setModalOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Convidar
@@ -203,12 +275,15 @@ export default function EquipePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-4 w-4" /> Membros Atuais
+            <Users className="h-4 w-4" />
+            Membros Atuais
           </CardTitle>
         </CardHeader>
         <CardContent>
           {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum membro encontrado</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Nenhum membro encontrado
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -220,7 +295,7 @@ export default function EquipePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {members.map(m => (
+                {members.map((m) => (
                   <TableRow key={m.user_id}>
                     <TableCell className="font-medium">{m.nome || '—'}</TableCell>
                     <TableCell>{m.email || '—'}</TableCell>
@@ -245,12 +320,15 @@ export default function EquipePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <UserPlus className="h-4 w-4" /> Convites Pendentes
+            <UserPlus className="h-4 w-4" />
+            Convites Pendentes
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {invites.filter(i => i.status === 'pending').length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum convite pendente</p>
+          {pendingInvites.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Nenhum convite pendente
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -263,7 +341,7 @@ export default function EquipePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invites.filter(i => i.status === 'pending').map(inv => (
+                {pendingInvites.map((inv) => (
                   <TableRow key={inv.id}>
                     <TableCell>{inv.nome || '—'}</TableCell>
                     <TableCell>{inv.email}</TableCell>
@@ -291,19 +369,35 @@ export default function EquipePage() {
           <DialogHeader>
             <DialogTitle>Convidar Usuário</DialogTitle>
           </DialogHeader>
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="invite-nome">Nome</Label>
-              <Input id="invite-nome" value={inviteNome} onChange={e => setInviteNome(e.target.value)} placeholder="Nome do convidado" />
+              <Input
+                id="invite-nome"
+                value={inviteNome}
+                onChange={(e) => setInviteNome(e.target.value)}
+                placeholder="Nome do convidado"
+              />
             </div>
+
             <div>
               <Label htmlFor="invite-email">Email *</Label>
-              <Input id="invite-email" type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="email@exemplo.com" />
+              <Input
+                id="invite-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="email@exemplo.com"
+              />
             </div>
+
             <div>
               <Label>Função</Label>
               <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gestor">Gestor</SelectItem>
                   <SelectItem value="funcionario">Funcionário</SelectItem>
@@ -312,8 +406,11 @@ export default function EquipePage() {
               </Select>
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Cancelar
+            </Button>
             <Button onClick={handleInvite} disabled={sending}>
               {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Enviar Convite

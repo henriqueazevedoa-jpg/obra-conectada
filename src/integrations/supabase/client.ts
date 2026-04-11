@@ -2,22 +2,19 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://ehmdwwuhhumgxhsjvvrr.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVobWR3d3VoaHVtZ3hoc2p2dnJyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTA3MjUwOCwiZXhwIjoyMDkwNjQ4NTA4fQ.hURNIAqXW_qDpTwD0rXm9rrt1AJSAAWsuGYcPs8P1AI";
-
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
+const SUPABASE_URL = 'https://ehmdwwuhhumgxhsjvvrr.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVobWR3d3VoaHVtZ3hoc2p2dnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNzI1MDgsImV4cCI6MjA5MDY0ODUwOH0.qmzYKaoUluhbwsQgKR9yzuM6wyW7qA7XbEP8LG1fnjk';
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+  },
+});
 
-    // DEBUG (remover depois)
+// DEBUG TEMPORÁRIO — remover depois
 if (typeof window !== 'undefined') {
-  // @ts-ignore
+  // @ts-expect-error debug
   window.supabase = supabase;
 }
-  }
-});
