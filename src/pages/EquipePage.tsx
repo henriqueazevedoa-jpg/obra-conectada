@@ -274,9 +274,13 @@ export default function EquipePage() {
     }
   };
 
-  // --- Check if current user is gestor/admin ---
+  // --- Check if current user is gestor/admin or company owner ---
   const currentMember = members.find((m) => m.user_id === user?.id);
-  const isManager = currentMember?.role === 'gestor' || currentMember?.role === 'admin';
+  const isOwnerFallback = members.length > 0 && members.length === 1 && members[0].user_id === user?.id;
+  const isManager =
+    currentMember?.role === 'gestor' ||
+    currentMember?.role === 'admin' ||
+    isOwnerFallback;
 
   const LimitCard = ({
     label,
