@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import NoObraState from '@/components/obras/NoObraState';
 
 function computePercentual(cat: any): number {
   if (cat.percentualCronograma != null) return cat.percentualCronograma;
@@ -49,6 +50,16 @@ export default function RelatoriosPage() {
   const { getMateriaisByObra } = useEstoque();
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
+
+  if (!obra) {
+    return (
+      <NoObraState
+        title="Nenhuma obra cadastrada"
+        description="Cadastre uma obra para gerar relatórios consolidados."
+      />
+    );
+  }
+
   const orcamento = getOrcamento(obra.id);
   const categorias = orcamento?.categorias || [];
   const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);

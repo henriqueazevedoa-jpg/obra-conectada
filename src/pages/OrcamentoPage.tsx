@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
+import NoObraState from '@/components/obras/NoObraState';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento } from '@/contexts/OrcamentoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,7 +67,10 @@ export default function OrcamentoPage() {
       </div>
 
       {!obra && (
-        <div className="text-center py-12 text-muted-foreground">Selecione uma obra para visualizar o orçamento.</div>
+        <NoObraState
+          title="Nenhuma obra cadastrada"
+          description="Cadastre uma obra para começar a gerenciar o orçamento da construção."
+        />
       )}
 
       {obra && (

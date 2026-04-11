@@ -26,6 +26,7 @@ import { ptBR } from 'date-fns/locale';
 import SCurveChart from '@/components/painel/SCurveChart';
 import ABCTable from '@/components/painel/ABCTable';
 import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
+import NoObraState from '@/components/obras/NoObraState';
 
 interface DiarioRow {
   id: string; data: string; clima: string; trabalhadores: number;
@@ -85,13 +86,10 @@ function GestorPainel() {
 
   if (!obra) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <p className="text-muted-foreground text-sm">Nenhuma obra cadastrada.</p>
-        <Button onClick={() => navigate('/obras?nova=1')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Criar Nova Obra
-        </Button>
-      </div>
+      <NoObraState
+        title="Nenhuma obra cadastrada"
+        description="Cadastre uma obra para visualizar o painel executivo consolidado."
+      />
     );
   }
 
