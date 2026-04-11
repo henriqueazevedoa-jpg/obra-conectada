@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { statusObraLabels, formatDate, Obra } from '@/data/mockData';
 import { Search, Plus, MapPin, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
 const statusColors: Record<string, string> = {
@@ -37,6 +37,7 @@ const emptyForm = {
 export default function ObrasPage() {
   const { user, hasPermission } = useAuth();
   const { obras, addObra, updateObra, deleteObra, generateCodigo, getResponsaveis } = useObras();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,6 +73,17 @@ export default function ObrasPage() {
     setDialogOpen(true);
   };
 
+  useEffect(() => {
+    if (searchParams.get('nova') === '1' && hasPermission('obras:create')) {
+      setEditingId(null);
+      setForm({ ...emptyForm, codigo: generateCodigo() });
+      setDialogOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('nova');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams, hasPermission, generateCodigo]);
+
   const openEditDialog = (obra: Obra, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -90,23 +102,32 @@ export default function ObrasPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.nome) {
       toast({ title: 'Preencha ao menos o nome da obra.', variant: 'destructive' });
       return;
     }
+
     if (editingId) {
-      updateObra(editingId, form);
+      const result = await updateObra(editingId, form);
+      if (!result.success) {
+        toast({ title: 'Erro ao atualizar obra', description: result.error, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Obra atualizada com sucesso!' });
     } else {
-      const newObra: Obra = {
+      const result = await addObra({
         id: crypto.randomUUID(),
         ...form,
         percentualAndamento: 0,
-      };
-      addObra(newObra);
+      });
+      if (!result.success) {
+        toast({ title: 'Erro ao criar obra', description: result.error, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Obra criada com sucesso!' });
     }
+
     setDialogOpen(false);
     setForm(emptyForm);
     setEditingId(null);
@@ -118,9 +139,13 @@ export default function ObrasPage() {
     setDeleteConfirmId(id);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteConfirmId) {
-      deleteObra(deleteConfirmId);
+      const result = await deleteObra(deleteConfirmId);
+      if (!result.success) {
+        toast({ title: 'Erro ao excluir obra', description: result.error, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Obra excluída.' });
       setDeleteConfirmId(null);
     }

@@ -60,22 +60,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const buildUser = async (su: SupabaseUser): Promise<User> => {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('nome, avatar_url')
+      .select('*')
       .eq('user_id', su.id)
-      .single();
+      .maybeSingle();
 
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', su.id)
-      .single();
+      .maybeSingle();
 
     return {
       id: su.id,
       name: profile?.nome || su.user_metadata?.nome || su.email?.split('@')[0] || '',
       email: su.email || '',
       role: (roleData?.role as UserRole) || 'gestor',
-      avatar: profile?.avatar_url || undefined,
+      avatar: undefined,
     };
   };
 
