@@ -21,6 +21,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -28,6 +38,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import {
   Users,
@@ -36,6 +52,10 @@ import {
   HardHat,
   UserCheck,
   Loader2,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -79,52 +99,58 @@ export default function EquipePage() {
   const [loading, setLoading] = useState(true);
   const [limits, setLimits] = useState<Record<string, { current: number; limit: number }>>({});
 
+  // Invite modal
   const [modalOpen, setModalOpen] = useState(false);
   const [inviteNome, setInviteNome] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<string>('funcionario');
   const [sending, setSending] = useState(false);
 
+  // Edit role modal
+  const [editRoleOpen, setEditRoleOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<TeamMember | null>(null);
+  const [newRole, setNewRole] = useState('funcionario');
+  const [savingRole, setSavingRole] = useState(false);
+
+  // Remove user confirm
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<TeamMember | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  // Cancel invite confirm
+  const [cancelInviteOpen, setCancelInviteOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<Invite | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+
   const fetchData = useCallback(async () => {
     if (!company) return;
     setLoading(true);
 
-    const { data: profiles, error: profilesError } = await supabase
+    const { data: profiles } = await supabase
       .from('profiles')
       .select('user_id, nome, email, status')
       .eq('company_id', company.id);
 
-    if (profilesError) {
-      console.error('Erro ao buscar profiles:', profilesError);
-    }
-
-    const { data: roles, error: rolesError } = await supabase
+    const { data: roles } = await supabase
       .from('user_roles')
       .select('user_id, role')
       .eq('company_id', company.id);
 
-    if (rolesError) {
-      console.error('Erro ao buscar roles:', rolesError);
-    }
-
     const roleMap = new Map<string, string>();
     roles?.forEach((r) => roleMap.set(r.user_id, r.role));
 
-    const teamMembers: TeamMember[] = (profiles || []).map((p) => ({
-      ...p,
-      role: roleMap.get(p.user_id) || 'funcionario',
-    }));
-    setMembers(teamMembers);
+    setMembers(
+      (profiles || []).map((p) => ({
+        ...p,
+        role: roleMap.get(p.user_id) || 'funcionario',
+      }))
+    );
 
-    const { data: inviteData, error: inviteError } = await (supabase as any)
+    const { data: inviteData } = await (supabase as any)
       .from('company_user_invites')
       .select('*')
       .eq('company_id', company.id)
       .order('created_at', { ascending: false });
-
-    if (inviteError) {
-      console.error('Erro ao buscar convites:', inviteError);
-    }
 
     setInvites((inviteData as Invite[]) || []);
 
@@ -147,41 +173,19 @@ export default function EquipePage() {
     fetchData();
   }, [fetchData]);
 
+  // --- Invite ---
   const handleInvite = async () => {
     if (!inviteEmail.trim()) {
       toast.error('Informe o email');
       return;
     }
-
     setSending(true);
-
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      console.log('SESSION:', session);
-
       const { data, error } = await supabase.functions.invoke('invite-company-user', {
-        body: {
-          nome: inviteNome,
-          email: inviteEmail.trim().toLowerCase(),
-          role: inviteRole,
-        },
+        body: { nome: inviteNome, email: inviteEmail.trim().toLowerCase(), role: inviteRole },
       });
-
-      console.log('FUNCTION RESPONSE:', { data, error });
-
-      if (error) {
-        toast.error(error.message || 'Erro ao enviar convite');
-        return;
-      }
-
-      if ((data as any)?.error) {
-        toast.error((data as any).error);
-        return;
-      }
-
+      if (error) { toast.error(error.message || 'Erro ao enviar convite'); return; }
+      if ((data as any)?.error) { toast.error((data as any).error); return; }
       toast.success('Convite enviado com sucesso!');
       setModalOpen(false);
       setInviteNome('');
@@ -189,12 +193,90 @@ export default function EquipePage() {
       setInviteRole('funcionario');
       fetchData();
     } catch (err: any) {
-      console.error('INVITE ERROR:', err);
-      toast.error(err?.message || JSON.stringify(err) || 'Erro ao enviar convite');
+      toast.error(err?.message || 'Erro ao enviar convite');
     } finally {
       setSending(false);
     }
   };
+
+  // --- Edit Role ---
+  const openEditRole = (member: TeamMember) => {
+    setEditTarget(member);
+    setNewRole(member.role);
+    setEditRoleOpen(true);
+  };
+
+  const handleEditRole = async () => {
+    if (!editTarget) return;
+    setSavingRole(true);
+    try {
+      const { error } = await (supabase as any).rpc('update_company_user_role', {
+        _target_user_id: editTarget.user_id,
+        _new_role: newRole,
+      });
+      if (error) { toast.error(error.message || 'Erro ao alterar função'); return; }
+      toast.success('Função alterada com sucesso');
+      setEditRoleOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao alterar função');
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  // --- Remove User ---
+  const openRemoveUser = (member: TeamMember) => {
+    setRemoveTarget(member);
+    setRemoveOpen(true);
+  };
+
+  const handleRemoveUser = async () => {
+    if (!removeTarget) return;
+    setRemoving(true);
+    try {
+      const { error } = await (supabase as any).rpc('remove_company_user', {
+        _target_user_id: removeTarget.user_id,
+      });
+      if (error) { toast.error(error.message || 'Erro ao remover usuário'); return; }
+      toast.success('Usuário removido com sucesso');
+      setRemoveOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao remover usuário');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  // --- Cancel Invite ---
+  const openCancelInvite = (invite: Invite) => {
+    setCancelTarget(invite);
+    setCancelInviteOpen(true);
+  };
+
+  const handleCancelInvite = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('company_user_invites')
+        .update({ status: 'cancelled' })
+        .eq('id', cancelTarget.id);
+      if (error) { toast.error(error.message || 'Erro ao cancelar convite'); return; }
+      toast.success('Convite cancelado');
+      setCancelInviteOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao cancelar convite');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  // --- Check if current user is gestor/admin ---
+  const currentMember = members.find((m) => m.user_id === user?.id);
+  const isManager = currentMember?.role === 'gestor' || currentMember?.role === 'admin';
 
   const LimitCard = ({
     label,
@@ -207,7 +289,6 @@ export default function EquipePage() {
   }) => {
     const data = limits[resource];
     const isUnlimited = plan?.ilimitado || data?.limit === -1;
-
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -218,10 +299,7 @@ export default function EquipePage() {
           <div className="text-2xl font-bold">
             {data?.current ?? '—'}
             {!isUnlimited && data && (
-              <span className="text-sm font-normal text-muted-foreground">
-                {' '}
-                / {data.limit}
-              </span>
+              <span className="text-sm font-normal text-muted-foreground"> / {data.limit}</span>
             )}
           </div>
           {!isUnlimited && data && data.limit > 0 && data.current >= data.limit && (
@@ -255,11 +333,8 @@ export default function EquipePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Equipe</h1>
-          <p className="text-muted-foreground text-sm">
-            Gerencie os membros da {company.nome}
-          </p>
+          <p className="text-muted-foreground text-sm">Gerencie os membros da {company.nome}</p>
         </div>
-
         <Button onClick={() => setModalOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Convidar
@@ -272,6 +347,7 @@ export default function EquipePage() {
         <LimitCard label="Clientes" icon={UserCheck} resource="clientes" />
       </div>
 
+      {/* Members Table */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -281,9 +357,7 @@ export default function EquipePage() {
         </CardHeader>
         <CardContent>
           {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Nenhum membro encontrado
-            </p>
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum membro encontrado</p>
           ) : (
             <Table>
               <TableHeader>
@@ -292,6 +366,7 @@ export default function EquipePage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Função</TableHead>
                   <TableHead>Status</TableHead>
+                  {isManager && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -309,6 +384,32 @@ export default function EquipePage() {
                         {m.status || 'ativo'}
                       </Badge>
                     </TableCell>
+                    {isManager && (
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditRole(m)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Editar função
+                            </DropdownMenuItem>
+                            {m.user_id !== user?.id && (
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => openRemoveUser(m)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remover usuário
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -317,6 +418,7 @@ export default function EquipePage() {
         </CardContent>
       </Card>
 
+      {/* Pending Invites */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -326,9 +428,7 @@ export default function EquipePage() {
         </CardHeader>
         <CardContent>
           {pendingInvites.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Nenhum convite pendente
-            </p>
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum convite pendente</p>
           ) : (
             <Table>
               <TableHeader>
@@ -336,8 +436,8 @@ export default function EquipePage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Função</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Data</TableHead>
+                  {isManager && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -350,12 +450,21 @@ export default function EquipePage() {
                         {roleLabels[inv.role] || inv.role}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">Pendente</Badge>
-                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(inv.created_at).toLocaleDateString('pt-BR')}
                     </TableCell>
+                    {isManager && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => openCancelInvite(inv)}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -364,40 +473,25 @@ export default function EquipePage() {
         </CardContent>
       </Card>
 
+      {/* Invite Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Convidar Usuário</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4">
             <div>
               <Label htmlFor="invite-nome">Nome</Label>
-              <Input
-                id="invite-nome"
-                value={inviteNome}
-                onChange={(e) => setInviteNome(e.target.value)}
-                placeholder="Nome do convidado"
-              />
+              <Input id="invite-nome" value={inviteNome} onChange={(e) => setInviteNome(e.target.value)} placeholder="Nome do convidado" />
             </div>
-
             <div>
               <Label htmlFor="invite-email">Email *</Label>
-              <Input
-                id="invite-email"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="email@exemplo.com"
-              />
+              <Input id="invite-email" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@exemplo.com" />
             </div>
-
             <div>
               <Label>Função</Label>
               <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gestor">Gestor</SelectItem>
                   <SelectItem value="funcionario">Funcionário</SelectItem>
@@ -406,11 +500,8 @@ export default function EquipePage() {
               </Select>
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
             <Button onClick={handleInvite} disabled={sending}>
               {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Enviar Convite
@@ -418,6 +509,71 @@ export default function EquipePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Role Modal */}
+      <Dialog open={editRoleOpen} onOpenChange={setEditRoleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Função</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Alterar função de <strong>{editTarget?.nome || editTarget?.email}</strong>
+          </p>
+          <Select value={newRole} onValueChange={setNewRole}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gestor">Gestor</SelectItem>
+              <SelectItem value="funcionario">Funcionário</SelectItem>
+              <SelectItem value="cliente">Cliente</SelectItem>
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRoleOpen(false)}>Cancelar</Button>
+            <Button onClick={handleEditRole} disabled={savingRole}>
+              {savingRole && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove User Confirm */}
+      <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover <strong>{removeTarget?.nome || removeTarget?.email}</strong> da empresa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveUser} disabled={removing} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {removing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Invite Confirm */}
+      <AlertDialog open={cancelInviteOpen} onOpenChange={setCancelInviteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar convite</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cancelar o convite enviado para <strong>{cancelTarget?.email}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelInvite} disabled={cancelling} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {cancelling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Cancelar Convite
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
