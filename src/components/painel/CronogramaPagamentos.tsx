@@ -13,7 +13,7 @@ interface Pagamento {
   valor_previsto: number;
   data_vencimento: string;
   status: string;
-  fornecedor_nome: string | null;
+  fornecedor: string | null;
 }
 
 interface Props {
