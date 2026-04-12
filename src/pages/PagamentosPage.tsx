@@ -119,14 +119,14 @@ export default function PagamentosPage() {
   const fetchPagamentos = useCallback(async () => {
     if (!obra) return;
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('pagamentos')
       .select('*')
       .eq('obra_id', obra.id)
       .order('data_vencimento', { ascending: true });
 
     if (!error && data) {
-      setPagamentos(data as unknown as Pagamento[]);
+      setPagamentos(data as Pagamento[]);
     }
     setLoading(false);
   }, [obra?.id]);
@@ -142,7 +142,7 @@ export default function PagamentosPage() {
     if (overdue.length > 0) {
       // Update locally for display, and in DB
       overdue.forEach(async (p) => {
-        await supabase.from('pagamentos').update({ status: 'atrasado' }).eq('id', p.id);
+        await (supabase as any).from('pagamentos').update({ status: 'atrasado' }).eq('id', p.id);
       });
       setPagamentos(prev => prev.map(p =>
         overdue.find(o => o.id === p.id) ? { ...p, status: 'atrasado' } : p
