@@ -26,6 +26,7 @@ import { ptBR } from 'date-fns/locale';
 import SCurveChart from '@/components/painel/SCurveChart';
 import ABCTable from '@/components/painel/ABCTable';
 import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
+import ResumoExecutivo from '@/components/painel/ResumoExecutivo';
 import NoObraState from '@/components/obras/NoObraState';
 
 interface DiarioRow {
