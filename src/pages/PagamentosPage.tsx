@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { format, parseISO, addDays, isBefore, startOfDay } from 'date-fns';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { format, parseISO, addDays, addMonths, isBefore, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
@@ -25,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { normalizeMaterialName } from '@/lib/normalizeText';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import {
   Plus, DollarSign, AlertTriangle, CheckCircle2, Clock, Pencil, Trash2,
   CalendarIcon, Filter, ChevronDown, Paperclip, Upload, FileText, Image, X,
