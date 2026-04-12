@@ -23,6 +23,7 @@ import CustoRealPage from "@/pages/CustoRealPage";
 import CronogramaPage from "@/pages/CronogramaPage";
 import DiarioPage from "@/pages/DiarioPage";
 import EstoquePage from "@/pages/EstoquePage";
+import PagamentosPage from "@/pages/PagamentosPage";
 import PainelObraPage from "@/pages/PainelObraPage";
 import EquipePage from "@/pages/EquipePage";
 import PerfilPage from "@/pages/PerfilPage";
@@ -139,6 +140,7 @@ function AppRoutes() {
         <Route path="cronograma" element={<CronogramaPage />} />
         <Route path="diario" element={<DiarioPage />} />
         <Route path="estoque" element={<EstoquePage />} />
+        <Route path="pagamentos" element={<PagamentosPage />} />
         <Route path="equipe" element={<EquipePage />} />
         <Route path="perfil" element={<PerfilPage />} />
       </Route>
