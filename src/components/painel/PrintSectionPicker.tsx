@@ -9,6 +9,7 @@ import {
 export interface PrintSections {
   identificacao: boolean;
   kpis: boolean;
+  resumoExecutivo: boolean;
   pontosAtencao: boolean;
   curvaS: boolean;
   cronograma: boolean;
@@ -16,11 +17,15 @@ export interface PrintSections {
   curvaABC: boolean;
   estoqueCritico: boolean;
   diario: boolean;
+  pagamentos: boolean;
+  pendencias: boolean;
+  fornecedores: boolean;
 }
 
 export const defaultPrintSections: PrintSections = {
   identificacao: true,
   kpis: true,
+  resumoExecutivo: true,
   pontosAtencao: true,
   curvaS: true,
   cronograma: true,
@@ -28,11 +33,15 @@ export const defaultPrintSections: PrintSections = {
   curvaABC: true,
   estoqueCritico: true,
   diario: true,
+  pagamentos: true,
+  pendencias: true,
+  fornecedores: true,
 };
 
 const sectionLabels: Record<keyof PrintSections, string> = {
   identificacao: 'Identificação da Obra',
   kpis: 'Indicadores (KPIs)',
+  resumoExecutivo: 'Resumo Executivo',
   pontosAtencao: 'Pontos de Atenção',
   curvaS: 'Curva S',
   cronograma: 'Resumo do Cronograma',
@@ -40,6 +49,9 @@ const sectionLabels: Record<keyof PrintSections, string> = {
   curvaABC: 'Curva ABC',
   estoqueCritico: 'Estoque Crítico',
   diario: 'Últimos Registros do Diário',
+  pagamentos: 'Pagamentos',
+  pendencias: 'Pendências',
+  fornecedores: 'Fornecedores',
 };
 
 interface Props {
