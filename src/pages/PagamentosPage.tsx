@@ -1170,15 +1170,126 @@ export default function PagamentosPage() {
               )}
             </div>
 
+            {/* Data da compra e data do pagamento */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium">Nº Parcela</label>
-                <Input type="number" value={form.numero_parcela} onChange={e => setForm({ ...form, numero_parcela: e.target.value })} />
+                <label className="text-sm font-medium">Data da Compra</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.data_compra && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.data_compra ? format(form.data_compra, 'dd/MM/yyyy') : 'Selecione'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={form.data_compra || undefined} onSelect={d => setForm({ ...form, data_compra: d || null })} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
-                <label className="text-sm font-medium">Total Parcelas</label>
-                <Input type="number" value={form.total_parcelas} onChange={e => setForm({ ...form, total_parcelas: e.target.value })} />
+                <label className="text-sm font-medium">Data do Pagamento</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.data_pagamento && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.data_pagamento ? format(form.data_pagamento, 'dd/MM/yyyy') : '—'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={form.data_pagamento || undefined} onSelect={d => setForm({ ...form, data_pagamento: d || null })} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-[11px] text-muted-foreground mt-1">Preenchida automaticamente ao marcar como pago.</p>
               </div>
+            </div>
+
+            {/* Parcelamento */}
+            <div className="border border-border rounded-lg p-3 space-y-3">
+              <div className="flex items-center gap-3">
+                <Switch id="parcelamento" checked={parcelamentoAtivo} onCheckedChange={setParcelamentoAtivo} />
+                <Label htmlFor="parcelamento" className="text-sm cursor-pointer">Parcelamento</Label>
+              </div>
+
+              {parcelamentoAtivo && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Total de Parcelas</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={form.total_parcelas}
+                        onChange={e => {
+                          const total = parseInt(e.target.value) || 0;
+                          setForm({ ...form, total_parcelas: e.target.value });
+                          if (total > 0 && parcelamentoTipo === 'mensal' && form.data_vencimento) {
+                            setParcelas(Array.from({ length: total }, (_, i) => ({
+                              numero: i + 1,
+                              data: addMonths(form.data_vencimento!, i),
+                            })));
+                          } else if (total > 0 && parcelamentoTipo === 'custom') {
+                            setParcelas(prev => {
+                              const existing = [...prev];
+                              while (existing.length < total) existing.push({ numero: existing.length + 1, data: null });
+                              return existing.slice(0, total);
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Modo</label>
+                      <Select value={parcelamentoTipo} onValueChange={v => {
+                        setParcelamentoTipo(v as 'mensal' | 'custom');
+                        if (v === 'mensal' && form.data_vencimento && form.total_parcelas) {
+                          const total = parseInt(form.total_parcelas) || 0;
+                          setParcelas(Array.from({ length: total }, (_, i) => ({
+                            numero: i + 1,
+                            data: addMonths(form.data_vencimento!, i),
+                          })));
+                        }
+                      }}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mensal">Mensal (mesmo dia)</SelectItem>
+                          <SelectItem value="custom">Datas personalizadas</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {parcelas.length > 0 && (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {parcelas.map((p, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-sm">
+                          <span className="text-xs text-muted-foreground w-16 shrink-0">Parcela {p.numero}</span>
+                          {parcelamentoTipo === 'custom' ? (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" size="sm" className={cn("flex-1 justify-start text-left font-normal h-8", !p.data && "text-muted-foreground")}>
+                                  <CalendarIcon className="mr-1 h-3 w-3" />
+                                  {p.data ? format(p.data, 'dd/MM/yyyy') : 'Selecione'}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={p.data || undefined} onSelect={d => {
+                                  setParcelas(prev => prev.map((pp, i) => i === idx ? { ...pp, data: d || null } : pp));
+                                }} initialFocus className="p-3 pointer-events-auto" />
+                              </PopoverContent>
+                            </Popover>
+                          ) : (
+                            <span className="text-sm">{p.data ? format(p.data, 'dd/MM/yyyy') : '—'}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-muted-foreground">
+                    💡 Cada parcela será registrada como um pagamento separado com a mesma descrição.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
