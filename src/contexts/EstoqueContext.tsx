@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from './AuthContext';
 import type { Material, MovimentacaoEstoque } from '@/data/mockData';
 

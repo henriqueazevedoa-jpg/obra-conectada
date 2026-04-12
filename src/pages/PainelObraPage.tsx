@@ -6,7 +6,7 @@ import { useOrcamento } from '@/contexts/OrcamentoContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import { useCustoReal } from '@/contexts/CustoRealContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
