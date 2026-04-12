@@ -131,8 +131,28 @@ export default function PagamentosPage() {
   const { getOrcamento, saveOrcamento } = useOrcamento();
   const { saveItem: saveCustoItem } = useCustoReal();
   const { company } = useCompany();
-  const { refreshEstoque } = useEstoque();
+  const { materiais: allMateriais, refreshEstoque } = useEstoque();
   const obra = obras.find(o => o.id === obraId) || obras[0];
+
+  // All fornecedores for autocomplete
+  const [allFornecedores, setAllFornecedores] = useState<{ id: string; nome: string }[]>([]);
+  useEffect(() => {
+    supabase.from('fornecedores').select('id, nome').then(({ data }) => {
+      if (data) setAllFornecedores(data as any[]);
+    });
+  }, []);
+
+  // Suggestions for autocomplete
+  const materialSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    return allMateriais
+      .filter(m => { const k = `${m.nome}|${m.unidade}`; if (seen.has(k)) return false; seen.add(k); return true; })
+      .map(m => ({ label: m.nome, value: m.id, meta: m.unidade }));
+  }, [allMateriais]);
+
+  const fornecedorSuggestions = useMemo(() =>
+    allFornecedores.map(f => ({ label: f.nome, value: f.id })),
+  [allFornecedores]);
 
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [loading, setLoading] = useState(true);
