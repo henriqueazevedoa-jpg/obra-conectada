@@ -832,6 +832,7 @@ ${toPrint.map(r => {
           </Dialog>
           </div>
         )}
+        </div>
       </div>
 
       {/* Filters */}
