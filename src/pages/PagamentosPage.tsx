@@ -101,7 +101,7 @@ export default function PagamentosPage() {
   const { user, hasPermission } = useAuth();
   const { obras } = useObras();
   const { selectedObraId: obraId, setSelectedObraId: setObraId } = useObraSelection();
-  const { getOrcamento, addCategoria } = useOrcamento();
+  const { getOrcamento, saveOrcamento } = useOrcamento();
   const { saveItem: saveCustoItem } = useCustoReal();
   const { company } = useCompany();
   const obra = obras.find(o => o.id === obraId) || obras[0];
