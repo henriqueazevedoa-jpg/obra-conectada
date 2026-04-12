@@ -121,6 +121,7 @@ export default function PagamentosPage() {
   // New etapa
   const [showNewEtapa, setShowNewEtapa] = useState(false);
   const [newEtapaNome, setNewEtapaNome] = useState('');
+  const [creatingEtapa, setCreatingEtapa] = useState(false);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState('_all');
@@ -261,20 +262,36 @@ export default function PagamentosPage() {
   });
 
   const handleCreateEtapa = async () => {
-    if (!newEtapaNome.trim() || !obra) return;
+    if (!newEtapaNome.trim() || !obra || creatingEtapa) return;
+    setCreatingEtapa(true);
     try {
-      const newCode = String(categorias.length + 1).padStart(2, '0');
       const currentOrc = getOrcamento(obra.id);
+      const existingCats = currentOrc?.categorias || [];
+      // Parse existing numeric codes to find next available
+      const existingNums = existingCats
+        .map(c => { const m = c.codigo.match(/^(?:CAT-)?(\d+)$/); return m ? parseInt(m[1]) : 0; })
+        .filter(n => n > 0);
+      const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+      const newCode = `CAT-${String(nextNum).padStart(3, '0')}`;
+
+      // Check for duplicate name
+      if (existingCats.some(c => c.nome === newEtapaNome.trim())) {
+        toast({ title: 'Etapa já existe com esse nome', variant: 'destructive' });
+        setCreatingEtapa(false);
+        return;
+      }
+
       const newCat = {
         id: crypto.randomUUID(),
         codigo: newCode,
         nome: newEtapaNome.trim(),
         composicoes: [],
         precoTotal: 0,
+        usaComposicoes: false,
       };
       const updatedOrc = {
         ...(currentOrc || { id: crypto.randomUUID(), obraId: obra.id, categorias: [] }),
-        categorias: [...(currentOrc?.categorias || []), newCat],
+        categorias: [...existingCats, newCat],
       };
       await saveOrcamento(updatedOrc as any);
       setForm(prev => ({ ...prev, etapa_orcamento: newEtapaNome.trim() }));
@@ -283,6 +300,8 @@ export default function PagamentosPage() {
       toast({ title: 'Etapa criada com sucesso!' });
     } catch {
       toast({ title: 'Erro ao criar etapa', variant: 'destructive' });
+    } finally {
+      setCreatingEtapa(false);
     }
   };
 
@@ -711,7 +730,9 @@ export default function PagamentosPage() {
                     placeholder="Nome da nova etapa"
                     className="flex-1"
                   />
-                  <Button size="sm" onClick={handleCreateEtapa} disabled={!newEtapaNome.trim()}>Criar</Button>
+                   <Button size="sm" onClick={handleCreateEtapa} disabled={!newEtapaNome.trim() || creatingEtapa}>
+                     {creatingEtapa ? 'Criando...' : 'Criar'}
+                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => { setShowNewEtapa(false); setNewEtapaNome(''); }}>
                     <X className="h-4 w-4" />
                   </Button>
