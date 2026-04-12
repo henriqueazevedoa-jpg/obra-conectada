@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, Link, Outlet } from "react-router-dom";
+import DemoModeBar from "@/components/DemoModeBar";
 import {
   LayoutDashboard,
   Building2,
@@ -161,6 +162,7 @@ export default function AppLayout() {
         </nav>
 
         <div className="p-4 border-t space-y-3">
+          <DemoModeBar />
           <Link
             to="/perfil"
             className={cn(
