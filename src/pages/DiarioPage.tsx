@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/untyped';
@@ -35,6 +36,7 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 export default function DiarioPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission } = useAuth();
   const { obras } = useObras();
   const { orcamentos, getOrcamento, saveOrcamento } = useOrcamento();
@@ -46,6 +48,14 @@ export default function DiarioPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Auto-open form via ?novo=1
+  useEffect(() => {
+    if (searchParams.get('novo') === '1' && obra) {
+      setDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, obra?.id]);
 
   // Form state
   const [dataRegistro, setDataRegistro] = useState<Date>(new Date());

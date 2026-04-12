@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import { useObras } from '@/contexts/ObrasContext';
@@ -54,6 +55,7 @@ const categoriasEstoque = [
 ];
 
 export default function EstoquePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission } = useAuth();
   const { obras } = useObras();
   const {
@@ -67,6 +69,14 @@ export default function EstoquePage() {
 
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Auto-open form via ?novo=1
+  useEffect(() => {
+    if (searchParams.get('novo') === '1') {
+      setDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
   const [movTipo, setMovTipo] = useState<'entrada' | 'saida'>('entrada');
   const [newMov, setNewMov] = useState({
     materialId: '',
