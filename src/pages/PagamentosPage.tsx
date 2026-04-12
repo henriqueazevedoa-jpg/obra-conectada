@@ -1233,17 +1233,52 @@ export default function PagamentosPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium">Fornecedor</label>
-              <AutocompleteInput
-                suggestions={fornecedorSuggestions}
-                value={form.fornecedor}
-                onChange={v => setForm({ ...form, fornecedor: v })}
-                placeholder="Nome do fornecedor"
-              />
-              {isCompraMaterial && (
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  💡 Se o fornecedor estiver cadastrado, o preço será registrado automaticamente no banco de preços.
-                </p>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium">Fornecedor</label>
+                <Button variant="ghost" size="sm" className="text-xs text-primary h-6 px-2" type="button" onClick={() => setShowNewFornecedor(!showNewFornecedor)}>
+                  {showNewFornecedor ? 'Cancelar' : '+ Novo Fornecedor'}
+                </Button>
+              </div>
+              {!showNewFornecedor ? (
+                <>
+                  <AutocompleteInput
+                    suggestions={fornecedorSuggestions}
+                    value={form.fornecedor}
+                    onChange={v => setForm({ ...form, fornecedor: v })}
+                    placeholder="Nome do fornecedor"
+                  />
+                  {isCompraMaterial && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      💡 Se o fornecedor estiver cadastrado, o preço será registrado automaticamente no banco de preços.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2 p-3 border border-primary/20 bg-primary/5 rounded-lg">
+                  <Input
+                    value={newFornecedorNome}
+                    onChange={e => setNewFornecedorNome(e.target.value)}
+                    placeholder="Nome do fornecedor *"
+                    className="h-8 text-sm"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={newFornecedorCnpj}
+                      onChange={e => setNewFornecedorCnpj(e.target.value)}
+                      placeholder="CNPJ (opcional)"
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      value={newFornecedorTel}
+                      onChange={e => setNewFornecedorTel(e.target.value)}
+                      placeholder="Telefone (opcional)"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <Button size="sm" onClick={handleCreateFornecedor} disabled={!newFornecedorNome.trim() || creatingFornecedor} className="w-full">
+                    {creatingFornecedor ? 'Cadastrando...' : 'Cadastrar e Selecionar'}
+                  </Button>
+                </div>
               )}
             </div>
 
