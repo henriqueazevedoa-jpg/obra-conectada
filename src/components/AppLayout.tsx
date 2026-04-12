@@ -64,7 +64,7 @@ const contaLinks: NavItem[] = [
   { to: "/perfil", label: "Perfil", icon: User },
 ];
 
-const gestorLinks = [...obraLinks];
+const gestorLinks = [...allObraLinks];
 const funcionarioLinks: NavItem[] = [
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
@@ -84,7 +84,7 @@ const clienteLinks: NavItem[] = [
 
 const adminLinks: NavItem[] = [
   { to: "/admin", label: "Admin Plataforma", icon: Shield },
-  ...obraLinks,
+  ...allObraLinks,
 ];
 
 const mobileGestorTabs = [
