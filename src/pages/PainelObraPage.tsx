@@ -148,15 +148,9 @@ function GestorPainel() {
     return Math.round((shouldBeDone / categorias.length) * 100);
   })();
 
-  // Previsto acumulado proporcional ao avanço real
-  const previstoAcumulado = useMemo(() => {
-    if (totalPrevisto === 0 || categorias.length === 0) return 0;
-    // Sum proportional cost based on each category's progress
-    return categorias.reduce((sum, cat) => {
-      const pct = computePercentual(cat) / 100;
-      return sum + cat.precoTotal * pct;
-    }, 0);
-  }, [categorias, totalPrevisto]);
+  // Previsto acumulado proporcional ao avanço real (no hook, just derived)
+  const previstoAcumulado = categorias.length === 0 || totalPrevisto === 0 ? 0 :
+    categorias.reduce((sum, cat) => sum + cat.precoTotal * (computePercentual(cat) / 100), 0);
 
   const totalTrabalhadores = registrosAprovados.length > 0
     ? Math.round(registrosAprovados.reduce((s, r) => s + r.trabalhadores, 0) / registrosAprovados.length)
