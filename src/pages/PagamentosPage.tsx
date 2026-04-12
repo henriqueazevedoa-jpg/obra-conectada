@@ -167,7 +167,7 @@ export default function PagamentosPage() {
       .order('data_vencimento', { ascending: true });
 
     if (!error && data) {
-      setPagamentos(data as Pagamento[]);
+      setPagamentos(data as unknown as Pagamento[]);
       // Fetch anexos for all pagamentos
       const ids = data.map((p: any) => p.id);
       if (ids.length > 0) {
@@ -264,7 +264,19 @@ export default function PagamentosPage() {
     if (!newEtapaNome.trim() || !obra) return;
     try {
       const newCode = String(categorias.length + 1).padStart(2, '0');
-      await addCategoria(obra.id, { codigo: newCode, nome: newEtapaNome.trim() });
+      const currentOrc = getOrcamento(obra.id);
+      const newCat = {
+        id: crypto.randomUUID(),
+        codigo: newCode,
+        nome: newEtapaNome.trim(),
+        composicoes: [],
+        precoTotal: 0,
+      };
+      const updatedOrc = {
+        ...(currentOrc || { id: crypto.randomUUID(), obraId: obra.id, categorias: [] }),
+        categorias: [...(currentOrc?.categorias || []), newCat],
+      };
+      await saveOrcamento(updatedOrc as any);
       setForm(prev => ({ ...prev, etapa_orcamento: newEtapaNome.trim() }));
       setShowNewEtapa(false);
       setNewEtapaNome('');
