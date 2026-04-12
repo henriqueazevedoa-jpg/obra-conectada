@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
+import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -10,9 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { statusObraLabels, formatDate, Obra } from '@/data/mockData';
-import { Search, Plus, MapPin, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, MapPin, Calendar, Pencil, Trash2, Building2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
 const statusColors: Record<string, string> = {
@@ -44,6 +45,8 @@ const emptyForm = {
 export default function ObrasPage() {
   const { user, hasPermission } = useAuth();
   const { obras, addObra, updateObra, deleteObra, generateCodigo, getResponsaveis } = useObras();
+  const { setSelectedObraId } = useObraSelection();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
