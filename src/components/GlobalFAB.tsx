@@ -46,9 +46,9 @@ export default function GlobalFAB() {
         <div className="fixed inset-0 bg-black/30 z-[60] md:z-[45]" onClick={() => setOpenFab(null)} />
       )}
 
-      {/* Action items */}
+      {/* Action items — anchored above both FABs */}
       {openFab && (
-        <div className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-[61] md:z-[46] flex flex-col-reverse gap-3 items-end">
+        <div className="fixed bottom-[13rem] md:bottom-[10rem] right-4 md:right-6 z-[63] md:z-[48] flex flex-col-reverse gap-3 items-end">
           {actions.map((action, idx) => {
             const Icon = action.icon;
             return (
@@ -80,7 +80,7 @@ export default function GlobalFAB() {
           'fixed bottom-36 md:bottom-[5.5rem] right-4 md:right-6 z-[62] md:z-[47] h-12 w-12 rounded-full shadow-xl flex items-center justify-center transition-all duration-200',
           openFab === 'edit'
             ? 'bg-muted text-foreground'
-            : 'bg-violet-600 text-white hover:bg-violet-700'
+            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
         )}
         title="Editar"
       >
