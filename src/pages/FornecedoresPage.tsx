@@ -129,7 +129,7 @@ export default function FornecedoresPage() {
     setPForm({
       fornecedor_id: p.fornecedor_id, descricao_item_snapshot: p.descricao_item_snapshot || '',
       preco_unitario: String(p.preco_unitario), unidade: p.unidade || '',
-      data_referencia: p.data_referencia, origem_preco: p.origem_preco,
+      data_referencia: p.data_referencia, origem_preco: p.origem_preco as OrigemPreco,
       observacoes: p.observacoes || '',
     });
     setPDialogOpen(true);
