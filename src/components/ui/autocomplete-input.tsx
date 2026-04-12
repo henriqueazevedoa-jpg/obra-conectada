@@ -19,7 +19,7 @@ export function AutocompleteInput({
   suggestions,
   value,
   onChange,
-  onSelect,
+  onSuggestionSelect,
   className,
   ...props
 }: AutocompleteInputProps) {
