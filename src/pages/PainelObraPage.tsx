@@ -214,6 +214,17 @@ function GestorPainel() {
         </div>
       </div>
 
+      {/* Resumo Executivo */}
+      <div data-print-section="resumoExecutivo">
+        <ResumoExecutivo
+          obraId={obra.id}
+          totalPrevisto={totalPrevisto}
+          totalRealizado={totalRealizado}
+          andamentoReal={andamentoReal}
+          andamentoPlanejado={andamentoPlanejado}
+        />
+      </div>
+
       {/* 3. Pontos de Atenção */}
       {(atrasadas.length > 0 || materiaisBaixo.length > 0 || registrosPendentes.length > 0) && (
         <div data-print-section="pontosAtencao">
