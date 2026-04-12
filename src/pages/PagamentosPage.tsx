@@ -1159,9 +1159,45 @@ export default function PagamentosPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Data da Compra</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.data_compra && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.data_compra ? format(form.data_compra, 'dd/MM/yyyy') : 'Hoje'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={form.data_compra || undefined} onSelect={d => setForm({ ...form, data_compra: d || null })} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Data do Pagamento</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.data_pagamento && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.data_pagamento ? format(form.data_pagamento, 'dd/MM/yyyy') : '—'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={form.data_pagamento || undefined} onSelect={d => setForm({ ...form, data_pagamento: d || null })} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-medium">Fornecedor</label>
-              <Input value={form.fornecedor} onChange={e => setForm({ ...form, fornecedor: e.target.value })} />
+              <AutocompleteInput
+                suggestions={fornecedorSuggestions}
+                value={form.fornecedor}
+                onChange={v => setForm({ ...form, fornecedor: v })}
+                placeholder="Buscar fornecedor..."
+              />
               {isCompraMaterial && (
                 <p className="text-[11px] text-muted-foreground mt-1">
                   💡 Se o fornecedor estiver cadastrado, o preço será registrado automaticamente no banco de preços.
@@ -1169,15 +1205,114 @@ export default function PagamentosPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium">Nº Parcela</label>
-                <Input type="number" value={form.numero_parcela} onChange={e => setForm({ ...form, numero_parcela: e.target.value })} />
+            {/* Parcelamento */}
+            <div className="border border-border rounded-lg p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Parcelamento</label>
+                <Select value={parcelamentoMode} onValueChange={v => {
+                  const mode = v as 'none' | 'mensal' | 'custom';
+                  setParcelamentoMode(mode);
+                  if (mode === 'none') {
+                    setForm(f => ({ ...f, total_parcelas: '', numero_parcela: '' }));
+                    setParcelasDatas([]);
+                  }
+                }}>
+                  <SelectTrigger className="w-[160px] h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">À vista</SelectItem>
+                    <SelectItem value="mensal">Mensal</SelectItem>
+                    <SelectItem value="custom">Datas personalizadas</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <label className="text-sm font-medium">Total Parcelas</label>
-                <Input type="number" value={form.total_parcelas} onChange={e => setForm({ ...form, total_parcelas: e.target.value })} />
-              </div>
+
+              {parcelamentoMode !== 'none' && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Total de Parcelas</label>
+                      <Input
+                        type="number"
+                        min="2"
+                        value={form.total_parcelas}
+                        onChange={e => {
+                          const total = e.target.value;
+                          setForm(f => ({ ...f, total_parcelas: total }));
+                          if (parcelamentoMode === 'mensal' && form.data_vencimento) {
+                            const n = parseInt(total) || 0;
+                            const dates: (Date | null)[] = [];
+                            for (let i = 0; i < n; i++) {
+                              dates.push(addMonths(form.data_vencimento, i));
+                            }
+                            setParcelasDatas(dates);
+                          } else if (parcelamentoMode === 'custom') {
+                            const n = parseInt(total) || 0;
+                            setParcelasDatas(prev => {
+                              const arr = [...prev];
+                              while (arr.length < n) arr.push(null);
+                              return arr.slice(0, n);
+                            });
+                          }
+                        }}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Nº Parcela Atual</label>
+                      <Input type="number" value={form.numero_parcela} onChange={e => setForm({ ...form, numero_parcela: e.target.value })} className="h-8 text-sm" />
+                    </div>
+                  </div>
+
+                  {parcelamentoMode === 'mensal' && parcelasDatas.length > 0 && (
+                    <div className="text-xs text-muted-foreground space-y-0.5 bg-muted/50 rounded p-2">
+                      <p className="font-medium mb-1">Datas das parcelas (mensal):</p>
+                      {parcelasDatas.map((d, i) => (
+                        <p key={i}>Parcela {i + 1}: {d ? format(d, 'dd/MM/yyyy') : '—'}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {parcelamentoMode === 'custom' && parcelasDatas.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-muted-foreground font-medium">Datas personalizadas:</p>
+                      {parcelasDatas.map((d, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-16">Parcela {i + 1}:</span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className={cn("text-xs h-7 flex-1 justify-start", !d && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-1 h-3 w-3" />
+                                {d ? format(d, 'dd/MM/yyyy') : 'Selecionar'}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={d || undefined}
+                                onSelect={sel => {
+                                  setParcelasDatas(prev => {
+                                    const arr = [...prev];
+                                    arr[i] = sel || null;
+                                    return arr;
+                                  });
+                                }}
+                                initialFocus
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {parcelamentoMode !== 'none' && form.valor_previsto && form.total_parcelas && (
+                    <p className="text-xs text-muted-foreground">
+                      Valor por parcela: {formatCurrency((parseFloat(form.valor_previsto) || 0) / (parseInt(form.total_parcelas) || 1))}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
