@@ -19,7 +19,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
   Clock, CalendarDays, DollarSign, Users, Building2,
-  BarChart3, Plus
+  BarChart3, Plus, LayoutDashboard
 } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -146,22 +146,25 @@ function GestorPainel() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Painel da Obra</h1>
-          <p className="text-muted-foreground text-sm">Visão executiva consolidada</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <LayoutDashboard className="h-5 w-5 text-primary" />
+            Painel da Obra
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Visão executiva consolidada</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={selectedObraId} onValueChange={handleObraSelectChange}>
-            <SelectTrigger className="w-[280px] h-9 text-sm">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecionar obra..." />
             </SelectTrigger>
             <SelectContent>
               {obras.map(o => (
-                <SelectItem key={o.id} value={o.id}>{o.codigo} - {o.nome}</SelectItem>
+                <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
               ))}
               <SelectItem value="__nova_obra__" className="text-primary font-medium">
-                <span className="flex items-center gap-2"><Plus className="h-3.5 w-3.5" /> Criar Nova Obra</span>
+                + Criar Nova Obra
               </SelectItem>
             </SelectContent>
           </Select>

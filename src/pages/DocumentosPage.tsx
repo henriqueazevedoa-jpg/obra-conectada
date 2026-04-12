@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import PageHeader from "@/components/PageHeader";
 
 const CATEGORIAS = [
   "Contratos",
@@ -148,7 +149,6 @@ export default function DocumentosPage() {
 
     const { data: urlData } = supabase.storage.from("documentos-obra").getPublicUrl(path);
 
-    // Get company_id from the obra
     const companyId = (obra as any)?.company_id || user.id;
 
     const { error: dbErr } = await supabase.from("documentos_obra" as any).insert({
@@ -178,7 +178,6 @@ export default function DocumentosPage() {
   async function handleDelete(doc: Documento) {
     if (!confirm(`Excluir "${doc.nome}"?`)) return;
 
-    // Extract storage path from URL
     const urlParts = doc.arquivo_url.split("/documentos-obra/");
     if (urlParts[1]) {
       await supabase.storage.from("documentos-obra").remove([urlParts[1]]);
@@ -206,31 +205,33 @@ export default function DocumentosPage() {
 
   if (!selectedObraId) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-        <FolderOpen className="h-12 w-12" />
-        <p>Selecione uma obra para ver os documentos.</p>
+      <div className="space-y-4">
+        <PageHeader
+          title="Documentos"
+          icon={<FileText className="h-5 w-5 text-primary" />}
+          showObraSelector={true}
+        />
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+          <FolderOpen className="h-12 w-12 opacity-50" />
+          <p className="text-sm">Selecione uma obra para ver os documentos.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            Documentos
-          </h1>
-          {obra && (
-            <p className="text-sm text-muted-foreground mt-0.5">{obra.nome}</p>
-          )}
-        </div>
+      <PageHeader
+        title="Documentos"
+        icon={<FileText className="h-5 w-5 text-primary" />}
+        showObraSelector={true}
+      >
         <Button onClick={() => setDialogOpen(true)} size="sm">
           <Plus className="h-4 w-4 mr-1" />
           Enviar Documento
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2">
@@ -240,11 +241,11 @@ export default function DocumentosPage() {
             placeholder="Buscar por nome..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9"
           />
         </div>
         <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className="w-full sm:w-48 h-9">
             <SelectValue placeholder="Categoria" />
           </SelectTrigger>
           <SelectContent>
@@ -407,12 +408,13 @@ export default function DocumentosPage() {
                 value={formNome}
                 onChange={(e) => setFormNome(e.target.value)}
                 placeholder="Ex: Contrato de prestação de serviço"
+                className="h-9"
               />
             </div>
             <div>
               <label className="text-sm font-medium">Categoria</label>
               <Select value={formCategoria} onValueChange={setFormCategoria}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -444,16 +444,19 @@ export default function PagamentosPage() {
   const canEdit = user?.role === 'admin' || user?.role === 'gestor';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Pagamentos</h1>
-          <p className="text-muted-foreground">Gestão de pagamentos vinculados às etapas da obra</p>
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            Pagamentos
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Gestão de pagamentos vinculados às etapas da obra</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={obra.id} onValueChange={setObraId}>
-            <SelectTrigger className="w-full sm:w-[280px]">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecione a obra" />
             </SelectTrigger>
             <SelectContent>
@@ -463,8 +466,8 @@ export default function PagamentosPage() {
             </SelectContent>
           </Select>
           {canEdit && (
-            <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" />Novo Pagamento
+            <Button size="sm" onClick={() => { resetForm(); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" />Novo Pagamento
             </Button>
           )}
         </div>

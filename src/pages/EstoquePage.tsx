@@ -164,24 +164,27 @@ export default function EstoquePage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Estoque</h1>
-          <p className="text-muted-foreground">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" />
+            Estoque
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
             Controle de materiais e movimentações da obra
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={obra.id} onValueChange={setObraId}>
-            <SelectTrigger className="w-full sm:w-[280px]">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecione a obra" />
             </SelectTrigger>
             <SelectContent>
               {obras.map((o: any) => (
                 <SelectItem key={o.id} value={o.id}>
-                  {o.codigo} - {o.nome}
+                  {o.codigo ? `${o.codigo} - ` : ''}{o.nome}
                 </SelectItem>
               ))}
             </SelectContent>

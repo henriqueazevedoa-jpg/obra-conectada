@@ -39,25 +39,28 @@ export default function CustoRealPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Custo Real</h1>
-          <p className="text-muted-foreground text-sm">Acompanhamento dos custos reais por etapa</p>
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            Custo Real
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Acompanhamento dos custos reais por etapa</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={selectedObraId} onValueChange={setSelectedObraId}>
-            <SelectTrigger className="w-60">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecione a obra" />
             </SelectTrigger>
             <SelectContent>
               {obras.map(o => (
-                <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>
+                <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           {isGestor && (
-            <Button onClick={() => setEditing(true)} className="gap-1">
+            <Button onClick={() => setEditing(true)} size="sm" className="gap-1">
               <Edit className="h-4 w-4" /> Editar
             </Button>
           )}
