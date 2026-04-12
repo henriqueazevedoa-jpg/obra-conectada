@@ -78,7 +78,7 @@ export function EstoqueProvider({ children }: { children: React.ReactNode }) {
   }, [movimentacoes]);
 
   const registrarMovimentacao = useCallback(async (mov: Omit<MovimentacaoEstoque, 'id'> & { id?: string }) => {
-    await supabase.from('movimentacoes').insert({
+    await (supabase.from('movimentacoes') as any).insert({
       obra_id: mov.obraId,
       material_id: mov.materialId,
       material_nome: mov.materialNome,
@@ -94,7 +94,7 @@ export function EstoqueProvider({ children }: { children: React.ReactNode }) {
   }, [fetchEstoque]);
 
   const addMaterial = useCallback(async (material: Omit<Material, 'id'> & { id?: string }) => {
-    await supabase.from('materiais').insert({
+    await (supabase.from('materiais') as any).insert({
       obra_id: material.obraId,
       nome: material.nome,
       categoria: material.categoria || null,

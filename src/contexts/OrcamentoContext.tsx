@@ -168,9 +168,9 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     // Group subitens by composicao_id
     const subsByComp = new Map<string, any[]>();
     for (const s of subs) {
-      const arr = subsByComp.get(s.composicao_id) || [];
+      const arr = subsByComp.get((s as any).composicao_id) || [];
       arr.push(s);
-      subsByComp.set(s.composicao_id, arr);
+      subsByComp.set((s as any).composicao_id, arr);
     }
 
     // Group composicoes by categoria_id
@@ -294,7 +294,7 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
         for (const sub of comp.subitens) {
           newSubIds.add(sub.id);
 
-          await supabase.from('orcamento_subitens').upsert({
+          await (supabase.from('orcamento_subitens') as any).upsert({
             id: sub.id,
             composicao_id: comp.id,
             codigo: sub.codigo,

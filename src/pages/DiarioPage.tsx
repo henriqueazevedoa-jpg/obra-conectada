@@ -76,8 +76,8 @@ export default function DiarioPage() {
     // Fetch servicos and materiais for all registros
     const regIds = regs.map(r => r.id);
     const [{ data: svcs }, { data: mats }] = await Promise.all([
-      supabase.from('diario_servicos').select('*').in('registro_id', regIds.length > 0 ? regIds : ['_none']),
-      supabase.from('diario_materiais').select('*').in('registro_id', regIds.length > 0 ? regIds : ['_none']),
+      (supabase as any).from('diario_servicos').select('*').in('registro_id', regIds.length > 0 ? regIds : ['_none']),
+      (supabase as any).from('diario_materiais').select('*').in('registro_id', regIds.length > 0 ? regIds : ['_none']),
     ]);
 
     const mapped: DiarioRegistro[] = regs.map(r => ({
@@ -89,14 +89,14 @@ export default function DiarioPage() {
       clima: r.clima as DiarioRegistro['clima'],
       trabalhadores: r.trabalhadores,
       servicosExecutados: r.servicos_executados || '',
-      servicos: (svcs || []).filter(s => s.registro_id === r.id).map(s => ({
+      servicos: (svcs || []).filter((s: any) => s.registro_id === r.id).map((s: any) => ({
         id: s.id,
         descricao: s.descricao,
         categoriaId: s.categoria_id || undefined,
         composicaoId: s.composicao_id || undefined,
         percentualAdicionado: s.percentual_adicionado ? Number(s.percentual_adicionado) : undefined,
       })),
-      materiaisUtilizados: (mats || []).filter(m => m.registro_id === r.id).map(m => ({
+      materiaisUtilizados: (mats || []).filter((m: any) => m.registro_id === r.id).map((m: any) => ({
         id: m.id,
         materialId: m.material_id || '',
         materialNome: m.material_nome,
@@ -257,11 +257,11 @@ export default function DiarioPage() {
       }
 
       // Delete old servicos and materiais, re-insert
-      await supabase.from('diario_servicos').delete().eq('registro_id', editingId);
-      await supabase.from('diario_materiais').delete().eq('registro_id', editingId);
+      await (supabase as any).from('diario_servicos').delete().eq('registro_id', editingId);
+      await (supabase as any).from('diario_materiais').delete().eq('registro_id', editingId);
 
       if (filteredServicos.length > 0) {
-        await supabase.from('diario_servicos').insert(
+        await (supabase as any).from('diario_servicos').insert(
           filteredServicos.map(s => ({
             registro_id: editingId,
             descricao: s.descricao,
@@ -273,7 +273,7 @@ export default function DiarioPage() {
       }
 
       if (filteredMateriais.length > 0) {
-        await supabase.from('diario_materiais').insert(
+        await (supabase as any).from('diario_materiais').insert(
           filteredMateriais.map(m => ({
             registro_id: editingId,
             material_id: m.materialId || null,
@@ -306,7 +306,7 @@ export default function DiarioPage() {
       }
 
       if (filteredServicos.length > 0) {
-        await supabase.from('diario_servicos').insert(
+        await (supabase as any).from('diario_servicos').insert(
           filteredServicos.map(s => ({
             registro_id: newReg.id,
             descricao: s.descricao,
@@ -318,7 +318,7 @@ export default function DiarioPage() {
       }
 
       if (filteredMateriais.length > 0) {
-        await supabase.from('diario_materiais').insert(
+        await (supabase as any).from('diario_materiais').insert(
           filteredMateriais.map(m => ({
             registro_id: newReg.id,
             material_id: m.materialId || null,

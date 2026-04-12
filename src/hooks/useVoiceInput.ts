@@ -85,7 +85,7 @@ export function useVoiceInput(moduleOrigin: string, obraId?: string) {
       };
 
       // Save to voice_inputs
-      await supabase.from('voice_inputs').insert({
+      await (supabase as any).from('voice_inputs').insert({
         company_id: company.id,
         user_id: user.id,
         obra_id: obraId || null,
@@ -95,7 +95,7 @@ export function useVoiceInput(moduleOrigin: string, obraId?: string) {
         parsed_json: voiceResult.parsed,
         confidence: voiceResult.confidence,
         status: 'completed',
-      } as any);
+      });
 
       setResult(voiceResult);
       setStatus('done');
