@@ -311,6 +311,22 @@ export default function DiarioPage() {
         );
       }
 
+      // Upload new photos for edited registro
+      if (fotosPendentes.length > 0) {
+        for (const foto of fotosPendentes) {
+          const ext = foto.file.name.split('.').pop();
+          const path = `${obra.id}/${editingId}/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage.from('diario-fotos').upload(path, foto.file);
+          if (!upErr) {
+            await (supabase as any).from('diario_fotos').insert({
+              registro_id: editingId,
+              storage_path: path,
+              legenda: foto.legenda,
+            });
+          }
+        }
+      }
+
       toast({ title: 'Registro atualizado!' });
     } else {
       // CREATE new registro
