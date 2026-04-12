@@ -190,7 +190,14 @@ export default function PagamentosPage() {
     total_parcelas: '',
     observacoes: '',
     etapa_orcamento: '_none',
+    data_compra: new Date() as Date | null,
+    data_pagamento: null as Date | null,
   });
+
+  // Installment logic
+  const [parcelamentoAtivo, setParcelamentoAtivo] = useState(false);
+  const [parcelamentoTipo, setParcelamentoTipo] = useState<'mensal' | 'custom'>('mensal');
+  const [parcelas, setParcelas] = useState<{ numero: number; data: Date | null }[]>([]);
 
   // Material purchase items
   const [isCompraMaterial, setIsCompraMaterial] = useState(false);
@@ -201,12 +208,15 @@ export default function PagamentosPage() {
       descricao: '', tipo_pagamento: 'outro', valor_previsto: '',
       data_vencimento: null, forma_pagamento: 'outro', fornecedor: '',
       numero_parcela: '', total_parcelas: '', observacoes: '', etapa_orcamento: '_none',
+      data_compra: new Date(), data_pagamento: null,
     });
     setEditingId(null);
     setShowNewEtapa(false);
     setNewEtapaNome('');
     setIsCompraMaterial(false);
     setItensCompra([makeEmptyItem()]);
+    setParcelamentoAtivo(false);
+    setParcelas([]);
   };
 
   // Get orcamento categories for the selected obra
