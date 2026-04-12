@@ -810,6 +810,64 @@ export default function PagamentosPage() {
               <Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} />
             </div>
 
+            {/* Attachment hint for new / upload for existing */}
+            {editingId ? (
+              <div className="border border-dashed border-border rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1.5"><Paperclip className="h-4 w-4" /> Documentos e Fotos</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(anexoTipoLabels).map(([tipo, label]) => (
+                    <Button
+                      key={tipo}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      disabled={uploading}
+                      onClick={() => {
+                        const input = fileInputRef.current;
+                        if (input) {
+                          input.setAttribute('data-tipo', tipo);
+                          input.setAttribute('data-pagamento-id', editingId);
+                          input.click();
+                        }
+                      }}
+                    >
+                      {tipo === 'foto' ? <Image className="h-3 w-3 mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                {(anexos.get(editingId) || []).length > 0 && (
+                  <div className="space-y-1 mt-2">
+                    {(anexos.get(editingId) || []).map(a => (
+                      <div key={a.id} className="flex items-center gap-2 text-xs p-1.5 bg-muted rounded">
+                        <FileText className="h-3 w-3 text-muted-foreground" />
+                        <span className="truncate flex-1">{a.nome}</span>
+                        <span className="text-muted-foreground">{anexoTipoLabels[a.tipo || 'outro']}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">💡 Após salvar, você poderá anexar boletos, contratos, recibos e fotos.</p>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+              onChange={(e) => {
+                const pagId = e.target.getAttribute('data-pagamento-id') || editingId;
+                if (e.target.files && pagId) {
+                  const tipo = e.target.getAttribute('data-tipo') || 'outro';
+                  handleFileUpload(pagId, e.target.files, tipo);
+                  e.target.value = '';
+                }
+              }}
+            />
+
             <Button onClick={handleSubmit} className="w-full" disabled={!form.descricao || !form.data_vencimento || !form.valor_previsto}>
               {editingId ? 'Salvar Alterações' : 'Registrar Pagamento'}
             </Button>
