@@ -560,7 +560,8 @@ export default function PagamentosPage() {
 
   const handleMarcarPago = async (id: string) => {
     const pag = pagamentos.find(p => p.id === id);
-    const { error } = await supabase.from('pagamentos').update({ status: 'pago' as any }).eq('id', id);
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const { error } = await supabase.from('pagamentos').update({ status: 'pago' as any, data_pagamento: today } as any).eq('id', id);
     if (!error) {
       setPagamentos(prev => prev.map(p => p.id === id ? { ...p, status: 'pago' } : p));
       toast({ title: 'Pagamento marcado como pago!' });
