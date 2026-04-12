@@ -294,10 +294,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      if (error) {
-        console.error('Erro no complete_onboarding:', error);
-        return { success: false, error: error.message };
-      }
+      await fetchCompany();
+      return { success: true };
 
       await fetchCompany();
       return { success: true };
