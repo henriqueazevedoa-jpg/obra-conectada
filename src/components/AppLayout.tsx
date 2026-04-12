@@ -32,18 +32,31 @@ interface NavItem {
   section?: string;
 }
 
-const obraLinks: NavItem[] = [
+const obraVisaoLinks: NavItem[] = [
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
+];
+
+const obraFinanceiroLinks: NavItem[] = [
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
   { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
-  { to: "/pendencias", label: "Pendências", icon: ListChecks },
   { to: "/fornecedores", label: "Fornecedores", icon: Store },
+];
+
+const obraExecucaoLinks: NavItem[] = [
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
+  { to: "/pendencias", label: "Pendências", icon: ListChecks },
+];
+
+const obraLogisticaLinks: NavItem[] = [
   { to: "/estoque", label: "Estoque", icon: Package },
   { to: "/documentos", label: "Documentos", icon: FolderOpen },
+];
+
+const allObraLinks: NavItem[] = [
+  ...obraVisaoLinks, ...obraFinanceiroLinks, ...obraExecucaoLinks, ...obraLogisticaLinks,
 ];
 
 const contaLinks: NavItem[] = [
@@ -51,7 +64,7 @@ const contaLinks: NavItem[] = [
   { to: "/perfil", label: "Perfil", icon: User },
 ];
 
-const gestorLinks = [...obraLinks];
+const gestorLinks = [...allObraLinks];
 const funcionarioLinks: NavItem[] = [
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
@@ -71,7 +84,7 @@ const clienteLinks: NavItem[] = [
 
 const adminLinks: NavItem[] = [
   { to: "/admin", label: "Admin Plataforma", icon: Shield },
-  ...obraLinks,
+  ...allObraLinks,
 ];
 
 const mobileGestorTabs = [
@@ -177,8 +190,26 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <SidebarSection title="Obra">
-            {mainLinks.map((link) => renderLink(link))}
+          {user.role === 'admin' && (
+            <SidebarSection title="Admin">
+              {renderLink({ to: "/admin", label: "Admin Plataforma", icon: Shield })}
+            </SidebarSection>
+          )}
+
+          <SidebarSection title="Visão Geral">
+            {obraVisaoLinks.map((link) => renderLink(link))}
+          </SidebarSection>
+
+          <SidebarSection title="Financeiro">
+            {obraFinanceiroLinks.map((link) => renderLink(link))}
+          </SidebarSection>
+
+          <SidebarSection title="Execução">
+            {obraExecucaoLinks.map((link) => renderLink(link))}
+          </SidebarSection>
+
+          <SidebarSection title="Logística">
+            {obraLogisticaLinks.map((link) => renderLink(link))}
           </SidebarSection>
 
           <SidebarSection title="Conta">

@@ -185,13 +185,13 @@ function GestorPainel() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               { to: '/pagamentos?novo=1', label: 'Novo Pagamento', icon: Wallet, desc: 'Registrar gasto', color: 'text-primary' },
-              { to: '/estoque?novo=1', label: 'Entrada Material', icon: Package, desc: 'Movimentar estoque', color: 'text-emerald-600' },
+              { to: '/pendencias?novo=1', label: 'Nova Pendência', icon: ListChecks, desc: 'Registrar pendência', color: 'text-rose-600' },
               { to: '/diario?novo=1', label: 'Novo Diário', icon: BookOpen, desc: 'Registrar atividade', color: 'text-amber-600' },
-              { to: '/custo-real?novo=1', label: 'Lançar Custo', icon: Receipt, desc: 'Custo realizado', color: 'text-violet-600' },
+              { to: '/estoque?novo=1', label: 'Entrada Material', icon: Package, desc: 'Movimentar estoque', color: 'text-emerald-600' },
+              { to: '/documentos?novo=1', label: 'Documento', icon: FolderOpen, desc: 'Arquivos da obra', color: 'text-slate-600' },
               { to: '/orcamento', label: 'Orçamento', icon: DollarSign, desc: 'Etapas e insumos', color: 'text-blue-600' },
               { to: '/cronograma', label: 'Cronograma', icon: CalendarDays, desc: 'Prazos e etapas', color: 'text-orange-600' },
               { to: '/fornecedores', label: 'Fornecedores', icon: Store, desc: 'Cadastro e preços', color: 'text-cyan-600' },
-              { to: '/documentos', label: 'Documentos', icon: FolderOpen, desc: 'Arquivos da obra', color: 'text-slate-600' },
             ].map(item => (
               <Link key={item.to} to={item.to}>
                 <Button variant="outline" className="w-full h-auto py-4 flex-col gap-1.5 hover:border-primary/40 hover:bg-primary/5 transition-all">

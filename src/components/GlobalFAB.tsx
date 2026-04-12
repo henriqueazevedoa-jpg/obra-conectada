@@ -2,42 +2,60 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useObras } from '@/contexts/ObrasContext';
-import { Plus, DollarSign, Package, Wallet, BookOpen, FolderOpen, X } from 'lucide-react';
+import {
+  Plus, Wallet, ListChecks, BookOpen, Package, FolderOpen,
+  Pencil, DollarSign, CalendarDays, Receipt,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const fabActions = [
+const entryActions = [
   { label: 'Pagamento', icon: Wallet, route: '/pagamentos', query: '?novo=1', color: 'bg-primary' },
-  { label: 'Material', icon: Package, route: '/estoque', query: '?novo=1', color: 'bg-emerald-500' },
+  { label: 'Pendência', icon: ListChecks, route: '/pendencias', query: '?novo=1', color: 'bg-rose-500' },
   { label: 'Diário', icon: BookOpen, route: '/diario', query: '?novo=1', color: 'bg-amber-500' },
-  { label: 'Gasto', icon: DollarSign, route: '/custo-real', query: '?novo=1', color: 'bg-violet-500' },
+  { label: 'Material', icon: Package, route: '/estoque', query: '?novo=1', color: 'bg-emerald-500' },
   { label: 'Documento', icon: FolderOpen, route: '/documentos', query: '?novo=1', color: 'bg-sky-500' },
 ];
 
+const editActions = [
+  { label: 'Orçamento', icon: DollarSign, route: '/orcamento', query: '', color: 'bg-blue-600' },
+  { label: 'Cronograma', icon: CalendarDays, route: '/cronograma', query: '', color: 'bg-orange-500' },
+  { label: 'Custo Real', icon: Receipt, route: '/custo-real', query: '', color: 'bg-violet-500' },
+];
+
+type OpenFab = null | 'entry' | 'edit';
+
 export default function GlobalFAB() {
-  const [open, setOpen] = useState(false);
+  const [openFab, setOpenFab] = useState<OpenFab>(null);
   const navigate = useNavigate();
   const { obras } = useObras();
   const { selectedObraId } = useObraSelection();
 
   if (!selectedObraId || obras.length === 0) return null;
 
+  const toggle = (fab: 'entry' | 'edit') => {
+    setOpenFab(prev => (prev === fab ? null : fab));
+  };
+
+  const actions = openFab === 'entry' ? entryActions : openFab === 'edit' ? editActions : [];
+
   return (
     <>
       {/* Overlay */}
-      {open && (
-        <div className="fixed inset-0 bg-black/30 z-[60] md:z-[45]" onClick={() => setOpen(false)} />
+      {openFab && (
+        <div className="fixed inset-0 bg-black/30 z-[60] md:z-[45]" onClick={() => setOpenFab(null)} />
       )}
 
       {/* Action items */}
-      {open && (
+      {openFab && (
         <div className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-[61] md:z-[46] flex flex-col-reverse gap-3 items-end">
-          {fabActions.map((action, idx) => {
+          {actions.map((action, idx) => {
             const Icon = action.icon;
             return (
               <button
                 key={action.label}
                 onClick={() => {
-                  setOpen(false);
+                  setOpenFab(null);
                   navigate(`${action.route}${action.query}`);
                 }}
                 className="flex items-center gap-3 animate-in slide-in-from-bottom-2 fade-in"
@@ -55,17 +73,32 @@ export default function GlobalFAB() {
         </div>
       )}
 
-      {/* FAB button */}
+      {/* Edit FAB */}
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => toggle('edit')}
+        className={cn(
+          'fixed bottom-36 md:bottom-[5.5rem] right-4 md:right-6 z-[62] md:z-[47] h-12 w-12 rounded-full shadow-xl flex items-center justify-center transition-all duration-200',
+          openFab === 'edit'
+            ? 'bg-muted text-foreground'
+            : 'bg-violet-600 text-white hover:bg-violet-700'
+        )}
+        title="Editar"
+      >
+        {openFab === 'edit' ? <X className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
+      </button>
+
+      {/* Entry FAB (main) */}
+      <button
+        onClick={() => toggle('entry')}
         className={cn(
           'fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[62] md:z-[47] h-14 w-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-200',
-          open
+          openFab === 'entry'
             ? 'bg-muted text-foreground rotate-45'
             : 'bg-primary text-primary-foreground hover:bg-primary/90'
         )}
+        title="Novo registro"
       >
-        {open ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
+        {openFab === 'entry' ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
       </button>
     </>
   );
