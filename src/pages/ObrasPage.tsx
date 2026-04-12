@@ -105,6 +105,13 @@ export default function ObrasPage() {
       dataPrevisaoTermino: obra.dataPrevisaoTermino,
       responsavel: obra.responsavel,
       descricao: obra.descricao,
+      tipo_implantacao: '',
+      percentual_inicial: '',
+      valor_gasto_anterior: '',
+      data_inicio_real: '',
+      observacoes_implantacao: '',
+      origem_dados: '',
+      observacao_interna: '',
     });
     setDialogOpen(true);
   };
