@@ -7,6 +7,7 @@ import { useEstoque } from '@/contexts/EstoqueContext';
 import { useCustoReal } from '@/contexts/CustoRealContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/untyped';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -67,6 +68,7 @@ function GestorPainel() {
   const { getItensByObra: getCustoItensByObra } = useCustoReal();
   const [printSections, setPrintSections] = useState<PrintSections>(defaultPrintSections);
   const [diarioRegistros, setDiarioRegistros] = useState<DiarioRow[]>([]);
+  const [pagamentos, setPagamentos] = useState<any[]>([]);
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
@@ -75,6 +77,8 @@ function GestorPainel() {
     supabase.from('diario_registros').select('*').eq('obra_id', obra.id)
       .order('data', { ascending: false }).limit(10)
       .then(({ data }) => { if (data) setDiarioRegistros(data as DiarioRow[]); });
+    supabase.from('pagamentos').select('id').eq('obra_id', obra.id).limit(1)
+      .then(({ data }) => { setPagamentos(data || []); });
   }, [obra?.id]);
 
   const handleObraSelectChange = (value: string) => {
@@ -178,30 +182,56 @@ function GestorPainel() {
           <CardTitle className="text-base">Ações Rápidas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
-              { to: '/orcamento', label: 'Orçamento', icon: DollarSign },
-              { to: '/custo-real', label: 'Custo Real', icon: Receipt },
-              { to: '/pagamentos', label: 'Pagamentos', icon: Wallet },
-              { to: '/cronograma', label: 'Cronograma', icon: CalendarDays },
-              { to: '/diario', label: 'Diário', icon: BookOpen },
-              { to: '/estoque', label: 'Estoque', icon: Package },
-              { to: '/pendencias', label: 'Pendências', icon: ListChecks },
-              { to: '/fornecedores', label: 'Fornecedores', icon: Store },
-              { to: '/documentos', label: 'Documentos', icon: FolderOpen },
-              { to: '/usuarios', label: 'Equipe', icon: Users },
-              { to: '/obras', label: 'Obras', icon: Building2 },
+              { to: '/pagamentos?novo=1', label: 'Novo Pagamento', icon: Wallet, desc: 'Registrar gasto', color: 'text-primary' },
+              { to: '/estoque?novo=1', label: 'Entrada Material', icon: Package, desc: 'Movimentar estoque', color: 'text-emerald-600' },
+              { to: '/diario?novo=1', label: 'Novo Diário', icon: BookOpen, desc: 'Registrar atividade', color: 'text-amber-600' },
+              { to: '/custo-real?novo=1', label: 'Lançar Custo', icon: Receipt, desc: 'Custo realizado', color: 'text-violet-600' },
+              { to: '/orcamento', label: 'Orçamento', icon: DollarSign, desc: 'Etapas e insumos', color: 'text-blue-600' },
+              { to: '/cronograma', label: 'Cronograma', icon: CalendarDays, desc: 'Prazos e etapas', color: 'text-orange-600' },
+              { to: '/fornecedores', label: 'Fornecedores', icon: Store, desc: 'Cadastro e preços', color: 'text-cyan-600' },
+              { to: '/documentos', label: 'Documentos', icon: FolderOpen, desc: 'Arquivos da obra', color: 'text-slate-600' },
             ].map(item => (
               <Link key={item.to} to={item.to}>
-                <Button variant="outline" className="w-full h-auto py-3 flex-col gap-1.5">
-                  <item.icon className="h-5 w-5 text-primary" />
-                  <span className="text-xs font-medium">{item.label}</span>
+                <Button variant="outline" className="w-full h-auto py-4 flex-col gap-1.5 hover:border-primary/40 hover:bg-primary/5 transition-all">
+                  <item.icon className={cn("h-6 w-6", item.color)} />
+                  <span className="text-sm font-medium">{item.label}</span>
+                  <span className="text-[10px] text-muted-foreground">{item.desc}</span>
                 </Button>
               </Link>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {/* Sugestões para você */}
+      {(() => {
+        const suggestions: { icon: React.ReactNode; text: string; action: string; to: string }[] = [];
+        if (pagamentos.length === 0) suggestions.push({ icon: <Wallet className="h-4 w-4 text-primary" />, text: 'Você ainda não registrou nenhum gasto nesta obra.', action: 'Registrar pagamento', to: '/pagamentos?novo=1' });
+        if (diarioRegistros.length === 0) suggestions.push({ icon: <BookOpen className="h-4 w-4 text-amber-500" />, text: 'Adicione seu primeiro diário de obra.', action: 'Criar diário', to: '/diario?novo=1' });
+        if (categorias.length === 0) suggestions.push({ icon: <DollarSign className="h-4 w-4 text-blue-500" />, text: 'Crie um orçamento para acompanhar custos.', action: 'Criar orçamento', to: '/orcamento' });
+        if (materiaisObra.length === 0) suggestions.push({ icon: <Package className="h-4 w-4 text-emerald-500" />, text: 'Cadastre materiais para controlar estoque.', action: 'Ir para estoque', to: '/estoque' });
+        if (suggestions.length === 0) return null;
+        return (
+          <Card className="shadow-card print:hidden border-primary/10 bg-primary/[0.02]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground font-medium">💡 Sugestões para você</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {suggestions.slice(0, 3).map((s, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                  {s.icon}
+                  <span className="text-sm text-foreground flex-1">{s.text}</span>
+                  <Link to={s.to}>
+                    <Button variant="ghost" size="sm" className="text-xs text-primary shrink-0">{s.action}</Button>
+                  </Link>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Print header */}
       <div className="hidden print:block mb-6">
