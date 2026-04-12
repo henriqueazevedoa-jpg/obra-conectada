@@ -479,6 +479,8 @@ export default function PagamentosPage() {
         total_parcelas: form.total_parcelas ? parseInt(form.total_parcelas) : null,
         observacoes: form.observacoes || null,
         etapa_orcamento: etapa,
+        data_compra: form.data_compra ? format(form.data_compra, 'yyyy-MM-dd') : null,
+        data_pagamento: form.data_pagamento ? format(form.data_pagamento, 'yyyy-MM-dd') : null,
       };
 
       let pagamentoId: string | null = null;
@@ -551,7 +553,8 @@ export default function PagamentosPage() {
 
   const handleMarcarPago = async (id: string) => {
     const pag = pagamentos.find(p => p.id === id);
-    const { error } = await supabase.from('pagamentos').update({ status: 'pago' as any }).eq('id', id);
+    const hoje = format(new Date(), 'yyyy-MM-dd');
+    const { error } = await supabase.from('pagamentos').update({ status: 'pago' as any, data_pagamento: hoje as any }).eq('id', id);
     if (!error) {
       setPagamentos(prev => prev.map(p => p.id === id ? { ...p, status: 'pago' } : p));
       toast({ title: 'Pagamento marcado como pago!' });
