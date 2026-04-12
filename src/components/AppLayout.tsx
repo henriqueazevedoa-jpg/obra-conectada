@@ -19,6 +19,7 @@ import {
   Wallet,
   ListChecks,
   Store,
+  FolderOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ const obraLinks: NavItem[] = [
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
   { to: "/estoque", label: "Estoque", icon: Package },
+  { to: "/documentos", label: "Documentos", icon: FolderOpen },
 ];
 
 const contaLinks: NavItem[] = [
