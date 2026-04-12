@@ -15,6 +15,7 @@ import { CompanyProvider, useCompany } from "@/contexts/CompanyContext";
 import AppLayout from "@/components/AppLayout";
 
 import LoginPage from "@/pages/LoginPage";
+import LandingPage from "@/pages/LandingPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import ObrasPage from "@/pages/ObrasPage";
 // ObraDetalhePage removed - clicking obra goes directly to Painel
@@ -121,11 +122,11 @@ function AppProviders({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/onboarding" element={<OnboardingRoute />} />
 
       <Route
-        path="/"
         element={
           <ProtectedRoute>
             <AppProviders>
@@ -134,7 +135,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/obras" replace />} />
         <Route path="obras" element={<ObrasPage />} />
         <Route path="painel" element={<PainelObraPage />} />
         <Route path="orcamento" element={<OrcamentoPage />} />

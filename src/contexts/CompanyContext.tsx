@@ -60,7 +60,7 @@ interface CompanyContextType {
     cnpj?: string;
     email?: string;
     telefone?: string;
-    planSlug: string;
+    planSlug?: string;
   }) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -252,20 +252,50 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       cnpj?: string;
       email?: string;
       telefone?: string;
-      planSlug: string;
+      planSlug?: string;
     }): Promise<{ success: boolean; error?: string }> => {
-      const { error } = await (supabase as any).rpc('complete_onboarding', {
-        _nome: input.nome,
-        _cnpj: input.cnpj || '',
-        _email: input.email || '',
-        _telefone: input.telefone || '',
-        _plan_slug: input.planSlug,
-      });
+      // Se tem planSlug, usa RPC completo; senão apenas atualiza dados da empresa
+      if (input.planSlug) {
+        const { error } = await (supabase as any).rpc('complete_onboarding', {
+          _nome: input.nome,
+          _cnpj: input.cnpj || '',
+          _email: input.email || '',
+          _telefone: input.telefone || '',
+          _plan_slug: input.planSlug,
+        });
+        if (error) {
+          console.error('Erro no complete_onboarding:', error);
+          return { success: false, error: error.message };
+        }
+      } else {
+        // Apenas atualizar dados da empresa existente via profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('company_id')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+          .maybeSingle();
 
-      if (error) {
-        console.error('Erro no complete_onboarding:', error);
-        return { success: false, error: error.message };
+        if (profile?.company_id) {
+          const { error } = await supabase
+            .from('companies')
+            .update({
+              nome: input.nome,
+              cnpj: input.cnpj || '',
+              email: input.email || '',
+              telefone: input.telefone || '',
+            })
+            .eq('id', profile.company_id);
+          if (error) {
+            console.error('Erro ao atualizar empresa:', error);
+            return { success: false, error: error.message };
+          }
+        } else {
+          return { success: false, error: 'Nenhuma empresa vinculada. Aguarde a ativação do seu plano.' };
+        }
       }
+
+      await fetchCompany();
+      return { success: true };
 
       await fetchCompany();
       return { success: true };
