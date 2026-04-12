@@ -369,7 +369,7 @@ export default function FornecedoresPage() {
               <div className="space-y-1.5"><Label>Unidade</Label><Input value={pForm.unidade} onChange={e => setPForm(f => ({ ...f, unidade: e.target.value }))} placeholder="kg, m², un..." /></div>
               <div className="space-y-1.5">
                 <Label>Origem</Label>
-                <Select value={pForm.origem_preco} onValueChange={v => setPForm(f => ({ ...f, origem_preco: v }))}>
+                <Select value={pForm.origem_preco} onValueChange={v => setPForm(f => ({ ...f, origem_preco: v as OrigemPreco }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{Object.entries(origemLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                 </Select>
