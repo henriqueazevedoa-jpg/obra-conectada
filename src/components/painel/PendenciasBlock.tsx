@@ -65,7 +65,7 @@ export default function PendenciasBlock({ obraId }: Props) {
           <CardTitle className="text-base flex items-center gap-2">
             <ListChecks className="h-4 w-4" /> Pendências da Obra
           </CardTitle>
-          <Link to="/pendencias">
+          <Link to="/pendencias" className="print:hidden">
             <Button variant="ghost" size="sm" className="text-xs text-primary h-7 gap-1">
               Ver todas <ArrowRight className="h-3 w-3" />
             </Button>
