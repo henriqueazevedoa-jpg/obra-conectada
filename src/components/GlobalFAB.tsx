@@ -39,6 +39,12 @@ export default function GlobalFAB() {
 
   const actions = openFab === 'entry' ? entryActions : openFab === 'edit' ? editActions : [];
 
+  // Position the menu above the active FAB button
+  // Entry FAB: bottom-20 (5rem) on mobile, bottom-6 (1.5rem) on desktop → menu starts above it
+  // Edit FAB: bottom-36 (9rem) on mobile, bottom-[5.5rem] on desktop → menu starts above it
+  const menuBottomMobile = openFab === 'entry' ? 'calc(5rem + 3.75rem)' : 'calc(9rem + 3.5rem)';
+  const menuBottomDesktop = openFab === 'entry' ? 'calc(1.5rem + 4.25rem)' : 'calc(5.5rem + 3.75rem)';
+
   return (
     <>
       {/* Overlay */}
@@ -46,9 +52,15 @@ export default function GlobalFAB() {
         <div className="fixed inset-0 bg-black/30 z-[60] md:z-[45]" onClick={() => setOpenFab(null)} />
       )}
 
-      {/* Action items */}
+      {/* Action items — positioned above the active FAB */}
       {openFab && (
-        <div className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-[61] md:z-[46] flex flex-col-reverse gap-3 items-end">
+        <div
+          className="fixed right-4 md:right-8 z-[63] md:z-[48] flex flex-col-reverse gap-3 items-end"
+          style={{
+            bottom: menuBottomMobile,
+          }}
+        >
+          <style>{`@media (min-width: 768px) { .fab-menu-pos { bottom: ${menuBottomDesktop} !important; } }`}</style>
           {actions.map((action, idx) => {
             const Icon = action.icon;
             return (
@@ -80,7 +92,7 @@ export default function GlobalFAB() {
           'fixed bottom-36 md:bottom-[5.5rem] right-4 md:right-6 z-[62] md:z-[47] h-12 w-12 rounded-full shadow-xl flex items-center justify-center transition-all duration-200',
           openFab === 'edit'
             ? 'bg-muted text-foreground'
-            : 'bg-violet-600 text-white hover:bg-violet-700'
+            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
         )}
         title="Editar"
       >
