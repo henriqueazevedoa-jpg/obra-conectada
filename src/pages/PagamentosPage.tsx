@@ -623,12 +623,6 @@ export default function PagamentosPage() {
     setItensCompra(prev => prev.length <= 1 ? prev : prev.filter(i => i.tempId !== tempId));
   };
 
-  // Auto-sync total value from items
-  useEffect(() => {
-    if (isCompraMaterial && totalItens > 0) {
-      setForm(prev => ({ ...prev, valor_previsto: totalItens.toFixed(2) }));
-    }
-  }, [totalItens, isCompraMaterial]);
 
   return (
     <div className="space-y-4 animate-fade-in">
