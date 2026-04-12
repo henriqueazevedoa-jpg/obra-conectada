@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { formatDate, statusDiarioLabels, climaLabels, DiarioRegistro, DiarioServico, DiarioMaterialUsado } from '@/data/mockData';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Users, CheckCircle2, Clock, XCircle, Trash2, Link2, Package, Pencil, CalendarIcon, Filter, ChevronDown, Printer, Square, CheckSquare, Camera, BookOpen } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
@@ -149,6 +150,7 @@ export default function DiarioPage() {
   const [filterStatus, setFilterStatus] = useState('_all');
   const [filterProblemas, setFilterProblemas] = useState('_all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const hasActiveFilters = filterEtapa !== '_all' || filterMaterial !== '_all' || filterStatus !== '_all' || filterProblemas !== '_all';
 
@@ -898,9 +900,14 @@ ${toPrint.map(r => {
               {selectedIds.size > 0 ? `${selectedIds.size} selecionado(s)` : 'Selecionar'}
             </Button>
             {selectedIds.size > 0 && (
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
-                <Printer className="h-3.5 w-3.5" /> Imprimir
-              </Button>
+              <>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
+                  <Printer className="h-3.5 w-3.5" /> Imprimir
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmOpen(true)}>
+                  <Trash2 className="h-3.5 w-3.5" /> Apagar
+                </Button>
+              </>
             )}
           </div>
           {selectedIds.size > 0 && (
@@ -1053,6 +1060,39 @@ ${toPrint.map(r => {
           ))}
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar {selectedIds.size} registro(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Todos os serviços, materiais e fotos vinculados também serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const ids = Array.from(selectedIds);
+                for (const id of ids) {
+                  await (supabase as any).from('diario_fotos').delete().eq('registro_id', id);
+                  await (supabase as any).from('diario_servicos').delete().eq('registro_id', id);
+                  await (supabase as any).from('diario_materiais').delete().eq('registro_id', id);
+                  await supabase.from('diario_registros').delete().eq('id', id);
+                }
+                setSelectedIds(new Set());
+                setDeleteConfirmOpen(false);
+                toast({ title: `${ids.length} registro(s) apagado(s).` });
+                fetchRegistros();
+              }}
+            >
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
