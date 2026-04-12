@@ -131,7 +131,7 @@ export default function PagamentosPage() {
   const { getOrcamento, saveOrcamento } = useOrcamento();
   const { saveItem: saveCustoItem } = useCustoReal();
   const { company } = useCompany();
-  const { refreshEstoque } = useEstoque();
+  const { refreshEstoque, materiais: allMateriais } = useEstoque();
   const obra = obras.find(o => o.id === obraId) || obras[0];
 
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
@@ -158,12 +158,35 @@ export default function PagamentosPage() {
   const [filterPeriodo, setFilterPeriodo] = useState('_all');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // Fornecedor + Material suggestions
+  const [fornecedoresList, setFornecedoresList] = useState<{ id: string; nome: string }[]>([]);
+
+  useEffect(() => {
+    const fetchFornecedores = async () => {
+      const { data } = await supabase.from('fornecedores').select('id, nome').order('nome');
+      if (data) setFornecedoresList(data as any[]);
+    };
+    fetchFornecedores();
+  }, []);
+
+  const fornecedorSuggestions = useMemo(() =>
+    fornecedoresList.map(f => ({ label: f.nome, value: f.id })),
+    [fornecedoresList]
+  );
+
+  const materialSuggestions = useMemo(() =>
+    allMateriais.map(m => ({ label: m.nome, value: m.id, meta: `${m.unidade}` })),
+    [allMateriais]
+  );
+
   // Form
   const [form, setForm] = useState({
     descricao: '',
     tipo_pagamento: 'outro',
     valor_previsto: '',
     data_vencimento: null as Date | null,
+    data_compra: new Date() as Date | null,
+    data_pagamento: null as Date | null,
     forma_pagamento: 'outro',
     fornecedor: '',
     numero_parcela: '',
@@ -172,6 +195,10 @@ export default function PagamentosPage() {
     etapa_orcamento: '_none',
   });
 
+  // Installment logic
+  const [parcelamentoMode, setParcelamentoMode] = useState<'none' | 'mensal' | 'custom'>('none');
+  const [parcelasDatas, setParcelasDatas] = useState<(Date | null)[]>([]);
+
   // Material purchase items
   const [isCompraMaterial, setIsCompraMaterial] = useState(false);
   const [itensCompra, setItensCompra] = useState<ItemCompra[]>([makeEmptyItem()]);
@@ -179,7 +206,8 @@ export default function PagamentosPage() {
   const resetForm = () => {
     setForm({
       descricao: '', tipo_pagamento: 'outro', valor_previsto: '',
-      data_vencimento: null, forma_pagamento: 'outro', fornecedor: '',
+      data_vencimento: null, data_compra: new Date(), data_pagamento: null,
+      forma_pagamento: 'outro', fornecedor: '',
       numero_parcela: '', total_parcelas: '', observacoes: '', etapa_orcamento: '_none',
     });
     setEditingId(null);
@@ -187,6 +215,8 @@ export default function PagamentosPage() {
     setNewEtapaNome('');
     setIsCompraMaterial(false);
     setItensCompra([makeEmptyItem()]);
+    setParcelamentoMode('none');
+    setParcelasDatas([]);
   };
 
   // Get orcamento categories for the selected obra
