@@ -40,7 +40,6 @@ export default function DiarioPage() {
   const { getMateriaisByObra, registrarMovimentacao } = useEstoque();
   const { selectedObraId: obraId, setSelectedObraId: setObraId } = useObraSelection();
   const obra = obras.find(o => o.id === obraId) || obras[0];
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [registros, setRegistros] = useState<DiarioRegistro[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -899,14 +898,9 @@ ${toPrint.map(r => {
               {selectedIds.size > 0 ? `${selectedIds.size} selecionado(s)` : 'Selecionar'}
             </Button>
             {selectedIds.size > 0 && (
-              <>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
-                  <Printer className="h-3.5 w-3.5" /> Imprimir
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmOpen(true)}>
-                  <Trash2 className="h-3.5 w-3.5" /> Apagar
-                </Button>
-              </>
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
+                <Printer className="h-3.5 w-3.5" /> Imprimir
+              </Button>
             )}
           </div>
           {selectedIds.size > 0 && (
@@ -1059,33 +1053,6 @@ ${toPrint.map(r => {
           ))}
         </div>
       )}
-
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Apagar registros selecionados?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Tem certeza que deseja apagar {selectedIds.size} registro(s)? Esta ação não pode ser desfeita.
-          </p>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={async () => {
-              const ids = Array.from(selectedIds);
-              for (const id of ids) {
-                await supabase.from('diario_registros').delete().eq('id', id);
-              }
-              setSelectedIds(new Set());
-              setDeleteConfirmOpen(false);
-              fetchRegistros();
-              toast({ title: `${ids.length} registro(s) apagado(s).` });
-            }}>
-              Apagar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
