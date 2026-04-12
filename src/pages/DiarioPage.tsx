@@ -814,7 +814,7 @@ ${toPrint.map(r => {
 
       {/* Selection & Print actions */}
       {sortedRegistros.length > 0 && (
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={toggleSelectAll}>
               {selectedIds.size === sortedRegistros.length ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
@@ -822,10 +822,17 @@ ${toPrint.map(r => {
             </Button>
             {selectedIds.size > 0 && (
               <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
-                <Printer className="h-3.5 w-3.5" /> Imprimir Selecionados
+                <Printer className="h-3.5 w-3.5" /> Imprimir
               </Button>
             )}
           </div>
+          {selectedIds.size > 0 && (
+            <DiarioReportPicker
+              sections={reportSections}
+              onChange={setReportSections}
+              onGenerate={() => generateReport(Array.from(selectedIds))}
+            />
+          )}
         </div>
       )}
 
