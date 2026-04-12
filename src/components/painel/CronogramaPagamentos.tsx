@@ -11,9 +11,7 @@ interface Pagamento {
   id: string;
   descricao: string;
   valor_previsto: number;
-  valor_pago: number | null;
   data_vencimento: string;
-  data_pagamento: string | null;
   status: string;
   fornecedor_nome: string | null;
 }
@@ -41,7 +39,7 @@ export default function CronogramaPagamentos({ obraId }: Props) {
     if (!obraId) return;
     supabase
       .from('pagamentos')
-      .select('id, descricao, valor_previsto, valor_pago, data_vencimento, data_pagamento, status, fornecedor_nome')
+      .select('id, descricao, valor_previsto, data_vencimento, status, fornecedor_nome')
       .eq('obra_id', obraId)
       .order('data_vencimento', { ascending: true })
       .then(({ data }: any) => {
@@ -72,7 +70,7 @@ export default function CronogramaPagamentos({ obraId }: Props) {
   }, [items]);
 
   const totalPrevisto = items.reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
-  const totalPago = items.filter(p => p.realStatus === 'pago').reduce((s, p) => s + (Number(p.valor_pago) || Number(p.valor_previsto) || 0), 0);
+  const totalPago = items.filter(p => p.realStatus === 'pago').reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
   const totalAtrasado = items.filter(p => p.realStatus === 'atrasado').reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
 
   if (items.length === 0) return null;
