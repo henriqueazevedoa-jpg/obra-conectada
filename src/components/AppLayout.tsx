@@ -15,6 +15,7 @@ import {
   Receipt,
   Shield,
   Users,
+  Wallet,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ const gestorLinks = [
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
+  { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
   { to: "/estoque", label: "Estoque", icon: Package },
@@ -77,6 +79,7 @@ const adminLinks = [
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
+  { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
   { to: "/estoque", label: "Estoque", icon: Package },
