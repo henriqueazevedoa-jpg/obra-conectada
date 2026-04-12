@@ -28,7 +28,7 @@ export default function CustoRealPage() {
 
   const categorias = orcamento?.categorias || [];
   const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);
-  const totalRealizado = custoItens.reduce((s, i) => s + i.precoTotal, 0);
+  const totalRealizado = custoItens.reduce((s, i) => s + i.valor, 0);
   const desvio = totalRealizado - totalPrevisto;
   const desvioPercent = totalPrevisto > 0 ? ((desvio / totalPrevisto) * 100) : 0;
 
@@ -137,8 +137,8 @@ export default function CustoRealPage() {
                     </thead>
                     <tbody>
                       {categorias.map(cat => {
-                        const catItens = custoItens.filter(i => i.categoriaId === cat.id);
-                        const catRealizado = catItens.reduce((s, i) => s + i.precoTotal, 0);
+                        const catItens = custoItens.filter(i => i.categoria === cat.nome);
+                        const catRealizado = catItens.reduce((s, i) => s + i.valor, 0);
                         const catDesvio = catRealizado - cat.precoTotal;
                         return (
                           <tr key={cat.id} className="border-b border-border hover:bg-muted/50 transition-colors">
@@ -186,7 +186,7 @@ export default function CustoRealPage() {
                   {(() => {
                     const tiposMap = new Map<string, number>();
                     custoItens.forEach(i => {
-                      tiposMap.set(i.tipoInsumo, (tiposMap.get(i.tipoInsumo) || 0) + i.precoTotal);
+                      tiposMap.set(i.categoria || 'Outros', (tiposMap.get(i.categoria || 'Outros') || 0) + i.valor);
                     });
                     return Array.from(tiposMap.entries())
                       .sort((a, b) => b[1] - a[1])
