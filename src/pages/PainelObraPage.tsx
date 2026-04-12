@@ -35,6 +35,7 @@ import PendenciasBlock from '@/components/painel/PendenciasBlock';
 import CostPieChart from '@/components/painel/CostPieChart';
 import PontosAtencao from '@/components/painel/PontosAtencao';
 import GanttChart from '@/components/painel/GanttChart';
+import CronogramaPagamentos from '@/components/painel/CronogramaPagamentos';
 import NoObraState from '@/components/obras/NoObraState';
 
 interface DiarioRow {
@@ -277,7 +278,10 @@ function GestorPainel() {
         />
       </div>
 
-      {/* 8. Resumo do Cronograma com Gantt */}
+      {/* 8. Cronograma de Pagamentos */}
+      <CronogramaPagamentos obraId={obra.id} />
+
+      {/* 9. Resumo do Cronograma com Gantt */}
       <div data-print-section="cronograma">
         <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
           <CardHeader className="pb-3">
