@@ -505,8 +505,13 @@ export default function PagamentosPage() {
 
       // Process material items if this is a material purchase
       if (isCompraMaterial && pagamentoId) {
+        // If editing, delete old items first
+        if (editingId) {
+          await (supabase as any).from('pagamento_itens').delete().eq('pagamento_id', editingId);
+        }
+
         const validItems = itensCompra.filter(i => i.nome_material.trim());
-        const dataRef = format(form.data_vencimento, 'yyyy-MM-dd');
+        const dataRef = form.data_compra ? format(form.data_compra, 'yyyy-MM-dd') : format(form.data_vencimento, 'yyyy-MM-dd');
 
         for (const item of validItems) {
           const nomeNorm = normalizeMaterialName(item.nome_material);
@@ -530,13 +535,15 @@ export default function PagamentosPage() {
             categoria: item.categoria || null,
           });
 
-          // 3. Create stock entry
-          if (materialId) {
+          // 3. Create stock entry (only for new pagamentos, not edits to avoid duplicates)
+          if (materialId && !editingId) {
             await createStockEntry(materialId, item, obra.id, form.descricao, form.fornecedor);
           }
 
-          // 4. Feed price history
-          await createPriceRecord(materialId, item, obra.id, form.fornecedor, dataRef);
+          // 4. Feed price history (only for new)
+          if (!editingId) {
+            await createPriceRecord(materialId, item, obra.id, form.fornecedor, dataRef);
+          }
         }
 
         // Refresh stock data
