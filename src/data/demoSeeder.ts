@@ -19,7 +19,7 @@ function daysFromNow(n: number) {
 }
 
 async function checkedInsert(table: string, data: any[]) {
-  const { error } = await supabase.from(table).insert(data as any);
+  const { error } = await (supabase.from as any)(table).insert(data);
   if (error) {
     console.error(`Demo seed: ${table} insert failed:`, error.message, error.details, error.hint);
     throw new Error(`${table}: ${error.message}`);
