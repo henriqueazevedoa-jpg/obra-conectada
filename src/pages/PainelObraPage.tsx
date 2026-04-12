@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
@@ -20,9 +20,9 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
   Clock, CalendarDays, DollarSign, Users,
-  LayoutDashboard, Plus, ChevronDown,
+  LayoutDashboard, Plus, ChevronDown, List, BarChart3,
 } from 'lucide-react';
-import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO, isAfter, isBefore, startOfDay, differenceInWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import SCurveChart from '@/components/painel/SCurveChart';
 import ABCTable from '@/components/painel/ABCTable';
@@ -34,6 +34,7 @@ import AcoesPrioritarias from '@/components/painel/AcoesPrioritarias';
 import PendenciasBlock from '@/components/painel/PendenciasBlock';
 import CostPieChart from '@/components/painel/CostPieChart';
 import PontosAtencao from '@/components/painel/PontosAtencao';
+import GanttChart from '@/components/painel/GanttChart';
 import NoObraState from '@/components/obras/NoObraState';
 
 interface DiarioRow {
@@ -77,6 +78,7 @@ function GestorPainel() {
   const [pagamentosAtrasados, setPagamentosAtrasados] = useState<{ count: number; valor: number }>({ count: 0, valor: 0 });
   const [pendenciasAlta, setPendenciasAlta] = useState(0);
   const [diarioOpen, setDiarioOpen] = useState(false);
+  const [cronogramaView, setCronogramaView] = useState<'list' | 'gantt'>('list');
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
@@ -86,7 +88,6 @@ function GestorPainel() {
       .order('data', { ascending: false }).limit(10)
       .then(({ data }) => { if (data) setDiarioRegistros(data as DiarioRow[]); });
 
-    // Fetch pagamentos atrasados
     const today = startOfDay(new Date()).toISOString().slice(0, 10);
     supabase.from('pagamentos').select('id, valor_previsto, status, data_vencimento')
       .eq('obra_id', obra.id)
@@ -102,7 +103,6 @@ function GestorPainel() {
         });
       });
 
-    // Fetch pendências alta prioridade
     supabase.from('pendencias').select('id, prioridade, status')
       .eq('obra_id', obra.id)
       .then(({ data }) => {
@@ -147,6 +147,16 @@ function GestorPainel() {
     const shouldBeDone = withDates.filter(c => new Date(c.dataFimPrevista!) <= today).length;
     return Math.round((shouldBeDone / categorias.length) * 100);
   })();
+
+  // Previsto acumulado proporcional ao avanço real
+  const previstoAcumulado = useMemo(() => {
+    if (totalPrevisto === 0 || categorias.length === 0) return 0;
+    // Sum proportional cost based on each category's progress
+    return categorias.reduce((sum, cat) => {
+      const pct = computePercentual(cat) / 100;
+      return sum + cat.precoTotal * pct;
+    }, 0);
+  }, [categorias, totalPrevisto]);
 
   const totalTrabalhadores = registrosAprovados.length > 0
     ? Math.round(registrosAprovados.reduce((s, r) => s + r.trabalhadores, 0) / registrosAprovados.length)
@@ -208,6 +218,7 @@ function GestorPainel() {
       <SmartCards
         totalPrevisto={totalPrevisto}
         totalRealizado={totalRealizado}
+        previstoAcumulado={previstoAcumulado}
         andamentoReal={andamentoReal}
         andamentoPlanejado={andamentoPlanejado}
         etapasAtrasadas={atrasadas.length}
@@ -250,52 +261,12 @@ function GestorPainel() {
         <CostPieChart categorias={categorias} custoItens={custoItens} />
       </div>
 
-      {/* 6. Charts Row 2: Custos por Etapa + Curva ABC */}
-      <div className="grid md:grid-cols-2 gap-5">
-        {/* Custos por Etapa */}
-        <div data-print-section="custosEtapa">
-          <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <DollarSign className="h-4 w-4" /> Custos por Etapa
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {categorias.map(c => {
-                  const pctCusto = totalPrevisto > 0 ? Math.round((c.precoTotal / totalPrevisto) * 100) : 0;
-                  return (
-                    <div key={c.id} className="flex items-center gap-4">
-                      <span className="text-sm text-foreground w-32 sm:w-40 shrink-0 truncate">{c.nome}</span>
-                      <div className="flex-1"><Progress value={pctCusto} className="h-2" /></div>
-                      <span className="text-xs text-muted-foreground w-20 text-right hidden sm:block">{formatCurrency(c.precoTotal)}</span>
-                      <span className="text-xs text-muted-foreground w-10 text-right">{pctCusto}%</span>
-                    </div>
-                  );
-                })}
-                {categorias.length > 0 && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm font-semibold text-foreground w-32 sm:w-40 shrink-0">Total</span>
-                      <div className="flex-1" />
-                      <span className="text-sm font-bold text-foreground w-20 text-right hidden sm:block">{formatCurrency(totalPrevisto)}</span>
-                      <span className="text-xs text-muted-foreground w-10 text-right">100%</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Curva ABC */}
-        <div data-print-section="curvaABC">
-          <ABCTable categorias={categorias} custoItens={custoItens} />
-        </div>
+      {/* 6. Curva ABC — Full Width */}
+      <div data-print-section="curvaABC">
+        <ABCTable categorias={categorias} custoItens={custoItens} />
       </div>
 
-      {/* 7. Row 3: Pendências + Pontos de Atenção */}
+      {/* 7. Pendências + Pontos de Atenção */}
       <div className="grid md:grid-cols-2 gap-5">
         <PendenciasBlock obraId={obra.id} />
         <PontosAtencao
@@ -310,13 +281,23 @@ function GestorPainel() {
         />
       </div>
 
-      {/* 8. Resumo do Cronograma */}
+      {/* 8. Resumo do Cronograma com Gantt */}
       <div data-print-section="cronograma">
         <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" /> Resumo do Cronograma
-            </CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" /> Resumo do Cronograma
+              </CardTitle>
+              <div className="flex border border-border rounded-md print:hidden">
+                <Button variant={cronogramaView === 'list' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-r-none gap-1 text-xs" onClick={() => setCronogramaView('list')}>
+                  <List className="h-3 w-3" /> Lista
+                </Button>
+                <Button variant={cronogramaView === 'gantt' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-l-none gap-1 text-xs" onClick={() => setCronogramaView('gantt')}>
+                  <BarChart3 className="h-3 w-3" /> Gantt
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-3 mb-4">
@@ -325,36 +306,45 @@ function GestorPainel() {
               <div className="text-center p-2 rounded-lg bg-destructive/10"><p className="text-xl font-bold text-destructive">{atrasadas.length}</p><p className="text-[10px] text-muted-foreground">Atrasadas</p></div>
               <div className="text-center p-2 rounded-lg bg-muted"><p className="text-xl font-bold text-muted-foreground">{naoIniciadas.length}</p><p className="text-[10px] text-muted-foreground">Não Iniciadas</p></div>
             </div>
-            <div className="space-y-2">
-              {categorias.map(c => {
-                const status = computeStatus(c);
-                const pct = computePercentual(c);
-                return (
-                  <div key={c.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors print:p-1">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {status === 'concluida' ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> :
-                       status === 'atrasada' ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0" /> :
-                       status === 'em_andamento' ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> :
-                       <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
-                      <span className="text-sm text-foreground truncate">{c.nome}</span>
+
+            {cronogramaView === 'gantt' ? (
+              <div className="overflow-x-auto">
+                <div className="min-w-[700px]">
+                  <GanttChart categorias={categorias} />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {categorias.map(c => {
+                  const status = computeStatus(c);
+                  const pct = computePercentual(c);
+                  return (
+                    <div key={c.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors print:p-1">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {status === 'concluida' ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> :
+                         status === 'atrasada' ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0" /> :
+                         status === 'em_andamento' ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> :
+                         <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
+                        <span className="text-sm text-foreground truncate">{c.nome}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="w-20"><Progress value={pct} className="h-1.5" /></div>
+                        <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                        <Badge variant="secondary" className={
+                          status === 'concluida' ? 'bg-success/10 text-success border-0' :
+                          status === 'atrasada' ? 'bg-destructive/10 text-destructive border-0' :
+                          status === 'em_andamento' ? 'bg-primary/10 text-primary border-0' :
+                          'bg-muted text-muted-foreground border-0'
+                        }>{statusEtapaLabels[status]}</Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="w-20"><Progress value={pct} className="h-1.5" /></div>
-                      <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
-                      <Badge variant="secondary" className={
-                        status === 'concluida' ? 'bg-success/10 text-success border-0' :
-                        status === 'atrasada' ? 'bg-destructive/10 text-destructive border-0' :
-                        status === 'em_andamento' ? 'bg-primary/10 text-primary border-0' :
-                        'bg-muted text-muted-foreground border-0'
-                      }>{statusEtapaLabels[status]}</Badge>
-                    </div>
-                  </div>
-                );
-              })}
-              {categorias.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada no orçamento.</p>
-              )}
-            </div>
+                  );
+                })}
+                {categorias.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada no orçamento.</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -401,7 +391,6 @@ function GestorPainel() {
                 </CollapsibleTrigger>
               </div>
             </CardHeader>
-            {/* Show first 3 always */}
             <CardContent className="space-y-3 pt-0">
               {diarioRegistros.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
