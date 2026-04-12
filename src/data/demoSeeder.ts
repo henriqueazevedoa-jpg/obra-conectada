@@ -220,7 +220,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra3Id, user_id: userId, usuario_nome: 'Demo Gestor', data: daysAgo(10), clima: 'sol' as const, trabalhadores: 3, servicos_executados: `${DEMO_PREFIX} Visita técnica ao terreno. Marcação de pontos de sondagem.`, problemas: null, observacoes: 'Terreno com boa condição de acesso. Solo aparentemente argiloso.', status: 'aprovado' as const },
     { obra_id: obra3Id, user_id: userId, usuario_nome: 'Demo Gestor', data: daysAgo(8), clima: 'nublado' as const, trabalhadores: 4, servicos_executados: `${DEMO_PREFIX} Sondagem SPT - 6 furos executados. Coleta de amostras.`, problemas: 'Nível d\'água encontrado a 3m - necessário rebaixamento', observacoes: 'Resultado de sondagem previsto para 5 dias úteis', status: 'aprovado' as const },
   ];
-  await supabase.from('diario_registros').insert(diarios as any);
+  try { await supabase.from('diario_registros').insert(diarios as any); } catch (e) { console.warn('Demo: diarios failed', e); }
 
   // === 7. PAGAMENTOS (variados: status, tipos, formas, parcelas) ===
   const pagamentos = [
@@ -251,7 +251,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra3Id, descricao: `${DEMO_PREFIX} Licenciamento ambiental`, tipo_pagamento: 'servico' as const, valor_previsto: 15000, data_vencimento: daysFromNow(20), status: 'previsto' as const, forma_pagamento: 'boleto' as const, fornecedor: 'Ambiental Consultoria' },
     { obra_id: obra3Id, descricao: `${DEMO_PREFIX} Projeto instalações elétricas`, tipo_pagamento: 'servico' as const, valor_previsto: 18000, data_vencimento: daysFromNow(30), status: 'previsto' as const, forma_pagamento: 'transferencia' as const, fornecedor: 'Elétrica Projetos' },
   ];
-  await supabase.from('pagamentos').insert(pagamentos as any);
+  try { await supabase.from('pagamentos').insert(pagamentos as any); } catch (e) { console.warn('Demo: pagamentos failed', e); }
 
   // === 8. PENDÊNCIAS (variadas: tipos, prioridades, status, vencidas) ===
   const pendencias = [
@@ -278,7 +278,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra3Id, titulo: `${DEMO_PREFIX} Cotação estacas pré-moldadas`, descricao: 'Solicitar cotação para 800m de estacas hélice contínua', tipo: 'orcamento' as const, prioridade: 'media' as const, status: 'aberta' as const, data_limite: daysFromNow(15) },
     { obra_id: obra3Id, titulo: `${DEMO_PREFIX} Seguro da obra`, descricao: 'Contratar seguro de responsabilidade civil e all risks', tipo: 'documento' as const, prioridade: 'baixa' as const, status: 'aberta' as const, data_limite: daysFromNow(20) },
   ];
-  await supabase.from('pendencias').insert(pendencias as any);
+  try { await supabase.from('pendencias').insert(pendencias as any); } catch (e) { console.warn('Demo: pendencias failed', e); }
 
   // === 9. FORNECEDORES (variados por obra) ===
   const forn = Array.from({ length: 10 }, () => demoId());
@@ -297,7 +297,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { id: forn[8], obra_id: obra3Id, nome: `${DEMO_PREFIX} GeoSondagens`, cnpj: '77.888.999/0001-11', email: 'contato@geosondagens.com', telefone: '(11) 5566-7788', cidade: 'Jundiaí', observacoes: 'Especializada em SPT e ensaios de campo.' },
     { id: forn[9], obra_id: obra3Id, nome: `${DEMO_PREFIX} Calc Estruturas`, cnpj: '88.999.000/0001-33', email: 'projetos@calcestruturas.com', telefone: '(11) 6677-8899', cidade: 'São Paulo', observacoes: 'Referência em pré-moldados industriais.' },
   ];
-  await supabase.from('fornecedores').insert(fornecedores as any);
+  try { await supabase.from('fornecedores').insert(fornecedores as any); } catch (e) { console.warn('Demo: fornecedores failed', e); }
 
   // === 10. PREÇOS FORNECEDORES (histórico variado) ===
   const precos = [
