@@ -192,11 +192,7 @@ export default function EstoquePage() {
 
           {canMovimentar && (
             <div className="flex gap-2">
-              <Dialog open={cadastroOpen} onOpenChange={setCadastroOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Cadastrar Material
+              {/* Cadastro manual oculto - materiais são criados via compra de material em Pagamentos */}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
