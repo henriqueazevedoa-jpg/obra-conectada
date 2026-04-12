@@ -32,8 +32,8 @@ interface NavItem {
 }
 
 const obraLinks: NavItem[] = [
-  { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: Building2 },
+  { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
   { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
@@ -52,16 +52,16 @@ const contaLinks: NavItem[] = [
 
 const gestorLinks = [...obraLinks];
 const funcionarioLinks: NavItem[] = [
-  { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: Building2 },
+  { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
   { to: "/estoque", label: "Estoque", icon: Package },
 ];
 
 const clienteLinks: NavItem[] = [
-  { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: Building2 },
+  { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
@@ -74,26 +74,26 @@ const adminLinks: NavItem[] = [
 ];
 
 const mobileGestorTabs = [
+  { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/painel", label: "Painel", icon: LayoutDashboard },
-  { to: "/diario", label: "Diário", icon: BookOpen },
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/estoque", label: "Estoque", icon: Package },
   { to: "/_more", label: "Mais", icon: Menu },
 ];
 
 const mobileFuncionarioTabs = [
+  { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/painel", label: "Painel", icon: LayoutDashboard },
   { to: "/diario", label: "Diário", icon: BookOpen },
-  { to: "/estoque", label: "Estoque", icon: Package },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/_more", label: "Mais", icon: Menu },
 ];
 
 const mobileClienteTabs = [
+  { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/painel", label: "Painel", icon: LayoutDashboard },
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/diario", label: "Diário", icon: BookOpen },
-  { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/_more", label: "Mais", icon: Menu },
 ];
 
