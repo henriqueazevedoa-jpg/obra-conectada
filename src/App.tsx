@@ -127,7 +127,6 @@ function AppRoutes() {
       <Route path="/onboarding" element={<OnboardingRoute />} />
 
       <Route
-        path="/"
         element={
           <ProtectedRoute>
             <AppProviders>
@@ -136,7 +135,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/obras" replace />} />
         <Route path="obras" element={<ObrasPage />} />
         <Route path="painel" element={<PainelObraPage />} />
         <Route path="orcamento" element={<OrcamentoPage />} />
