@@ -47,7 +47,7 @@ export function AutocompleteInput({
 
   const handleSelect = (s: Suggestion) => {
     onChange(s.label);
-    onSelect?.(s);
+    onSuggestionSelect?.(s);
     setOpen(false);
     setActiveIdx(-1);
   };
