@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { formatDate, statusDiarioLabels, climaLabels, DiarioRegistro, DiarioServico, DiarioMaterialUsado } from '@/data/mockData';
-import { Plus, Users, CheckCircle2, Clock, XCircle, Trash2, Link2, Package, Pencil, CalendarIcon, Filter, ChevronDown, Printer, Square, CheckSquare, Camera } from 'lucide-react';
+import { Plus, Users, CheckCircle2, Clock, XCircle, Trash2, Link2, Package, Pencil, CalendarIcon, Filter, ChevronDown, Printer, Square, CheckSquare, Camera, BookOpen } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import NoObraState from '@/components/obras/NoObraState';
