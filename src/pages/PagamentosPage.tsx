@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, parseISO, addDays, addMonths, isBefore, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from '@/contexts/AuthContext';
