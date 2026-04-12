@@ -125,36 +125,6 @@ export default function LoginPage() {
                   Entrar
                 </Button>
               </form>
-
-              {/* Atalhos temporários para teste */}
-              <div className="border border-dashed border-warning/50 rounded-lg p-3 space-y-2 bg-warning/5">
-                <p className="text-xs font-medium text-warning flex items-center gap-1">⚡ Acesso rápido (temporário)</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: 'Gestor', email: 'gestor@teste.com' },
-                    { label: 'Funcionário', email: 'funcionario@teste.com' },
-                    { label: 'Cliente', email: 'cliente@teste.com' },
-                    { label: 'Admin', email: 'admin@teste.com' },
-                  ].map(acc => (
-                    <Button
-                      key={acc.email}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs h-8"
-                      disabled={submitting}
-                      onClick={() => {
-                        setLoginEmail(acc.email);
-                        setLoginPassword('123456');
-                        setError('');
-                      }}
-                    >
-                      {acc.label}
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground text-center">Clique para preencher, depois aperte Entrar</p>
-              </div>
             </TabsContent>
 
             <TabsContent value="signup" className="space-y-4 pt-4">
