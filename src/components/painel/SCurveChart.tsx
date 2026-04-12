@@ -19,10 +19,17 @@ interface SCurveChartProps {
   obraFim: string;
 }
 
-type ViewMode = 'tempo' | 'custo';
+export type SCurveViewMode = 'tempo' | 'custo';
 
-export default function SCurveChart({ categorias, custoItens, obraInicio, obraFim }: SCurveChartProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('tempo');
+interface ExtendedProps extends SCurveChartProps {
+  viewMode?: SCurveViewMode;
+  onViewModeChange?: (mode: SCurveViewMode) => void;
+}
+
+export default function SCurveChart({ categorias, custoItens, obraInicio, obraFim, viewMode: externalMode, onViewModeChange }: ExtendedProps) {
+  const [internalMode, setInternalMode] = useState<SCurveViewMode>('tempo');
+  const viewMode = externalMode ?? internalMode;
+  const setViewMode = onViewModeChange ?? setInternalMode;
 
   const data = useMemo(() => {
     if (!obraInicio || !obraFim || categorias.length === 0) return [];

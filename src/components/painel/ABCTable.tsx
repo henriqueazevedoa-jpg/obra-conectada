@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
 import { CustoRealItem } from '@/contexts/CustoRealContext';
 import { formatCurrency } from '@/data/mockData';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart3 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -12,7 +12,11 @@ import { Progress } from '@/components/ui/progress';
 interface ABCTableProps {
   categorias: OrcamentoCategoria[];
   custoItens: CustoRealItem[];
+  view?: ABCView;
+  onViewChange?: (view: ABCView) => void;
 }
+
+export type ABCView = 'etapas' | 'tipo' | 'insumos';
 
 interface ABCRow {
   nome: string;
@@ -21,6 +25,12 @@ interface ABCRow {
   acumulado: number;
   classe: 'A' | 'B' | 'C';
 }
+
+const VIEW_LABELS: Record<ABCView, string> = {
+  etapas: 'Por Etapa',
+  tipo: 'Por Tipo',
+  insumos: 'Por Insumo',
+};
 
 function classifyABC(items: { nome: string; valor: number }[]): ABCRow[] {
   const sorted = [...items].sort((a, b) => b.valor - a.valor);
@@ -81,8 +91,10 @@ function ABCRows({ rows }: { rows: ABCRow[] }) {
   );
 }
 
-export default function ABCTable({ categorias, custoItens }: ABCTableProps) {
-  const [tab, setTab] = useState('etapas');
+export default function ABCTable({ categorias, custoItens, view: externalView, onViewChange }: ABCTableProps) {
+  const [internalView, setInternalView] = useState<ABCView>('etapas');
+  const view = externalView ?? internalView;
+  const setView = onViewChange ?? setInternalView;
 
   const etapasRows = useMemo(() => {
     return classifyABC(categorias.map(c => ({ nome: c.nome, valor: c.precoTotal })));
@@ -104,29 +116,28 @@ export default function ABCTable({ categorias, custoItens }: ABCTableProps) {
     return classifyABC(Object.entries(byDesc).map(([nome, valor]) => ({ nome, valor })));
   }, [custoItens]);
 
+  const currentRows = view === 'etapas' ? etapasRows : view === 'tipo' ? tipoRows : insumosRows;
+
   return (
     <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <BarChart3 className="h-4 w-4" /> Curva ABC
-        </CardTitle>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" /> Curva ABC
+          </CardTitle>
+          <div className="flex gap-1 print:hidden">
+            {(['etapas', 'tipo', 'insumos'] as ABCView[]).map(v => (
+              <Button key={v} size="sm" variant={view === v ? 'default' : 'outline'}
+                onClick={() => setView(v)} className="h-7 text-xs">
+                {VIEW_LABELS[v]}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <p className="hidden print:block text-xs text-muted-foreground mt-1">Visão: {VIEW_LABELS[view]}</p>
       </CardHeader>
       <CardContent>
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-3 print:hidden">
-            <TabsTrigger value="etapas" className="text-xs">Por Etapa</TabsTrigger>
-            <TabsTrigger value="tipo" className="text-xs">Por Tipo</TabsTrigger>
-            <TabsTrigger value="insumos" className="text-xs">Por Insumo</TabsTrigger>
-          </TabsList>
-          <TabsContent value="etapas"><ABCRows rows={etapasRows} /></TabsContent>
-          <TabsContent value="tipo"><ABCRows rows={tipoRows} /></TabsContent>
-          <TabsContent value="insumos"><ABCRows rows={insumosRows} /></TabsContent>
-        </Tabs>
-        {/* Print: show etapas by default */}
-        <div className="hidden print:block">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Curva ABC — Por Etapa</p>
-          <ABCRows rows={etapasRows} />
-        </div>
+        <ABCRows rows={currentRows} />
       </CardContent>
     </Card>
   );
