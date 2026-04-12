@@ -54,8 +54,8 @@ const emptyPreco = {
 
 export default function FornecedoresPage() {
   const { obras } = useObras();
-  const { selectedObraId } = useObraSelection();
-  const obra = obras.find(o => o.id === selectedObraId);
+  const { selectedObraId, setSelectedObraId } = useObraSelection();
+  const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [precos, setPrecos] = useState<PrecoFornecedor[]>([]);
@@ -189,6 +189,18 @@ export default function FornecedoresPage() {
           <h1 className="text-2xl font-bold text-foreground">Fornecedores & Preços</h1>
           <p className="text-muted-foreground text-sm">{obra.codigo} — {obra.nome}</p>
         </div>
+        <Select value={obra.id} onValueChange={setSelectedObraId}>
+          <SelectTrigger className="w-full sm:w-[280px]">
+            <SelectValue placeholder="Selecione a obra" />
+          </SelectTrigger>
+          <SelectContent>
+            {obras.map((o) => (
+              <SelectItem key={o.id} value={o.id}>
+                {o.codigo} - {o.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Tabs defaultValue="fornecedores">

@@ -365,7 +365,9 @@ export default function CronogramaPage() {
                 <CardTitle className="text-base">Gráfico de Gantt</CardTitle>
               </CardHeader>
               <CardContent className="overflow-x-auto">
-                <GanttChart categorias={categorias} />
+                <div className="min-w-[900px]">
+                  <GanttChart categorias={categorias} />
+                </div>
               </CardContent>
             </Card>
           )}
@@ -377,15 +379,16 @@ export default function CronogramaPage() {
                 <CardTitle className="text-base">Etapas da Obra</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="relative">
-                  {categorias.map((cat, catIdx) => {
-                    const status = computeStatus(cat);
-                    const percentual = computePercentual(cat);
-                    const isExpanded = expandedCats.has(cat.id);
-                    const hasComps = cat.usaComposicoes && cat.composicoes.length > 0;
+                <div className="overflow-x-auto">
+                  <div className="relative min-w-[760px]">
+                    {categorias.map((cat, catIdx) => {
+                      const status = computeStatus(cat);
+                      const percentual = computePercentual(cat);
+                      const isExpanded = expandedCats.has(cat.id);
+                      const hasComps = cat.usaComposicoes && cat.composicoes.length > 0;
 
-                    return (
-                      <div key={cat.id} className="flex gap-4 pb-4 last:pb-0">
+                      return (
+                        <div key={cat.id} className="flex gap-4 pb-4 last:pb-0">
                         {/* Timeline */}
                         <div className="flex flex-col items-center">
                           <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0",
@@ -485,16 +488,17 @@ export default function CronogramaPage() {
                             </div>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                        </div>
+                      );
+                    })}
 
-                {categorias.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    Nenhuma etapa cadastrada. Crie etapas aqui ou na aba Orçamento.
+                    {categorias.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        Nenhuma etapa cadastrada. Crie etapas aqui ou na aba Orçamento.
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           )}
