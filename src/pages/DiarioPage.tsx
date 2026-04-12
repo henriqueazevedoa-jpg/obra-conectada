@@ -548,6 +548,78 @@ ${toPrint.map(r => {
     printWindow.onload = () => { printWindow.print(); };
   };
 
+  const getFotoUrl = (path: string) => {
+    const { data } = supabase.storage.from('diario-fotos').getPublicUrl(path);
+    return data?.publicUrl || '';
+  };
+
+  const generateReport = (ids: string[]) => {
+    const toPrint = registros.filter(r => ids.includes(r.id));
+    if (toPrint.length === 0) return;
+    const s = reportSections;
+    const isFotoOnly = s.fotos && !s.servicos && !s.materiais && !s.observacoes && !s.problemas && !s.clima;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${isFotoOnly ? 'Relatório Fotográfico' : 'Relatório do Diário de Obra'}</title>
+<style>
+  body { font-family: 'Inter', -apple-system, sans-serif; color: #1a1a2e; margin: 2cm; font-size: 12px; }
+  .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
+  .header h1 { font-size: 18px; margin: 0; }
+  .header p { margin: 2px 0; color: #666; font-size: 11px; }
+  .registro { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 16px; break-inside: avoid; }
+  .registro-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .registro-header h3 { font-size: 14px; margin: 0; }
+  .badge { padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  .badge-aprovado { background: #dcfce7; color: #16a34a; }
+  .badge-pendente { background: #fef3c7; color: #d97706; }
+  .badge-rejeitado { background: #fecaca; color: #dc2626; }
+  .meta { display: flex; gap: 16px; color: #666; font-size: 11px; margin-bottom: 8px; }
+  .section { margin-top: 8px; }
+  .section-title { font-size: 10px; text-transform: uppercase; color: #999; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .problemas { background: #fef2f2; border-radius: 6px; padding: 8px; margin-top: 8px; }
+  .problemas p { color: #dc2626; margin: 0; }
+  .material-badge { display: inline-block; background: #f3f4f6; padding: 2px 8px; border-radius: 4px; margin: 2px; font-size: 11px; }
+  .fotos-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px; }
+  .foto-item { break-inside: avoid; }
+  .foto-item img { width: 100%; border-radius: 6px; border: 1px solid #e5e7eb; }
+  .foto-legenda { font-size: 11px; color: #666; margin-top: 4px; text-align: center; font-style: italic; }
+  @media print { body { margin: 1cm; } .registro { break-inside: avoid; } }
+</style>
+</head><body>
+${s.cabecalho ? `<div class="header">
+  <h1>${isFotoOnly ? '📷 Relatório Fotográfico' : 'Relatório do Diário de Obra'}</h1>
+  <p>${obra.codigo} — ${obra.nome}</p>
+  <p>Emitido em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
+</div>` : ''}
+${toPrint.map(r => {
+      const fotos = registroFotos.get(r.id) || [];
+      const climaLabel = climaLabels[r.clima] || r.clima;
+      const statusLabel = statusDiarioLabels[r.status] || r.status;
+      const statusClass = r.status === 'aprovado' ? 'badge-aprovado' : r.status === 'pendente' ? 'badge-pendente' : 'badge-rejeitado';
+      return `<div class="registro">
+    ${s.cabecalho ? `<div class="registro-header">
+      <h3>${formatDate(r.data)}${s.clima ? ` · ${climaLabel}` : ''}</h3>
+      <span class="badge ${statusClass}">${statusLabel}</span>
+    </div>` : ''}
+    ${s.clima ? `<div class="meta"><span>👤 ${r.usuario}</span><span>👷 ${r.trabalhadores} trabalhadores</span></div>` : ''}
+    ${s.servicos && r.servicos && r.servicos.length > 0 ? `<div class="section"><div class="section-title">Serviços Executados</div><ul>${r.servicos.map(sv => `<li>${sv.descricao}${sv.percentualAdicionado ? ` (+${sv.percentualAdicionado}%)` : ''}</li>`).join('')}</ul></div>` : ''}
+    ${s.servicos && (!r.servicos || r.servicos.length === 0) && r.servicosExecutados ? `<div class="section"><div class="section-title">Serviços Executados</div><p>${r.servicosExecutados}</p></div>` : ''}
+    ${s.materiais && r.materiaisUtilizados && r.materiaisUtilizados.length > 0 ? `<div class="section"><div class="section-title">Materiais Utilizados</div>${r.materiaisUtilizados.map(m => `<span class="material-badge">${m.materialNome}: ${m.quantidade} ${m.unidade}</span>`).join('')}</div>` : ''}
+    ${s.observacoes && r.observacoes ? `<div class="section"><div class="section-title">Observações</div><p>${r.observacoes}</p></div>` : ''}
+    ${s.problemas && r.problemas ? `<div class="problemas"><div class="section-title">⚠ Problemas Ocorridos</div><p>${r.problemas}</p></div>` : ''}
+    ${s.fotos && fotos.length > 0 ? `<div class="section"><div class="section-title">📷 Fotos</div><div class="fotos-grid">${fotos.map(f => `<div class="foto-item"><img src="${getFotoUrl(f.storage_path)}" />${f.legenda ? `<div class="foto-legenda">${f.legenda}</div>` : ''}</div>`).join('')}</div></div>` : ''}
+  </div>`;
+    }).join('')}
+</body></html>`;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.onload = () => { printWindow.print(); };
+  };
+
   if (!obra) {
     return (
       <NoObraState
