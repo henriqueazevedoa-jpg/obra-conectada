@@ -8,11 +8,11 @@ interface Suggestion {
   meta?: string;
 }
 
-interface AutocompleteInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+interface AutocompleteInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'onSelect'> {
   suggestions: Suggestion[];
   value: string;
   onChange: (value: string) => void;
-  onSelect?: (suggestion: Suggestion) => void;
+  onSuggestionSelect?: (suggestion: Suggestion) => void;
 }
 
 export function AutocompleteInput({
