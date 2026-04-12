@@ -75,7 +75,7 @@ function LoginRoute() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/painel" replace />;
+    return <Navigate to="/obras" replace />;
   }
 
   return <LoginPage />;
@@ -98,7 +98,7 @@ function OnboardingRoute() {
   }
 
   if (!needsOnboarding || user?.role === "admin") {
-    return <Navigate to="/painel" replace />;
+    return <Navigate to="/obras" replace />;
   }
 
   return <OnboardingPage />;
@@ -134,10 +134,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/painel" replace />} />
-        <Route path="painel" element={<PainelObraPage />} />
+        <Route index element={<Navigate to="/obras" replace />} />
         <Route path="obras" element={<ObrasPage />} />
-        <Route path="obras/:id" element={<ObraDetalhePage />} />
+        <Route path="painel" element={<PainelObraPage />} />
         <Route path="orcamento" element={<OrcamentoPage />} />
         <Route path="custo-real" element={<CustoRealPage />} />
         <Route path="cronograma" element={<CronogramaPage />} />
