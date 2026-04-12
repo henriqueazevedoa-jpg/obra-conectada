@@ -347,6 +347,7 @@ export async function clearDemoData(companyId: string) {
     await supabase.from('precos_fornecedores').delete().eq('obra_id', obraId);
     await supabase.from('fornecedores').delete().eq('obra_id', obraId);
     await supabase.from('pendencias').delete().eq('obra_id', obraId);
+    await supabase.from('pagamento_itens').delete().eq('obra_id', obraId);
     await supabase.from('pagamentos').delete().eq('obra_id', obraId);
     await supabase.from('diario_registros').delete().eq('obra_id', obraId);
     await supabase.from('movimentacoes').delete().eq('obra_id', obraId);
