@@ -32,6 +32,13 @@ const emptyForm = {
   dataPrevisaoTermino: '',
   responsavel: '',
   descricao: '',
+  tipo_implantacao: '' as string,
+  percentual_inicial: '' as string,
+  valor_gasto_anterior: '' as string,
+  data_inicio_real: '',
+  observacoes_implantacao: '',
+  origem_dados: '' as string,
+  observacao_interna: '',
 };
 
 export default function ObrasPage() {
@@ -98,6 +105,13 @@ export default function ObrasPage() {
       dataPrevisaoTermino: obra.dataPrevisaoTermino,
       responsavel: obra.responsavel,
       descricao: obra.descricao,
+      tipo_implantacao: '',
+      percentual_inicial: '',
+      valor_gasto_anterior: '',
+      data_inicio_real: '',
+      observacoes_implantacao: '',
+      origem_dados: '',
+      observacao_interna: '',
     });
     setDialogOpen(true);
   };
@@ -309,6 +323,58 @@ export default function ObrasPage() {
             <div className="space-y-1.5">
               <Label htmlFor="descricao">Descrição</Label>
               <Textarea id="descricao" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} rows={3} />
+            </div>
+
+            {/* Campos operacionais */}
+            <div className="border-t pt-4 mt-2">
+              <p className="text-xs font-medium text-muted-foreground mb-3">Dados de Implantação (opcional)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Tipo de Implantação</Label>
+                  <Select value={form.tipo_implantacao} onValueChange={v => setForm(f => ({ ...f, tipo_implantacao: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nova">Nova</SelectItem>
+                      <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Data Início Real</Label>
+                  <Input type="date" value={form.data_inicio_real} onChange={e => setForm(f => ({ ...f, data_inicio_real: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="space-y-1.5">
+                  <Label>% Inicial</Label>
+                  <Input type="number" min="0" max="100" value={form.percentual_inicial} onChange={e => setForm(f => ({ ...f, percentual_inicial: e.target.value }))} placeholder="0" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Valor Gasto Anterior (R$)</Label>
+                  <Input type="number" step="0.01" value={form.valor_gasto_anterior} onChange={e => setForm(f => ({ ...f, valor_gasto_anterior: e.target.value }))} placeholder="0,00" />
+                </div>
+              </div>
+              <div className="space-y-1.5 mt-3">
+                <Label>Origem dos Dados</Label>
+                <Select value={form.origem_dados} onValueChange={v => setForm(f => ({ ...f, origem_dados: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="real">Real</SelectItem>
+                    <SelectItem value="estimado">Estimado</SelectItem>
+                    <SelectItem value="importado">Importado</SelectItem>
+                    <SelectItem value="verbal">Verbal</SelectItem>
+                    <SelectItem value="pendente_validacao">Pendente Validação</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5 mt-3">
+                <Label>Observações de Implantação</Label>
+                <Textarea value={form.observacoes_implantacao} onChange={e => setForm(f => ({ ...f, observacoes_implantacao: e.target.value }))} rows={2} />
+              </div>
+              <div className="space-y-1.5 mt-3">
+                <Label>Observação Interna</Label>
+                <Textarea value={form.observacao_interna} onChange={e => setForm(f => ({ ...f, observacao_interna: e.target.value }))} rows={2} placeholder="Visível apenas para a equipe interna" />
+              </div>
             </div>
           </div>
           <DialogFooter>

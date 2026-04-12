@@ -26,6 +26,7 @@ import { ptBR } from 'date-fns/locale';
 import SCurveChart from '@/components/painel/SCurveChart';
 import ABCTable from '@/components/painel/ABCTable';
 import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
+import ResumoExecutivo from '@/components/painel/ResumoExecutivo';
 import NoObraState from '@/components/obras/NoObraState';
 
 interface DiarioRow {
@@ -211,6 +212,17 @@ function GestorPainel() {
           <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><Users className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Méd. Trabalhadores/dia</p></div><p className="text-lg font-bold text-foreground">{totalTrabalhadores}</p><p className="text-[10px] text-muted-foreground">{registrosAprovados.length} registro(s)</p></CardContent></Card>
           <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><AlertTriangle className="h-4 w-4 text-warning" /><p className="text-xs text-muted-foreground font-medium">Alertas Totais</p></div><p className={`text-lg font-bold ${(atrasadas.length + materiaisBaixo.length + registrosPendentes.length) > 0 ? 'text-warning' : 'text-foreground'}`}>{atrasadas.length + materiaisBaixo.length + registrosPendentes.length}</p></CardContent></Card>
         </div>
+      </div>
+
+      {/* Resumo Executivo */}
+      <div data-print-section="resumoExecutivo">
+        <ResumoExecutivo
+          obraId={obra.id}
+          totalPrevisto={totalPrevisto}
+          totalRealizado={totalRealizado}
+          andamentoReal={andamentoReal}
+          andamentoPlanejado={andamentoPlanejado}
+        />
       </div>
 
       {/* 3. Pontos de Atenção */}

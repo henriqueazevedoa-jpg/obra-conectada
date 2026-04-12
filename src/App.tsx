@@ -27,6 +27,8 @@ import PagamentosPage from "@/pages/PagamentosPage";
 import PainelObraPage from "@/pages/PainelObraPage";
 import EquipePage from "@/pages/EquipePage";
 import PerfilPage from "@/pages/PerfilPage";
+import PendenciasPage from "@/pages/PendenciasPage";
+import FornecedoresPage from "@/pages/FornecedoresPage";
 
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminCompaniesPage from "@/pages/admin/AdminCompaniesPage";
@@ -142,6 +144,8 @@ function AppRoutes() {
         <Route path="estoque" element={<EstoquePage />} />
         <Route path="pagamentos" element={<PagamentosPage />} />
         <Route path="equipe" element={<EquipePage />} />
+        <Route path="pendencias" element={<PendenciasPage />} />
+        <Route path="fornecedores" element={<FornecedoresPage />} />
         <Route path="perfil" element={<PerfilPage />} />
       </Route>
 

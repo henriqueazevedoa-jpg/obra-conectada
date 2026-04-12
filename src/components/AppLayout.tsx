@@ -16,6 +16,8 @@ import {
   Shield,
   Users,
   Wallet,
+  ListChecks,
+  Store,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -26,6 +28,8 @@ const gestorLinks = [
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
   { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
+  { to: "/pendencias", label: "Pendências", icon: ListChecks },
+  { to: "/fornecedores", label: "Fornecedores", icon: Store },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
   { to: "/estoque", label: "Estoque", icon: Package },
@@ -80,6 +84,8 @@ const adminLinks = [
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
   { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
+  { to: "/pendencias", label: "Pendências", icon: ListChecks },
+  { to: "/fornecedores", label: "Fornecedores", icon: Store },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
   { to: "/estoque", label: "Estoque", icon: Package },
