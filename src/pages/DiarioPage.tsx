@@ -40,6 +40,7 @@ export default function DiarioPage() {
   const { getMateriaisByObra, registrarMovimentacao } = useEstoque();
   const { selectedObraId: obraId, setSelectedObraId: setObraId } = useObraSelection();
   const obra = obras.find(o => o.id === obraId) || obras[0];
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [registros, setRegistros] = useState<DiarioRegistro[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -898,9 +899,14 @@ ${toPrint.map(r => {
               {selectedIds.size > 0 ? `${selectedIds.size} selecionado(s)` : 'Selecionar'}
             </Button>
             {selectedIds.size > 0 && (
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
-                <Printer className="h-3.5 w-3.5" /> Imprimir
-              </Button>
+              <>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
+                  <Printer className="h-3.5 w-3.5" /> Imprimir
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmOpen(true)}>
+                  <Trash2 className="h-3.5 w-3.5" /> Apagar
+                </Button>
+              </>
             )}
           </div>
           {selectedIds.size > 0 && (
