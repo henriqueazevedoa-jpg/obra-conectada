@@ -1021,6 +1021,27 @@ ${toPrint.map(r => {
                       <p className="text-xs sm:text-sm text-destructive">{registro.problemas}</p>
                     </div>
                   )}
+                  {/* Photos */}
+                  {(() => {
+                    const fotos = registroFotos.get(registro.id) || [];
+                    return fotos.length > 0 ? (
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
+                          <Camera className="h-3 w-3" /> Fotos ({fotos.length})
+                        </p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {fotos.map(f => (
+                            <div key={f.id} className="rounded overflow-hidden">
+                              <a href={getFotoUrl(f.storage_path)} target="_blank" rel="noopener noreferrer">
+                                <img src={getFotoUrl(f.storage_path)} alt={f.legenda} className="w-full aspect-square object-cover rounded" />
+                              </a>
+                              {f.legenda && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{f.legenda}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </CardContent>
             </Card>
