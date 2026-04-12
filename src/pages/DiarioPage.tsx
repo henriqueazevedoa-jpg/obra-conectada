@@ -118,6 +118,23 @@ export default function DiarioPage() {
       status: r.status as DiarioRegistro['status'],
     }));
 
+    // Fetch fotos
+    if (regIds.length > 0) {
+      const { data: fotosData } = await (supabase as any)
+        .from('diario_fotos')
+        .select('*')
+        .in('registro_id', regIds);
+      if (fotosData) {
+        const fotoMap = new Map<string, { id: string; storage_path: string; legenda: string }[]>();
+        (fotosData as any[]).forEach(f => {
+          const arr = fotoMap.get(f.registro_id) || [];
+          arr.push({ id: f.id, storage_path: f.storage_path, legenda: f.legenda || '' });
+          fotoMap.set(f.registro_id, arr);
+        });
+        setRegistroFotos(fotoMap);
+      }
+    }
+
     setRegistros(mapped);
     setLoading(false);
   }, [obra?.id]);
