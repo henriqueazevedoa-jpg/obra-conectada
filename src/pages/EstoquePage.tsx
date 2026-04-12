@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import { useObras } from '@/contexts/ObrasContext';
@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import NoObraState from '@/components/obras/NoObraState';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 
 const categoriasEstoque = [
   'Cimento',
@@ -275,21 +276,20 @@ export default function EstoquePage() {
 
                     <div>
                       <label className="text-sm font-medium">Material</label>
-                      <Select
-                        value={newMov.materialId}
-                        onValueChange={(v) => setNewMov({ ...newMov, materialId: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o material" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {materiais.map((m: any) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.nome} ({m.estoqueAtual} {m.unidade})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <AutocompleteInput
+                        suggestions={materiais.map((m: any) => ({
+                          label: m.nome,
+                          value: m.id,
+                          meta: `${m.estoqueAtual} ${m.unidade}`,
+                        }))}
+                        value={materiais.find((m: any) => m.id === newMov.materialId)?.nome || ''}
+                        onChange={(v) => {
+                          const mat = materiais.find((m: any) => m.nome === v);
+                          if (mat) setNewMov({ ...newMov, materialId: mat.id });
+                        }}
+                        onSuggestionSelect={(s) => setNewMov({ ...newMov, materialId: s.value })}
+                        placeholder="Buscar material..."
+                      />
                     </div>
 
                     <div>
