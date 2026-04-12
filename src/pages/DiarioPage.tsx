@@ -54,6 +54,13 @@ export default function DiarioPage() {
   const [problemas, setProblemas] = useState('');
   const [servicos, setServicos] = useState<DiarioServico[]>([]);
   const [materiaisUsados, setMateriaisUsados] = useState<DiarioMaterialUsado[]>([]);
+  const [fotosPendentes, setFotosPendentes] = useState<FotoPendente[]>([]);
+
+  // Photos from DB per registro
+  const [registroFotos, setRegistroFotos] = useState<Map<string, { id: string; storage_path: string; legenda: string }[]>>(new Map());
+
+  // Report config
+  const [reportSections, setReportSections] = useState<DiarioReportSections>(defaultDiarioReportSections);
 
   const orcamento = obra ? getOrcamento(obra.id) : null;
   const categorias = orcamento?.categorias || [];
