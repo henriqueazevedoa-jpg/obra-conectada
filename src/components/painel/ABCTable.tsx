@@ -91,7 +91,7 @@ export default function ABCTable({ categorias, custoItens }: ABCTableProps) {
   const tipoRows = useMemo(() => {
     const byType: Record<string, number> = {};
     custoItens.forEach(i => {
-      byType[i.tipoInsumo] = (byType[i.tipoInsumo] || 0) + i.precoTotal;
+      byType[i.categoria || 'Outros'] = (byType[i.categoria || 'Outros'] || 0) + i.valor;
     });
     return classifyABC(Object.entries(byType).map(([nome, valor]) => ({ nome, valor })));
   }, [custoItens]);
@@ -99,7 +99,7 @@ export default function ABCTable({ categorias, custoItens }: ABCTableProps) {
   const insumosRows = useMemo(() => {
     const byDesc: Record<string, number> = {};
     custoItens.forEach(i => {
-      byDesc[i.descricao] = (byDesc[i.descricao] || 0) + i.precoTotal;
+      byDesc[i.descricao] = (byDesc[i.descricao] || 0) + i.valor;
     });
     return classifyABC(Object.entries(byDesc).map(([nome, valor]) => ({ nome, valor })));
   }, [custoItens]);

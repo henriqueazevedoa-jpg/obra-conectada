@@ -5,16 +5,13 @@ import { useAuth } from './AuthContext';
 export interface CustoRealItem {
   id: string;
   obraId: string;
-  categoriaId: string;
-  tipoInsumo: string;
+  companyId: string;
+  categoria: string;
   descricao: string;
-  unidade: string;
-  quantidade: number;
   fornecedor: string;
-  precoUnitario: number;
-  precoTotal: number;
-  movimentacaoId?: string;
-  notaFiscalUrl?: string;
+  valor: number;
+  data: string;
+  observacoes: string;
 }
 
 interface CustoRealContextType {
@@ -35,16 +32,13 @@ function dbToItem(row: any): CustoRealItem {
   return {
     id: row.id,
     obraId: row.obra_id,
-    categoriaId: row.categoria_id,
-    tipoInsumo: row.tipo_insumo || 'Material',
+    companyId: row.company_id,
+    categoria: row.categoria || '',
     descricao: row.descricao || '',
-    unidade: row.unidade || '',
-    quantidade: Number(row.quantidade) || 0,
     fornecedor: row.fornecedor || '',
-    precoUnitario: Number(row.preco_unitario) || 0,
-    precoTotal: Number(row.preco_total) || 0,
-    movimentacaoId: row.movimentacao_id || undefined,
-    notaFiscalUrl: row.nota_fiscal_url || undefined,
+    valor: Number(row.valor) || 0,
+    data: row.data || '',
+    observacoes: row.observacoes || '',
   };
 }
 
@@ -63,22 +57,19 @@ export function CustoRealProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const getItensByObra = useCallback((obraId: string) => itens.filter(i => i.obraId === obraId), [itens]);
-  const getItensByCategoria = useCallback((categoriaId: string) => itens.filter(i => i.categoriaId === categoriaId), [itens]);
+  const getItensByCategoria = useCallback((categoria: string) => itens.filter(i => i.categoria === categoria), [itens]);
 
   const saveItem = useCallback(async (item: CustoRealItem) => {
     await (supabase.from('custo_real_itens') as any).upsert({
       id: item.id,
       obra_id: item.obraId,
-      categoria_id: item.categoriaId,
-      tipo_insumo: item.tipoInsumo,
+      company_id: item.companyId,
+      categoria: item.categoria,
       descricao: item.descricao,
-      unidade: item.unidade,
-      quantidade: item.quantidade,
-      fornecedor: item.fornecedor,
-      preco_unitario: item.precoUnitario,
-      preco_total: item.precoTotal,
-      movimentacao_id: item.movimentacaoId || null,
-      nota_fiscal_url: item.notaFiscalUrl || null,
+      fornecedor: item.fornecedor || null,
+      valor: item.valor,
+      data: item.data || null,
+      observacoes: item.observacoes || null,
     });
     await fetchAll();
   }, [fetchAll]);
@@ -89,16 +80,13 @@ export function CustoRealProvider({ children }: { children: React.ReactNode }) {
       items.map((item: CustoRealItem) => ({
         id: item.id,
         obra_id: item.obraId,
-        categoria_id: item.categoriaId,
-        tipo_insumo: item.tipoInsumo,
+        company_id: item.companyId,
+        categoria: item.categoria,
         descricao: item.descricao,
-        unidade: item.unidade,
-        quantidade: item.quantidade,
-        fornecedor: item.fornecedor,
-        preco_unitario: item.precoUnitario,
-        preco_total: item.precoTotal,
-        movimentacao_id: item.movimentacaoId || null,
-        nota_fiscal_url: item.notaFiscalUrl || null,
+        fornecedor: item.fornecedor || null,
+        valor: item.valor,
+        data: item.data || null,
+        observacoes: item.observacoes || null,
       }))
     );
     await fetchAll();
@@ -109,8 +97,8 @@ export function CustoRealProvider({ children }: { children: React.ReactNode }) {
     await fetchAll();
   }, [fetchAll]);
 
-  const deleteItemsByCategoria = useCallback(async (categoriaId: string, keepIds: string[]) => {
-    const existing = itens.filter(i => i.categoriaId === categoriaId);
+  const deleteItemsByCategoria = useCallback(async (categoria: string, keepIds: string[]) => {
+    const existing = itens.filter(i => i.categoria === categoria);
     const toDelete = existing.filter(i => !keepIds.includes(i.id)).map(i => i.id);
     if (toDelete.length > 0) {
       await supabase.from('custo_real_itens').delete().in('id', toDelete);

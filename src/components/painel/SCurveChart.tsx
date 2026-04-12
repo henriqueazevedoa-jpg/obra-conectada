@@ -105,7 +105,7 @@ export default function SCurveChart({ categorias, custoItens, obraInicio, obraFi
         // Actual cost: distribute custoItens proportionally across weeks
         let actualCost: number | null = null;
         if (!isAfter(weekDate, today)) {
-          const totalReal = custoItens.reduce((s, i) => s + i.precoTotal, 0);
+          const totalReal = custoItens.reduce((s, i) => s + i.valor, 0);
           // Simple linear distribution of actual cost over elapsed period
           const totalElapsed = differenceInWeeks(today, inicio);
           if (totalElapsed > 0 && totalReal > 0) {

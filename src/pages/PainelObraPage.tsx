@@ -98,7 +98,7 @@ function GestorPainel() {
   const categorias = orcamento?.categorias || [];
   const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);
   const custoItens = getCustoItensByObra(obra.id);
-  const totalRealizado = custoItens.reduce((s, i) => s + i.precoTotal, 0);
+  const totalRealizado = custoItens.reduce((s, i) => s + i.valor, 0);
   const materiaisObra = getMateriaisByObra(obra.id);
   const materiaisBaixo = materiaisObra.filter(m => m.estoqueAtual < m.estoqueMinimo);
   const registrosPendentes = diarioRegistros.filter(d => d.status === 'pendente');
