@@ -32,6 +32,13 @@ const emptyForm = {
   dataPrevisaoTermino: '',
   responsavel: '',
   descricao: '',
+  tipo_implantacao: '' as string,
+  percentual_inicial: '' as string,
+  valor_gasto_anterior: '' as string,
+  data_inicio_real: '',
+  observacoes_implantacao: '',
+  origem_dados: '' as string,
+  observacao_interna: '',
 };
 
 export default function ObrasPage() {
