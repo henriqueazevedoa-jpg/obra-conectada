@@ -129,32 +129,32 @@ export async function seedDemoData(userId: string, companyId: string) {
   ];
   await supabase.from('orcamento_composicoes').insert(composicoes as any);
 
-  // === 4. CUSTO REAL ===
+  // === 4. CUSTO REAL (uses correct columns: categoria_id, preco_total, tipo_insumo) ===
   const custoItens = [
-    // Obra 1 - Custos realizados variados
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Limpeza terreno + tapume`, valor: 21000, categoria: 'Serviços Preliminares', data: daysAgo(85), fornecedor: 'Construtora Início' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Instalações provisórias`, valor: 13500, categoria: 'Serviços Preliminares', data: daysAgo(82), fornecedor: 'Eletricista MEI' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Escavação mecânica`, valor: 27500, categoria: 'Fundação', data: daysAgo(70), fornecedor: 'Terraplanagem Silva' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Concreto usinado fundação`, valor: 48000, categoria: 'Fundação', data: daysAgo(60), fornecedor: 'Concreteira ABC' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Impermeabilização`, valor: 16200, categoria: 'Fundação', data: daysAgo(50), fornecedor: 'Impermeabiliza SP' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Aterro compactado`, valor: 9800, categoria: 'Fundação', data: daysAgo(48), fornecedor: 'Terraplanagem Silva' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Aço CA-50 pilares`, valor: 38000, categoria: 'Estrutura', data: daysAgo(35), fornecedor: 'Siderúrgica Nacional' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Fôrmas madeira pilares`, valor: 12000, categoria: 'Estrutura', data: daysAgo(33), fornecedor: 'Madeireira Pinheiro' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Concreto pilares`, valor: 22000, categoria: 'Estrutura', data: daysAgo(25), fornecedor: 'Concreteira ABC' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Concreto lajes 1º pav`, valor: 35000, categoria: 'Estrutura', data: daysAgo(15), fornecedor: 'Concreteira ABC' },
-    // Obra 2 - Custos reforma
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Demolição geral`, valor: 9500, categoria: 'Demolição', data: daysAgo(40), fornecedor: 'Demolidora Express' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Remoção entulho (3 caçambas)`, valor: 4200, categoria: 'Demolição', data: daysAgo(35), fornecedor: 'Caçambas Rápidas' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Reforço estrutural`, valor: 24000, categoria: 'Estrutura', data: daysAgo(25), fornecedor: 'Eng. Estrutural Ltda' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Laje mezzanino`, valor: 17500, categoria: 'Estrutura', data: daysAgo(18), fornecedor: 'Concreteira ABC' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Porcelanato 60x60`, valor: 28000, categoria: 'Acabamento', data: daysAgo(10), fornecedor: 'Cerâmica Luxo' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Mão de obra piso`, valor: 8000, categoria: 'Acabamento', data: daysAgo(8), fornecedor: 'Azulejista Marcos' },
-    // Obra 3 - Apenas projeto (gasto mínimo)
-    { obra_id: obra3Id, company_id: companyId, descricao: `${DEMO_PREFIX} Projeto arquitetônico`, valor: 35000, categoria: 'Projeto', data: daysAgo(20), fornecedor: 'Arq. & Design' },
-    { obra_id: obra3Id, company_id: companyId, descricao: `${DEMO_PREFIX} Sondagem SPT`, valor: 12000, categoria: 'Fundação', data: daysAgo(15), fornecedor: 'GeoSondagens' },
-    { obra_id: obra3Id, company_id: companyId, descricao: `${DEMO_PREFIX} Projeto estrutural`, valor: 28000, categoria: 'Projeto', data: daysAgo(10), fornecedor: 'Calc Estruturas' },
+    // Obra 1 - using category IDs from orcamento_categorias
+    { obra_id: obra1Id, categoria_id: c1_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Limpeza terreno + tapume`, unidade: 'vb', quantidade: 1, preco_unitario: 21000, preco_total: 21000, fornecedor: 'Construtora Início' },
+    { obra_id: obra1Id, categoria_id: c1_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Instalações provisórias`, unidade: 'vb', quantidade: 1, preco_unitario: 13500, preco_total: 13500, fornecedor: 'Eletricista MEI' },
+    { obra_id: obra1Id, categoria_id: c1_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Escavação mecânica`, unidade: 'm³', quantidade: 500, preco_unitario: 55, preco_total: 27500, fornecedor: 'Terraplanagem Silva' },
+    { obra_id: obra1Id, categoria_id: c1_2, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Concreto usinado fundação`, unidade: 'm³', quantidade: 100, preco_unitario: 480, preco_total: 48000, fornecedor: 'Concreteira ABC' },
+    { obra_id: obra1Id, categoria_id: c1_2, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Impermeabilização`, unidade: 'm²', quantidade: 200, preco_unitario: 81, preco_total: 16200, fornecedor: 'Impermeabiliza SP' },
+    { obra_id: obra1Id, categoria_id: c1_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Aterro compactado`, unidade: 'm³', quantidade: 250, preco_unitario: 39.2, preco_total: 9800, fornecedor: 'Terraplanagem Silva' },
+    { obra_id: obra1Id, categoria_id: c1_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Aço CA-50 pilares`, unidade: 'kg', quantidade: 2000, preco_unitario: 19, preco_total: 38000, fornecedor: 'Siderúrgica Nacional' },
+    { obra_id: obra1Id, categoria_id: c1_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Fôrmas madeira pilares`, unidade: 'm²', quantidade: 120, preco_unitario: 100, preco_total: 12000, fornecedor: 'Madeireira Pinheiro' },
+    { obra_id: obra1Id, categoria_id: c1_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Concreto pilares`, unidade: 'm³', quantidade: 50, preco_unitario: 440, preco_total: 22000, fornecedor: 'Concreteira ABC' },
+    { obra_id: obra1Id, categoria_id: c1_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Concreto lajes 1º pav`, unidade: 'm³', quantidade: 80, preco_unitario: 437.5, preco_total: 35000, fornecedor: 'Concreteira ABC' },
+    // Obra 2
+    { obra_id: obra2Id, categoria_id: c2_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Demolição geral`, unidade: 'vb', quantidade: 1, preco_unitario: 9500, preco_total: 9500, fornecedor: 'Demolidora Express' },
+    { obra_id: obra2Id, categoria_id: c2_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Remoção entulho (3 caçambas)`, unidade: 'un', quantidade: 3, preco_unitario: 1400, preco_total: 4200, fornecedor: 'Caçambas Rápidas' },
+    { obra_id: obra2Id, categoria_id: c2_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Reforço estrutural`, unidade: 'vb', quantidade: 1, preco_unitario: 24000, preco_total: 24000, fornecedor: 'Eng. Estrutural Ltda' },
+    { obra_id: obra2Id, categoria_id: c2_2, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Laje mezzanino`, unidade: 'm²', quantidade: 50, preco_unitario: 350, preco_total: 17500, fornecedor: 'Concreteira ABC' },
+    { obra_id: obra2Id, categoria_id: c2_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Porcelanato 60x60`, unidade: 'm²', quantidade: 200, preco_unitario: 140, preco_total: 28000, fornecedor: 'Cerâmica Luxo' },
+    { obra_id: obra2Id, categoria_id: c2_3, tipo_insumo: 'Mão de Obra', descricao: `${DEMO_PREFIX} Mão de obra piso`, unidade: 'm²', quantidade: 200, preco_unitario: 40, preco_total: 8000, fornecedor: 'Azulejista Marcos' },
+    // Obra 3
+    { obra_id: obra3Id, categoria_id: c3_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Projeto arquitetônico`, unidade: 'vb', quantidade: 1, preco_unitario: 35000, preco_total: 35000, fornecedor: 'Arq. & Design' },
+    { obra_id: obra3Id, categoria_id: c3_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Sondagem SPT`, unidade: 'vb', quantidade: 1, preco_unitario: 12000, preco_total: 12000, fornecedor: 'GeoSondagens' },
+    { obra_id: obra3Id, categoria_id: c3_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Projeto estrutural`, unidade: 'vb', quantidade: 1, preco_unitario: 28000, preco_total: 28000, fornecedor: 'Calc Estruturas' },
   ];
-  await supabase.from('custo_real_itens').insert(custoItens as any);
+  try { await supabase.from('custo_real_itens').insert(custoItens as any); } catch (e) { console.warn('Demo: custo_real_itens failed', e); }
 
   // === 5. MATERIAIS (ESTOQUE) ===
   const mat = Array.from({ length: 14 }, () => demoId());
