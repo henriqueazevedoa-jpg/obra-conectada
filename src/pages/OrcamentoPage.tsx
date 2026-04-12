@@ -5,12 +5,12 @@ import NoObraState from '@/components/obras/NoObraState';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento } from '@/contexts/OrcamentoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { formatCurrency } from '@/data/mockData';
-import { DollarSign, TrendingUp, TrendingDown, Edit } from 'lucide-react';
+import { Edit, Copy } from 'lucide-react';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import OrcamentoEditor from '@/components/orcamento/OrcamentoEditor';
 import { toast } from '@/hooks/use-toast';
@@ -18,16 +18,48 @@ import { toast } from '@/hooks/use-toast';
 export default function OrcamentoPage() {
   const { user } = useAuth();
   const { obras } = useObras();
-  const { getOrcamento } = useOrcamento();
+  const { getOrcamento, orcamentos, saveOrcamento } = useOrcamento();
   const { selectedObraId, setSelectedObraId } = useObraSelection();
   const [editing, setEditing] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importObraId, setImportObraId] = useState('');
 
   const obra = obras.find(o => o.id === selectedObraId);
   const orcamento = selectedObraId ? getOrcamento(selectedObraId) : undefined;
 
   const totalPrevisto = orcamento?.categorias.reduce((s, c) => s + c.precoTotal, 0) ?? 0;
-  const isCliente = user?.role === 'cliente';
   const isGestor = user?.role === 'gestor';
+
+  // Obras that have budgets (excluding current)
+  const obrasComOrcamento = orcamentos.filter(o => o.obraId !== selectedObraId && o.categorias.length > 0);
+
+  const handleImport = () => {
+    if (!importObraId || !selectedObraId) return;
+    const source = getOrcamento(importObraId);
+    if (!source) {
+      toast({ title: 'Orçamento não encontrado para esta obra', variant: 'destructive' });
+      return;
+    }
+    const cloned = {
+      obraId: selectedObraId,
+      categorias: source.categorias.map(cat => ({
+        ...cat,
+        id: crypto.randomUUID(),
+        composicoes: cat.composicoes.map(comp => ({
+          ...comp,
+          id: crypto.randomUUID(),
+          subitens: comp.subitens.map(si => ({
+            ...si,
+            id: `si-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          })),
+        })),
+      })),
+    };
+    saveOrcamento(cloned);
+    setImportDialogOpen(false);
+    setImportObraId('');
+    toast({ title: 'Orçamento importado com sucesso!', description: 'Clique em "Editar" para ajustar os valores.' });
+  };
 
   if (editing && obra) {
     return <OrcamentoEditor obraId={obra.id} obraNome={obra.nome} onBack={() => setEditing(false)} />;
@@ -58,6 +90,11 @@ export default function OrcamentoPage() {
               ))}
             </SelectContent>
           </Select>
+          {isGestor && obrasComOrcamento.length > 0 && (
+            <Button variant="outline" onClick={() => setImportDialogOpen(true)} className="gap-1">
+              <Copy className="h-4 w-4" /> Importar
+            </Button>
+          )}
           {isGestor && (
             <Button onClick={() => setEditing(true)} className="gap-1">
               <Edit className="h-4 w-4" /> Editar
@@ -145,6 +182,35 @@ export default function OrcamentoPage() {
           )}
         </>
       )}
+
+      {/* Import dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Importar Orçamento de Outra Obra</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Selecione a obra de origem. O orçamento será copiado e você poderá editá-lo livremente.</p>
+          <Select value={importObraId} onValueChange={setImportObraId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a obra..." />
+            </SelectTrigger>
+            <SelectContent>
+              {obrasComOrcamento.map(o => {
+                const ob = obras.find(ob => ob.id === o.obraId);
+                return (
+                  <SelectItem key={o.obraId} value={o.obraId}>
+                    {ob?.nome || o.obraId} ({o.categorias.length} categorias)
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={!importObraId}>Importar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
