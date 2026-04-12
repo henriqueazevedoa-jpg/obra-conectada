@@ -39,7 +39,7 @@ export default function CronogramaPagamentos({ obraId }: Props) {
     if (!obraId) return;
     supabase
       .from('pagamentos')
-      .select('id, descricao, valor_previsto, valor_pago, data_vencimento, data_pagamento, status, fornecedor_nome')
+      .select('id, descricao, valor_previsto, data_vencimento, status, fornecedor_nome')
       .eq('obra_id', obraId)
       .order('data_vencimento', { ascending: true })
       .then(({ data }: any) => {
