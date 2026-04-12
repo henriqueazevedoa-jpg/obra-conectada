@@ -4,6 +4,7 @@ import { useEstoque } from '@/contexts/EstoqueContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { Card, CardContent } from '@/components/ui/card';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +64,15 @@ export default function EstoquePage() {
     updateMaterial,
   } = useEstoque();
   const { selectedObraId: obraId, setSelectedObraId: setObraId } = useObraSelection();
+
+  // All materials across all obras for autocomplete
+  const { materiais: allMateriais } = useEstoque();
+  const materialSuggestions = allMateriais.map(m => ({
+    label: m.nome,
+    value: m.id,
+    meta: `${m.estoqueAtual} ${m.unidade}`,
+  }));
+  const [materialSearch, setMaterialSearch] = useState('');
 
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -275,21 +285,27 @@ export default function EstoquePage() {
 
                     <div>
                       <label className="text-sm font-medium">Material</label>
-                      <Select
-                        value={newMov.materialId}
-                        onValueChange={(v) => setNewMov({ ...newMov, materialId: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o material" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {materiais.map((m: any) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.nome} ({m.estoqueAtual} {m.unidade})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <AutocompleteInput
+                        suggestions={materiais.map((m: any) => ({
+                          label: m.nome,
+                          value: m.id,
+                          meta: `${m.estoqueAtual} ${m.unidade}`,
+                        }))}
+                        value={materialSearch || materiais.find((m: any) => m.id === newMov.materialId)?.nome || ''}
+                        onChange={(val) => {
+                          setMaterialSearch(val);
+                          // Clear selection if user is typing something different
+                          const match = materiais.find((m: any) => m.nome === val);
+                          if (match) {
+                            setNewMov({ ...newMov, materialId: match.id });
+                          }
+                        }}
+                        onSuggestionSelect={(s) => {
+                          setNewMov({ ...newMov, materialId: s.value });
+                          setMaterialSearch(s.label);
+                        }}
+                        placeholder="Buscar material..."
+                      />
                     </div>
 
                     <div>
