@@ -269,10 +269,10 @@ export default function PagamentosPage() {
       const existingCats = currentOrc?.categorias || [];
       // Parse existing numeric codes to find next available
       const existingNums = existingCats
-        .map(c => { const m = c.codigo.match(/^(?:CAT-)?(\d+)$/); return m ? parseInt(m[1]) : 0; })
+        .map(c => { const m = c.codigo.match(/(\d+)/); return m ? parseInt(m[1]) : 0; })
         .filter(n => n > 0);
       const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
-      const newCode = `CAT-${String(nextNum).padStart(3, '0')}`;
+      const newCode = String(nextNum).padStart(2, '0');
 
       // Check for duplicate name
       if (existingCats.some(c => c.nome === newEtapaNome.trim())) {
