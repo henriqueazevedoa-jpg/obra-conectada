@@ -264,16 +264,16 @@ export async function seedDemoData(userId: string, companyId: string) {
   // === 9. FORNECEDORES ===
   const forn = Array.from({ length: 10 }, () => demoId());
   const fornecedores = [
-    { id: forn[0], obra_id: obra1Id, nome: `${DEMO_PREFIX} Concreteira ABC`, cnpj: '12.345.678/0001-90', email: 'vendas@concreteira.com', telefone: '(11) 3456-7890', cidade: 'São Paulo', observacoes: 'Entrega em 24h. Melhor preço para fck 25.' },
-    { id: forn[1], obra_id: obra1Id, nome: `${DEMO_PREFIX} Siderúrgica Nacional`, cnpj: '98.765.432/0001-10', email: 'comercial@siderurgica.com', telefone: '(11) 2345-6789', cidade: 'Guarulhos', observacoes: 'Entrega semanal. Pagamento 30/60 dias.' },
-    { id: forn[2], obra_id: obra1Id, nome: `${DEMO_PREFIX} Terraplanagem Silva`, telefone: '(11) 99888-7766', cidade: 'Cotia', observacoes: 'Parceiro antigo. Equipamento próprio.' },
-    { id: forn[3], obra_id: obra1Id, nome: `${DEMO_PREFIX} Madeireira Pinheiro`, cnpj: '33.444.555/0001-66', email: 'vendas@pinheiro.com', telefone: '(11) 4567-8901', cidade: 'Mogi das Cruzes' },
-    { id: forn[4], obra_id: obra1Id, nome: `${DEMO_PREFIX} Impermeabiliza SP`, cnpj: '55.666.777/0001-88', email: 'orcamento@impermeabiliza.com', telefone: '(11) 3322-1100', cidade: 'São Paulo', observacoes: 'Garantia de 5 anos. Trabalha com Vedacit e Denver.' },
-    { id: forn[5], obra_id: obra2Id, nome: `${DEMO_PREFIX} Cerâmica Luxo`, cnpj: '11.222.333/0001-44', email: 'contato@ceramicaluxo.com', telefone: '(19) 9876-5432', cidade: 'Campinas', observacoes: 'Parcela em até 3x no cartão. Troca garantida.' },
-    { id: forn[6], obra_id: obra2Id, nome: `${DEMO_PREFIX} Gesso & Cia`, telefone: '(19) 98765-1234', cidade: 'Campinas', observacoes: 'Trabalha com forro e drywall. R$ 80/m².' },
-    { id: forn[7], obra_id: obra2Id, nome: `${DEMO_PREFIX} Tintas Premium`, cnpj: '44.555.666/0001-22', email: 'loja@tintaspremium.com', telefone: '(19) 3344-5566', cidade: 'Campinas' },
-    { id: forn[8], obra_id: obra3Id, nome: `${DEMO_PREFIX} GeoSondagens`, cnpj: '77.888.999/0001-11', email: 'contato@geosondagens.com', telefone: '(11) 5566-7788', cidade: 'Jundiaí', observacoes: 'Especializada em SPT e ensaios de campo.' },
-    { id: forn[9], obra_id: obra3Id, nome: `${DEMO_PREFIX} Calc Estruturas`, cnpj: '88.999.000/0001-33', email: 'projetos@calcestruturas.com', telefone: '(11) 6677-8899', cidade: 'São Paulo', observacoes: 'Referência em pré-moldados industriais.' },
+    { id: forn[0], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Concreteira ABC`, cnpj: '12.345.678/0001-90', email: 'vendas@concreteira.com', telefone: '(11) 3456-7890', cidade: 'São Paulo', observacoes: 'Entrega em 24h. Melhor preço para fck 25.' },
+    { id: forn[1], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Siderúrgica Nacional`, cnpj: '98.765.432/0001-10', email: 'comercial@siderurgica.com', telefone: '(11) 2345-6789', cidade: 'Guarulhos', observacoes: 'Entrega semanal. Pagamento 30/60 dias.' },
+    { id: forn[2], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Terraplanagem Silva`, telefone: '(11) 99888-7766', cidade: 'Cotia', observacoes: 'Parceiro antigo. Equipamento próprio.' },
+    { id: forn[3], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Madeireira Pinheiro`, cnpj: '33.444.555/0001-66', email: 'vendas@pinheiro.com', telefone: '(11) 4567-8901', cidade: 'Mogi das Cruzes' },
+    { id: forn[4], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Impermeabiliza SP`, cnpj: '55.666.777/0001-88', email: 'orcamento@impermeabiliza.com', telefone: '(11) 3322-1100', cidade: 'São Paulo', observacoes: 'Garantia de 5 anos. Trabalha com Vedacit e Denver.' },
+    { id: forn[5], obra_id: obra2Id, company_id: companyId, nome: `${DEMO_PREFIX} Cerâmica Luxo`, cnpj: '11.222.333/0001-44', email: 'contato@ceramicaluxo.com', telefone: '(19) 9876-5432', cidade: 'Campinas', observacoes: 'Parcela em até 3x no cartão. Troca garantida.' },
+    { id: forn[6], obra_id: obra2Id, company_id: companyId, nome: `${DEMO_PREFIX} Gesso & Cia`, telefone: '(19) 98765-1234', cidade: 'Campinas', observacoes: 'Trabalha com forro e drywall. R$ 80/m².' },
+    { id: forn[7], obra_id: obra2Id, company_id: companyId, nome: `${DEMO_PREFIX} Tintas Premium`, cnpj: '44.555.666/0001-22', email: 'loja@tintaspremium.com', telefone: '(19) 3344-5566', cidade: 'Campinas' },
+    { id: forn[8], obra_id: obra3Id, company_id: companyId, nome: `${DEMO_PREFIX} GeoSondagens`, cnpj: '77.888.999/0001-11', email: 'contato@geosondagens.com', telefone: '(11) 5566-7788', cidade: 'Jundiaí', observacoes: 'Especializada em SPT e ensaios de campo.' },
+    { id: forn[9], obra_id: obra3Id, company_id: companyId, nome: `${DEMO_PREFIX} Calc Estruturas`, cnpj: '88.999.000/0001-33', email: 'projetos@calcestruturas.com', telefone: '(11) 6677-8899', cidade: 'São Paulo', observacoes: 'Referência em pré-moldados industriais.' },
   ];
   await checkedInsert('fornecedores', fornecedores);
 
