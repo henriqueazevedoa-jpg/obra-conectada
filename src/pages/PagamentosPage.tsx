@@ -119,7 +119,7 @@ export default function PagamentosPage() {
   const fetchPagamentos = useCallback(async () => {
     if (!obra) return;
     setLoading(true);
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('pagamentos')
       .select('*')
       .eq('obra_id', obra.id)
@@ -142,7 +142,7 @@ export default function PagamentosPage() {
     if (overdue.length > 0) {
       // Update locally for display, and in DB
       overdue.forEach(async (p) => {
-        await (supabase as any).from('pagamentos').update({ status: 'atrasado' }).eq('id', p.id);
+        await supabase.from('pagamentos').update({ status: 'atrasado' as any }).eq('id', p.id);
       });
       setPagamentos(prev => prev.map(p =>
         overdue.find(o => o.id === p.id) ? { ...p, status: 'atrasado' } : p
@@ -220,14 +220,14 @@ export default function PagamentosPage() {
     };
 
     if (editingId) {
-      const { error } = await (supabase as any).from('pagamentos').update(payload).eq('id', editingId);
+      const { error } = await supabase.from('pagamentos').update(payload as any).eq('id', editingId);
       if (error) {
         toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
         return;
       }
       toast({ title: 'Pagamento atualizado!' });
     } else {
-      const { error } = await (supabase as any).from('pagamentos').insert(payload);
+      const { error } = await supabase.from('pagamentos').insert(payload as any);
       if (error) {
         toast({ title: 'Erro ao criar', description: error.message, variant: 'destructive' });
         return;
@@ -241,7 +241,7 @@ export default function PagamentosPage() {
   };
 
   const handleMarcarPago = async (id: string) => {
-    const { error } = await (supabase as any).from('pagamentos').update({ status: 'pago' }).eq('id', id);
+    const { error } = await supabase.from('pagamentos').update({ status: 'pago' as any }).eq('id', id);
     if (!error) {
       setPagamentos(prev => prev.map(p => p.id === id ? { ...p, status: 'pago' } : p));
       toast({ title: 'Pagamento marcado como pago!' });
@@ -250,7 +250,7 @@ export default function PagamentosPage() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await (supabase as any).from('pagamentos').delete().eq('id', deleteId);
+    const { error } = await supabase.from('pagamentos').delete().eq('id', deleteId);
     if (!error) {
       setPagamentos(prev => prev.filter(p => p.id !== deleteId));
       toast({ title: 'Pagamento excluído.' });
