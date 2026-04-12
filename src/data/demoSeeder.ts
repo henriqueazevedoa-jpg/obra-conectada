@@ -129,79 +129,74 @@ export async function seedDemoData(userId: string, companyId: string) {
   ];
   await supabase.from('orcamento_composicoes').insert(composicoes as any);
 
-  // === 4. CUSTO REAL ===
+  // === 4. CUSTO REAL (uses correct columns: categoria_id, preco_total, tipo_insumo) ===
   const custoItens = [
-    // Obra 1 - Custos realizados variados
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Limpeza terreno + tapume`, valor: 21000, categoria: 'Serviços Preliminares', data: daysAgo(85), fornecedor: 'Construtora Início' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Instalações provisórias`, valor: 13500, categoria: 'Serviços Preliminares', data: daysAgo(82), fornecedor: 'Eletricista MEI' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Escavação mecânica`, valor: 27500, categoria: 'Fundação', data: daysAgo(70), fornecedor: 'Terraplanagem Silva' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Concreto usinado fundação`, valor: 48000, categoria: 'Fundação', data: daysAgo(60), fornecedor: 'Concreteira ABC' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Impermeabilização`, valor: 16200, categoria: 'Fundação', data: daysAgo(50), fornecedor: 'Impermeabiliza SP' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Aterro compactado`, valor: 9800, categoria: 'Fundação', data: daysAgo(48), fornecedor: 'Terraplanagem Silva' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Aço CA-50 pilares`, valor: 38000, categoria: 'Estrutura', data: daysAgo(35), fornecedor: 'Siderúrgica Nacional' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Fôrmas madeira pilares`, valor: 12000, categoria: 'Estrutura', data: daysAgo(33), fornecedor: 'Madeireira Pinheiro' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Concreto pilares`, valor: 22000, categoria: 'Estrutura', data: daysAgo(25), fornecedor: 'Concreteira ABC' },
-    { obra_id: obra1Id, company_id: companyId, descricao: `${DEMO_PREFIX} Concreto lajes 1º pav`, valor: 35000, categoria: 'Estrutura', data: daysAgo(15), fornecedor: 'Concreteira ABC' },
-    // Obra 2 - Custos reforma
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Demolição geral`, valor: 9500, categoria: 'Demolição', data: daysAgo(40), fornecedor: 'Demolidora Express' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Remoção entulho (3 caçambas)`, valor: 4200, categoria: 'Demolição', data: daysAgo(35), fornecedor: 'Caçambas Rápidas' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Reforço estrutural`, valor: 24000, categoria: 'Estrutura', data: daysAgo(25), fornecedor: 'Eng. Estrutural Ltda' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Laje mezzanino`, valor: 17500, categoria: 'Estrutura', data: daysAgo(18), fornecedor: 'Concreteira ABC' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Porcelanato 60x60`, valor: 28000, categoria: 'Acabamento', data: daysAgo(10), fornecedor: 'Cerâmica Luxo' },
-    { obra_id: obra2Id, company_id: companyId, descricao: `${DEMO_PREFIX} Mão de obra piso`, valor: 8000, categoria: 'Acabamento', data: daysAgo(8), fornecedor: 'Azulejista Marcos' },
-    // Obra 3 - Apenas projeto (gasto mínimo)
-    { obra_id: obra3Id, company_id: companyId, descricao: `${DEMO_PREFIX} Projeto arquitetônico`, valor: 35000, categoria: 'Projeto', data: daysAgo(20), fornecedor: 'Arq. & Design' },
-    { obra_id: obra3Id, company_id: companyId, descricao: `${DEMO_PREFIX} Sondagem SPT`, valor: 12000, categoria: 'Fundação', data: daysAgo(15), fornecedor: 'GeoSondagens' },
-    { obra_id: obra3Id, company_id: companyId, descricao: `${DEMO_PREFIX} Projeto estrutural`, valor: 28000, categoria: 'Projeto', data: daysAgo(10), fornecedor: 'Calc Estruturas' },
+    // Obra 1 - using category IDs from orcamento_categorias
+    { obra_id: obra1Id, categoria_id: c1_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Limpeza terreno + tapume`, unidade: 'vb', quantidade: 1, preco_unitario: 21000, preco_total: 21000, fornecedor: 'Construtora Início' },
+    { obra_id: obra1Id, categoria_id: c1_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Instalações provisórias`, unidade: 'vb', quantidade: 1, preco_unitario: 13500, preco_total: 13500, fornecedor: 'Eletricista MEI' },
+    { obra_id: obra1Id, categoria_id: c1_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Escavação mecânica`, unidade: 'm³', quantidade: 500, preco_unitario: 55, preco_total: 27500, fornecedor: 'Terraplanagem Silva' },
+    { obra_id: obra1Id, categoria_id: c1_2, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Concreto usinado fundação`, unidade: 'm³', quantidade: 100, preco_unitario: 480, preco_total: 48000, fornecedor: 'Concreteira ABC' },
+    { obra_id: obra1Id, categoria_id: c1_2, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Impermeabilização`, unidade: 'm²', quantidade: 200, preco_unitario: 81, preco_total: 16200, fornecedor: 'Impermeabiliza SP' },
+    { obra_id: obra1Id, categoria_id: c1_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Aterro compactado`, unidade: 'm³', quantidade: 250, preco_unitario: 39.2, preco_total: 9800, fornecedor: 'Terraplanagem Silva' },
+    { obra_id: obra1Id, categoria_id: c1_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Aço CA-50 pilares`, unidade: 'kg', quantidade: 2000, preco_unitario: 19, preco_total: 38000, fornecedor: 'Siderúrgica Nacional' },
+    { obra_id: obra1Id, categoria_id: c1_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Fôrmas madeira pilares`, unidade: 'm²', quantidade: 120, preco_unitario: 100, preco_total: 12000, fornecedor: 'Madeireira Pinheiro' },
+    { obra_id: obra1Id, categoria_id: c1_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Concreto pilares`, unidade: 'm³', quantidade: 50, preco_unitario: 440, preco_total: 22000, fornecedor: 'Concreteira ABC' },
+    { obra_id: obra1Id, categoria_id: c1_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Concreto lajes 1º pav`, unidade: 'm³', quantidade: 80, preco_unitario: 437.5, preco_total: 35000, fornecedor: 'Concreteira ABC' },
+    // Obra 2
+    { obra_id: obra2Id, categoria_id: c2_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Demolição geral`, unidade: 'vb', quantidade: 1, preco_unitario: 9500, preco_total: 9500, fornecedor: 'Demolidora Express' },
+    { obra_id: obra2Id, categoria_id: c2_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Remoção entulho (3 caçambas)`, unidade: 'un', quantidade: 3, preco_unitario: 1400, preco_total: 4200, fornecedor: 'Caçambas Rápidas' },
+    { obra_id: obra2Id, categoria_id: c2_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Reforço estrutural`, unidade: 'vb', quantidade: 1, preco_unitario: 24000, preco_total: 24000, fornecedor: 'Eng. Estrutural Ltda' },
+    { obra_id: obra2Id, categoria_id: c2_2, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Laje mezzanino`, unidade: 'm²', quantidade: 50, preco_unitario: 350, preco_total: 17500, fornecedor: 'Concreteira ABC' },
+    { obra_id: obra2Id, categoria_id: c2_3, tipo_insumo: 'Material', descricao: `${DEMO_PREFIX} Porcelanato 60x60`, unidade: 'm²', quantidade: 200, preco_unitario: 140, preco_total: 28000, fornecedor: 'Cerâmica Luxo' },
+    { obra_id: obra2Id, categoria_id: c2_3, tipo_insumo: 'Mão de Obra', descricao: `${DEMO_PREFIX} Mão de obra piso`, unidade: 'm²', quantidade: 200, preco_unitario: 40, preco_total: 8000, fornecedor: 'Azulejista Marcos' },
+    // Obra 3
+    { obra_id: obra3Id, categoria_id: c3_1, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Projeto arquitetônico`, unidade: 'vb', quantidade: 1, preco_unitario: 35000, preco_total: 35000, fornecedor: 'Arq. & Design' },
+    { obra_id: obra3Id, categoria_id: c3_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Sondagem SPT`, unidade: 'vb', quantidade: 1, preco_unitario: 12000, preco_total: 12000, fornecedor: 'GeoSondagens' },
+    { obra_id: obra3Id, categoria_id: c3_2, tipo_insumo: 'Serviço', descricao: `${DEMO_PREFIX} Projeto estrutural`, unidade: 'vb', quantidade: 1, preco_unitario: 28000, preco_total: 28000, fornecedor: 'Calc Estruturas' },
   ];
-  await supabase.from('custo_real_itens').insert(custoItens as any);
+  try { await supabase.from('custo_real_itens').insert(custoItens as any); } catch (e) { console.warn('Demo: custo_real_itens failed', e); }
 
   // === 5. MATERIAIS (ESTOQUE) ===
   const mat = Array.from({ length: 14 }, () => demoId());
   const materiais = [
-    // Obra 1 - estoque variado (alguns críticos)
-    { id: mat[0], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Cimento CP-II 50kg`, unidade: 'saco', categoria: 'Cimento', estoque_atual: 35, estoque_minimo: 50, localizacao: 'Almoxarifado A' },
-    { id: mat[1], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Vergalhão CA-50 10mm`, unidade: 'barra', categoria: 'Aço', estoque_atual: 180, estoque_minimo: 100, localizacao: 'Pátio coberto' },
-    { id: mat[2], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Areia média`, unidade: 'm³', categoria: 'Agregados', estoque_atual: 4, estoque_minimo: 10, localizacao: 'Pátio' },
-    { id: mat[3], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Brita 1`, unidade: 'm³', categoria: 'Agregados', estoque_atual: 3, estoque_minimo: 8, localizacao: 'Pátio' },
-    { id: mat[4], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Tijolo cerâmico 9x19x19`, unidade: 'un', categoria: 'Alvenaria', estoque_atual: 2000, estoque_minimo: 500, localizacao: 'Pátio' },
-    { id: mat[5], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Madeira para fôrma`, unidade: 'm²', categoria: 'Madeira', estoque_atual: 45, estoque_minimo: 30, localizacao: 'Galpão' },
-    { id: mat[6], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Arame recozido`, unidade: 'kg', categoria: 'Aço', estoque_atual: 8, estoque_minimo: 15, localizacao: 'Almoxarifado A' },
-    { id: mat[7], obra_id: obra1Id, company_id: companyId, nome: `${DEMO_PREFIX} Prego 18x27`, unidade: 'kg', categoria: 'Ferragens', estoque_atual: 12, estoque_minimo: 5, localizacao: 'Almoxarifado A' },
-    // Obra 2 - estoque de reforma
-    { id: mat[8], obra_id: obra2Id, company_id: companyId, nome: `${DEMO_PREFIX} Porcelanato 60x60 cinza`, unidade: 'm²', categoria: 'Acabamento', estoque_atual: 25, estoque_minimo: 10, localizacao: 'Depósito' },
-    { id: mat[9], obra_id: obra2Id, company_id: companyId, nome: `${DEMO_PREFIX} Tinta Acrílica branca 18L`, unidade: 'lata', categoria: 'Pintura', estoque_atual: 3, estoque_minimo: 8, localizacao: 'Depósito' },
-    { id: mat[10], obra_id: obra2Id, company_id: companyId, nome: `${DEMO_PREFIX} Massa corrida PVA`, unidade: 'lata', categoria: 'Pintura', estoque_atual: 2, estoque_minimo: 6, localizacao: 'Depósito' },
-    { id: mat[11], obra_id: obra2Id, company_id: companyId, nome: `${DEMO_PREFIX} Argamassa colante ACIII`, unidade: 'saco', categoria: 'Cimento', estoque_atual: 15, estoque_minimo: 10, localizacao: 'Depósito' },
-    { id: mat[12], obra_id: obra2Id, company_id: companyId, nome: `${DEMO_PREFIX} Rejunte cinza 5kg`, unidade: 'saco', categoria: 'Acabamento', estoque_atual: 8, estoque_minimo: 5, localizacao: 'Depósito' },
-    // Obra 3 - estoque mínimo (planejamento)
-    { id: mat[13], obra_id: obra3Id, company_id: companyId, nome: `${DEMO_PREFIX} Estacas pré-moldadas`, unidade: 'un', categoria: 'Estrutura', estoque_atual: 0, estoque_minimo: 0, localizacao: 'Não entregue' },
+    { id: mat[0], obra_id: obra1Id, nome: `${DEMO_PREFIX} Cimento CP-II 50kg`, unidade: 'saco', categoria: 'Cimento', estoque_atual: 35, estoque_minimo: 50, localizacao: 'Almoxarifado A' },
+    { id: mat[1], obra_id: obra1Id, nome: `${DEMO_PREFIX} Vergalhão CA-50 10mm`, unidade: 'barra', categoria: 'Aço', estoque_atual: 180, estoque_minimo: 100, localizacao: 'Pátio coberto' },
+    { id: mat[2], obra_id: obra1Id, nome: `${DEMO_PREFIX} Areia média`, unidade: 'm³', categoria: 'Agregados', estoque_atual: 4, estoque_minimo: 10, localizacao: 'Pátio' },
+    { id: mat[3], obra_id: obra1Id, nome: `${DEMO_PREFIX} Brita 1`, unidade: 'm³', categoria: 'Agregados', estoque_atual: 3, estoque_minimo: 8, localizacao: 'Pátio' },
+    { id: mat[4], obra_id: obra1Id, nome: `${DEMO_PREFIX} Tijolo cerâmico 9x19x19`, unidade: 'un', categoria: 'Alvenaria', estoque_atual: 2000, estoque_minimo: 500, localizacao: 'Pátio' },
+    { id: mat[5], obra_id: obra1Id, nome: `${DEMO_PREFIX} Madeira para fôrma`, unidade: 'm²', categoria: 'Madeira', estoque_atual: 45, estoque_minimo: 30, localizacao: 'Galpão' },
+    { id: mat[6], obra_id: obra1Id, nome: `${DEMO_PREFIX} Arame recozido`, unidade: 'kg', categoria: 'Aço', estoque_atual: 8, estoque_minimo: 15, localizacao: 'Almoxarifado A' },
+    { id: mat[7], obra_id: obra1Id, nome: `${DEMO_PREFIX} Prego 18x27`, unidade: 'kg', categoria: 'Ferragens', estoque_atual: 12, estoque_minimo: 5, localizacao: 'Almoxarifado A' },
+    { id: mat[8], obra_id: obra2Id, nome: `${DEMO_PREFIX} Porcelanato 60x60 cinza`, unidade: 'm²', categoria: 'Acabamento', estoque_atual: 25, estoque_minimo: 10, localizacao: 'Depósito' },
+    { id: mat[9], obra_id: obra2Id, nome: `${DEMO_PREFIX} Tinta Acrílica branca 18L`, unidade: 'lata', categoria: 'Pintura', estoque_atual: 3, estoque_minimo: 8, localizacao: 'Depósito' },
+    { id: mat[10], obra_id: obra2Id, nome: `${DEMO_PREFIX} Massa corrida PVA`, unidade: 'lata', categoria: 'Pintura', estoque_atual: 2, estoque_minimo: 6, localizacao: 'Depósito' },
+    { id: mat[11], obra_id: obra2Id, nome: `${DEMO_PREFIX} Argamassa colante ACIII`, unidade: 'saco', categoria: 'Cimento', estoque_atual: 15, estoque_minimo: 10, localizacao: 'Depósito' },
+    { id: mat[12], obra_id: obra2Id, nome: `${DEMO_PREFIX} Rejunte cinza 5kg`, unidade: 'saco', categoria: 'Acabamento', estoque_atual: 8, estoque_minimo: 5, localizacao: 'Depósito' },
+    { id: mat[13], obra_id: obra3Id, nome: `${DEMO_PREFIX} Estacas pré-moldadas`, unidade: 'un', categoria: 'Estrutura', estoque_atual: 0, estoque_minimo: 0, localizacao: 'Não entregue' },
   ];
-  await supabase.from('materiais').insert(materiais as any);
+  try { await supabase.from('materiais').insert(materiais as any); } catch (e) { console.warn('Demo: materiais failed', e); }
 
   // Movimentações variadas
   const movimentacoes = [
-    // Obra 1 - múltiplas entradas e saídas
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[0], material_nome: `${DEMO_PREFIX} Cimento CP-II 50kg`, quantidade: 100, tipo: 'entrada', data: daysAgo(30), responsavel: 'Carlos', origem_destino: 'Fornecedor DepMat' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[0], material_nome: `${DEMO_PREFIX} Cimento CP-II 50kg`, quantidade: 40, tipo: 'saida', data: daysAgo(25), responsavel: 'Pedro', origem_destino: 'Fundação - sapatas' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[0], material_nome: `${DEMO_PREFIX} Cimento CP-II 50kg`, quantidade: 25, tipo: 'saida', data: daysAgo(15), responsavel: 'Pedro', origem_destino: 'Estrutura - pilares' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[1], material_nome: `${DEMO_PREFIX} Vergalhão CA-50 10mm`, quantidade: 300, tipo: 'entrada', data: daysAgo(40), responsavel: 'Carlos', origem_destino: 'Siderúrgica Nacional' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[1], material_nome: `${DEMO_PREFIX} Vergalhão CA-50 10mm`, quantidade: 120, tipo: 'saida', data: daysAgo(30), responsavel: 'José', origem_destino: 'Armação pilares' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[2], material_nome: `${DEMO_PREFIX} Areia média`, quantidade: 20, tipo: 'entrada', data: daysAgo(25), responsavel: 'Carlos', origem_destino: 'Mineradora XYZ' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[2], material_nome: `${DEMO_PREFIX} Areia média`, quantidade: 16, tipo: 'saida', data: daysAgo(10), responsavel: 'Pedro', origem_destino: 'Concreto virado' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[3], material_nome: `${DEMO_PREFIX} Brita 1`, quantidade: 15, tipo: 'entrada', data: daysAgo(25), responsavel: 'Carlos', origem_destino: 'Mineradora XYZ' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[3], material_nome: `${DEMO_PREFIX} Brita 1`, quantidade: 12, tipo: 'saida', data: daysAgo(10), responsavel: 'Pedro', origem_destino: 'Concreto virado' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[5], material_nome: `${DEMO_PREFIX} Madeira para fôrma`, quantidade: 60, tipo: 'entrada', data: daysAgo(35), responsavel: 'Carlos', origem_destino: 'Madeireira Pinheiro' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[5], material_nome: `${DEMO_PREFIX} Madeira para fôrma`, quantidade: 15, tipo: 'saida', data: daysAgo(20), responsavel: 'José', origem_destino: 'Fôrma pilares' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[6], material_nome: `${DEMO_PREFIX} Arame recozido`, quantidade: 20, tipo: 'entrada', data: daysAgo(40), responsavel: 'Carlos', origem_destino: 'Siderúrgica Nacional' },
-    { obra_id: obra1Id, company_id: companyId, material_id: mat[6], material_nome: `${DEMO_PREFIX} Arame recozido`, quantidade: 12, tipo: 'saida', data: daysAgo(20), responsavel: 'José', origem_destino: 'Amarração armadura' },
-    // Obra 2
-    { obra_id: obra2Id, company_id: companyId, material_id: mat[8], material_nome: `${DEMO_PREFIX} Porcelanato 60x60 cinza`, quantidade: 220, tipo: 'entrada', data: daysAgo(12), responsavel: 'Ana', origem_destino: 'Cerâmica Luxo' },
-    { obra_id: obra2Id, company_id: companyId, material_id: mat[8], material_nome: `${DEMO_PREFIX} Porcelanato 60x60 cinza`, quantidade: 195, tipo: 'saida', data: daysAgo(5), responsavel: 'Marcos', origem_destino: 'Assentamento área principal' },
-    { obra_id: obra2Id, company_id: companyId, material_id: mat[11], material_nome: `${DEMO_PREFIX} Argamassa colante ACIII`, quantidade: 30, tipo: 'entrada', data: daysAgo(12), responsavel: 'Ana', origem_destino: 'DepMat Centro' },
-    { obra_id: obra2Id, company_id: companyId, material_id: mat[11], material_nome: `${DEMO_PREFIX} Argamassa colante ACIII`, quantidade: 15, tipo: 'saida', data: daysAgo(5), responsavel: 'Marcos', origem_destino: 'Assentamento piso' },
+    { obra_id: obra1Id, material_id: mat[0], material_nome: `${DEMO_PREFIX} Cimento CP-II 50kg`, quantidade: 100, tipo: 'entrada' as const, data: daysAgo(30), responsavel: 'Carlos', origem_destino: 'Fornecedor DepMat' },
+    { obra_id: obra1Id, material_id: mat[0], material_nome: `${DEMO_PREFIX} Cimento CP-II 50kg`, quantidade: 40, tipo: 'saida' as const, data: daysAgo(25), responsavel: 'Pedro', origem_destino: 'Fundação - sapatas' },
+    { obra_id: obra1Id, material_id: mat[0], material_nome: `${DEMO_PREFIX} Cimento CP-II 50kg`, quantidade: 25, tipo: 'saida' as const, data: daysAgo(15), responsavel: 'Pedro', origem_destino: 'Estrutura - pilares' },
+    { obra_id: obra1Id, material_id: mat[1], material_nome: `${DEMO_PREFIX} Vergalhão CA-50 10mm`, quantidade: 300, tipo: 'entrada' as const, data: daysAgo(40), responsavel: 'Carlos', origem_destino: 'Siderúrgica Nacional' },
+    { obra_id: obra1Id, material_id: mat[1], material_nome: `${DEMO_PREFIX} Vergalhão CA-50 10mm`, quantidade: 120, tipo: 'saida' as const, data: daysAgo(30), responsavel: 'José', origem_destino: 'Armação pilares' },
+    { obra_id: obra1Id, material_id: mat[2], material_nome: `${DEMO_PREFIX} Areia média`, quantidade: 20, tipo: 'entrada' as const, data: daysAgo(25), responsavel: 'Carlos', origem_destino: 'Mineradora XYZ' },
+    { obra_id: obra1Id, material_id: mat[2], material_nome: `${DEMO_PREFIX} Areia média`, quantidade: 16, tipo: 'saida' as const, data: daysAgo(10), responsavel: 'Pedro', origem_destino: 'Concreto virado' },
+    { obra_id: obra1Id, material_id: mat[3], material_nome: `${DEMO_PREFIX} Brita 1`, quantidade: 15, tipo: 'entrada' as const, data: daysAgo(25), responsavel: 'Carlos', origem_destino: 'Mineradora XYZ' },
+    { obra_id: obra1Id, material_id: mat[3], material_nome: `${DEMO_PREFIX} Brita 1`, quantidade: 12, tipo: 'saida' as const, data: daysAgo(10), responsavel: 'Pedro', origem_destino: 'Concreto virado' },
+    { obra_id: obra1Id, material_id: mat[5], material_nome: `${DEMO_PREFIX} Madeira para fôrma`, quantidade: 60, tipo: 'entrada' as const, data: daysAgo(35), responsavel: 'Carlos', origem_destino: 'Madeireira Pinheiro' },
+    { obra_id: obra1Id, material_id: mat[5], material_nome: `${DEMO_PREFIX} Madeira para fôrma`, quantidade: 15, tipo: 'saida' as const, data: daysAgo(20), responsavel: 'José', origem_destino: 'Fôrma pilares' },
+    { obra_id: obra1Id, material_id: mat[6], material_nome: `${DEMO_PREFIX} Arame recozido`, quantidade: 20, tipo: 'entrada' as const, data: daysAgo(40), responsavel: 'Carlos', origem_destino: 'Siderúrgica Nacional' },
+    { obra_id: obra1Id, material_id: mat[6], material_nome: `${DEMO_PREFIX} Arame recozido`, quantidade: 12, tipo: 'saida' as const, data: daysAgo(20), responsavel: 'José', origem_destino: 'Amarração armadura' },
+    { obra_id: obra2Id, material_id: mat[8], material_nome: `${DEMO_PREFIX} Porcelanato 60x60 cinza`, quantidade: 220, tipo: 'entrada' as const, data: daysAgo(12), responsavel: 'Ana', origem_destino: 'Cerâmica Luxo' },
+    { obra_id: obra2Id, material_id: mat[8], material_nome: `${DEMO_PREFIX} Porcelanato 60x60 cinza`, quantidade: 195, tipo: 'saida' as const, data: daysAgo(5), responsavel: 'Marcos', origem_destino: 'Assentamento área principal' },
+    { obra_id: obra2Id, material_id: mat[11], material_nome: `${DEMO_PREFIX} Argamassa colante ACIII`, quantidade: 30, tipo: 'entrada' as const, data: daysAgo(12), responsavel: 'Ana', origem_destino: 'DepMat Centro' },
+    { obra_id: obra2Id, material_id: mat[11], material_nome: `${DEMO_PREFIX} Argamassa colante ACIII`, quantidade: 15, tipo: 'saida' as const, data: daysAgo(5), responsavel: 'Marcos', origem_destino: 'Assentamento piso' },
   ];
-  await supabase.from('movimentacoes').insert(movimentacoes as any);
+  try { await supabase.from('movimentacoes').insert(movimentacoes as any); } catch (e) { console.warn('Demo: movimentacoes failed', e); }
 
   // === 6. DIARIO REGISTROS (variado: climas, problemas, status) ===
   const diarios = [
@@ -225,7 +220,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra3Id, user_id: userId, usuario_nome: 'Demo Gestor', data: daysAgo(10), clima: 'sol' as const, trabalhadores: 3, servicos_executados: `${DEMO_PREFIX} Visita técnica ao terreno. Marcação de pontos de sondagem.`, problemas: null, observacoes: 'Terreno com boa condição de acesso. Solo aparentemente argiloso.', status: 'aprovado' as const },
     { obra_id: obra3Id, user_id: userId, usuario_nome: 'Demo Gestor', data: daysAgo(8), clima: 'nublado' as const, trabalhadores: 4, servicos_executados: `${DEMO_PREFIX} Sondagem SPT - 6 furos executados. Coleta de amostras.`, problemas: 'Nível d\'água encontrado a 3m - necessário rebaixamento', observacoes: 'Resultado de sondagem previsto para 5 dias úteis', status: 'aprovado' as const },
   ];
-  await supabase.from('diario_registros').insert(diarios as any);
+  try { await supabase.from('diario_registros').insert(diarios as any); } catch (e) { console.warn('Demo: diarios failed', e); }
 
   // === 7. PAGAMENTOS (variados: status, tipos, formas, parcelas) ===
   const pagamentos = [
@@ -256,7 +251,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra3Id, descricao: `${DEMO_PREFIX} Licenciamento ambiental`, tipo_pagamento: 'servico' as const, valor_previsto: 15000, data_vencimento: daysFromNow(20), status: 'previsto' as const, forma_pagamento: 'boleto' as const, fornecedor: 'Ambiental Consultoria' },
     { obra_id: obra3Id, descricao: `${DEMO_PREFIX} Projeto instalações elétricas`, tipo_pagamento: 'servico' as const, valor_previsto: 18000, data_vencimento: daysFromNow(30), status: 'previsto' as const, forma_pagamento: 'transferencia' as const, fornecedor: 'Elétrica Projetos' },
   ];
-  await supabase.from('pagamentos').insert(pagamentos as any);
+  try { await supabase.from('pagamentos').insert(pagamentos as any); } catch (e) { console.warn('Demo: pagamentos failed', e); }
 
   // === 8. PENDÊNCIAS (variadas: tipos, prioridades, status, vencidas) ===
   const pendencias = [
@@ -283,7 +278,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra3Id, titulo: `${DEMO_PREFIX} Cotação estacas pré-moldadas`, descricao: 'Solicitar cotação para 800m de estacas hélice contínua', tipo: 'orcamento' as const, prioridade: 'media' as const, status: 'aberta' as const, data_limite: daysFromNow(15) },
     { obra_id: obra3Id, titulo: `${DEMO_PREFIX} Seguro da obra`, descricao: 'Contratar seguro de responsabilidade civil e all risks', tipo: 'documento' as const, prioridade: 'baixa' as const, status: 'aberta' as const, data_limite: daysFromNow(20) },
   ];
-  await supabase.from('pendencias').insert(pendencias as any);
+  try { await supabase.from('pendencias').insert(pendencias as any); } catch (e) { console.warn('Demo: pendencias failed', e); }
 
   // === 9. FORNECEDORES (variados por obra) ===
   const forn = Array.from({ length: 10 }, () => demoId());
@@ -302,7 +297,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { id: forn[8], obra_id: obra3Id, nome: `${DEMO_PREFIX} GeoSondagens`, cnpj: '77.888.999/0001-11', email: 'contato@geosondagens.com', telefone: '(11) 5566-7788', cidade: 'Jundiaí', observacoes: 'Especializada em SPT e ensaios de campo.' },
     { id: forn[9], obra_id: obra3Id, nome: `${DEMO_PREFIX} Calc Estruturas`, cnpj: '88.999.000/0001-33', email: 'projetos@calcestruturas.com', telefone: '(11) 6677-8899', cidade: 'São Paulo', observacoes: 'Referência em pré-moldados industriais.' },
   ];
-  await supabase.from('fornecedores').insert(fornecedores as any);
+  try { await supabase.from('fornecedores').insert(fornecedores as any); } catch (e) { console.warn('Demo: fornecedores failed', e); }
 
   // === 10. PREÇOS FORNECEDORES (histórico variado) ===
   const precos = [
@@ -332,7 +327,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     // Calc Estruturas
     { fornecedor_id: forn[9], obra_id: obra3Id, descricao_item_snapshot: 'Projeto estrutural galpão', preco_unitario: 28000, unidade: 'vb', data_referencia: daysAgo(10), origem_preco: 'cotacao' as const },
   ];
-  await supabase.from('precos_fornecedores').insert(precos as any);
+  try { await supabase.from('precos_fornecedores').insert(precos as any); } catch (e) { console.warn('Demo: precos failed', e); }
 
   return { obra1Id, obra2Id, obra3Id };
 }
