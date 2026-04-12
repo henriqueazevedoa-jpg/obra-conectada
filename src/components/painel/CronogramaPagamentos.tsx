@@ -13,7 +13,7 @@ interface Pagamento {
   valor_previsto: number;
   data_vencimento: string;
   status: string;
-  fornecedor_nome: string | null;
+  fornecedor: string | null;
 }
 
 interface Props {
@@ -39,7 +39,7 @@ export default function CronogramaPagamentos({ obraId }: Props) {
     if (!obraId) return;
     supabase
       .from('pagamentos')
-      .select('id, descricao, valor_previsto, data_vencimento, status, fornecedor_nome')
+      .select('id, descricao, valor_previsto, data_vencimento, status, fornecedor')
       .eq('obra_id', obraId)
       .order('data_vencimento', { ascending: true })
       .then(({ data }: any) => {
@@ -119,7 +119,7 @@ export default function CronogramaPagamentos({ obraId }: Props) {
                         <p className="text-sm text-foreground truncate">{p.descricao}</p>
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                           {p.data_vencimento && <span>{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</span>}
-                          {p.fornecedor_nome && <span>· {p.fornecedor_nome}</span>}
+                          {p.fornecedor && <span>· {p.fornecedor}</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
