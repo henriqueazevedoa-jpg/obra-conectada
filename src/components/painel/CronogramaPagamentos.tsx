@@ -11,9 +11,7 @@ interface Pagamento {
   id: string;
   descricao: string;
   valor_previsto: number;
-  valor_pago: number | null;
   data_vencimento: string;
-  data_pagamento: string | null;
   status: string;
   fornecedor_nome: string | null;
 }
