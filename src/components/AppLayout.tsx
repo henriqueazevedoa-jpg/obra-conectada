@@ -190,8 +190,26 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <SidebarSection title="Obra">
-            {mainLinks.map((link) => renderLink(link))}
+          {user.role === 'admin' && (
+            <SidebarSection title="Admin">
+              {renderLink({ to: "/admin", label: "Admin Plataforma", icon: Shield })}
+            </SidebarSection>
+          )}
+
+          <SidebarSection title="Visão Geral">
+            {obraVisaoLinks.map((link) => renderLink(link))}
+          </SidebarSection>
+
+          <SidebarSection title="Financeiro">
+            {obraFinanceiroLinks.map((link) => renderLink(link))}
+          </SidebarSection>
+
+          <SidebarSection title="Execução">
+            {obraExecucaoLinks.map((link) => renderLink(link))}
+          </SidebarSection>
+
+          <SidebarSection title="Logística">
+            {obraLogisticaLinks.map((link) => renderLink(link))}
           </SidebarSection>
 
           <SidebarSection title="Conta">
