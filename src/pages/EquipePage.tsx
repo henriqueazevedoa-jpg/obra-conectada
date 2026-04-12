@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -357,7 +357,7 @@ export default function EquipePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Equipe</h1>
+          <h1 className="text-2xl font-bold">Usuários</h1>
           <p className="text-muted-foreground text-sm">Gerencie os membros da {company.nome}</p>
         </div>
         <Button onClick={() => setModalOpen(true)}>

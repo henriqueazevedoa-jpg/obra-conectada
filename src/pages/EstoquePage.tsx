@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import { useObras } from '@/contexts/ObrasContext';
@@ -36,6 +37,7 @@ import {
 } from 'lucide-react';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import NoObraState from '@/components/obras/NoObraState';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 
 const categoriasEstoque = [
   'Cimento',
@@ -53,6 +55,7 @@ const categoriasEstoque = [
 ];
 
 export default function EstoquePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission } = useAuth();
   const { obras } = useObras();
   const {
@@ -66,6 +69,14 @@ export default function EstoquePage() {
 
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Auto-open form via ?novo=1
+  useEffect(() => {
+    if (searchParams.get('novo') === '1') {
+      setDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
   const [movTipo, setMovTipo] = useState<'entrada' | 'saida'>('entrada');
   const [newMov, setNewMov] = useState({
     materialId: '',
@@ -164,24 +175,27 @@ export default function EstoquePage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Estoque</h1>
-          <p className="text-muted-foreground">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" />
+            Estoque
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
             Controle de materiais e movimentações da obra
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={obra.id} onValueChange={setObraId}>
-            <SelectTrigger className="w-full sm:w-[280px]">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecione a obra" />
             </SelectTrigger>
             <SelectContent>
               {obras.map((o: any) => (
                 <SelectItem key={o.id} value={o.id}>
-                  {o.codigo} - {o.nome}
+                  {o.codigo ? `${o.codigo} - ` : ''}{o.nome}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -189,102 +203,7 @@ export default function EstoquePage() {
 
           {canMovimentar && (
             <div className="flex gap-2">
-              <Dialog open={cadastroOpen} onOpenChange={setCadastroOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Cadastrar Material
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Cadastrar Material</DialogTitle>
-                  </DialogHeader>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">Nome do Material *</label>
-                      <Input
-                        value={newMat.nome}
-                        onChange={(e) =>
-                          setNewMat({ ...newMat, nome: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium">Unidade *</label>
-                      <Select
-                        value={newMat.unidade}
-                        onValueChange={(v) => setNewMat({ ...newMat, unidade: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a unidade" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[
-                            'un',
-                            'kg',
-                            'm',
-                            'm²',
-                            'm³',
-                            'saco',
-                            'barra',
-                            'rolo',
-                            'lata',
-                            'l',
-                            't',
-                            'pç',
-                            'cx',
-                          ].map((u) => (
-                            <SelectItem key={u} value={u}>
-                              {u}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium">Categoria *</label>
-                      <Select
-                        value={newMat.categoria}
-                        onValueChange={(v) => setNewMat({ ...newMat, categoria: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a categoria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categoriasEstoque.map((c) => (
-                            <SelectItem key={c} value={c}>
-                              {c}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium">Estoque Mínimo</label>
-                      <Input
-                        type="number"
-                        value={newMat.estoqueMinimo}
-                        onChange={(e) =>
-                          setNewMat({ ...newMat, estoqueMinimo: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleCadastrar}
-                      className="w-full"
-                      disabled={!newMat.nome || !newMat.unidade || !newMat.categoria}
-                    >
-                      Cadastrar Material
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              {/* Cadastro manual mantido como fallback mas oculto - materiais são criados via compra de material em Pagamentos */}
 
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
@@ -367,21 +286,20 @@ export default function EstoquePage() {
 
                     <div>
                       <label className="text-sm font-medium">Material</label>
-                      <Select
-                        value={newMov.materialId}
-                        onValueChange={(v) => setNewMov({ ...newMov, materialId: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o material" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {materiais.map((m: any) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.nome} ({m.estoqueAtual} {m.unidade})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <AutocompleteInput
+                        suggestions={materiais.map((m: any) => ({
+                          label: m.nome,
+                          value: m.id,
+                          meta: `${m.estoqueAtual} ${m.unidade}`,
+                        }))}
+                        value={materiais.find((m: any) => m.id === newMov.materialId)?.nome || ''}
+                        onChange={(v) => {
+                          const mat = materiais.find((m: any) => m.nome === v);
+                          if (mat) setNewMov({ ...newMov, materialId: mat.id });
+                        }}
+                        onSuggestionSelect={(s) => setNewMov({ ...newMov, materialId: s.value })}
+                        placeholder="Buscar material..."
+                      />
                     </div>
 
                     <div>

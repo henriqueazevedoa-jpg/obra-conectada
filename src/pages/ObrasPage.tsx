@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
+import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -10,9 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { statusObraLabels, formatDate, Obra } from '@/data/mockData';
-import { Search, Plus, MapPin, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, MapPin, Calendar, Pencil, Trash2, Building2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
 const statusColors: Record<string, string> = {
@@ -44,6 +45,8 @@ const emptyForm = {
 export default function ObrasPage() {
   const { user, hasPermission } = useAuth();
   const { obras, addObra, updateObra, deleteObra, generateCodigo, getResponsaveis } = useObras();
+  const { setSelectedObraId } = useObraSelection();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -166,14 +169,17 @@ export default function ObrasPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Obras</h1>
-          <p className="text-muted-foreground text-sm">{filtered.length} obra(s) encontrada(s)</p>
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-primary" />
+            Obras
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} obra(s) encontrada(s)</p>
         </div>
         {hasPermission('obras:create') && (
-          <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-1" /> Nova Obra</Button>
+          <Button size="sm" onClick={openCreateDialog}><Plus className="h-4 w-4 mr-1" /> Nova Obra</Button>
         )}
       </div>
 
@@ -199,8 +205,12 @@ export default function ObrasPage() {
 
       <div className="grid md:grid-cols-2 gap-4">
         {filtered.map(obra => (
-          <Link key={obra.id} to={`/obras/${obra.id}`}>
-            <Card className="shadow-card hover:shadow-card-hover transition-shadow cursor-pointer">
+          <div
+            key={obra.id}
+            onClick={() => { setSelectedObraId(obra.id); navigate('/painel'); }}
+            className="cursor-pointer"
+          >
+            <Card className="shadow-card hover:shadow-card-hover transition-shadow">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div>
@@ -242,7 +252,7 @@ export default function ObrasPage() {
                 </div>
               </CardContent>
             </Card>
-          </Link>
+          </div>
         ))}
       </div>
 

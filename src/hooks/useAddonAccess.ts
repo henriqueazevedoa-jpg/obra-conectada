@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import { useCompany } from '@/contexts/CompanyContext';
 
 export function useAddonAccess(addonCode: string) {

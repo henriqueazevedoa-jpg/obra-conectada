@@ -17,7 +17,7 @@ import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import ObrasPage from "@/pages/ObrasPage";
-import ObraDetalhePage from "@/pages/ObraDetalhePage";
+// ObraDetalhePage removed - clicking obra goes directly to Painel
 import OrcamentoPage from "@/pages/OrcamentoPage";
 import CustoRealPage from "@/pages/CustoRealPage";
 import CronogramaPage from "@/pages/CronogramaPage";
@@ -29,6 +29,7 @@ import EquipePage from "@/pages/EquipePage";
 import PerfilPage from "@/pages/PerfilPage";
 import PendenciasPage from "@/pages/PendenciasPage";
 import FornecedoresPage from "@/pages/FornecedoresPage";
+import DocumentosPage from "@/pages/DocumentosPage";
 
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminCompaniesPage from "@/pages/admin/AdminCompaniesPage";
@@ -74,7 +75,7 @@ function LoginRoute() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/painel" replace />;
+    return <Navigate to="/obras" replace />;
   }
 
   return <LoginPage />;
@@ -97,7 +98,7 @@ function OnboardingRoute() {
   }
 
   if (!needsOnboarding || user?.role === "admin") {
-    return <Navigate to="/painel" replace />;
+    return <Navigate to="/obras" replace />;
   }
 
   return <OnboardingPage />;
@@ -133,19 +134,19 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/painel" replace />} />
-        <Route path="painel" element={<PainelObraPage />} />
+        <Route index element={<Navigate to="/obras" replace />} />
         <Route path="obras" element={<ObrasPage />} />
-        <Route path="obras/:id" element={<ObraDetalhePage />} />
+        <Route path="painel" element={<PainelObraPage />} />
         <Route path="orcamento" element={<OrcamentoPage />} />
         <Route path="custo-real" element={<CustoRealPage />} />
         <Route path="cronograma" element={<CronogramaPage />} />
         <Route path="diario" element={<DiarioPage />} />
         <Route path="estoque" element={<EstoquePage />} />
         <Route path="pagamentos" element={<PagamentosPage />} />
-        <Route path="equipe" element={<EquipePage />} />
+        <Route path="usuarios" element={<EquipePage />} />
         <Route path="pendencias" element={<PendenciasPage />} />
         <Route path="fornecedores" element={<FornecedoresPage />} />
+        <Route path="documentos" element={<DocumentosPage />} />
         <Route path="perfil" element={<PerfilPage />} />
       </Route>
 

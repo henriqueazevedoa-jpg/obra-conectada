@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento, OrcamentoCategoria, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
@@ -20,10 +21,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { formatDate, statusDiarioLabels, climaLabels, DiarioRegistro, DiarioServico, DiarioMaterialUsado } from '@/data/mockData';
-import { Plus, Users, CheckCircle2, Clock, XCircle, Trash2, Link2, Package, Pencil, CalendarIcon, Filter, ChevronDown, Printer, Square, CheckSquare } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, Users, CheckCircle2, Clock, XCircle, Trash2, Link2, Package, Pencil, CalendarIcon, Filter, ChevronDown, Printer, Square, CheckSquare, Camera, BookOpen } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import NoObraState from '@/components/obras/NoObraState';
+import DiarioFotoUpload, { FotoPendente } from '@/components/diario/DiarioFotoUpload';
+import DiarioReportPicker, { DiarioReportSections, defaultDiarioReportSections } from '@/components/diario/DiarioReportPicker';
 
 const statusIcons: Record<string, React.ReactNode> = {
   pendente: <Clock className="h-4 w-4 text-warning" />,
@@ -32,6 +36,7 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 export default function DiarioPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission } = useAuth();
   const { obras } = useObras();
   const { orcamentos, getOrcamento, saveOrcamento } = useOrcamento();
@@ -44,6 +49,14 @@ export default function DiarioPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // Auto-open form via ?novo=1
+  useEffect(() => {
+    if (searchParams.get('novo') === '1' && obra) {
+      setDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, obra?.id]);
+
   // Form state
   const [dataRegistro, setDataRegistro] = useState<Date>(new Date());
   const [clima, setClima] = useState<DiarioRegistro['clima']>('sol');
@@ -52,6 +65,13 @@ export default function DiarioPage() {
   const [problemas, setProblemas] = useState('');
   const [servicos, setServicos] = useState<DiarioServico[]>([]);
   const [materiaisUsados, setMateriaisUsados] = useState<DiarioMaterialUsado[]>([]);
+  const [fotosPendentes, setFotosPendentes] = useState<FotoPendente[]>([]);
+
+  // Photos from DB per registro
+  const [registroFotos, setRegistroFotos] = useState<Map<string, { id: string; storage_path: string; legenda: string }[]>>(new Map());
+
+  // Report config
+  const [reportSections, setReportSections] = useState<DiarioReportSections>(defaultDiarioReportSections);
 
   const orcamento = obra ? getOrcamento(obra.id) : null;
   const categorias = orcamento?.categorias || [];
@@ -109,6 +129,23 @@ export default function DiarioPage() {
       status: r.status as DiarioRegistro['status'],
     }));
 
+    // Fetch fotos
+    if (regIds.length > 0) {
+      const { data: fotosData } = await (supabase as any)
+        .from('diario_fotos')
+        .select('*')
+        .in('registro_id', regIds);
+      if (fotosData) {
+        const fotoMap = new Map<string, { id: string; storage_path: string; legenda: string }[]>();
+        (fotosData as any[]).forEach(f => {
+          const arr = fotoMap.get(f.registro_id) || [];
+          arr.push({ id: f.id, storage_path: f.storage_path, legenda: f.legenda || '' });
+          fotoMap.set(f.registro_id, arr);
+        });
+        setRegistroFotos(fotoMap);
+      }
+    }
+
     setRegistros(mapped);
     setLoading(false);
   }, [obra?.id]);
@@ -123,6 +160,7 @@ export default function DiarioPage() {
   const [filterStatus, setFilterStatus] = useState('_all');
   const [filterProblemas, setFilterProblemas] = useState('_all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const hasActiveFilters = filterEtapa !== '_all' || filterMaterial !== '_all' || filterStatus !== '_all' || filterProblemas !== '_all';
 
@@ -218,6 +256,7 @@ export default function DiarioPage() {
     setProblemas('');
     setServicos([]);
     setMateriaisUsados([]);
+    setFotosPendentes([]);
     setEditingId(null);
   };
 
@@ -282,6 +321,22 @@ export default function DiarioPage() {
             quantidade: m.quantidade,
           }))
         );
+      }
+
+      // Upload new photos for edited registro
+      if (fotosPendentes.length > 0) {
+        for (const foto of fotosPendentes) {
+          const ext = foto.file.name.split('.').pop();
+          const path = `${obra.id}/${editingId}/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage.from('diario-fotos').upload(path, foto.file);
+          if (!upErr) {
+            await (supabase as any).from('diario_fotos').insert({
+              registro_id: editingId,
+              storage_path: path,
+              legenda: foto.legenda,
+            });
+          }
+        }
       }
 
       toast({ title: 'Registro atualizado!' });
@@ -381,6 +436,22 @@ export default function DiarioPage() {
           }
         }
         saveOrcamento({ ...orcamento, categorias: updatedCategorias });
+      }
+
+      // Upload photos for new registro
+      if (fotosPendentes.length > 0 && newReg) {
+        for (const foto of fotosPendentes) {
+          const ext = foto.file.name.split('.').pop();
+          const path = `${obra.id}/${newReg.id}/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage.from('diario-fotos').upload(path, foto.file);
+          if (!upErr) {
+            await (supabase as any).from('diario_fotos').insert({
+              registro_id: newReg.id,
+              storage_path: path,
+              legenda: foto.legenda,
+            });
+          }
+        }
       }
 
       toast({ title: 'Registro criado com sucesso!' });
@@ -489,6 +560,78 @@ ${toPrint.map(r => {
     printWindow.onload = () => { printWindow.print(); };
   };
 
+  const getFotoUrl = (path: string) => {
+    const { data } = supabase.storage.from('diario-fotos').getPublicUrl(path);
+    return data?.publicUrl || '';
+  };
+
+  const generateReport = (ids: string[]) => {
+    const toPrint = registros.filter(r => ids.includes(r.id));
+    if (toPrint.length === 0) return;
+    const s = reportSections;
+    const isFotoOnly = s.fotos && !s.servicos && !s.materiais && !s.observacoes && !s.problemas && !s.clima;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${isFotoOnly ? 'Relatório Fotográfico' : 'Relatório do Diário de Obra'}</title>
+<style>
+  body { font-family: 'Inter', -apple-system, sans-serif; color: #1a1a2e; margin: 2cm; font-size: 12px; }
+  .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
+  .header h1 { font-size: 18px; margin: 0; }
+  .header p { margin: 2px 0; color: #666; font-size: 11px; }
+  .registro { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 16px; break-inside: avoid; }
+  .registro-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .registro-header h3 { font-size: 14px; margin: 0; }
+  .badge { padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  .badge-aprovado { background: #dcfce7; color: #16a34a; }
+  .badge-pendente { background: #fef3c7; color: #d97706; }
+  .badge-rejeitado { background: #fecaca; color: #dc2626; }
+  .meta { display: flex; gap: 16px; color: #666; font-size: 11px; margin-bottom: 8px; }
+  .section { margin-top: 8px; }
+  .section-title { font-size: 10px; text-transform: uppercase; color: #999; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .problemas { background: #fef2f2; border-radius: 6px; padding: 8px; margin-top: 8px; }
+  .problemas p { color: #dc2626; margin: 0; }
+  .material-badge { display: inline-block; background: #f3f4f6; padding: 2px 8px; border-radius: 4px; margin: 2px; font-size: 11px; }
+  .fotos-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px; }
+  .foto-item { break-inside: avoid; }
+  .foto-item img { width: 100%; border-radius: 6px; border: 1px solid #e5e7eb; }
+  .foto-legenda { font-size: 11px; color: #666; margin-top: 4px; text-align: center; font-style: italic; }
+  @media print { body { margin: 1cm; } .registro { break-inside: avoid; } }
+</style>
+</head><body>
+${s.cabecalho ? `<div class="header">
+  <h1>${isFotoOnly ? '📷 Relatório Fotográfico' : 'Relatório do Diário de Obra'}</h1>
+  <p>${obra.codigo} — ${obra.nome}</p>
+  <p>Emitido em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
+</div>` : ''}
+${toPrint.map(r => {
+      const fotos = registroFotos.get(r.id) || [];
+      const climaLabel = climaLabels[r.clima] || r.clima;
+      const statusLabel = statusDiarioLabels[r.status] || r.status;
+      const statusClass = r.status === 'aprovado' ? 'badge-aprovado' : r.status === 'pendente' ? 'badge-pendente' : 'badge-rejeitado';
+      return `<div class="registro">
+    ${s.cabecalho ? `<div class="registro-header">
+      <h3>${formatDate(r.data)}${s.clima ? ` · ${climaLabel}` : ''}</h3>
+      <span class="badge ${statusClass}">${statusLabel}</span>
+    </div>` : ''}
+    ${s.clima ? `<div class="meta"><span>👤 ${r.usuario}</span><span>👷 ${r.trabalhadores} trabalhadores</span></div>` : ''}
+    ${s.servicos && r.servicos && r.servicos.length > 0 ? `<div class="section"><div class="section-title">Serviços Executados</div><ul>${r.servicos.map(sv => `<li>${sv.descricao}${sv.percentualAdicionado ? ` (+${sv.percentualAdicionado}%)` : ''}</li>`).join('')}</ul></div>` : ''}
+    ${s.servicos && (!r.servicos || r.servicos.length === 0) && r.servicosExecutados ? `<div class="section"><div class="section-title">Serviços Executados</div><p>${r.servicosExecutados}</p></div>` : ''}
+    ${s.materiais && r.materiaisUtilizados && r.materiaisUtilizados.length > 0 ? `<div class="section"><div class="section-title">Materiais Utilizados</div>${r.materiaisUtilizados.map(m => `<span class="material-badge">${m.materialNome}: ${m.quantidade} ${m.unidade}</span>`).join('')}</div>` : ''}
+    ${s.observacoes && r.observacoes ? `<div class="section"><div class="section-title">Observações</div><p>${r.observacoes}</p></div>` : ''}
+    ${s.problemas && r.problemas ? `<div class="problemas"><div class="section-title">⚠ Problemas Ocorridos</div><p>${r.problemas}</p></div>` : ''}
+    ${s.fotos && fotos.length > 0 ? `<div class="section"><div class="section-title">📷 Fotos</div><div class="fotos-grid">${fotos.map(f => `<div class="foto-item"><img src="${getFotoUrl(f.storage_path)}" />${f.legenda ? `<div class="foto-legenda">${f.legenda}</div>` : ''}</div>`).join('')}</div></div>` : ''}
+  </div>`;
+    }).join('')}
+</body></html>`;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.onload = () => { printWindow.print(); };
+  };
+
   if (!obra) {
     return (
       <NoObraState
@@ -499,22 +642,26 @@ ${toPrint.map(r => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg sm:text-2xl font-bold text-foreground">Diário de Obra</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            Diário de Obra
+          </h1>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={obraId} onValueChange={setObraId}>
-            <SelectTrigger className="w-full sm:w-[280px] h-8 text-xs sm:text-sm mt-1">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecionar obra..." />
             </SelectTrigger>
             <SelectContent>
               {obras.map(o => (
-                <SelectItem key={o.id} value={o.id}>{o.codigo} - {o.nome}</SelectItem>
+                <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
         {canCreate && (
           <div className="flex gap-1.5 shrink-0">
             <VoiceInputButton
@@ -687,10 +834,7 @@ ${toPrint.map(r => {
                   <Textarea placeholder="Relate problemas, se houver..." rows={2} value={problemas} onChange={e => setProblemas(e.target.value)} />
                 </div>
 
-                <div className="border border-dashed border-border rounded-lg p-4 text-center">
-                  <p className="text-sm text-muted-foreground">📷 Área para anexar fotos</p>
-                  <p className="text-xs text-muted-foreground">(Upload será habilitado em breve)</p>
-                </div>
+                <DiarioFotoUpload fotos={fotosPendentes} onChange={setFotosPendentes} />
 
                 <Button onClick={handleSubmit} className="w-full h-11 text-sm" disabled={servicos.filter(s => s.descricao.trim()).length === 0}>
                   {editingId ? 'Salvar Alterações' : 'Salvar Registro'}
@@ -700,6 +844,7 @@ ${toPrint.map(r => {
           </Dialog>
           </div>
         )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -758,18 +903,30 @@ ${toPrint.map(r => {
 
       {/* Selection & Print actions */}
       {sortedRegistros.length > 0 && (
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={toggleSelectAll}>
               {selectedIds.size === sortedRegistros.length ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
               {selectedIds.size > 0 ? `${selectedIds.size} selecionado(s)` : 'Selecionar'}
             </Button>
             {selectedIds.size > 0 && (
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
-                <Printer className="h-3.5 w-3.5" /> Imprimir Selecionados
-              </Button>
+              <>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => printRegistros(Array.from(selectedIds))}>
+                  <Printer className="h-3.5 w-3.5" /> Imprimir
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmOpen(true)}>
+                  <Trash2 className="h-3.5 w-3.5" /> Apagar
+                </Button>
+              </>
             )}
           </div>
+          {selectedIds.size > 0 && (
+            <DiarioReportPicker
+              sections={reportSections}
+              onChange={setReportSections}
+              onGenerate={() => generateReport(Array.from(selectedIds))}
+            />
+          )}
         </div>
       )}
 
@@ -886,12 +1043,66 @@ ${toPrint.map(r => {
                       <p className="text-xs sm:text-sm text-destructive">{registro.problemas}</p>
                     </div>
                   )}
+                  {/* Photos */}
+                  {(() => {
+                    const fotos = registroFotos.get(registro.id) || [];
+                    return fotos.length > 0 ? (
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
+                          <Camera className="h-3 w-3" /> Fotos ({fotos.length})
+                        </p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {fotos.map(f => (
+                            <div key={f.id} className="rounded overflow-hidden">
+                              <a href={getFotoUrl(f.storage_path)} target="_blank" rel="noopener noreferrer">
+                                <img src={getFotoUrl(f.storage_path)} alt={f.legenda} className="w-full aspect-square object-cover rounded" />
+                              </a>
+                              {f.legenda && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{f.legenda}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar {selectedIds.size} registro(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Todos os serviços, materiais e fotos vinculados também serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const ids = Array.from(selectedIds);
+                for (const id of ids) {
+                  await (supabase as any).from('diario_fotos').delete().eq('registro_id', id);
+                  await (supabase as any).from('diario_servicos').delete().eq('registro_id', id);
+                  await (supabase as any).from('diario_materiais').delete().eq('registro_id', id);
+                  await supabase.from('diario_registros').delete().eq('id', id);
+                }
+                setSelectedIds(new Set());
+                setDeleteConfirmOpen(false);
+                toast({ title: `${ids.length} registro(s) apagado(s).` });
+                fetchRegistros();
+              }}
+            >
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

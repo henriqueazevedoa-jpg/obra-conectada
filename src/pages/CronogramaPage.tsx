@@ -258,13 +258,16 @@ export default function CronogramaPage() {
     : 0;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Cronograma</h1>
-          <p className="text-muted-foreground text-sm">Acompanhamento das etapas da obra</p>
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" />
+            Cronograma
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Acompanhamento das etapas da obra</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <VoiceInputButton
             module="cronograma"
             obraId={selectedObraId}
@@ -273,11 +276,11 @@ export default function CronogramaPage() {
             }}
           />
           <Select value={selectedObraId} onValueChange={setSelectedObraId}>
-            <SelectTrigger className="w-60">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecione a obra" />
             </SelectTrigger>
             <SelectContent>
-              {obras.map(o => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+              {obras.map(o => <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>)}
             </SelectContent>
           </Select>
           <div className="flex border border-border rounded-md">

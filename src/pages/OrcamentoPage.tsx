@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { formatCurrency } from '@/data/mockData';
-import { Edit, Copy } from 'lucide-react';
+import { Edit, Copy, DollarSign } from 'lucide-react';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import OrcamentoEditor from '@/components/orcamento/OrcamentoEditor';
 import { toast } from '@/hooks/use-toast';
@@ -30,8 +30,9 @@ export default function OrcamentoPage() {
   const totalPrevisto = orcamento?.categorias.reduce((s, c) => s + c.precoTotal, 0) ?? 0;
   const isGestor = user?.role === 'gestor';
 
-  // Obras that have budgets (excluding current)
-  const obrasComOrcamento = orcamentos.filter(o => o.obraId !== selectedObraId && o.categorias.length > 0);
+  // Only show orcamentos from obras that belong to the current user's list
+  const obraIds = new Set(obras.map(o => o.id));
+  const obrasComOrcamento = orcamentos.filter(o => o.obraId !== selectedObraId && o.categorias.length > 0 && obraIds.has(o.obraId));
 
   const handleImport = () => {
     if (!importObraId || !selectedObraId) return;
@@ -66,13 +67,16 @@ export default function OrcamentoPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Orçamento</h1>
-          <p className="text-muted-foreground text-sm">Gestão orçamentária por obra</p>
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            Orçamento
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Gestão orçamentária por obra</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <VoiceInputButton
             module="orcamento"
             obraId={selectedObraId}
@@ -81,22 +85,22 @@ export default function OrcamentoPage() {
             }}
           />
           <Select value={selectedObraId} onValueChange={setSelectedObraId}>
-            <SelectTrigger className="w-60">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecione a obra" />
             </SelectTrigger>
             <SelectContent>
               {obras.map(o => (
-                <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>
+                <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           {isGestor && obrasComOrcamento.length > 0 && (
-            <Button variant="outline" onClick={() => setImportDialogOpen(true)} className="gap-1">
+            <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)} className="gap-1">
               <Copy className="h-4 w-4" /> Importar
             </Button>
           )}
           {isGestor && (
-            <Button onClick={() => setEditing(true)} className="gap-1">
+            <Button size="sm" onClick={() => setEditing(true)} className="gap-1">
               <Edit className="h-4 w-4" /> Editar
             </Button>
           )}

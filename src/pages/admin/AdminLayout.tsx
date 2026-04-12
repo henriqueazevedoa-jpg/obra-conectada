@@ -52,7 +52,7 @@ export default function AdminLayout() {
         </nav>
         <div className="border-t border-sidebar-border p-3">
           <Link
-            to="/painel"
+            to="/obras"
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />

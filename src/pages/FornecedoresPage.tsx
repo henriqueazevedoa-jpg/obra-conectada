@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, parseISO } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import { useObras } from '@/contexts/ObrasContext';
-import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,10 +19,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Plus, Pencil, Trash2, Store, DollarSign,
+  Plus, Pencil, Trash2, Store, DollarSign, Search,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import NoObraState from '@/components/obras/NoObraState';
+import PageHeader from '@/components/PageHeader';
 
 interface Fornecedor {
   id: string; obra_id: string; nome: string; cnpj: string | null;
@@ -54,8 +53,6 @@ const emptyPreco = {
 
 export default function FornecedoresPage() {
   const { obras } = useObras();
-  const { selectedObraId, setSelectedObraId } = useObraSelection();
-  const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [precos, setPrecos] = useState<PrecoFornecedor[]>([]);
@@ -65,35 +62,44 @@ export default function FornecedoresPage() {
   const [fEditingId, setFEditingId] = useState<string | null>(null);
   const [fForm, setFForm] = useState(emptyFornecedor);
   const [fDeleteId, setFDeleteId] = useState<string | null>(null);
+  const [fSearch, setFSearch] = useState('');
 
   const [pDialogOpen, setPDialogOpen] = useState(false);
   const [pEditingId, setPEditingId] = useState<string | null>(null);
   const [pForm, setPForm] = useState(emptyPreco);
   const [pDeleteId, setPDeleteId] = useState<string | null>(null);
+  // For new fornecedor we need to pick an obra
+  const [fObraId, setFObraId] = useState(obras[0]?.id || '');
 
   const [filterFornecedor, setFilterFornecedor] = useState('');
   const [filterMaterial, setFilterMaterial] = useState('');
 
+  // Fetch ALL fornecedores across all obras
   const fetchData = useCallback(async () => {
-    if (!obra) { setFornecedores([]); setPrecos([]); setLoading(false); return; }
+    if (obras.length === 0) { setFornecedores([]); setPrecos([]); setLoading(false); return; }
     setLoading(true);
+    const obraIds = obras.map(o => o.id);
     const [fRes, pRes] = await Promise.all([
-      supabase.from('fornecedores').select('*').eq('obra_id', obra.id).order('nome'),
-      supabase.from('precos_fornecedores').select('*').eq('obra_id', obra.id).order('data_referencia', { ascending: false }),
+      supabase.from('fornecedores').select('*').in('obra_id', obraIds).order('nome'),
+      supabase.from('precos_fornecedores').select('*').in('obra_id', obraIds).order('data_referencia', { ascending: false }),
     ]);
     setFornecedores((fRes.data || []) as Fornecedor[]);
     setPrecos((pRes.data || []) as PrecoFornecedor[]);
     setLoading(false);
-  }, [obra?.id]);
+  }, [obras.map(o => o.id).join(',')]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  if (!obra) return <NoObraState title="Nenhuma obra selecionada" description="Selecione ou cadastre uma obra para gerenciar fornecedores." />;
-
   // -- Fornecedor CRUD --
-  const openCreateF = () => { setFEditingId(null); setFForm(emptyFornecedor); setFDialogOpen(true); };
+  const openCreateF = () => {
+    setFEditingId(null);
+    setFForm(emptyFornecedor);
+    setFObraId(obras[0]?.id || '');
+    setFDialogOpen(true);
+  };
   const openEditF = (f: Fornecedor) => {
     setFEditingId(f.id);
+    setFObraId(f.obra_id);
     setFForm({ nome: f.nome, cnpj: f.cnpj || '', email: f.email || '', telefone: f.telefone || '', cidade: f.cidade || '', observacoes: f.observacoes || '' });
     setFDialogOpen(true);
   };
@@ -105,7 +111,8 @@ export default function FornecedoresPage() {
       if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
       toast({ title: 'Fornecedor atualizado!' });
     } else {
-      const { error } = await supabase.from('fornecedores').insert({ ...payload, obra_id: obra.id });
+      if (!fObraId) { toast({ title: 'Selecione uma obra.', variant: 'destructive' }); return; }
+      const { error } = await supabase.from('fornecedores').insert({ ...payload, obra_id: fObraId });
       if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
       toast({ title: 'Fornecedor cadastrado!' });
     }
@@ -138,11 +145,13 @@ export default function FornecedoresPage() {
     if (!pForm.descricao_item_snapshot || !pForm.preco_unitario || !pForm.fornecedor_id) {
       toast({ title: 'Preencha item, preço e fornecedor.', variant: 'destructive' }); return;
     }
+    // Find obra_id from the selected fornecedor
+    const forn = fornecedores.find(f => f.id === pForm.fornecedor_id);
     const payload = {
       fornecedor_id: pForm.fornecedor_id, descricao_item_snapshot: pForm.descricao_item_snapshot,
       preco_unitario: parseFloat(pForm.preco_unitario), unidade: pForm.unidade || null,
       data_referencia: pForm.data_referencia, origem_preco: pForm.origem_preco,
-      observacoes: pForm.observacoes || null, obra_id: obra.id,
+      observacoes: pForm.observacoes || null, obra_id: forn?.obra_id || obras[0]?.id,
     };
     if (pEditingId) {
       const { error } = await supabase.from('precos_fornecedores').update(payload).eq('id', pEditingId);
@@ -163,6 +172,17 @@ export default function FornecedoresPage() {
   };
 
   const getFornecedorNome = (id: string) => fornecedores.find(f => f.id === id)?.nome || '—';
+  const getObraNome = (obraId: string) => {
+    const o = obras.find(ob => ob.id === obraId);
+    return o ? (o.codigo ? `${o.codigo}` : o.nome) : '';
+  };
+
+  // Filtered fornecedores
+  const filteredFornecedores = fornecedores.filter(f =>
+    !fSearch || f.nome.toLowerCase().includes(fSearch.toLowerCase()) ||
+    (f.cnpj || '').includes(fSearch) ||
+    (f.cidade || '').toLowerCase().includes(fSearch.toLowerCase())
+  );
 
   // Preços filtrados
   const filteredPrecos = precos
@@ -183,25 +203,13 @@ export default function FornecedoresPage() {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Fornecedores & Preços</h1>
-          <p className="text-muted-foreground text-sm">{obra.codigo} — {obra.nome}</p>
-        </div>
-        <Select value={obra.id} onValueChange={setSelectedObraId}>
-          <SelectTrigger className="w-full sm:w-[280px]">
-            <SelectValue placeholder="Selecione a obra" />
-          </SelectTrigger>
-          <SelectContent>
-            {obras.map((o) => (
-              <SelectItem key={o.id} value={o.id}>
-                {o.codigo} - {o.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="space-y-4 animate-fade-in">
+      <PageHeader
+        title="Fornecedores & Preços"
+        subtitle="Banco centralizado de fornecedores e preços de todas as obras"
+        icon={<Store className="h-5 w-5 text-primary" />}
+        showObraSelector={false}
+      />
 
       <Tabs defaultValue="fornecedores">
         <TabsList>
@@ -210,23 +218,37 @@ export default function FornecedoresPage() {
         </TabsList>
 
         {/* === TAB FORNECEDORES === */}
-        <TabsContent value="fornecedores" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={openCreateF}><Plus className="h-4 w-4 mr-1" /> Novo Fornecedor</Button>
+        <TabsContent value="fornecedores" className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar fornecedor..."
+                value={fSearch}
+                onChange={e => setFSearch(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <Button onClick={openCreateF} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> Novo Fornecedor
+            </Button>
           </div>
           {loading ? <div className="text-center py-10 text-muted-foreground">Carregando...</div> :
-           fornecedores.length === 0 ? (
-            <Card className="shadow-card"><CardContent className="p-10 text-center text-muted-foreground">
-              <Store className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
-              <p>Nenhum fornecedor cadastrado.</p>
+           filteredFornecedores.length === 0 ? (
+            <Card><CardContent className="p-10 text-center text-muted-foreground">
+              <Store className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Nenhum fornecedor cadastrado.</p>
             </CardContent></Card>
           ) : (
             <div className="space-y-2">
-              {fornecedores.map(f => (
-                <Card key={f.id} className="shadow-card">
+              {filteredFornecedores.map(f => (
+                <Card key={f.id}>
                   <CardContent className="p-4 flex items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-foreground">{f.nome}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground">{f.nome}</p>
+                        <Badge variant="outline" className="text-[10px] shrink-0">{getObraNome(f.obra_id)}</Badge>
+                      </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-1">
                         {f.cnpj && <span>CNPJ: {f.cnpj}</span>}
                         {f.telefone && <span>Tel: {f.telefone}</span>}
@@ -246,24 +268,29 @@ export default function FornecedoresPage() {
         </TabsContent>
 
         {/* === TAB PREÇOS === */}
-        <TabsContent value="precos" className="space-y-4">
+        <TabsContent value="precos" className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-2 justify-between">
             <div className="flex gap-2 flex-wrap">
               <Select value={filterFornecedor} onValueChange={v => setFilterFornecedor(v === 'all' ? '' : v)}>
-                <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
+                <SelectTrigger className="w-[180px] h-9 text-sm"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Input placeholder="Filtrar por material..." value={filterMaterial} onChange={e => setFilterMaterial(e.target.value)} className="h-8 text-xs w-[180px]" />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Filtrar material..." value={filterMaterial} onChange={e => setFilterMaterial(e.target.value)} className="h-9 text-sm w-[180px] pl-9" />
+              </div>
             </div>
-            <Button onClick={openCreateP} disabled={fornecedores.length === 0} size="sm"><Plus className="h-4 w-4 mr-1" /> Novo Preço</Button>
+            <Button onClick={openCreateP} disabled={fornecedores.length === 0} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> Novo Preço
+            </Button>
           </div>
 
           {/* Resumo de preços */}
           {resumos.length > 0 && (
-            <Card className="shadow-card">
+            <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Resumo de Preços</CardTitle></CardHeader>
               <CardContent>
                 <Table>
@@ -292,12 +319,12 @@ export default function FornecedoresPage() {
 
           {/* Lista de preços */}
           {filteredPrecos.length === 0 ? (
-            <Card className="shadow-card"><CardContent className="p-10 text-center text-muted-foreground">
-              <DollarSign className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
-              <p>Nenhum registro de preço.</p>
+            <Card><CardContent className="p-10 text-center text-muted-foreground">
+              <DollarSign className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Nenhum registro de preço.</p>
             </CardContent></Card>
           ) : (
-            <Card className="shadow-card">
+            <Card>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader><TableRow>
@@ -342,6 +369,17 @@ export default function FornecedoresPage() {
             <DialogDescription>{fEditingId ? 'Atualize os dados.' : 'Cadastre um novo fornecedor.'}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
+            {!fEditingId && (
+              <div className="space-y-1.5">
+                <Label>Obra *</Label>
+                <Select value={fObraId} onValueChange={setFObraId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a obra" /></SelectTrigger>
+                  <SelectContent>
+                    {obras.map(o => <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5"><Label>Nome *</Label><Input value={fForm.nome} onChange={e => setFForm(f => ({ ...f, nome: e.target.value }))} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label>CNPJ</Label><Input value={fForm.cnpj} onChange={e => setFForm(f => ({ ...f, cnpj: e.target.value }))} /></div>

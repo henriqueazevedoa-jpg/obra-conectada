@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -157,26 +157,28 @@ export default function PendenciasPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Pendências</h1>
-          <p className="text-muted-foreground text-sm">{obra.codigo} — {obra.nome}</p>
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <ListChecks className="h-5 w-5 text-primary" />
+            Pendências
+          </h1>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={obra.id} onValueChange={setSelectedObraId}>
-            <SelectTrigger className="w-full sm:w-[280px]">
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
               <SelectValue placeholder="Selecione a obra" />
             </SelectTrigger>
             <SelectContent>
               {obras.map((o) => (
                 <SelectItem key={o.id} value={o.id}>
-                  {o.codigo} - {o.nome}
+                  {o.codigo ? `${o.codigo} - ` : ''}{o.nome}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> Nova Pendência</Button>
+          <Button onClick={openCreate} size="sm"><Plus className="h-4 w-4 mr-1" /> Nova Pendência</Button>
         </div>
       </div>
 
