@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import { format, parseISO, addDays, isBefore, isAfter, startOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { format, parseISO, addDays, isBefore, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
+import { useOrcamento } from '@/contexts/OrcamentoContext';
+import { useCustoReal } from '@/contexts/CustoRealContext';
+import { useCompany } from '@/contexts/CompanyContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +22,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
-  Plus, DollarSign, AlertTriangle, CheckCircle2, Clock, Pencil, Trash2, CalendarIcon, Filter, ChevronDown,
+  Plus, DollarSign, AlertTriangle, CheckCircle2, Clock, Pencil, Trash2,
+  CalendarIcon, Filter, ChevronDown, Paperclip, Upload, FileText, Image, X,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
@@ -38,6 +41,16 @@ interface Pagamento {
   numero_parcela: number | null;
   total_parcelas: number | null;
   observacoes: string | null;
+  etapa_orcamento: string | null;
+  created_at: string;
+}
+
+interface Anexo {
+  id: string;
+  pagamento_id: string;
+  nome: string;
+  storage_path: string;
+  tipo: string | null;
   created_at: string;
 }
 
@@ -72,6 +85,14 @@ const formaLabels: Record<string, string> = {
   outro: 'Outro',
 };
 
+const anexoTipoLabels: Record<string, string> = {
+  boleto: 'Boleto',
+  contrato: 'Contrato',
+  recibo: 'Recibo',
+  foto: 'Foto',
+  outro: 'Outro',
+};
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
@@ -80,6 +101,9 @@ export default function PagamentosPage() {
   const { user, hasPermission } = useAuth();
   const { obras } = useObras();
   const { selectedObraId: obraId, setSelectedObraId: setObraId } = useObraSelection();
+  const { getOrcamento, addCategoria } = useOrcamento();
+  const { saveItem: saveCustoItem } = useCustoReal();
+  const { company } = useCompany();
   const obra = obras.find(o => o.id === obraId) || obras[0];
 
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
@@ -87,6 +111,16 @@ export default function PagamentosPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Anexos
+  const [anexos, setAnexos] = useState<Map<string, Anexo[]>>(new Map());
+  const [viewAnexosId, setViewAnexosId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // New etapa
+  const [showNewEtapa, setShowNewEtapa] = useState(false);
+  const [newEtapaNome, setNewEtapaNome] = useState('');
 
   // Filters
   const [filterStatus, setFilterStatus] = useState('_all');
@@ -105,16 +139,23 @@ export default function PagamentosPage() {
     numero_parcela: '',
     total_parcelas: '',
     observacoes: '',
+    etapa_orcamento: '_none',
   });
 
   const resetForm = () => {
     setForm({
       descricao: '', tipo_pagamento: 'outro', valor_previsto: '',
       data_vencimento: null, forma_pagamento: 'outro', fornecedor: '',
-      numero_parcela: '', total_parcelas: '', observacoes: '',
+      numero_parcela: '', total_parcelas: '', observacoes: '', etapa_orcamento: '_none',
     });
     setEditingId(null);
+    setShowNewEtapa(false);
+    setNewEtapaNome('');
   };
+
+  // Get orcamento categories for the selected obra
+  const orcamento = obra ? getOrcamento(obra.id) : undefined;
+  const categorias = orcamento?.categorias || [];
 
   const fetchPagamentos = useCallback(async () => {
     if (!obra) return;
@@ -127,6 +168,23 @@ export default function PagamentosPage() {
 
     if (!error && data) {
       setPagamentos(data as Pagamento[]);
+      // Fetch anexos for all pagamentos
+      const ids = data.map((p: any) => p.id);
+      if (ids.length > 0) {
+        const { data: anexoData } = await (supabase as any)
+          .from('pagamento_anexos')
+          .select('*')
+          .in('pagamento_id', ids);
+        if (anexoData) {
+          const map = new Map<string, Anexo[]>();
+          (anexoData as Anexo[]).forEach(a => {
+            const existing = map.get(a.pagamento_id) || [];
+            existing.push(a);
+            map.set(a.pagamento_id, existing);
+          });
+          setAnexos(map);
+        }
+      }
     }
     setLoading(false);
   }, [obra?.id]);
@@ -140,7 +198,6 @@ export default function PagamentosPage() {
       p => p.status === 'previsto' && isBefore(parseISO(p.data_vencimento), hoje)
     );
     if (overdue.length > 0) {
-      // Update locally for display, and in DB
       overdue.forEach(async (p) => {
         await supabase.from('pagamentos').update({ status: 'atrasado' as any }).eq('id', p.id);
       });
@@ -203,8 +260,24 @@ export default function PagamentosPage() {
     return true;
   });
 
+  const handleCreateEtapa = async () => {
+    if (!newEtapaNome.trim() || !obra) return;
+    try {
+      const newCode = String(categorias.length + 1).padStart(2, '0');
+      await addCategoria(obra.id, { codigo: newCode, nome: newEtapaNome.trim() });
+      setForm(prev => ({ ...prev, etapa_orcamento: newEtapaNome.trim() }));
+      setShowNewEtapa(false);
+      setNewEtapaNome('');
+      toast({ title: 'Etapa criada com sucesso!' });
+    } catch {
+      toast({ title: 'Erro ao criar etapa', variant: 'destructive' });
+    }
+  };
+
   const handleSubmit = async () => {
     if (!form.descricao || !form.data_vencimento || !form.valor_previsto) return;
+
+    const etapa = form.etapa_orcamento === '_none' ? null : form.etapa_orcamento;
 
     const payload = {
       obra_id: obra.id,
@@ -217,6 +290,7 @@ export default function PagamentosPage() {
       numero_parcela: form.numero_parcela ? parseInt(form.numero_parcela) : null,
       total_parcelas: form.total_parcelas ? parseInt(form.total_parcelas) : null,
       observacoes: form.observacoes || null,
+      etapa_orcamento: etapa,
     };
 
     if (editingId) {
@@ -241,10 +315,30 @@ export default function PagamentosPage() {
   };
 
   const handleMarcarPago = async (id: string) => {
+    const pag = pagamentos.find(p => p.id === id);
     const { error } = await supabase.from('pagamentos').update({ status: 'pago' as any }).eq('id', id);
     if (!error) {
       setPagamentos(prev => prev.map(p => p.id === id ? { ...p, status: 'pago' } : p));
       toast({ title: 'Pagamento marcado como pago!' });
+
+      // Sync to Custo Real if linked to an etapa
+      if (pag?.etapa_orcamento && company) {
+        try {
+          await saveCustoItem({
+            id: crypto.randomUUID(),
+            obraId: pag.obra_id,
+            companyId: company.id,
+            categoria: pag.etapa_orcamento,
+            descricao: pag.descricao,
+            fornecedor: pag.fornecedor || '',
+            valor: Number(pag.valor_previsto),
+            data: pag.data_vencimento,
+            observacoes: `Pagamento #${pag.id.slice(0, 8)} - ${formaLabels[pag.forma_pagamento] || pag.forma_pagamento}`,
+          });
+        } catch {
+          // Silent - custo real sync is best-effort
+        }
+      }
     }
   };
 
@@ -270,8 +364,50 @@ export default function PagamentosPage() {
       numero_parcela: p.numero_parcela ? String(p.numero_parcela) : '',
       total_parcelas: p.total_parcelas ? String(p.total_parcelas) : '',
       observacoes: p.observacoes || '',
+      etapa_orcamento: p.etapa_orcamento || '_none',
     });
     setDialogOpen(true);
+  };
+
+  // --- File upload ---
+  const handleFileUpload = async (pagamentoId: string, files: FileList, tipo: string) => {
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const ext = file.name.split('.').pop();
+        const path = `${obra.id}/${pagamentoId}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('pagamento-anexos')
+          .upload(path, file);
+        if (uploadError) {
+          toast({ title: `Erro ao enviar ${file.name}`, description: uploadError.message, variant: 'destructive' });
+          continue;
+        }
+        await (supabase as any).from('pagamento_anexos').insert({
+          pagamento_id: pagamentoId,
+          nome: file.name,
+          storage_path: path,
+          tipo,
+        });
+      }
+      toast({ title: 'Arquivo(s) anexado(s) com sucesso!' });
+      fetchPagamentos();
+    } catch {
+      toast({ title: 'Erro ao anexar arquivo', variant: 'destructive' });
+    }
+    setUploading(false);
+  };
+
+  const handleDeleteAnexo = async (anexo: Anexo) => {
+    await supabase.storage.from('pagamento-anexos').remove([anexo.storage_path]);
+    await (supabase as any).from('pagamento_anexos').delete().eq('id', anexo.id);
+    fetchPagamentos();
+    toast({ title: 'Anexo removido.' });
+  };
+
+  const getAnexoUrl = (path: string) => {
+    const { data } = supabase.storage.from('pagamento-anexos').getPublicUrl(path);
+    return data?.publicUrl || '';
   };
 
   const canEdit = user?.role === 'admin' || user?.role === 'gestor';
@@ -282,7 +418,7 @@ export default function PagamentosPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Pagamentos</h1>
-          <p className="text-muted-foreground">Gestão de pagamentos e compromissos financeiros</p>
+          <p className="text-muted-foreground">Gestão de pagamentos vinculados às etapas da obra</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Select value={obra.id} onValueChange={setObraId}>
@@ -291,7 +427,7 @@ export default function PagamentosPage() {
             </SelectTrigger>
             <SelectContent>
               {obras.map(o => (
-                <SelectItem key={o.id} value={o.id}>{o.codigo} - {o.nome}</SelectItem>
+                <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -406,6 +542,7 @@ export default function PagamentosPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left p-2">Descrição</th>
+                  <th className="text-left p-2">Etapa</th>
                   <th className="text-left p-2">Tipo</th>
                   <th className="text-right p-2">Valor</th>
                   <th className="text-center p-2">Vencimento</th>
@@ -415,85 +552,111 @@ export default function PagamentosPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPagamentos.map(p => (
-                  <tr key={p.id} className="border-b border-border/50 hover:bg-muted/50">
-                    <td className="p-2">
-                      <div className="font-medium">{p.descricao}</div>
-                      {p.fornecedor && <div className="text-xs text-muted-foreground">{p.fornecedor}</div>}
-                      {p.numero_parcela && p.total_parcelas && (
-                        <div className="text-xs text-muted-foreground">Parcela {p.numero_parcela}/{p.total_parcelas}</div>
-                      )}
-                    </td>
-                    <td className="p-2">{tipoLabels[p.tipo_pagamento] || p.tipo_pagamento}</td>
-                    <td className="p-2 text-right font-medium">{formatCurrency(Number(p.valor_previsto))}</td>
-                    <td className="p-2 text-center">{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</td>
-                    <td className="p-2 text-center">
-                      <Badge className={cn('text-xs', statusColors[p.status])}>{statusLabels[p.status]}</Badge>
-                    </td>
-                    <td className="p-2 text-center text-xs">{formaLabels[p.forma_pagamento] || p.forma_pagamento}</td>
-                    <td className="p-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {p.status !== 'pago' && p.status !== 'cancelado' && canEdit && (
-                          <Button variant="ghost" size="sm" onClick={() => handleMarcarPago(p.id)}>
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                          </Button>
+                {filteredPagamentos.map(p => {
+                  const pAnexos = anexos.get(p.id) || [];
+                  return (
+                    <tr key={p.id} className="border-b border-border/50 hover:bg-muted/50">
+                      <td className="p-2">
+                        <div className="font-medium">{p.descricao}</div>
+                        {p.fornecedor && <div className="text-xs text-muted-foreground">{p.fornecedor}</div>}
+                        {p.numero_parcela && p.total_parcelas && (
+                          <div className="text-xs text-muted-foreground">Parcela {p.numero_parcela}/{p.total_parcelas}</div>
                         )}
-                        {canEdit && (
-                          <>
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setDeleteId(p.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </>
+                        {pAnexos.length > 0 && (
+                          <button onClick={() => setViewAnexosId(p.id)} className="text-xs text-primary flex items-center gap-1 mt-0.5 hover:underline">
+                            <Paperclip className="h-3 w-3" />{pAnexos.length} anexo(s)
+                          </button>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="p-2 text-xs text-muted-foreground">{p.etapa_orcamento || '—'}</td>
+                      <td className="p-2">{tipoLabels[p.tipo_pagamento] || p.tipo_pagamento}</td>
+                      <td className="p-2 text-right font-medium">{formatCurrency(Number(p.valor_previsto))}</td>
+                      <td className="p-2 text-center">{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</td>
+                      <td className="p-2 text-center">
+                        <Badge className={cn('text-xs', statusColors[p.status])}>{statusLabels[p.status]}</Badge>
+                      </td>
+                      <td className="p-2 text-center text-xs">{formaLabels[p.forma_pagamento] || p.forma_pagamento}</td>
+                      <td className="p-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {canEdit && (
+                            <Button variant="ghost" size="sm" onClick={() => { setViewAnexosId(p.id); }}>
+                              <Paperclip className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {p.status !== 'pago' && p.status !== 'cancelado' && canEdit && (
+                            <Button variant="ghost" size="sm" onClick={() => handleMarcarPago(p.id)}>
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            </Button>
+                          )}
+                          {canEdit && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteId(p.id)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           {/* Mobile cards */}
           <div className="sm:hidden space-y-2">
-            {filteredPagamentos.map(p => (
-              <Card key={p.id}>
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{p.descricao}</p>
-                      {p.fornecedor && <p className="text-xs text-muted-foreground">{p.fornecedor}</p>}
+            {filteredPagamentos.map(p => {
+              const pAnexos = anexos.get(p.id) || [];
+              return (
+                <Card key={p.id}>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{p.descricao}</p>
+                        {p.fornecedor && <p className="text-xs text-muted-foreground">{p.fornecedor}</p>}
+                        {p.etapa_orcamento && <p className="text-xs text-primary">{p.etapa_orcamento}</p>}
+                      </div>
+                      <Badge className={cn('text-xs', statusColors[p.status])}>{statusLabels[p.status]}</Badge>
                     </div>
-                    <Badge className={cn('text-xs', statusColors[p.status])}>{statusLabels[p.status]}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-bold">{formatCurrency(Number(p.valor_previsto))}</span>
-                    <span className="text-muted-foreground">{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{tipoLabels[p.tipo_pagamento]}</span>
-                    <span>{formaLabels[p.forma_pagamento]}</span>
-                  </div>
-                  {canEdit && (
-                    <div className="flex gap-1 pt-1">
-                      {p.status !== 'pago' && p.status !== 'cancelado' && (
-                        <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => handleMarcarPago(p.id)}>
-                          <CheckCircle2 className="h-3 w-3 mr-1" />Pago
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-bold">{formatCurrency(Number(p.valor_previsto))}</span>
+                      <span className="text-muted-foreground">{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{tipoLabels[p.tipo_pagamento]}</span>
+                      <span>{formaLabels[p.forma_pagamento]}</span>
+                    </div>
+                    {pAnexos.length > 0 && (
+                      <button onClick={() => setViewAnexosId(p.id)} className="text-xs text-primary flex items-center gap-1 hover:underline">
+                        <Paperclip className="h-3 w-3" />{pAnexos.length} anexo(s)
+                      </button>
+                    )}
+                    {canEdit && (
+                      <div className="flex gap-1 pt-1">
+                        {p.status !== 'pago' && p.status !== 'cancelado' && (
+                          <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => handleMarcarPago(p.id)}>
+                            <CheckCircle2 className="h-3 w-3 mr-1" />Pago
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" className="text-xs" onClick={() => setViewAnexosId(p.id)}>
+                          <Paperclip className="h-3 w-3" />
                         </Button>
-                      )}
-                      <Button variant="outline" size="sm" className="text-xs" onClick={() => openEdit(p)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-xs" onClick={() => setDeleteId(p.id)}>
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                        <Button variant="outline" size="sm" className="text-xs" onClick={() => openEdit(p)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="outline" size="sm" className="text-xs" onClick={() => setDeleteId(p.id)}>
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
@@ -508,6 +671,43 @@ export default function PagamentosPage() {
             <div>
               <label className="text-sm font-medium">Descrição *</label>
               <Input value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} />
+            </div>
+
+            {/* Etapa da Obra */}
+            <div>
+              <label className="text-sm font-medium">Etapa da Obra</label>
+              {!showNewEtapa ? (
+                <div className="flex gap-2">
+                  <Select value={form.etapa_orcamento} onValueChange={v => setForm({ ...form, etapa_orcamento: v })}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Vincular a uma etapa" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Sem etapa</SelectItem>
+                      {categorias.map(c => (
+                        <SelectItem key={c.id} value={c.nome}>{c.codigo} — {c.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" type="button" onClick={() => setShowNewEtapa(true)}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={newEtapaNome}
+                    onChange={e => setNewEtapaNome(e.target.value)}
+                    placeholder="Nome da nova etapa"
+                    className="flex-1"
+                  />
+                  <Button size="sm" onClick={handleCreateEtapa} disabled={!newEtapaNome.trim()}>Criar</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowNewEtapa(false); setNewEtapaNome(''); }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Ao marcar como pago, o valor será registrado no Custo Real desta etapa.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -581,6 +781,93 @@ export default function PagamentosPage() {
               {editingId ? 'Salvar Alterações' : 'Registrar Pagamento'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Anexos Dialog */}
+      <Dialog open={!!viewAnexosId} onOpenChange={() => setViewAnexosId(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="h-4 w-4" /> Documentos e Fotos
+            </DialogTitle>
+          </DialogHeader>
+          {viewAnexosId && (
+            <div className="space-y-4">
+              {/* Upload area */}
+              {canEdit && (
+                <div className="border-2 border-dashed border-border rounded-lg p-4 text-center space-y-2">
+                  <Upload className="h-6 w-6 mx-auto text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Anexar boleto, contrato, recibo ou foto</p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {Object.entries(anexoTipoLabels).map(([tipo, label]) => (
+                      <Button
+                        key={tipo}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        disabled={uploading}
+                        onClick={() => {
+                          const input = fileInputRef.current;
+                          if (input) {
+                            input.setAttribute('data-tipo', tipo);
+                            input.click();
+                          }
+                        }}
+                      >
+                        {tipo === 'foto' ? <Image className="h-3 w-3 mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={(e) => {
+                      if (e.target.files && viewAnexosId) {
+                        const tipo = e.target.getAttribute('data-tipo') || 'outro';
+                        handleFileUpload(viewAnexosId, e.target.files, tipo);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Existing anexos */}
+              {(anexos.get(viewAnexosId) || []).length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum documento anexado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(anexos.get(viewAnexosId) || []).map(a => (
+                    <div key={a.id} className="flex items-center gap-3 p-2 border border-border rounded-lg">
+                      {a.tipo === 'foto' ? <Image className="h-4 w-4 text-muted-foreground shrink-0" /> : <FileText className="h-4 w-4 text-muted-foreground shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{a.nome}</p>
+                        <p className="text-xs text-muted-foreground">{anexoTipoLabels[a.tipo || 'outro'] || a.tipo}</p>
+                      </div>
+                      <a
+                        href={getAnexoUrl(a.storage_path)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline shrink-0"
+                      >
+                        Ver
+                      </a>
+                      {canEdit && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 shrink-0" onClick={() => handleDeleteAnexo(a)}>
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
