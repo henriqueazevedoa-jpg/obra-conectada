@@ -327,7 +327,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     // Calc Estruturas
     { fornecedor_id: forn[9], obra_id: obra3Id, descricao_item_snapshot: 'Projeto estrutural galpão', preco_unitario: 28000, unidade: 'vb', data_referencia: daysAgo(10), origem_preco: 'cotacao' as const },
   ];
-  await supabase.from('precos_fornecedores').insert(precos as any);
+  try { await supabase.from('precos_fornecedores').insert(precos as any); } catch (e) { console.warn('Demo: precos failed', e); }
 
   return { obra1Id, obra2Id, obra3Id };
 }
