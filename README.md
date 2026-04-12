@@ -67,3 +67,7 @@ src/
 supabase/
   migrations/        # Migrations do banco
 public/
+
+## Licença
+
+Todos os direitos reservados.
