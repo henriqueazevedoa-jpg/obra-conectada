@@ -640,6 +640,16 @@ ${toPrint.map(r => {
           </h1>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Select value={obraId} onValueChange={setObraId}>
+            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
+              <SelectValue placeholder="Selecionar obra..." />
+            </SelectTrigger>
+            <SelectContent>
+              {obras.map(o => (
+                <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         {canCreate && (
           <div className="flex gap-1.5 shrink-0">
             <VoiceInputButton
