@@ -14,7 +14,7 @@ interface Props {
   custoItens: CustoRealItem[];
 }
 
-type View = 'etapa' | 'tipo' | 'insumo';
+export type CostPieView = 'etapa' | 'tipo' | 'insumo';
 
 const COLORS = [
   'hsl(var(--primary))',
@@ -29,8 +29,42 @@ const COLORS = [
   'hsl(200, 55%, 50%)',
 ];
 
-export default function CostPieChart({ categorias, custoItens }: Props) {
-  const [view, setView] = useState<View>('etapa');
+const VIEW_LABELS: Record<CostPieView, string> = {
+  etapa: 'Por Etapa',
+  tipo: 'Por Tipo',
+  insumo: 'Por Insumo',
+};
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  total: number;
+}
+
+function CustomPieTooltip({ active, payload, total }: CustomTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const entry = payload[0];
+  const name = entry.name;
+  const value = entry.value as number;
+  const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+
+  return (
+    <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
+      <p className="font-medium text-foreground mb-0.5">{name}</p>
+      <p className="text-muted-foreground">{formatCurrency(value)} ({pct}%)</p>
+    </div>
+  );
+}
+
+interface CostPieChartProps extends Props {
+  view?: CostPieView;
+  onViewChange?: (view: CostPieView) => void;
+}
+
+export default function CostPieChart({ categorias, custoItens, view: externalView, onViewChange }: CostPieChartProps) {
+  const [internalView, setInternalView] = useState<CostPieView>('etapa');
+  const view = externalView ?? internalView;
+  const setView = onViewChange ?? setInternalView;
 
   const data = useMemo(() => {
     if (view === 'etapa') {
@@ -41,9 +75,9 @@ export default function CostPieChart({ categorias, custoItens }: Props) {
     if (view === 'tipo') {
       const byType: Record<string, number> = {};
       custoItens.forEach(i => {
-        byType[i.categoria || 'Outros'] = (byType[i.categoria || 'Outros'] || 0) + i.valor;
+        const tipo = i.categoria || 'Outros';
+        byType[tipo] = (byType[tipo] || 0) + i.valor;
       });
-      // If no custo items, fallback to etapas
       if (Object.keys(byType).length === 0) {
         return categorias.filter(c => c.precoTotal > 0).map(c => ({ name: c.nome, value: c.precoTotal }));
       }
@@ -73,14 +107,15 @@ export default function CostPieChart({ categorias, custoItens }: Props) {
             <PieChartIcon className="h-4 w-4" /> Distribuição de Custos
           </CardTitle>
           <div className="flex gap-1 print:hidden">
-            {(['etapa', 'tipo', 'insumo'] as View[]).map(v => (
+            {(['etapa', 'tipo', 'insumo'] as CostPieView[]).map(v => (
               <Button key={v} size="sm" variant={view === v ? 'default' : 'outline'}
-                onClick={() => setView(v)} className="h-7 text-xs capitalize">
-                {v === 'etapa' ? 'Por Etapa' : v === 'tipo' ? 'Por Tipo' : 'Por Insumo'}
+                onClick={() => setView(v)} className="h-7 text-xs">
+                {VIEW_LABELS[v]}
               </Button>
             ))}
           </div>
         </div>
+        <p className="hidden print:block text-xs text-muted-foreground mt-1">Visão: {VIEW_LABELS[view]}</p>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
@@ -97,23 +132,13 @@ export default function CostPieChart({ categorias, custoItens }: Props) {
                   outerRadius={100}
                   paddingAngle={2}
                   dataKey="value"
+                  nameKey="name"
                 >
                   {data.map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  formatter={(value: number) => [
-                    `${formatCurrency(value)} (${total > 0 ? ((value / total) * 100).toFixed(1) : 0}%)`,
-                    ''
-                  ]}
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
-                />
+                <Tooltip content={<CustomPieTooltip total={total} />} />
                 <Legend
                   wrapperStyle={{ fontSize: '11px' }}
                   formatter={(value: string) => (

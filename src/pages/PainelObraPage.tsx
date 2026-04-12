@@ -252,7 +252,9 @@ function GestorPainel() {
             obraFim={obra.dataPrevisaoTermino}
           />
         </div>
-        <CostPieChart categorias={categorias} custoItens={custoItens} />
+        <div data-print-section="custosEtapa">
+          <CostPieChart categorias={categorias} custoItens={custoItens} />
+        </div>
       </div>
 
       {/* 6. Curva ABC — Full Width */}
@@ -292,6 +294,7 @@ function GestorPainel() {
                 </Button>
               </div>
             </div>
+            <p className="hidden print:block text-xs text-muted-foreground mt-1">Visão: {cronogramaView === 'gantt' ? 'Gantt' : 'Lista'}</p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-3 mb-4">
