@@ -587,13 +587,15 @@ export default function PagamentosPage() {
     setDeleteId(null);
   };
 
-  const openEdit = (p: Pagamento) => {
+  const openEdit = async (p: Pagamento) => {
     setEditingId(p.id);
     setForm({
       descricao: p.descricao,
       tipo_pagamento: p.tipo_pagamento,
       valor_previsto: String(p.valor_previsto),
       data_vencimento: parseISO(p.data_vencimento),
+      data_compra: (p as any).data_compra ? parseISO((p as any).data_compra) : null,
+      data_pagamento: (p as any).data_pagamento ? parseISO((p as any).data_pagamento) : null,
       forma_pagamento: p.forma_pagamento,
       fornecedor: p.fornecedor || '',
       numero_parcela: p.numero_parcela ? String(p.numero_parcela) : '',
@@ -602,6 +604,27 @@ export default function PagamentosPage() {
       etapa_orcamento: p.etapa_orcamento || '_none',
     });
     setIsCompraMaterial(p.tipo_pagamento === 'material');
+    setParcelamentoMode('none');
+    setParcelasDatas([]);
+
+    // Load existing items
+    if (p.tipo_pagamento === 'material') {
+      const { data: items } = await (supabase as any)
+        .from('pagamento_itens')
+        .select('*')
+        .eq('pagamento_id', p.id);
+      if (items && items.length > 0) {
+        setItensCompra(items.map((it: any) => ({
+          tempId: it.id || crypto.randomUUID(),
+          nome_material: it.nome_material_informado || '',
+          unidade: it.unidade || 'un',
+          quantidade: String(it.quantidade || ''),
+          preco_unitario: String(it.preco_unitario || ''),
+          categoria: it.categoria || '',
+        })));
+      }
+    }
+
     setDialogOpen(true);
   };
 
