@@ -357,7 +357,7 @@ export default function EquipePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Equipe</h1>
+          <h1 className="text-2xl font-bold">Usuários</h1>
           <p className="text-muted-foreground text-sm">Gerencie os membros da {company.nome}</p>
         </div>
         <Button onClick={() => setModalOpen(true)}>

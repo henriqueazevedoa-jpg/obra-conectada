@@ -143,7 +143,7 @@ function AppRoutes() {
         <Route path="diario" element={<DiarioPage />} />
         <Route path="estoque" element={<EstoquePage />} />
         <Route path="pagamentos" element={<PagamentosPage />} />
-        <Route path="equipe" element={<EquipePage />} />
+        <Route path="usuarios" element={<EquipePage />} />
         <Route path="pendencias" element={<PendenciasPage />} />
         <Route path="fornecedores" element={<FornecedoresPage />} />
         <Route path="perfil" element={<PerfilPage />} />

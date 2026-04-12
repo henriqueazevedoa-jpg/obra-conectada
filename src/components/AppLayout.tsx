@@ -23,7 +23,14 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-const gestorLinks = [
+interface NavItem {
+  to: string;
+  label: string;
+  icon: any;
+  section?: string;
+}
+
+const obraLinks: NavItem[] = [
   { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
@@ -34,10 +41,15 @@ const gestorLinks = [
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
   { to: "/estoque", label: "Estoque", icon: Package },
-  { to: "/equipe", label: "Equipe", icon: Users },
 ];
 
-const funcionarioLinks = [
+const contaLinks: NavItem[] = [
+  { to: "/usuarios", label: "Usuários", icon: Users },
+  { to: "/perfil", label: "Perfil", icon: User },
+];
+
+const gestorLinks = [...obraLinks];
+const funcionarioLinks: NavItem[] = [
   { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
@@ -45,13 +57,18 @@ const funcionarioLinks = [
   { to: "/estoque", label: "Estoque", icon: Package },
 ];
 
-const clienteLinks = [
+const clienteLinks: NavItem[] = [
   { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
+];
+
+const adminLinks: NavItem[] = [
+  { to: "/admin", label: "Admin Plataforma", icon: Shield },
+  ...obraLinks,
 ];
 
 const mobileGestorTabs = [
@@ -78,27 +95,21 @@ const mobileClienteTabs = [
   { to: "/_more", label: "Mais", icon: Menu },
 ];
 
-const adminLinks = [
-  { to: "/admin", label: "Admin Plataforma", icon: Shield },
-  { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
-  { to: "/obras", label: "Obras", icon: Building2 },
-  { to: "/orcamento", label: "Orçamento", icon: DollarSign },
-  { to: "/custo-real", label: "Custo Real", icon: Receipt },
-  { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
-  { to: "/pendencias", label: "Pendências", icon: ListChecks },
-  { to: "/fornecedores", label: "Fornecedores", icon: Store },
-  { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
-  { to: "/diario", label: "Diário", icon: BookOpen },
-  { to: "/estoque", label: "Estoque", icon: Package },
-  { to: "/equipe", label: "Equipe", icon: Users },
-];
-
 const roleLabels: Record<string, string> = {
   admin: "Admin",
   gestor: "Gestor",
   funcionario: "Funcionário",
   cliente: "Cliente",
 };
+
+function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{title}</p>
+      {children}
+    </div>
+  );
+}
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
@@ -107,7 +118,7 @@ export default function AppLayout() {
 
   if (!user) return null;
 
-  const links =
+  const mainLinks =
     user.role === "admin"
       ? adminLinks
       : user.role === "gestor"
@@ -116,6 +127,8 @@ export default function AppLayout() {
       ? funcionarioLinks
       : clienteLinks;
 
+  const showContaLinks = user.role === "admin" || user.role === "gestor";
+
   const mobileTabs =
     user.role === "gestor"
       ? mobileGestorTabs
@@ -123,12 +136,32 @@ export default function AppLayout() {
       ? mobileFuncionarioTabs
       : mobileClienteTabs;
 
+  const allLinks = [...mainLinks, ...(showContaLinks ? contaLinks : [{ to: "/perfil", label: "Perfil", icon: User }])];
   const mobileTabRoutes = mobileTabs.filter((t) => t.to !== "/_more").map((t) => t.to);
-  const moreLinks = links.filter((l) => !mobileTabRoutes.includes(l.to));
+  const moreLinks = allLinks.filter((l) => !mobileTabRoutes.includes(l.to));
 
   const isActiveRoute = (to: string) => {
     if (to === "/_more") return moreLinks.some((l) => location.pathname === l.to) || moreMenuOpen;
     return location.pathname === to;
+  };
+
+  const renderLink = (link: NavItem, onClick?: () => void) => {
+    const Icon = link.icon;
+    const active = location.pathname === link.to;
+    return (
+      <Link
+        key={link.to}
+        to={link.to}
+        onClick={onClick}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+          active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
+        )}
+      >
+        <Icon className="h-4 w-4" />
+        {link.label}
+      </Link>
+    );
   };
 
   return (
@@ -140,42 +173,21 @@ export default function AppLayout() {
           <span className="text-xl font-bold">ObraFácil</span>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {links.map((link) => {
-            const Icon = link.icon;
-            const active = location.pathname === link.to;
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <SidebarSection title="Obra">
+            {mainLinks.map((link) => renderLink(link))}
+          </SidebarSection>
 
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {link.label}
-              </Link>
-            );
-          })}
+          <SidebarSection title="Conta">
+            {showContaLinks
+              ? contaLinks.map((link) => renderLink(link))
+              : renderLink({ to: "/perfil", label: "Perfil", icon: User })
+            }
+          </SidebarSection>
         </nav>
 
         <div className="p-4 border-t space-y-3">
           <DemoModeBar />
-          <Link
-            to="/perfil"
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-              location.pathname === "/perfil"
-                ? "bg-primary/10 text-primary"
-                : "text-foreground hover:bg-muted"
-            )}
-          >
-            <User className="h-4 w-4" />
-            Perfil
-          </Link>
-
           <div className="px-3">
             <div className="text-sm font-medium">{user.name}</div>
             <div className="text-xs text-muted-foreground">{roleLabels[user.role]}</div>
@@ -206,18 +218,19 @@ export default function AppLayout() {
           onClick={() => setMoreMenuOpen(false)}
         >
           <div
-            className="absolute bottom-16 left-0 right-0 bg-card border-t rounded-t-2xl p-4"
+            className="absolute bottom-16 left-0 right-0 bg-card border-t rounded-t-2xl p-4 max-h-[70vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Mais opções</h3>
               <button onClick={() => setMoreMenuOpen(false)}>
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-2">
-              {moreLinks.map((link) => {
+            <div className="space-y-1">
+              {/* Group: remaining obra links */}
+              {moreLinks.filter(l => !contaLinks.some(c => c.to === l.to)).map((link) => {
                 const Icon = link.icon;
                 return (
                   <Link
@@ -237,14 +250,29 @@ export default function AppLayout() {
                 );
               })}
 
-              <Link
-                to="/perfil"
-                onClick={() => setMoreMenuOpen(false)}
-                className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-foreground hover:bg-muted"
-              >
-                <User className="h-4 w-4" />
-                Perfil
-              </Link>
+              {/* Separator + Conta section */}
+              <div className="border-t border-border my-2" />
+              <p className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Conta</p>
+
+              {(showContaLinks ? contaLinks : [{ to: "/perfil", label: "Perfil", icon: User }]).map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => setMoreMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors",
+                      location.pathname === link.to
+                        ? "bg-primary/10 text-primary"
+                        : "text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {link.label}
+                  </Link>
+                );
+              })}
 
               <button
                 onClick={() => {
