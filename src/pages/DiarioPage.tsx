@@ -244,6 +244,7 @@ export default function DiarioPage() {
     setProblemas('');
     setServicos([]);
     setMateriaisUsados([]);
+    setFotosPendentes([]);
     setEditingId(null);
   };
 
