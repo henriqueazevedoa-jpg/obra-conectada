@@ -257,11 +257,11 @@ export default function DiarioPage() {
       }
 
       // Delete old servicos and materiais, re-insert
-      await supabase.from('diario_servicos').delete().eq('registro_id', editingId);
-      await supabase.from('diario_materiais').delete().eq('registro_id', editingId);
+      await (supabase as any).from('diario_servicos').delete().eq('registro_id', editingId);
+      await (supabase as any).from('diario_materiais').delete().eq('registro_id', editingId);
 
       if (filteredServicos.length > 0) {
-        await supabase.from('diario_servicos').insert(
+        await (supabase as any).from('diario_servicos').insert(
           filteredServicos.map(s => ({
             registro_id: editingId,
             descricao: s.descricao,
@@ -273,7 +273,7 @@ export default function DiarioPage() {
       }
 
       if (filteredMateriais.length > 0) {
-        await supabase.from('diario_materiais').insert(
+        await (supabase as any).from('diario_materiais').insert(
           filteredMateriais.map(m => ({
             registro_id: editingId,
             material_id: m.materialId || null,
@@ -306,7 +306,7 @@ export default function DiarioPage() {
       }
 
       if (filteredServicos.length > 0) {
-        await supabase.from('diario_servicos').insert(
+        await (supabase as any).from('diario_servicos').insert(
           filteredServicos.map(s => ({
             registro_id: newReg.id,
             descricao: s.descricao,
@@ -318,7 +318,7 @@ export default function DiarioPage() {
       }
 
       if (filteredMateriais.length > 0) {
-        await supabase.from('diario_materiais').insert(
+        await (supabase as any).from('diario_materiais').insert(
           filteredMateriais.map(m => ({
             registro_id: newReg.id,
             material_id: m.materialId || null,
