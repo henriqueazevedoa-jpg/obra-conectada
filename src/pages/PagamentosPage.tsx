@@ -600,8 +600,27 @@ export default function PagamentosPage() {
       total_parcelas: p.total_parcelas ? String(p.total_parcelas) : '',
       observacoes: p.observacoes || '',
       etapa_orcamento: p.etapa_orcamento || '_none',
+      data_compra: (p as any).data_compra ? parseISO((p as any).data_compra) : new Date(),
+      data_pagamento: (p as any).data_pagamento ? parseISO((p as any).data_pagamento) : null,
     });
     setIsCompraMaterial(p.tipo_pagamento === 'material');
+    // Load existing items if editing a material purchase
+    if (p.tipo_pagamento === 'material') {
+      (supabase as any).from('pagamento_itens').select('*').eq('pagamento_id', p.id).then(({ data }: any) => {
+        if (data && data.length > 0) {
+          setItensCompra(data.map((item: any) => ({
+            tempId: item.id || crypto.randomUUID(),
+            nome_material: item.nome_material_informado || '',
+            unidade: item.unidade || 'un',
+            quantidade: String(item.quantidade || ''),
+            preco_unitario: String(item.preco_unitario || ''),
+            categoria: item.categoria || '',
+          })));
+        } else {
+          setItensCompra([makeEmptyItem()]);
+        }
+      });
+    }
     setDialogOpen(true);
   };
 
@@ -1039,9 +1058,14 @@ export default function PagamentosPage() {
                     <div className="flex gap-2">
                       <div className="flex-1">
                         <label className="text-xs text-muted-foreground">Material *</label>
-                        <Input
+                        <AutocompleteInput
+                          suggestions={materialSuggestions}
                           value={item.nome_material}
-                          onChange={e => updateItem(item.tempId, 'nome_material', e.target.value)}
+                          onChange={v => updateItem(item.tempId, 'nome_material', v)}
+                          onSuggestionSelect={(s) => {
+                            updateItem(item.tempId, 'nome_material', s.label);
+                            if (s.meta) updateItem(item.tempId, 'unidade', s.meta);
+                          }}
                           placeholder="Nome do material"
                           className="h-8 text-sm"
                         />
@@ -1133,7 +1157,12 @@ export default function PagamentosPage() {
 
             <div>
               <label className="text-sm font-medium">Fornecedor</label>
-              <Input value={form.fornecedor} onChange={e => setForm({ ...form, fornecedor: e.target.value })} />
+              <AutocompleteInput
+                suggestions={fornecedorSuggestions}
+                value={form.fornecedor}
+                onChange={v => setForm({ ...form, fornecedor: v })}
+                placeholder="Nome do fornecedor"
+              />
               {isCompraMaterial && (
                 <p className="text-[11px] text-muted-foreground mt-1">
                   💡 Se o fornecedor estiver cadastrado, o preço será registrado automaticamente no banco de preços.
