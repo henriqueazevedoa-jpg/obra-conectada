@@ -68,6 +68,7 @@ function GestorPainel() {
   const { getItensByObra: getCustoItensByObra } = useCustoReal();
   const [printSections, setPrintSections] = useState<PrintSections>(defaultPrintSections);
   const [diarioRegistros, setDiarioRegistros] = useState<DiarioRow[]>([]);
+  const [pagamentos, setPagamentos] = useState<any[]>([]);
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
@@ -76,6 +77,8 @@ function GestorPainel() {
     supabase.from('diario_registros').select('*').eq('obra_id', obra.id)
       .order('data', { ascending: false }).limit(10)
       .then(({ data }) => { if (data) setDiarioRegistros(data as DiarioRow[]); });
+    supabase.from('pagamentos').select('id').eq('obra_id', obra.id).limit(1)
+      .then(({ data }) => { setPagamentos(data || []); });
   }, [obra?.id]);
 
   const handleObraSelectChange = (value: string) => {
