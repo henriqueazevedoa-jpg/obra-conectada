@@ -467,7 +467,7 @@ export default function PagamentosPage() {
     try {
       const etapa = form.etapa_orcamento === '_none' ? null : form.etapa_orcamento;
 
-      const payload = {
+      const payload: any = {
         obra_id: obra.id,
         descricao: form.descricao,
         tipo_pagamento: isCompraMaterial ? 'material' : form.tipo_pagamento,
@@ -479,6 +479,8 @@ export default function PagamentosPage() {
         total_parcelas: form.total_parcelas ? parseInt(form.total_parcelas) : null,
         observacoes: form.observacoes || null,
         etapa_orcamento: etapa,
+        data_compra: form.data_compra ? format(form.data_compra, 'yyyy-MM-dd') : null,
+        data_pagamento: form.data_pagamento ? format(form.data_pagamento, 'yyyy-MM-dd') : null,
       };
 
       let pagamentoId: string | null = null;
