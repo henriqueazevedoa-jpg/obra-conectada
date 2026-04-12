@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
+import { useObras } from '@/contexts/ObrasContext';
+import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { seedDemoData, clearDemoData } from '@/data/demoSeeder';
 import { toast } from '@/hooks/use-toast';
-import { Sparkles, Trash2, Loader2 } from 'lucide-react';
+import { Sparkles, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
@@ -12,16 +14,30 @@ import {
 export default function DemoModeBar() {
   const { user } = useAuth();
   const { company } = useCompany();
+  const { obras } = useObras();
+  const { setSelectedObraId } = useObraSelection();
   const [loading, setLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [open, setOpen] = useState(false);
 
   if (!user || !company) return null;
+
+  const hasDemoData = obras.some((obra) => obra.nome.startsWith('[DEMO]'));
 
   const handleSeed = async () => {
     setLoading(true);
     try {
-      await seedDemoData(user.id, company.id);
-      toast({ title: '🎉 Dados demo criados!', description: '3 obras com dados completos foram adicionadas.' });
+      if (hasDemoData) {
+        await clearDemoData(company.id);
+      }
+
+      const seeded = await seedDemoData(user.id, company.id);
+      setSelectedObraId(seeded.obra1Id);
+
+      toast({
+        title: hasDemoData ? '🔄 Dados demo atualizados!' : '🎉 Dados demo criados!',
+        description: '3 obras com dados variados foram carregadas e selecionadas automaticamente.',
+      });
       setTimeout(() => window.location.reload(), 800);
     } catch (err: any) {
       toast({ title: 'Erro ao criar dados demo', description: err.message, variant: 'destructive' });
@@ -46,29 +62,51 @@ export default function DemoModeBar() {
 
   return (
     <>
-      <div className="flex items-center gap-2 px-3 py-2 border border-dashed border-primary/30 rounded-lg bg-primary/5">
-        <Sparkles className="h-4 w-4 text-primary shrink-0" />
-        <span className="text-xs text-muted-foreground hidden lg:inline">Modo Demo</span>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-xs gap-1"
-          onClick={handleSeed}
-          disabled={loading}
+      <div className="rounded-lg border border-border bg-muted/30">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
         >
-          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-          Preencher
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
-          onClick={() => setConfirmClear(true)}
-          disabled={loading}
-        >
-          <Trash2 className="h-3 w-3" />
-          Limpar
-        </Button>
+          <div className="flex min-w-0 items-center gap-2">
+            <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-foreground">Modo Demo</div>
+              <div className="text-[11px] text-muted-foreground">
+                {hasDemoData ? 'Dados demo prontos para uso' : 'Carregar obras de teste'}
+              </div>
+            </div>
+          </div>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+
+        {open && (
+          <div className="space-y-2 border-t border-border px-3 py-3">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Preenche o sistema com 3 obras completas e variadas para testar todas as telas.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 w-full justify-start gap-2 text-xs"
+              onClick={handleSeed}
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {hasDemoData ? 'Recarregar dados demo' : 'Preencher com demo'}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 w-full justify-start gap-2 text-xs text-destructive hover:text-destructive"
+              onClick={() => setConfirmClear(true)}
+              disabled={loading || !hasDemoData}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Limpar dados demo
+            </Button>
+          </div>
+        )}
       </div>
 
       <Dialog open={confirmClear} onOpenChange={setConfirmClear}>

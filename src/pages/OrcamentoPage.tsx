@@ -108,7 +108,7 @@ export default function OrcamentoPage() {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="min-w-[720px] w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
                         <th className="text-left p-2 text-muted-foreground font-medium">Código</th>

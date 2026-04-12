@@ -73,8 +73,8 @@ const emptyForm = {
 
 export default function PendenciasPage() {
   const { obras } = useObras();
-  const { selectedObraId } = useObraSelection();
-  const obra = obras.find(o => o.id === selectedObraId);
+  const { selectedObraId, setSelectedObraId } = useObraSelection();
+  const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
   const [pendencias, setPendencias] = useState<Pendencia[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,7 +163,21 @@ export default function PendenciasPage() {
           <h1 className="text-2xl font-bold text-foreground">Pendências</h1>
           <p className="text-muted-foreground text-sm">{obra.codigo} — {obra.nome}</p>
         </div>
-        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> Nova Pendência</Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Select value={obra.id} onValueChange={setSelectedObraId}>
+            <SelectTrigger className="w-full sm:w-[280px]">
+              <SelectValue placeholder="Selecione a obra" />
+            </SelectTrigger>
+            <SelectContent>
+              {obras.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.codigo} - {o.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> Nova Pendência</Button>
+        </div>
       </div>
 
       {/* Resumo */}
