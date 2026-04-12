@@ -40,6 +40,7 @@ interface Pagamento {
   descricao: string;
   tipo_pagamento: string;
   valor_previsto: number;
+  valor_parcela: number | null;
   data_vencimento: string;
   status: string;
   forma_pagamento: string;
@@ -467,16 +468,21 @@ export default function PagamentosPage() {
     try {
       const etapa = form.etapa_orcamento === '_none' ? null : form.etapa_orcamento;
 
+      const valorTotal = parseFloat(form.valor_previsto) || 0;
+      const totalParc = form.total_parcelas ? parseInt(form.total_parcelas) : null;
+      const valorParcela = totalParc && totalParc > 0 ? Math.round((valorTotal / totalParc) * 100) / 100 : null;
+
       const payload = {
         obra_id: obra.id,
         descricao: form.descricao,
         tipo_pagamento: isCompraMaterial ? 'material' : form.tipo_pagamento,
-        valor_previsto: parseFloat(form.valor_previsto) || 0,
+        valor_previsto: valorTotal,
+        valor_parcela: valorParcela,
         data_vencimento: format(form.data_vencimento, 'yyyy-MM-dd'),
         forma_pagamento: form.forma_pagamento,
         fornecedor: form.fornecedor || null,
         numero_parcela: form.numero_parcela ? parseInt(form.numero_parcela) : null,
-        total_parcelas: form.total_parcelas ? parseInt(form.total_parcelas) : null,
+        total_parcelas: totalParc,
         observacoes: form.observacoes || null,
         etapa_orcamento: etapa,
         data_compra: form.data_compra ? format(form.data_compra, 'yyyy-MM-dd') : null,
@@ -819,7 +825,8 @@ export default function PagamentosPage() {
                   <th className="text-left p-2">Descrição</th>
                   <th className="text-left p-2">Etapa</th>
                   <th className="text-left p-2">Tipo</th>
-                  <th className="text-right p-2">Valor</th>
+                  <th className="text-right p-2">Valor Parcela</th>
+                  <th className="text-right p-2 text-muted-foreground text-xs">Total</th>
                   <th className="text-center p-2">Vencimento</th>
                   <th className="text-center p-2">Status</th>
                   <th className="text-center p-2">Forma</th>
@@ -829,6 +836,9 @@ export default function PagamentosPage() {
               <tbody>
                 {filteredPagamentos.map(p => {
                   const pAnexos = anexos.get(p.id) || [];
+                  const displayValue = p.valor_parcela && p.total_parcelas && p.total_parcelas > 1
+                    ? Number(p.valor_parcela)
+                    : Number(p.valor_previsto);
                   return (
                     <tr key={p.id} className="border-b border-border/50 hover:bg-muted/50">
                       <td className="p-2">
@@ -845,7 +855,8 @@ export default function PagamentosPage() {
                       </td>
                       <td className="p-2 text-xs text-muted-foreground">{p.etapa_orcamento || '—'}</td>
                       <td className="p-2">{tipoLabels[p.tipo_pagamento] || p.tipo_pagamento}</td>
-                      <td className="p-2 text-right font-medium">{formatCurrency(Number(p.valor_previsto))}</td>
+                      <td className="p-2 text-right font-bold">{formatCurrency(displayValue)}</td>
+                      <td className="p-2 text-right text-xs text-muted-foreground">{p.total_parcelas && p.total_parcelas > 1 ? formatCurrency(Number(p.valor_previsto)) : '—'}</td>
                       <td className="p-2 text-center">{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</td>
                       <td className="p-2 text-center">
                         <Badge className={cn('text-xs', statusColors[p.status])}>{statusLabels[p.status]}</Badge>
@@ -898,7 +909,12 @@ export default function PagamentosPage() {
                       <Badge className={cn('text-xs', statusColors[p.status])}>{statusLabels[p.status]}</Badge>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-bold">{formatCurrency(Number(p.valor_previsto))}</span>
+                      <div>
+                        <span className="font-bold">{formatCurrency(p.valor_parcela && p.total_parcelas && p.total_parcelas > 1 ? Number(p.valor_parcela) : Number(p.valor_previsto))}</span>
+                        {p.total_parcelas && p.total_parcelas > 1 && (
+                          <span className="text-[10px] text-muted-foreground ml-1">(Total: {formatCurrency(Number(p.valor_previsto))})</span>
+                        )}
+                      </div>
                       <span className="text-muted-foreground">{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1141,6 +1157,11 @@ export default function PagamentosPage() {
                   className={cn(isCompraMaterial && totalItens > 0 && "bg-muted")}
                   readOnly={isCompraMaterial && totalItens > 0}
                 />
+                {form.total_parcelas && parseInt(form.total_parcelas) > 1 && form.valor_previsto && (
+                  <p className="text-[11px] text-primary mt-1 font-medium">
+                    Valor por parcela: {formatCurrency(Math.round(((parseFloat(form.valor_previsto) || 0) / (parseInt(form.total_parcelas) || 1)) * 100) / 100)}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium">Vencimento *</label>

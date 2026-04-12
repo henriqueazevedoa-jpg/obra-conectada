@@ -30,8 +30,9 @@ export default function OrcamentoPage() {
   const totalPrevisto = orcamento?.categorias.reduce((s, c) => s + c.precoTotal, 0) ?? 0;
   const isGestor = user?.role === 'gestor';
 
-  // Obras that have budgets (excluding current)
-  const obrasComOrcamento = orcamentos.filter(o => o.obraId !== selectedObraId && o.categorias.length > 0);
+  // Only show orcamentos from obras that belong to the current user's list
+  const obraIds = new Set(obras.map(o => o.id));
+  const obrasComOrcamento = orcamentos.filter(o => o.obraId !== selectedObraId && o.categorias.length > 0 && obraIds.has(o.obraId));
 
   const handleImport = () => {
     if (!importObraId || !selectedObraId) return;
