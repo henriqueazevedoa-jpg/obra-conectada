@@ -127,6 +127,7 @@ function makeEmptyItem(): ItemCompra {
 }
 
 export default function PagamentosPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission } = useAuth();
   const { obras } = useObras();
   const { selectedObraId: obraId, setSelectedObraId: setObraId } = useObraSelection();
@@ -162,6 +163,23 @@ export default function PagamentosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Inline fornecedor creation
+  const [showNewFornecedor, setShowNewFornecedor] = useState(false);
+  const [newFornecedorNome, setNewFornecedorNome] = useState('');
+  const [newFornecedorCnpj, setNewFornecedorCnpj] = useState('');
+  const [newFornecedorTel, setNewFornecedorTel] = useState('');
+  const [creatingFornecedor, setCreatingFornecedor] = useState(false);
+
+  // Auto-open form via ?novo=1
+  useEffect(() => {
+    if (searchParams.get('novo') === '1' && obra) {
+      resetForm();
+      setDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, obra?.id]);
 
   // Anexos
   const [anexos, setAnexos] = useState<Map<string, Anexo[]>>(new Map());
