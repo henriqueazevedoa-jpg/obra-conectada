@@ -7,27 +7,33 @@ import { useEstoque } from '@/contexts/EstoqueContext';
 import { useCustoReal } from '@/contexts/CustoRealContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/untyped';
-import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   formatCurrency, formatDate, statusEtapaLabels, climaLabels, statusDiarioLabels
 } from '@/data/mockData';
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
-  Clock, CalendarDays, DollarSign, Users, Building2,
-  BarChart3, Plus, LayoutDashboard, Wallet, ListChecks, Store, FolderOpen, Receipt
+  Clock, CalendarDays, DollarSign, Users,
+  LayoutDashboard, Plus, ChevronDown,
 } from 'lucide-react';
-import { format, parseISO, isAfter } from 'date-fns';
+import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import SCurveChart from '@/components/painel/SCurveChart';
 import ABCTable from '@/components/painel/ABCTable';
 import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
 import ResumoExecutivo from '@/components/painel/ResumoExecutivo';
+import SmartCards from '@/components/painel/SmartCards';
+import ObraHeader from '@/components/painel/ObraHeader';
+import AcoesPrioritarias from '@/components/painel/AcoesPrioritarias';
+import PendenciasBlock from '@/components/painel/PendenciasBlock';
+import CostPieChart from '@/components/painel/CostPieChart';
+import PontosAtencao from '@/components/painel/PontosAtencao';
 import NoObraState from '@/components/obras/NoObraState';
 
 interface DiarioRow {
@@ -68,7 +74,9 @@ function GestorPainel() {
   const { getItensByObra: getCustoItensByObra } = useCustoReal();
   const [printSections, setPrintSections] = useState<PrintSections>(defaultPrintSections);
   const [diarioRegistros, setDiarioRegistros] = useState<DiarioRow[]>([]);
-  const [pagamentos, setPagamentos] = useState<any[]>([]);
+  const [pagamentosAtrasados, setPagamentosAtrasados] = useState<{ count: number; valor: number }>({ count: 0, valor: 0 });
+  const [pendenciasAlta, setPendenciasAlta] = useState(0);
+  const [diarioOpen, setDiarioOpen] = useState(false);
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
@@ -77,25 +85,39 @@ function GestorPainel() {
     supabase.from('diario_registros').select('*').eq('obra_id', obra.id)
       .order('data', { ascending: false }).limit(10)
       .then(({ data }) => { if (data) setDiarioRegistros(data as DiarioRow[]); });
-    supabase.from('pagamentos').select('id').eq('obra_id', obra.id).limit(1)
-      .then(({ data }) => { setPagamentos(data || []); });
+
+    // Fetch pagamentos atrasados
+    const today = startOfDay(new Date()).toISOString().slice(0, 10);
+    supabase.from('pagamentos').select('id, valor_previsto, status, data_vencimento')
+      .eq('obra_id', obra.id)
+      .then(({ data }) => {
+        const pags = (data || []) as any[];
+        const atrasados = pags.filter(p =>
+          p.status === 'atrasado' ||
+          (p.status === 'previsto' && p.data_vencimento && p.data_vencimento < today)
+        );
+        setPagamentosAtrasados({
+          count: atrasados.length,
+          valor: atrasados.reduce((s: number, p: any) => s + (Number(p.valor_previsto) || 0), 0),
+        });
+      });
+
+    // Fetch pendências alta prioridade
+    supabase.from('pendencias').select('id, prioridade, status')
+      .eq('obra_id', obra.id)
+      .then(({ data }) => {
+        const pends = (data || []) as any[];
+        setPendenciasAlta(pends.filter(p => p.prioridade === 'alta' && p.status !== 'resolvida').length);
+      });
   }, [obra?.id]);
 
   const handleObraSelectChange = (value: string) => {
-    if (value === '__nova_obra__') {
-      navigate('/obras?nova=1');
-    } else {
-      setSelectedObraId(value);
-    }
+    if (value === '__nova_obra__') navigate('/obras?nova=1');
+    else setSelectedObraId(value);
   };
 
   if (!obra) {
-    return (
-      <NoObraState
-        title="Nenhuma obra cadastrada"
-        description="Cadastre uma obra para visualizar o painel executivo consolidado."
-      />
-    );
+    return <NoObraState title="Nenhuma obra cadastrada" description="Cadastre uma obra para visualizar o painel executivo consolidado." />;
   }
 
   const orcamento = getOrcamento(obra.id);
@@ -109,7 +131,6 @@ function GestorPainel() {
   const registrosAprovados = diarioRegistros.filter(d => d.status === 'aprovado');
 
   const today = new Date();
-
   const concluidas = categorias.filter(c => computeStatus(c) === 'concluida');
   const emAndamento = categorias.filter(c => computeStatus(c) === 'em_andamento');
   const atrasadas = categorias.filter(c => computeStatus(c) === 'atrasada');
@@ -131,11 +152,7 @@ function GestorPainel() {
     ? Math.round(registrosAprovados.reduce((s, r) => s + r.trabalhadores, 0) / registrosAprovados.length)
     : 0;
 
-  const desvioOrcamento = totalRealizado - totalPrevisto;
-  const statusPrazo = andamentoReal >= andamentoPlanejado ? 'No prazo' : 'Atrasada';
-
   const handlePrint = () => {
-    // Apply print section visibility via data attributes
     document.querySelectorAll('[data-print-section]').forEach(el => {
       const section = el.getAttribute('data-print-section') as keyof PrintSections;
       if (section && !printSections[section]) {
@@ -147,8 +164,10 @@ function GestorPainel() {
     setTimeout(() => window.print(), 100);
   };
 
+  const etapasAtrasadasData = atrasadas.map(c => ({ id: c.id, nome: c.nome, percentual: computePercentual(c) }));
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
         <div className="min-w-0">
@@ -156,7 +175,7 @@ function GestorPainel() {
             <LayoutDashboard className="h-5 w-5 text-primary" />
             Painel da Obra
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Visão executiva consolidada</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Central de controle e decisão</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={selectedObraId} onValueChange={handleObraSelectChange}>
@@ -167,71 +186,12 @@ function GestorPainel() {
               {obras.map(o => (
                 <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
               ))}
-              <SelectItem value="__nova_obra__" className="text-primary font-medium">
-                + Criar Nova Obra
-              </SelectItem>
+              <SelectItem value="__nova_obra__" className="text-primary font-medium">+ Criar Nova Obra</SelectItem>
             </SelectContent>
           </Select>
           <PrintSectionPicker sections={printSections} onChange={setPrintSections} onPrint={handlePrint} />
         </div>
       </div>
-
-      {/* Ações Rápidas - FIRST */}
-      <Card className="shadow-card print:hidden">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Ações Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {[
-              { to: '/pagamentos?novo=1', label: 'Novo Pagamento', icon: Wallet, desc: 'Registrar gasto', color: 'text-primary' },
-              { to: '/pendencias?novo=1', label: 'Nova Pendência', icon: ListChecks, desc: 'Registrar pendência', color: 'text-rose-600' },
-              { to: '/diario?novo=1', label: 'Novo Diário', icon: BookOpen, desc: 'Registrar atividade', color: 'text-amber-600' },
-              { to: '/estoque?novo=1', label: 'Entrada Material', icon: Package, desc: 'Movimentar estoque', color: 'text-emerald-600' },
-              { to: '/documentos?novo=1', label: 'Documento', icon: FolderOpen, desc: 'Arquivos da obra', color: 'text-slate-600' },
-              { to: '/orcamento', label: 'Orçamento', icon: DollarSign, desc: 'Etapas e insumos', color: 'text-blue-600' },
-              { to: '/cronograma', label: 'Cronograma', icon: CalendarDays, desc: 'Prazos e etapas', color: 'text-orange-600' },
-              { to: '/fornecedores', label: 'Fornecedores', icon: Store, desc: 'Cadastro e preços', color: 'text-cyan-600' },
-            ].map(item => (
-              <Link key={item.to} to={item.to}>
-                <Button variant="outline" className="w-full h-auto py-4 flex-col gap-1.5 hover:border-primary/40 hover:bg-primary/5 transition-all">
-                  <item.icon className={cn("h-6 w-6", item.color)} />
-                  <span className="text-sm font-medium">{item.label}</span>
-                  <span className="text-[10px] text-muted-foreground">{item.desc}</span>
-                </Button>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Sugestões para você */}
-      {(() => {
-        const suggestions: { icon: React.ReactNode; text: string; action: string; to: string }[] = [];
-        if (pagamentos.length === 0) suggestions.push({ icon: <Wallet className="h-4 w-4 text-primary" />, text: 'Você ainda não registrou nenhum gasto nesta obra.', action: 'Registrar pagamento', to: '/pagamentos?novo=1' });
-        if (diarioRegistros.length === 0) suggestions.push({ icon: <BookOpen className="h-4 w-4 text-amber-500" />, text: 'Adicione seu primeiro diário de obra.', action: 'Criar diário', to: '/diario?novo=1' });
-        if (categorias.length === 0) suggestions.push({ icon: <DollarSign className="h-4 w-4 text-blue-500" />, text: 'Crie um orçamento para acompanhar custos.', action: 'Criar orçamento', to: '/orcamento' });
-        if (materiaisObra.length === 0) suggestions.push({ icon: <Package className="h-4 w-4 text-emerald-500" />, text: 'Cadastre materiais para controlar estoque.', action: 'Ir para estoque', to: '/estoque' });
-        if (suggestions.length === 0) return null;
-        return (
-          <Card className="shadow-card print:hidden border-primary/10 bg-primary/[0.02]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground font-medium">💡 Sugestões para você</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {suggestions.slice(0, 3).map((s, i) => (
-                <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                  {s.icon}
-                  <span className="text-sm text-foreground flex-1">{s.text}</span>
-                  <Link to={s.to}>
-                    <Button variant="ghost" size="sm" className="text-xs text-primary shrink-0">{s.action}</Button>
-                  </Link>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        );
-      })()}
 
       {/* Print header */}
       <div className="hidden print:block mb-6">
@@ -241,44 +201,32 @@ function GestorPainel() {
         <Separator className="mt-2" />
       </div>
 
-      {/* 1. Cabeçalho da obra */}
-      <div data-print-section="identificacao">
-        <Card className="shadow-card print:shadow-none print:border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Identificação da Obra</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><p className="text-muted-foreground text-xs">Obra</p><p className="font-semibold text-foreground">{obra.nome}</p></div>
-              <div><p className="text-muted-foreground text-xs">Código</p><p className="font-semibold text-foreground">{obra.codigo}</p></div>
-              <div><p className="text-muted-foreground text-xs">Cliente</p><p className="font-semibold text-foreground">{obra.cliente || '—'}</p></div>
-              <div><p className="text-muted-foreground text-xs">Responsável</p><p className="font-semibold text-foreground">{obra.responsavel || '—'}</p></div>
-              <div><p className="text-muted-foreground text-xs">Endereço</p><p className="font-semibold text-foreground">{obra.endereco || '—'}</p></div>
-              <div><p className="text-muted-foreground text-xs">Início</p><p className="font-semibold text-foreground">{formatDate(obra.dataInicio)}</p></div>
-              <div><p className="text-muted-foreground text-xs">Previsão de Término</p><p className="font-semibold text-foreground">{formatDate(obra.dataPrevisaoTermino)}</p></div>
-              <div><p className="text-muted-foreground text-xs">Status</p><Badge variant="secondary" className="mt-0.5">{obra.status === 'em_andamento' ? 'Em Andamento' : obra.status === 'concluida' ? 'Concluída' : obra.status === 'planejamento' ? 'Planejamento' : 'Pausada'}</Badge></div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* 1. Compact Obra Header */}
+      <ObraHeader obra={obra} />
 
-      {/* 2. KPIs */}
-      <div data-print-section="kpis">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 print:grid-cols-4">
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><DollarSign className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Orçamento Planejado</p></div><p className="text-lg font-bold text-foreground">{formatCurrency(totalPrevisto)}</p></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><DollarSign className="h-4 w-4 text-success" /><p className="text-xs text-muted-foreground font-medium">Custo Realizado</p></div><p className="text-lg font-bold text-foreground">{custoItens.length > 0 ? formatCurrency(totalRealizado) : '—'}</p>{custoItens.length > 0 && desvioOrcamento !== 0 && (<p className={`text-[10px] font-medium ${desvioOrcamento > 0 ? 'text-destructive' : 'text-success'}`}>{desvioOrcamento >= 0 ? '+' : ''}{formatCurrency(desvioOrcamento)}</p>)}</CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><CalendarDays className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Andamento Planejado</p></div><p className="text-lg font-bold text-foreground">{andamentoPlanejado}%</p><Progress value={andamentoPlanejado} className="h-1.5 mt-1" /></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><TrendingUp className="h-4 w-4 text-success" /><p className="text-xs text-muted-foreground font-medium">Andamento Real</p></div><p className="text-lg font-bold text-foreground">{andamentoReal}%</p><Progress value={andamentoReal} className="h-1.5 mt-1" />{andamentoPlanejado > 0 && (<p className={`text-[10px] font-medium mt-0.5 ${andamentoReal >= andamentoPlanejado ? 'text-success' : 'text-destructive'}`}>{statusPrazo}</p>)}</CardContent></Card>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 print:grid-cols-4 mt-3">
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><Clock className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Status de Prazo</p></div><Badge variant="secondary" className={andamentoReal >= andamentoPlanejado ? 'bg-success/10 text-success border-0' : 'bg-destructive/10 text-destructive border-0'}>{statusPrazo}</Badge></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><BookOpen className="h-4 w-4 text-warning" /><p className="text-xs text-muted-foreground font-medium">Pendências</p></div><p className="text-lg font-bold text-foreground">{registrosPendentes.length}</p><p className="text-[10px] text-muted-foreground">aguardando aprovação</p></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><Users className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Méd. Trabalhadores/dia</p></div><p className="text-lg font-bold text-foreground">{totalTrabalhadores}</p><p className="text-[10px] text-muted-foreground">{registrosAprovados.length} registro(s)</p></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><AlertTriangle className="h-4 w-4 text-warning" /><p className="text-xs text-muted-foreground font-medium">Alertas Totais</p></div><p className={`text-lg font-bold ${(atrasadas.length + materiaisBaixo.length + registrosPendentes.length) > 0 ? 'text-warning' : 'text-foreground'}`}>{atrasadas.length + materiaisBaixo.length + registrosPendentes.length}</p></CardContent></Card>
-        </div>
-      </div>
+      {/* 2. Smart Cards */}
+      <SmartCards
+        totalPrevisto={totalPrevisto}
+        totalRealizado={totalRealizado}
+        andamentoReal={andamentoReal}
+        andamentoPlanejado={andamentoPlanejado}
+        etapasAtrasadas={atrasadas.length}
+        materiaisBaixo={materiaisBaixo.length}
+        registrosPendentes={registrosPendentes.length}
+        pagamentosAtrasados={pagamentosAtrasados.count}
+      />
 
-      {/* Resumo Executivo */}
+      {/* 3. Ações Prioritárias */}
+      <AcoesPrioritarias
+        pagamentosAtrasados={pagamentosAtrasados.count}
+        pagamentosAtrasadosValor={pagamentosAtrasados.valor}
+        materiaisBaixo={materiaisBaixo.map(m => ({ nome: m.nome, estoqueAtual: m.estoqueAtual, unidade: m.unidade }))}
+        pendenciasAlta={pendenciasAlta}
+        etapasAtrasadas={atrasadas.map(c => ({ nome: c.nome }))}
+        registrosPendentes={registrosPendentes.length}
+      />
+
+      {/* 4. Resumo Executivo */}
       <div data-print-section="resumoExecutivo">
         <ResumoExecutivo
           obraId={obra.id}
@@ -289,50 +237,80 @@ function GestorPainel() {
         />
       </div>
 
-      {/* 3. Pontos de Atenção */}
-      {(atrasadas.length > 0 || materiaisBaixo.length > 0 || registrosPendentes.length > 0) && (
-        <div data-print-section="pontosAtencao">
-          <Card className="shadow-card border-warning/30 print:shadow-none print:border">
-            <CardHeader className="pb-2">
+      {/* 5. Charts Row 1: Curva S + Pizza */}
+      <div className="grid md:grid-cols-2 gap-5">
+        <div data-print-section="curvaS">
+          <SCurveChart
+            categorias={categorias}
+            custoItens={custoItens}
+            obraInicio={obra.dataInicio}
+            obraFim={obra.dataPrevisaoTermino}
+          />
+        </div>
+        <CostPieChart categorias={categorias} custoItens={custoItens} />
+      </div>
+
+      {/* 6. Charts Row 2: Custos por Etapa + Curva ABC */}
+      <div className="grid md:grid-cols-2 gap-5">
+        {/* Custos por Etapa */}
+        <div data-print-section="custosEtapa">
+          <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+            <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning" /> Pontos de Atenção
+                <DollarSign className="h-4 w-4" /> Custos por Etapa
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {atrasadas.map(c => (
-                <div key={c.id} className="flex items-start gap-2 text-sm text-foreground">
-                  <span className="text-destructive mt-0.5">📅</span>
-                  <span><strong>{c.nome}</strong> — etapa atrasada ({computePercentual(c)}% concluído)</span>
-                </div>
-              ))}
-              {materiaisBaixo.map(m => (
-                <div key={m.id} className="flex items-start gap-2 text-sm text-foreground">
-                  <span className="text-warning mt-0.5">📦</span>
-                  <span><strong>{m.nome}</strong> — estoque em {m.estoqueAtual} {m.unidade} (mínimo: {m.estoqueMinimo})</span>
-                </div>
-              ))}
-              {registrosPendentes.length > 0 && (
-                <div className="flex items-start gap-2 text-sm text-foreground">
-                  <span className="text-warning mt-0.5">📋</span>
-                  <span>{registrosPendentes.length} registro(s) de diário pendente(s) de aprovação</span>
-                </div>
-              )}
+            <CardContent>
+              <div className="space-y-3">
+                {categorias.map(c => {
+                  const pctCusto = totalPrevisto > 0 ? Math.round((c.precoTotal / totalPrevisto) * 100) : 0;
+                  return (
+                    <div key={c.id} className="flex items-center gap-4">
+                      <span className="text-sm text-foreground w-32 sm:w-40 shrink-0 truncate">{c.nome}</span>
+                      <div className="flex-1"><Progress value={pctCusto} className="h-2" /></div>
+                      <span className="text-xs text-muted-foreground w-20 text-right hidden sm:block">{formatCurrency(c.precoTotal)}</span>
+                      <span className="text-xs text-muted-foreground w-10 text-right">{pctCusto}%</span>
+                    </div>
+                  );
+                })}
+                {categorias.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-semibold text-foreground w-32 sm:w-40 shrink-0">Total</span>
+                      <div className="flex-1" />
+                      <span className="text-sm font-bold text-foreground w-20 text-right hidden sm:block">{formatCurrency(totalPrevisto)}</span>
+                      <span className="text-xs text-muted-foreground w-10 text-right">100%</span>
+                    </div>
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
-      )}
 
-      {/* 4. Curva S */}
-      <div data-print-section="curvaS">
-        <SCurveChart
-          categorias={categorias}
-          custoItens={custoItens}
-          obraInicio={obra.dataInicio}
-          obraFim={obra.dataPrevisaoTermino}
+        {/* Curva ABC */}
+        <div data-print-section="curvaABC">
+          <ABCTable categorias={categorias} custoItens={custoItens} />
+        </div>
+      </div>
+
+      {/* 7. Row 3: Pendências + Pontos de Atenção */}
+      <div className="grid md:grid-cols-2 gap-5">
+        <PendenciasBlock obraId={obra.id} />
+        <PontosAtencao
+          etapasAtrasadas={etapasAtrasadasData}
+          materiaisBaixo={materiaisBaixo.map(m => ({
+            id: m.id, nome: m.nome, estoqueAtual: m.estoqueAtual,
+            estoqueMinimo: m.estoqueMinimo, unidade: m.unidade,
+          }))}
+          registrosPendentes={registrosPendentes.length}
+          pagamentosAtrasados={pagamentosAtrasados.count}
+          pagamentosAtrasadosValor={pagamentosAtrasados.valor}
         />
       </div>
 
-      {/* 5. Resumo do Cronograma */}
+      {/* 8. Resumo do Cronograma */}
       <div data-print-section="cronograma">
         <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
           <CardHeader className="pb-3">
@@ -381,49 +359,7 @@ function GestorPainel() {
         </Card>
       </div>
 
-      {/* 6. Custos por Etapa */}
-      <div data-print-section="custosEtapa">
-        <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <DollarSign className="h-4 w-4" /> Custos por Etapa
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {categorias.map(c => {
-                const pctCusto = totalPrevisto > 0 ? Math.round((c.precoTotal / totalPrevisto) * 100) : 0;
-                return (
-                  <div key={c.id} className="flex items-center gap-4">
-                    <span className="text-sm text-foreground w-40 sm:w-48 shrink-0 truncate">{c.nome}</span>
-                    <div className="flex-1"><Progress value={pctCusto} className="h-2" /></div>
-                    <span className="text-xs text-muted-foreground w-24 text-right hidden sm:block">{formatCurrency(c.precoTotal)}</span>
-                    <span className="text-xs text-muted-foreground w-10 text-right">{pctCusto}%</span>
-                  </div>
-                );
-              })}
-              {categorias.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-semibold text-foreground w-40 sm:w-48 shrink-0">Total</span>
-                    <div className="flex-1" />
-                    <span className="text-sm font-bold text-foreground w-24 text-right hidden sm:block">{formatCurrency(totalPrevisto)}</span>
-                    <span className="text-xs text-muted-foreground w-10 text-right">100%</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 7. Curva ABC */}
-      <div data-print-section="curvaABC">
-        <ABCTable categorias={categorias} custoItens={custoItens} />
-      </div>
-
-      {/* 8. Estoque Crítico */}
+      {/* 9. Estoque Crítico */}
       {materiaisBaixo.length > 0 && (
         <div data-print-section="estoqueCritico">
           <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
@@ -446,46 +382,75 @@ function GestorPainel() {
         </div>
       )}
 
-      {/* 9. Últimos Registros do Diário */}
+      {/* 10. Diário de Obra — Collapsible */}
       <div data-print-section="diario">
-        <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="h-4 w-4" /> Últimos Registros do Diário
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {diarioRegistros.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
-            )}
-            {diarioRegistros.slice(0, 8).map(r => (
-              <div key={r.id} className="border-b border-border pb-3 last:border-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <p className="text-sm font-medium text-foreground">{formatDate(r.data)}</p>
-                  <span className="text-xs">{climaLabels[r.clima as keyof typeof climaLabels]}</span>
-                  <span className="text-xs text-muted-foreground">· {r.usuario_nome}</span>
-                  <span className="text-xs text-muted-foreground">· {r.trabalhadores} trab.</span>
-                  <Badge variant="secondary" className={
-                    r.status === 'aprovado' ? 'bg-success/10 text-success border-0 text-[10px]' :
-                    r.status === 'pendente' ? 'bg-warning/10 text-warning border-0 text-[10px]' :
-                    'bg-destructive/10 text-destructive border-0 text-[10px]'
-                  }>{statusDiarioLabels[r.status as keyof typeof statusDiarioLabels] || r.status}</Badge>
-                </div>
-                {r.servicos_executados && (<p className="text-sm text-muted-foreground line-clamp-1">{r.servicos_executados}</p>)}
-                {r.problemas && (<p className="text-xs text-destructive mt-1">⚠️ {r.problemas}</p>)}
+        <Collapsible open={diarioOpen} onOpenChange={setDiarioOpen}>
+          <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" /> Diário de Obra
+                  <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-[10px] ml-1">
+                    {diarioRegistros.length}
+                  </Badge>
+                </CardTitle>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 print:hidden">
+                    <ChevronDown className={`h-4 w-4 transition-transform ${diarioOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            {/* Show first 3 always */}
+            <CardContent className="space-y-3 pt-0">
+              {diarioRegistros.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
+              )}
+              {diarioRegistros.slice(0, 3).map(r => (
+                <DiarioItem key={r.id} r={r} />
+              ))}
+              <CollapsibleContent className="space-y-3">
+                {diarioRegistros.slice(3, 8).map(r => (
+                  <DiarioItem key={r.id} r={r} />
+                ))}
+              </CollapsibleContent>
+              {diarioRegistros.length > 3 && !diarioOpen && (
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-xs text-primary w-full print:hidden">
+                    Ver mais {diarioRegistros.length - 3} registro(s)
+                  </Button>
+                </CollapsibleTrigger>
+              )}
+            </CardContent>
+          </Card>
+        </Collapsible>
       </div>
-
-      {/* Old Ações Rápidas section removed - now at top */}
 
       {/* Rodapé print */}
       <div className="hidden print:block text-center text-xs text-muted-foreground mt-8 pt-4 border-t border-border">
         <p>Panorama Geral gerado em {format(today, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
         <p>{obra.codigo} — {obra.nome}</p>
       </div>
+    </div>
+  );
+}
+
+function DiarioItem({ r }: { r: DiarioRow }) {
+  return (
+    <div className="border-b border-border pb-3 last:border-0">
+      <div className="flex items-center gap-2 mb-1 flex-wrap">
+        <p className="text-sm font-medium text-foreground">{formatDate(r.data)}</p>
+        <span className="text-xs">{climaLabels[r.clima as keyof typeof climaLabels]}</span>
+        <span className="text-xs text-muted-foreground">· {r.usuario_nome}</span>
+        <span className="text-xs text-muted-foreground">· {r.trabalhadores} trab.</span>
+        <Badge variant="secondary" className={
+          r.status === 'aprovado' ? 'bg-success/10 text-success border-0 text-[10px]' :
+          r.status === 'pendente' ? 'bg-warning/10 text-warning border-0 text-[10px]' :
+          'bg-destructive/10 text-destructive border-0 text-[10px]'
+        }>{statusDiarioLabels[r.status as keyof typeof statusDiarioLabels] || r.status}</Badge>
+      </div>
+      {r.servicos_executados && (<p className="text-sm text-muted-foreground line-clamp-1">{r.servicos_executados}</p>)}
+      {r.problemas && (<p className="text-xs text-destructive mt-1">⚠️ {r.problemas}</p>)}
     </div>
   );
 }
