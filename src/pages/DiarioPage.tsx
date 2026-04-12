@@ -630,22 +630,16 @@ ${toPrint.map(r => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg sm:text-2xl font-bold text-foreground">Diário de Obra</h1>
-          <Select value={obraId} onValueChange={setObraId}>
-            <SelectTrigger className="w-full sm:w-[280px] h-8 text-xs sm:text-sm mt-1">
-              <SelectValue placeholder="Selecionar obra..." />
-            </SelectTrigger>
-            <SelectContent>
-              {obras.map(o => (
-                <SelectItem key={o.id} value={o.id}>{o.codigo} - {o.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            Diário de Obra
+          </h1>
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         {canCreate && (
           <div className="flex gap-1.5 shrink-0">
             <VoiceInputButton
