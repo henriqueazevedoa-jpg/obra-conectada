@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import GlobalFAB from "@/components/GlobalFAB";
 
 interface NavItem {
   to: string;
@@ -329,6 +330,9 @@ export default function AppLayout() {
           );
         })}
       </nav>
+
+      {/* Global FAB */}
+      <GlobalFAB />
 
       {/* Main Content */}
       <main className="md:ml-64 pt-14 md:pt-0 pb-16 md:pb-0 min-h-screen">
