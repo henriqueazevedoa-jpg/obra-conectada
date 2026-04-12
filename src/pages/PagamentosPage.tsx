@@ -237,6 +237,40 @@ export default function PagamentosPage() {
     setItensCompra([makeEmptyItem()]);
     setParcelamentoAtivo(false);
     setParcelas([]);
+    setShowAdvanced(false);
+    setShowNewFornecedor(false);
+    setNewFornecedorNome('');
+    setNewFornecedorCnpj('');
+    setNewFornecedorTel('');
+  };
+
+  const handleCreateFornecedor = async () => {
+    if (!newFornecedorNome.trim() || !obra || creatingFornecedor) return;
+    setCreatingFornecedor(true);
+    try {
+      const { data, error } = await (supabase.from('fornecedores') as any).insert({
+        obra_id: obra.id,
+        company_id: company?.id || null,
+        nome: newFornecedorNome.trim(),
+        cnpj: newFornecedorCnpj.trim() || null,
+        telefone: newFornecedorTel.trim() || null,
+      }).select('id, nome').single();
+      if (error) {
+        toast({ title: 'Erro ao criar fornecedor', description: error.message, variant: 'destructive' });
+        return;
+      }
+      setAllFornecedores(prev => [...prev, { id: data.id, nome: data.nome }]);
+      setForm(prev => ({ ...prev, fornecedor: data.nome }));
+      setShowNewFornecedor(false);
+      setNewFornecedorNome('');
+      setNewFornecedorCnpj('');
+      setNewFornecedorTel('');
+      toast({ title: 'Fornecedor cadastrado!' });
+    } catch {
+      toast({ title: 'Erro ao criar fornecedor', variant: 'destructive' });
+    } finally {
+      setCreatingFornecedor(false);
+    }
   };
 
   // Get orcamento categories for the selected obra
