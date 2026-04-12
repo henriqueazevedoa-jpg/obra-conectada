@@ -44,10 +44,12 @@ const origemLabels: Record<string, string> = {
 };
 
 const emptyFornecedor = { nome: '', cnpj: '', email: '', telefone: '', cidade: '', observacoes: '' };
+type OrigemPreco = 'compra_real' | 'cotacao' | 'tabela' | 'outro';
+
 const emptyPreco = {
   fornecedor_id: '', descricao_item_snapshot: '', preco_unitario: '',
   unidade: '', data_referencia: new Date().toISOString().slice(0, 10),
-  origem_preco: 'cotacao', observacoes: '',
+  origem_preco: 'cotacao' as OrigemPreco, observacoes: '',
 };
 
 export default function FornecedoresPage() {
