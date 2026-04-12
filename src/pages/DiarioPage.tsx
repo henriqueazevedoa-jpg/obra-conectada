@@ -1059,6 +1059,33 @@ ${toPrint.map(r => {
           ))}
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apagar registros selecionados?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja apagar {selectedIds.size} registro(s)? Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={async () => {
+              const ids = Array.from(selectedIds);
+              for (const id of ids) {
+                await supabase.from('diario_registros').delete().eq('id', id);
+              }
+              setSelectedIds(new Set());
+              setDeleteConfirmOpen(false);
+              fetchRegistros();
+              toast({ title: `${ids.length} registro(s) apagado(s).` });
+            }}>
+              Apagar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
