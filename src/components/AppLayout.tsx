@@ -140,7 +140,7 @@ export default function AppLayout() {
           <span className="text-xl font-bold">ObraFácil</span>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {links.map((link) => {
             const Icon = link.icon;
             const active = location.pathname === link.to;
