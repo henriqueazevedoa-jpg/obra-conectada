@@ -32,18 +32,31 @@ interface NavItem {
   section?: string;
 }
 
-const obraLinks: NavItem[] = [
+const obraVisaoLinks: NavItem[] = [
   { to: "/obras", label: "Obras", icon: Building2 },
   { to: "/painel", label: "Painel da Obra", icon: LayoutDashboard },
+];
+
+const obraFinanceiroLinks: NavItem[] = [
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
   { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
-  { to: "/pendencias", label: "Pendências", icon: ListChecks },
   { to: "/fornecedores", label: "Fornecedores", icon: Store },
+];
+
+const obraExecucaoLinks: NavItem[] = [
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/diario", label: "Diário", icon: BookOpen },
+  { to: "/pendencias", label: "Pendências", icon: ListChecks },
+];
+
+const obraLogisticaLinks: NavItem[] = [
   { to: "/estoque", label: "Estoque", icon: Package },
   { to: "/documentos", label: "Documentos", icon: FolderOpen },
+];
+
+const allObraLinks: NavItem[] = [
+  ...obraVisaoLinks, ...obraFinanceiroLinks, ...obraExecucaoLinks, ...obraLogisticaLinks,
 ];
 
 const contaLinks: NavItem[] = [
