@@ -19,7 +19,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
   Clock, CalendarDays, DollarSign, Users, Building2,
-  BarChart3, Plus, LayoutDashboard
+  BarChart3, Plus, LayoutDashboard, Wallet, ListChecks, Store, FolderOpen, Receipt
 } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -171,6 +171,37 @@ function GestorPainel() {
           <PrintSectionPicker sections={printSections} onChange={setPrintSections} onPrint={handlePrint} />
         </div>
       </div>
+
+      {/* Ações Rápidas - FIRST */}
+      <Card className="shadow-card print:hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Ações Rápidas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+            {[
+              { to: '/orcamento', label: 'Orçamento', icon: DollarSign },
+              { to: '/custo-real', label: 'Custo Real', icon: Receipt },
+              { to: '/pagamentos', label: 'Pagamentos', icon: Wallet },
+              { to: '/cronograma', label: 'Cronograma', icon: CalendarDays },
+              { to: '/diario', label: 'Diário', icon: BookOpen },
+              { to: '/estoque', label: 'Estoque', icon: Package },
+              { to: '/pendencias', label: 'Pendências', icon: ListChecks },
+              { to: '/fornecedores', label: 'Fornecedores', icon: Store },
+              { to: '/documentos', label: 'Documentos', icon: FolderOpen },
+              { to: '/usuarios', label: 'Equipe', icon: Users },
+              { to: '/obras', label: 'Obras', icon: Building2 },
+            ].map(item => (
+              <Link key={item.to} to={item.to}>
+                <Button variant="outline" className="w-full h-auto py-3 flex-col gap-1.5">
+                  <item.icon className="h-5 w-5 text-primary" />
+                  <span className="text-xs font-medium">{item.label}</span>
+                </Button>
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Print header */}
       <div className="hidden print:block mb-6">
@@ -418,31 +449,7 @@ function GestorPainel() {
         </Card>
       </div>
 
-      {/* 10. Ações rápidas */}
-      <Card className="shadow-card print:hidden">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Ações Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            {[
-              { to: '/orcamento', label: 'Orçamento', icon: DollarSign },
-              { to: '/custo-real', label: 'Custo Real', icon: BarChart3 },
-              { to: '/cronograma', label: 'Cronograma', icon: CalendarDays },
-              { to: '/diario', label: 'Diário', icon: BookOpen },
-              { to: '/estoque', label: 'Estoque', icon: Package },
-              { to: '/obras', label: 'Obras', icon: Building2 },
-            ].map(item => (
-              <Link key={item.to} to={item.to}>
-                <Button variant="outline" className="w-full h-auto py-3 flex-col gap-1.5">
-                  <item.icon className="h-5 w-5 text-primary" />
-                  <span className="text-xs font-medium">{item.label}</span>
-                </Button>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Old Ações Rápidas section removed - now at top */}
 
       {/* Rodapé print */}
       <div className="hidden print:block text-center text-xs text-muted-foreground mt-8 pt-4 border-t border-border">
