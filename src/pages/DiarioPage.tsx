@@ -746,10 +746,7 @@ ${toPrint.map(r => {
                   <Textarea placeholder="Relate problemas, se houver..." rows={2} value={problemas} onChange={e => setProblemas(e.target.value)} />
                 </div>
 
-                <div className="border border-dashed border-border rounded-lg p-4 text-center">
-                  <p className="text-sm text-muted-foreground">📷 Área para anexar fotos</p>
-                  <p className="text-xs text-muted-foreground">(Upload será habilitado em breve)</p>
-                </div>
+                <DiarioFotoUpload fotos={fotosPendentes} onChange={setFotosPendentes} />
 
                 <Button onClick={handleSubmit} className="w-full h-11 text-sm" disabled={servicos.filter(s => s.descricao.trim()).length === 0}>
                   {editingId ? 'Salvar Alterações' : 'Salvar Registro'}
