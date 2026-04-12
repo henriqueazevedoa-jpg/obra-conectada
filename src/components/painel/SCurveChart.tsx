@@ -158,6 +158,7 @@ export default function SCurveChart({ categorias, custoItens, obraInicio, obraFi
             </Button>
           </div>
         </div>
+        <p className="hidden print:block text-xs text-muted-foreground mt-1">Visão: {viewMode === 'tempo' ? 'Tempo' : 'Custo'}</p>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
