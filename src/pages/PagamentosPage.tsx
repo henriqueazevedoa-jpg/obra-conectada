@@ -241,6 +241,13 @@ export default function PagamentosPage() {
     }
   }, [pagamentos.length]);
 
+  // Auto-sync total value from items
+  useEffect(() => {
+    if (isCompraMaterial && totalItens > 0) {
+      setForm(prev => ({ ...prev, valor_previsto: totalItens.toFixed(2) }));
+    }
+  }, [totalItens, isCompraMaterial]);
+
   if (!obra) {
     return (
       <NoObraState
