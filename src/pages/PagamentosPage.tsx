@@ -1062,9 +1062,14 @@ export default function PagamentosPage() {
                     <div className="flex gap-2">
                       <div className="flex-1">
                         <label className="text-xs text-muted-foreground">Material *</label>
-                        <Input
+                        <AutocompleteInput
+                          suggestions={materialSuggestions}
                           value={item.nome_material}
-                          onChange={e => updateItem(item.tempId, 'nome_material', e.target.value)}
+                          onChange={v => updateItem(item.tempId, 'nome_material', v)}
+                          onSuggestionSelect={(s) => {
+                            updateItem(item.tempId, 'nome_material', s.label);
+                            if (s.meta) updateItem(item.tempId, 'unidade', s.meta);
+                          }}
                           placeholder="Nome do material"
                           className="h-8 text-sm"
                         />
