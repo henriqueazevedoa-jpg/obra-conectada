@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { format, parseISO, addDays, isBefore, startOfDay } from 'date-fns';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { format, parseISO, addDays, addMonths, isBefore, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -130,7 +131,7 @@ export default function PagamentosPage() {
   const { getOrcamento, saveOrcamento } = useOrcamento();
   const { saveItem: saveCustoItem } = useCustoReal();
   const { company } = useCompany();
-  const { refreshEstoque } = useEstoque();
+  const { refreshEstoque, materiais: allMateriais } = useEstoque();
   const obra = obras.find(o => o.id === obraId) || obras[0];
 
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
@@ -157,12 +158,35 @@ export default function PagamentosPage() {
   const [filterPeriodo, setFilterPeriodo] = useState('_all');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // Fornecedor + Material suggestions
+  const [fornecedoresList, setFornecedoresList] = useState<{ id: string; nome: string }[]>([]);
+
+  useEffect(() => {
+    const fetchFornecedores = async () => {
+      const { data } = await supabase.from('fornecedores').select('id, nome').order('nome');
+      if (data) setFornecedoresList(data as any[]);
+    };
+    fetchFornecedores();
+  }, []);
+
+  const fornecedorSuggestions = useMemo(() =>
+    fornecedoresList.map(f => ({ label: f.nome, value: f.id })),
+    [fornecedoresList]
+  );
+
+  const materialSuggestions = useMemo(() =>
+    allMateriais.map(m => ({ label: m.nome, value: m.id, meta: `${m.unidade}` })),
+    [allMateriais]
+  );
+
   // Form
   const [form, setForm] = useState({
     descricao: '',
     tipo_pagamento: 'outro',
     valor_previsto: '',
     data_vencimento: null as Date | null,
+    data_compra: new Date() as Date | null,
+    data_pagamento: null as Date | null,
     forma_pagamento: 'outro',
     fornecedor: '',
     numero_parcela: '',
@@ -171,6 +195,10 @@ export default function PagamentosPage() {
     etapa_orcamento: '_none',
   });
 
+  // Installment logic
+  const [parcelamentoMode, setParcelamentoMode] = useState<'none' | 'mensal' | 'custom'>('none');
+  const [parcelasDatas, setParcelasDatas] = useState<(Date | null)[]>([]);
+
   // Material purchase items
   const [isCompraMaterial, setIsCompraMaterial] = useState(false);
   const [itensCompra, setItensCompra] = useState<ItemCompra[]>([makeEmptyItem()]);
@@ -178,7 +206,8 @@ export default function PagamentosPage() {
   const resetForm = () => {
     setForm({
       descricao: '', tipo_pagamento: 'outro', valor_previsto: '',
-      data_vencimento: null, forma_pagamento: 'outro', fornecedor: '',
+      data_vencimento: null, data_compra: new Date(), data_pagamento: null,
+      forma_pagamento: 'outro', fornecedor: '',
       numero_parcela: '', total_parcelas: '', observacoes: '', etapa_orcamento: '_none',
     });
     setEditingId(null);
@@ -186,6 +215,8 @@ export default function PagamentosPage() {
     setNewEtapaNome('');
     setIsCompraMaterial(false);
     setItensCompra([makeEmptyItem()]);
+    setParcelamentoMode('none');
+    setParcelasDatas([]);
   };
 
   // Get orcamento categories for the selected obra
@@ -436,7 +467,7 @@ export default function PagamentosPage() {
     try {
       const etapa = form.etapa_orcamento === '_none' ? null : form.etapa_orcamento;
 
-      const payload = {
+      const payload: any = {
         obra_id: obra.id,
         descricao: form.descricao,
         tipo_pagamento: isCompraMaterial ? 'material' : form.tipo_pagamento,
@@ -448,6 +479,8 @@ export default function PagamentosPage() {
         total_parcelas: form.total_parcelas ? parseInt(form.total_parcelas) : null,
         observacoes: form.observacoes || null,
         etapa_orcamento: etapa,
+        data_compra: form.data_compra ? format(form.data_compra, 'yyyy-MM-dd') : null,
+        data_pagamento: form.data_pagamento ? format(form.data_pagamento, 'yyyy-MM-dd') : null,
       };
 
       let pagamentoId: string | null = null;
@@ -472,8 +505,13 @@ export default function PagamentosPage() {
 
       // Process material items if this is a material purchase
       if (isCompraMaterial && pagamentoId) {
+        // If editing, delete old items first
+        if (editingId) {
+          await (supabase as any).from('pagamento_itens').delete().eq('pagamento_id', editingId);
+        }
+
         const validItems = itensCompra.filter(i => i.nome_material.trim());
-        const dataRef = format(form.data_vencimento, 'yyyy-MM-dd');
+        const dataRef = form.data_compra ? format(form.data_compra, 'yyyy-MM-dd') : format(form.data_vencimento, 'yyyy-MM-dd');
 
         for (const item of validItems) {
           const nomeNorm = normalizeMaterialName(item.nome_material);
@@ -497,13 +535,15 @@ export default function PagamentosPage() {
             categoria: item.categoria || null,
           });
 
-          // 3. Create stock entry
-          if (materialId) {
+          // 3. Create stock entry (only for new pagamentos, not edits to avoid duplicates)
+          if (materialId && !editingId) {
             await createStockEntry(materialId, item, obra.id, form.descricao, form.fornecedor);
           }
 
-          // 4. Feed price history
-          await createPriceRecord(materialId, item, obra.id, form.fornecedor, dataRef);
+          // 4. Feed price history (only for new)
+          if (!editingId) {
+            await createPriceRecord(materialId, item, obra.id, form.fornecedor, dataRef);
+          }
         }
 
         // Refresh stock data
@@ -520,7 +560,8 @@ export default function PagamentosPage() {
 
   const handleMarcarPago = async (id: string) => {
     const pag = pagamentos.find(p => p.id === id);
-    const { error } = await supabase.from('pagamentos').update({ status: 'pago' as any }).eq('id', id);
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const { error } = await supabase.from('pagamentos').update({ status: 'pago' as any, data_pagamento: today } as any).eq('id', id);
     if (!error) {
       setPagamentos(prev => prev.map(p => p.id === id ? { ...p, status: 'pago' } : p));
       toast({ title: 'Pagamento marcado como pago!' });
@@ -556,13 +597,15 @@ export default function PagamentosPage() {
     setDeleteId(null);
   };
 
-  const openEdit = (p: Pagamento) => {
+  const openEdit = async (p: Pagamento) => {
     setEditingId(p.id);
     setForm({
       descricao: p.descricao,
       tipo_pagamento: p.tipo_pagamento,
       valor_previsto: String(p.valor_previsto),
       data_vencimento: parseISO(p.data_vencimento),
+      data_compra: (p as any).data_compra ? parseISO((p as any).data_compra) : null,
+      data_pagamento: (p as any).data_pagamento ? parseISO((p as any).data_pagamento) : null,
       forma_pagamento: p.forma_pagamento,
       fornecedor: p.fornecedor || '',
       numero_parcela: p.numero_parcela ? String(p.numero_parcela) : '',
@@ -571,6 +614,27 @@ export default function PagamentosPage() {
       etapa_orcamento: p.etapa_orcamento || '_none',
     });
     setIsCompraMaterial(p.tipo_pagamento === 'material');
+    setParcelamentoMode('none');
+    setParcelasDatas([]);
+
+    // Load existing items
+    if (p.tipo_pagamento === 'material') {
+      const { data: items } = await (supabase as any)
+        .from('pagamento_itens')
+        .select('*')
+        .eq('pagamento_id', p.id);
+      if (items && items.length > 0) {
+        setItensCompra(items.map((it: any) => ({
+          tempId: it.id || crypto.randomUUID(),
+          nome_material: it.nome_material_informado || '',
+          unidade: it.unidade || 'un',
+          quantidade: String(it.quantidade || ''),
+          preco_unitario: String(it.preco_unitario || ''),
+          categoria: it.categoria || '',
+        })));
+      }
+    }
+
     setDialogOpen(true);
   };
 
@@ -1008,9 +1072,14 @@ export default function PagamentosPage() {
                     <div className="flex gap-2">
                       <div className="flex-1">
                         <label className="text-xs text-muted-foreground">Material *</label>
-                        <Input
+                        <AutocompleteInput
+                          suggestions={materialSuggestions}
                           value={item.nome_material}
-                          onChange={e => updateItem(item.tempId, 'nome_material', e.target.value)}
+                          onChange={v => updateItem(item.tempId, 'nome_material', v)}
+                          onSuggestionSelect={(s) => {
+                            updateItem(item.tempId, 'nome_material', s.label);
+                            if (s.meta) updateItem(item.tempId, 'unidade', s.meta);
+                          }}
                           placeholder="Nome do material"
                           className="h-8 text-sm"
                         />
@@ -1100,9 +1169,45 @@ export default function PagamentosPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Data da Compra</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.data_compra && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.data_compra ? format(form.data_compra, 'dd/MM/yyyy') : 'Hoje'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={form.data_compra || undefined} onSelect={d => setForm({ ...form, data_compra: d || null })} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Data do Pagamento</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.data_pagamento && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.data_pagamento ? format(form.data_pagamento, 'dd/MM/yyyy') : '—'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={form.data_pagamento || undefined} onSelect={d => setForm({ ...form, data_pagamento: d || null })} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-medium">Fornecedor</label>
-              <Input value={form.fornecedor} onChange={e => setForm({ ...form, fornecedor: e.target.value })} />
+              <AutocompleteInput
+                suggestions={fornecedorSuggestions}
+                value={form.fornecedor}
+                onChange={v => setForm({ ...form, fornecedor: v })}
+                placeholder="Buscar fornecedor..."
+              />
               {isCompraMaterial && (
                 <p className="text-[11px] text-muted-foreground mt-1">
                   💡 Se o fornecedor estiver cadastrado, o preço será registrado automaticamente no banco de preços.
@@ -1110,15 +1215,114 @@ export default function PagamentosPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium">Nº Parcela</label>
-                <Input type="number" value={form.numero_parcela} onChange={e => setForm({ ...form, numero_parcela: e.target.value })} />
+            {/* Parcelamento */}
+            <div className="border border-border rounded-lg p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Parcelamento</label>
+                <Select value={parcelamentoMode} onValueChange={v => {
+                  const mode = v as 'none' | 'mensal' | 'custom';
+                  setParcelamentoMode(mode);
+                  if (mode === 'none') {
+                    setForm(f => ({ ...f, total_parcelas: '', numero_parcela: '' }));
+                    setParcelasDatas([]);
+                  }
+                }}>
+                  <SelectTrigger className="w-[160px] h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">À vista</SelectItem>
+                    <SelectItem value="mensal">Mensal</SelectItem>
+                    <SelectItem value="custom">Datas personalizadas</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <label className="text-sm font-medium">Total Parcelas</label>
-                <Input type="number" value={form.total_parcelas} onChange={e => setForm({ ...form, total_parcelas: e.target.value })} />
-              </div>
+
+              {parcelamentoMode !== 'none' && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Total de Parcelas</label>
+                      <Input
+                        type="number"
+                        min="2"
+                        value={form.total_parcelas}
+                        onChange={e => {
+                          const total = e.target.value;
+                          setForm(f => ({ ...f, total_parcelas: total }));
+                          if (parcelamentoMode === 'mensal' && form.data_vencimento) {
+                            const n = parseInt(total) || 0;
+                            const dates: (Date | null)[] = [];
+                            for (let i = 0; i < n; i++) {
+                              dates.push(addMonths(form.data_vencimento, i));
+                            }
+                            setParcelasDatas(dates);
+                          } else if (parcelamentoMode === 'custom') {
+                            const n = parseInt(total) || 0;
+                            setParcelasDatas(prev => {
+                              const arr = [...prev];
+                              while (arr.length < n) arr.push(null);
+                              return arr.slice(0, n);
+                            });
+                          }
+                        }}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Nº Parcela Atual</label>
+                      <Input type="number" value={form.numero_parcela} onChange={e => setForm({ ...form, numero_parcela: e.target.value })} className="h-8 text-sm" />
+                    </div>
+                  </div>
+
+                  {parcelamentoMode === 'mensal' && parcelasDatas.length > 0 && (
+                    <div className="text-xs text-muted-foreground space-y-0.5 bg-muted/50 rounded p-2">
+                      <p className="font-medium mb-1">Datas das parcelas (mensal):</p>
+                      {parcelasDatas.map((d, i) => (
+                        <p key={i}>Parcela {i + 1}: {d ? format(d, 'dd/MM/yyyy') : '—'}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {parcelamentoMode === 'custom' && parcelasDatas.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-muted-foreground font-medium">Datas personalizadas:</p>
+                      {parcelasDatas.map((d, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-16">Parcela {i + 1}:</span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className={cn("text-xs h-7 flex-1 justify-start", !d && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-1 h-3 w-3" />
+                                {d ? format(d, 'dd/MM/yyyy') : 'Selecionar'}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={d || undefined}
+                                onSelect={sel => {
+                                  setParcelasDatas(prev => {
+                                    const arr = [...prev];
+                                    arr[i] = sel || null;
+                                    return arr;
+                                  });
+                                }}
+                                initialFocus
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {parcelamentoMode !== 'none' && form.valor_previsto && form.total_parcelas && (
+                    <p className="text-xs text-muted-foreground">
+                      Valor por parcela: {formatCurrency((parseFloat(form.valor_previsto) || 0) / (parseInt(form.total_parcelas) || 1))}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
