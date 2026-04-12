@@ -17,7 +17,7 @@ import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import ObrasPage from "@/pages/ObrasPage";
-import ObraDetalhePage from "@/pages/ObraDetalhePage";
+// ObraDetalhePage removed - clicking obra goes directly to Painel
 import OrcamentoPage from "@/pages/OrcamentoPage";
 import CustoRealPage from "@/pages/CustoRealPage";
 import CronogramaPage from "@/pages/CronogramaPage";
