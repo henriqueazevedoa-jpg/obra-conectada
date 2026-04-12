@@ -241,6 +241,13 @@ export default function PagamentosPage() {
     }
   }, [pagamentos.length]);
 
+  // Calculate total from items
+  const totalItens = itensCompra.reduce((sum, item) => {
+    const qty = parseFloat(item.quantidade) || 0;
+    const price = parseFloat(item.preco_unitario) || 0;
+    return sum + qty * price;
+  }, 0);
+
   // Auto-sync total value from items
   useEffect(() => {
     if (isCompraMaterial && totalItens > 0) {
