@@ -4,16 +4,15 @@ import { useAuth } from './AuthContext';
 
 export interface Plan {
   id: string;
-  slug: string;
-  nome_comercial: string;
-  descricao: string;
-  limite_obras: number;
-  limite_gestores: number;
-  limite_funcionarios: number;
-  limite_clientes: number;
-  ilimitado: boolean;
-  ativo: boolean;
-  features: Record<string, any>;
+  slug: string | null;
+  nome_comercial: string | null;
+  descricao: string | null;
+  limite_obras: number | null;
+  limite_gestores: number | null;
+  limite_funcionarios: number | null;
+  limite_clientes: number | null;
+  ilimitado: boolean | null;
+  ativo: boolean | null;
 }
 
 export interface Company {
@@ -28,14 +27,10 @@ export interface Company {
 
 export interface Subscription {
   id: string;
-  company_id: string;
-  plan_id: string;
-  status: string;
-  ciclo: string;
-  data_inicio: string;
-  data_vencimento: string | null;
-  valor_base: number;
-  moeda: string;
+  company_id: string | null;
+  plan_id: string | null;
+  status: string | null;
+  ciclo: string | null;
   trial_start: string | null;
   trial_end: string | null;
 }

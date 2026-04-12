@@ -66,7 +66,7 @@ export function CustoRealProvider({ children }: { children: React.ReactNode }) {
   const getItensByCategoria = useCallback((categoriaId: string) => itens.filter(i => i.categoriaId === categoriaId), [itens]);
 
   const saveItem = useCallback(async (item: CustoRealItem) => {
-    await supabase.from('custo_real_itens').upsert({
+    await (supabase.from('custo_real_itens') as any).upsert({
       id: item.id,
       obra_id: item.obraId,
       categoria_id: item.categoriaId,
@@ -85,8 +85,8 @@ export function CustoRealProvider({ children }: { children: React.ReactNode }) {
 
   const saveItems = useCallback(async (items: CustoRealItem[]) => {
     if (items.length === 0) return;
-    await supabase.from('custo_real_itens').upsert(
-      items.map(item => ({
+    await (supabase.from('custo_real_itens') as any).upsert(
+      items.map((item: CustoRealItem) => ({
         id: item.id,
         obra_id: item.obraId,
         categoria_id: item.categoriaId,
