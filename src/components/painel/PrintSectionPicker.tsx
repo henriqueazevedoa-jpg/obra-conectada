@@ -15,6 +15,7 @@ export interface PrintSections {
   cronograma: boolean;
   custosEtapa: boolean;
   curvaABC: boolean;
+  cronogramaPagamentos: boolean;
   estoqueCritico: boolean;
   diario: boolean;
   pagamentos: boolean;
@@ -31,6 +32,7 @@ export const defaultPrintSections: PrintSections = {
   cronograma: true,
   custosEtapa: true,
   curvaABC: true,
+  cronogramaPagamentos: true,
   estoqueCritico: true,
   diario: true,
   pagamentos: true,
@@ -47,6 +49,7 @@ const sectionLabels: Record<keyof PrintSections, string> = {
   cronograma: 'Resumo do Cronograma',
   custosEtapa: 'Custos por Etapa',
   curvaABC: 'Curva ABC',
+  cronogramaPagamentos: 'Cronograma de Pagamentos',
   estoqueCritico: 'Estoque Crítico',
   diario: 'Últimos Registros do Diário',
   pagamentos: 'Pagamentos',

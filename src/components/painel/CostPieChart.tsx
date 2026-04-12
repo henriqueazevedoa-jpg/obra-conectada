@@ -91,10 +91,14 @@ export default function CostPieChart({ categorias, custoItens, view: externalVie
     if (Object.keys(byDesc).length === 0) {
       return categorias.filter(c => c.precoTotal > 0).map(c => ({ name: c.nome, value: c.precoTotal }));
     }
-    return Object.entries(byDesc)
+    const sorted = Object.entries(byDesc)
       .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
+      .sort((a, b) => b.value - a.value);
+    if (sorted.length <= 9) return sorted;
+    const top = sorted.slice(0, 9);
+    const outrosValue = sorted.slice(9).reduce((s, d) => s + d.value, 0);
+    if (outrosValue > 0) top.push({ name: 'Outros', value: outrosValue });
+    return top;
   }, [categorias, custoItens, view]);
 
   const total = data.reduce((s, d) => s + d.value, 0);
