@@ -102,7 +102,7 @@ export default function AcoesPrioritarias({
             <Badge variant="secondary" className={`${prioridadeColors[a.prioridade]} text-[10px] mr-2`}>
               {a.prioridade}
             </Badge>
-            <Link to={a.to}>
+            <Link to={a.to} className="print:hidden">
               <Button variant="ghost" size="sm" className="text-xs text-primary h-7 px-2">{a.acao}</Button>
             </Link>
           </div>
