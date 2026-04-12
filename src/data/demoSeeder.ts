@@ -66,11 +66,13 @@ export async function seedDemoData(userId: string, companyId: string) {
 
   await checkedInsert('obras', obras);
 
-  // === 2. OBRA MEMBERSHIPS ===
-  const memberships = [obra1Id, obra2Id, obra3Id].map(obraId => ({
-    obra_id: obraId, user_id: userId, role: 'gestor' as const,
-  }));
-  await checkedInsert('obra_memberships', memberships);
+  // === 2. OBRA MEMBERSHIPS (upsert to avoid conflict with trigger) ===
+  for (const obraId of [obra1Id, obra2Id, obra3Id]) {
+    await (supabase.from as any)('obra_memberships').upsert(
+      { obra_id: obraId, user_id: userId, role: 'gestor' as const },
+      { onConflict: 'obra_id,user_id' }
+    );
+  }
 
   // === 3. ORCAMENTO CATEGORIAS + COMPOSIÇÕES ===
   const c1_1 = demoId(), c1_2 = demoId(), c1_3 = demoId(), c1_4 = demoId(), c1_5 = demoId(), c1_6 = demoId();
