@@ -187,6 +187,11 @@ export default function PagamentosPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pending files for new payments (before save)
+  interface PendingFile { id: string; file: File; tipo: string; preview?: string; }
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const pendingFileInputRef = useRef<HTMLInputElement>(null);
+
   // New etapa
   const [showNewEtapa, setShowNewEtapa] = useState(false);
   const [newEtapaNome, setNewEtapaNome] = useState('');
