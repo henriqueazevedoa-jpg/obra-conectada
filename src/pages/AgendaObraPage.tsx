@@ -20,8 +20,9 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
   Plus, CalendarDays, CheckCircle2, Clock, Pencil, Trash2, Filter, AlertTriangle,
-  Play, Calendar, RotateCcw,
+  Play, Calendar, RotateCcw, List, BarChart3,
 } from 'lucide-react';
+import ObraCalendarView, { CalendarEvent } from '@/components/painel/ObraCalendarView';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
 
@@ -268,6 +269,14 @@ export default function AgendaObraPage() {
               ))}
             </SelectContent>
           </Select>
+          <div className="flex border border-border rounded-md">
+            <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" className="h-8 rounded-r-none gap-1 text-xs" onClick={() => setViewMode('list')}>
+              <List className="h-3 w-3" /> Lista
+            </Button>
+            <Button variant={viewMode === 'calendar' ? 'default' : 'ghost'} size="sm" className="h-8 rounded-l-none gap-1 text-xs" onClick={() => setViewMode('calendar')}>
+              <Calendar className="h-3 w-3" /> Calendário
+            </Button>
+          </div>
           <Button onClick={openCreate} size="sm"><Plus className="h-4 w-4 mr-1" /> Novo Evento</Button>
         </div>
       </div>
