@@ -610,6 +610,25 @@ export default function PagamentosPage() {
         await refreshEstoque();
       }
 
+      // Upload pending files for new payments
+      if (!editingId && pagamentoId && pendingFiles.length > 0) {
+        for (const pf of pendingFiles) {
+          const ext = pf.file.name.split('.').pop();
+          const path = `${obra.id}/${pagamentoId}/${crypto.randomUUID()}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from('pagamento-anexos')
+            .upload(path, pf.file);
+          if (!uploadError) {
+            await (supabase as any).from('pagamento_anexos').insert({
+              pagamento_id: pagamentoId,
+              nome: pf.file.name,
+              storage_path: path,
+              tipo: pf.tipo,
+            });
+          }
+        }
+      }
+
       setDialogOpen(false);
       resetForm();
       fetchPagamentos();
