@@ -43,7 +43,10 @@ const DAY_WIDTH_DEFAULT = 28;
 const LABEL_WIDTH = 220;
 
 export default function GanttEditorChart({ categorias, onUpdateDates, dayWidth: dayWidthProp }: Props) {
-  const { allowed: canEdit } = useAddonAccess('gantt_edit');
+  const { planFeatures } = useCompany();
+  const canView = planFeatures.gantt_view;
+  const canEdit = planFeatures.gantt_edit;
+  const showBaseline = planFeatures.gantt_baseline;
   const editable = canEdit && !!onUpdateDates;
 
   const dayWidth = dayWidthProp || DAY_WIDTH_DEFAULT;
