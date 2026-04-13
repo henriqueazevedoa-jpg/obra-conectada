@@ -29,6 +29,7 @@ import PainelObraPage from "@/pages/PainelObraPage";
 import EquipePage from "@/pages/EquipePage";
 import PerfilPage from "@/pages/PerfilPage";
 import PendenciasPage from "@/pages/PendenciasPage";
+import AgendaObraPage from "@/pages/AgendaObraPage";
 import FornecedoresPage from "@/pages/FornecedoresPage";
 import DocumentosPage from "@/pages/DocumentosPage";
 
@@ -145,6 +146,7 @@ function AppRoutes() {
         <Route path="pagamentos" element={<PagamentosPage />} />
         <Route path="usuarios" element={<EquipePage />} />
         <Route path="pendencias" element={<PendenciasPage />} />
+        <Route path="agenda" element={<AgendaObraPage />} />
         <Route path="fornecedores" element={<FornecedoresPage />} />
         <Route path="documentos" element={<DocumentosPage />} />
         <Route path="perfil" element={<PerfilPage />} />
