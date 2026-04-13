@@ -38,7 +38,7 @@ export default function PlansSection() {
         <p className="text-center text-muted-foreground mb-10">Sem contrato • Cancele quando quiser</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan) => (
-            <Card key={plan.slug} className={cn('relative overflow-hidden', plan.highlight && 'ring-2 ring-primary shadow-lg scale-[1.02]')}>
+            <Card key={plan.slug} className={cn('relative overflow-hidden', plan.highlight && 'ring-2 ring-primary shadow-lg md:scale-[1.02]')}>
               {plan.highlight && (
                 <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground text-center text-xs font-semibold py-1.5">
                   Mais escolhido

@@ -49,7 +49,7 @@ export default function LeadCaptureSection() {
         </div>
 
         <Card className="border-primary/20 shadow-lg">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="lead-name">Nome</Label>
