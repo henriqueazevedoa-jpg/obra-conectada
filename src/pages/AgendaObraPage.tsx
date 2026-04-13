@@ -358,8 +358,7 @@ export default function AgendaObraPage() {
           sources={['agenda']}
           fetchFromDb={true}
         />
-      ) : (
-      {loading ? (
+      ) : loading ? (
         <div className="text-center py-10 text-muted-foreground">Carregando...</div>
       ) : filtered.length === 0 ? (
         <Card className="shadow-card"><CardContent className="p-10 text-center text-muted-foreground">
@@ -437,8 +436,6 @@ export default function AgendaObraPage() {
           })}
         </div>
       )}
-      )}
-
       {/* Dialog Criar/Editar */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
