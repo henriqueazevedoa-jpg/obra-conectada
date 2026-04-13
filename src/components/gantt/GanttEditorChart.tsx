@@ -215,6 +215,16 @@ export default function GanttEditorChart({ categorias, onUpdateDates, dayWidth: 
     };
   }, [dragState, dayWidth, onUpdateDates]);
 
+  if (!canView) {
+    return (
+      <div className="text-center py-12 space-y-3">
+        <Lock className="h-8 w-8 mx-auto text-muted-foreground" />
+        <p className="text-sm text-muted-foreground font-medium">Este recurso está disponível apenas no plano avançado</p>
+        <p className="text-xs text-muted-foreground">Faça upgrade do seu plano para acessar o Gantt interativo.</p>
+      </div>
+    );
+  }
+
   if (tasks.length === 0) {
     return <div className="text-center py-8 text-muted-foreground text-sm">Nenhuma etapa para exibir.</div>;
   }
@@ -247,7 +257,8 @@ export default function GanttEditorChart({ categorias, onUpdateDates, dayWidth: 
           task={task}
           dayWidth={dayWidth}
           timelineStart={timelineStart}
-          editable={editable && !task.groupId} // only edit top-level for now
+          editable={editable && !task.groupId}
+          showBaseline={showBaseline}
           onDragStart={handleDragStart}
         />
       </div>
@@ -258,10 +269,10 @@ export default function GanttEditorChart({ categorias, onUpdateDates, dayWidth: 
     <TooltipProvider delayDuration={150}>
       <div className="border border-border rounded-lg overflow-hidden">
         {/* Edit mode indicator */}
-        {!canEdit && (
+        {!canEdit && canView && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b border-border text-xs text-muted-foreground">
             <Lock className="h-3 w-3" />
-            Modo visualização — ative o addon Gantt Edit para editar
+            Modo visualização — faça upgrade para editar o cronograma
           </div>
         )}
 
