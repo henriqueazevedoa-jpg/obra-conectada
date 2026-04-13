@@ -1489,7 +1489,77 @@ export default function PagamentosPage() {
                 )}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground italic">💡 Após salvar, você poderá anexar boletos, contratos, recibos e fotos.</p>
+              <div className="border border-dashed border-border rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1.5"><Paperclip className="h-4 w-4" /> Documentos e Fotos</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(anexoTipoLabels).map(([tipo, label]) => (
+                    <Button
+                      key={tipo}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      type="button"
+                      onClick={() => {
+                        const input = pendingFileInputRef.current;
+                        if (input) {
+                          input.setAttribute('data-tipo', tipo);
+                          input.click();
+                        }
+                      }}
+                    >
+                      {tipo === 'foto' ? <Image className="h-3 w-3 mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                <input
+                  ref={pendingFileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      const tipo = e.target.getAttribute('data-tipo') || 'outro';
+                      const newFiles: PendingFile[] = Array.from(e.target.files).map(file => ({
+                        id: crypto.randomUUID(),
+                        file,
+                        tipo,
+                        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+                      }));
+                      setPendingFiles(prev => [...prev, ...newFiles]);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                {pendingFiles.length > 0 && (
+                  <div className="space-y-1 mt-2">
+                    {pendingFiles.map(pf => (
+                      <div key={pf.id} className="flex items-center gap-2 text-xs p-1.5 bg-muted rounded">
+                        {pf.preview ? (
+                          <img src={pf.preview} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
+                        ) : (
+                          <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="truncate flex-1">{pf.file.name}</span>
+                        <span className="text-muted-foreground">{anexoTipoLabels[pf.tipo] || pf.tipo}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 shrink-0"
+                          type="button"
+                          onClick={() => {
+                            if (pf.preview) URL.revokeObjectURL(pf.preview);
+                            setPendingFiles(prev => prev.filter(f => f.id !== pf.id));
+                          }}
+                        >
+                          <X className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             <input
