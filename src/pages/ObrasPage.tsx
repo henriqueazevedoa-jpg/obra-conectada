@@ -126,30 +126,31 @@ export default function ObrasPage() {
       toast({ title: 'Preencha ao menos o nome da obra.', variant: 'destructive' });
       return;
     }
-
-    if (editingId) {
-      const result = await updateObra(editingId, form);
-      if (!result.success) {
-        toast({ title: 'Erro ao atualizar obra', description: result.error, variant: 'destructive' });
-        return;
+    setSaving(true);
+    try {
+      if (editingId) {
+        const result = await updateObra(editingId, form);
+        if (!result.success) {
+          toast({ title: 'Erro ao atualizar obra', description: result.error, variant: 'destructive' });
+          return;
+        }
+        toast({ title: 'Obra atualizada com sucesso!' });
+      } else {
+        const result = await addObra({
+          id: crypto.randomUUID(),
+          ...form,
+          percentualAndamento: 0,
+        });
+        if (!result.success) {
+          toast({ title: 'Erro ao criar obra', description: result.error, variant: 'destructive' });
+          return;
+        }
+        toast({ title: 'Obra criada com sucesso!' });
       }
-      toast({ title: 'Obra atualizada com sucesso!' });
-    } else {
-      const result = await addObra({
-        id: crypto.randomUUID(),
-        ...form,
-        percentualAndamento: 0,
-      });
-      if (!result.success) {
-        toast({ title: 'Erro ao criar obra', description: result.error, variant: 'destructive' });
-        return;
-      }
-      toast({ title: 'Obra criada com sucesso!' });
-    }
-
-    setDialogOpen(false);
-    setForm(emptyForm);
-    setEditingId(null);
+      setDialogOpen(false);
+      setForm(emptyForm);
+      setEditingId(null);
+    } finally { setSaving(false); }
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -391,7 +392,7 @@ export default function ObrasPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editingId ? 'Salvar' : 'Criar Obra'}</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : editingId ? 'Salvar' : 'Criar Obra'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
