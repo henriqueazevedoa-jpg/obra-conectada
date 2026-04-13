@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from './AuthContext';
+import { PlanFeatures, DEFAULT_PLAN_FEATURES } from '@/types/planFeatures';
+import { normalizePlanFeatures } from '@/utils/normalizePlanFeatures';
 
 export interface Plan {
   id: string;
@@ -48,6 +50,7 @@ interface CompanyContextType {
   plan: Plan | null;
   subscription: Subscription | null;
   plans: Plan[];
+  planFeatures: PlanFeatures;
   loading: boolean;
   plansLoading: boolean;
   needsOnboarding: boolean;
