@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useObras } from '@/contexts/ObrasContext';
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 
 interface Fornecedor {
   id: string; obra_id: string; nome: string; cnpj: string | null;
@@ -42,13 +43,23 @@ const origemLabels: Record<string, string> = {
   compra_real: 'Compra Real', cotacao: 'Cotação', tabela: 'Tabela', outro: 'Outro',
 };
 
+const categoriaLabels: Record<string, string> = {
+  material: 'Material',
+  mao_de_obra: 'Mão de Obra',
+  equipamento: 'Equipamento',
+  servico: 'Serviço',
+  outro: 'Outro',
+};
+
 const emptyFornecedor = { nome: '', cnpj: '', email: '', telefone: '', cidade: '', observacoes: '' };
 type OrigemPreco = 'compra_real' | 'cotacao' | 'tabela' | 'outro';
+type CategoriaPreco = 'material' | 'mao_de_obra' | 'equipamento' | 'servico' | 'outro';
 
 const emptyPreco = {
   fornecedor_id: '', descricao_item_snapshot: '', preco_unitario: '',
   unidade: '', data_referencia: new Date().toISOString().slice(0, 10),
-  origem_preco: 'cotacao' as OrigemPreco, observacoes: '',
+  origem_preco: 'cotacao' as OrigemPreco, categoria: 'material' as CategoriaPreco,
+  observacoes: '',
 };
 
 export default function FornecedoresPage() {
@@ -68,13 +79,12 @@ export default function FornecedoresPage() {
   const [pEditingId, setPEditingId] = useState<string | null>(null);
   const [pForm, setPForm] = useState(emptyPreco);
   const [pDeleteId, setPDeleteId] = useState<string | null>(null);
-  // For new fornecedor we need to pick an obra
   const [fObraId, setFObraId] = useState(obras[0]?.id || '');
 
-  const [filterFornecedor, setFilterFornecedor] = useState('');
-  const [filterMaterial, setFilterMaterial] = useState('');
+  const [filterFornecedor, setFilterFornecedor] = useState('todos');
+  const [filterItem, setFilterItem] = useState('');
+  const [filterCategoria, setFilterCategoria] = useState('todos');
 
-  // Fetch ALL fornecedores across all obras
   const fetchData = useCallback(async () => {
     if (obras.length === 0) { setFornecedores([]); setPrecos([]); setLoading(false); return; }
     setLoading(true);
@@ -89,6 +99,21 @@ export default function FornecedoresPage() {
   }, [obras.map(o => o.id).join(',')]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Autocomplete suggestions from existing items
+  const itemSuggestions = useMemo(() => {
+    const unique = new Map<string, string>();
+    precos.forEach(p => {
+      const desc = p.descricao_item_snapshot || '';
+      if (desc && !unique.has(desc.toLowerCase())) {
+        unique.set(desc.toLowerCase(), desc);
+      }
+    });
+    return Array.from(unique.values()).map(label => ({
+      label,
+      value: label.toLowerCase(),
+    }));
+  }, [precos]);
 
   // -- Fornecedor CRUD --
   const openCreateF = () => {
@@ -137,6 +162,7 @@ export default function FornecedoresPage() {
       fornecedor_id: p.fornecedor_id, descricao_item_snapshot: p.descricao_item_snapshot || '',
       preco_unitario: String(p.preco_unitario), unidade: p.unidade || '',
       data_referencia: p.data_referencia, origem_preco: p.origem_preco as OrigemPreco,
+      categoria: ((p as any).categoria || 'material') as CategoriaPreco,
       observacoes: p.observacoes || '',
     });
     setPDialogOpen(true);
@@ -145,12 +171,12 @@ export default function FornecedoresPage() {
     if (!pForm.descricao_item_snapshot || !pForm.preco_unitario || !pForm.fornecedor_id) {
       toast({ title: 'Preencha item, preço e fornecedor.', variant: 'destructive' }); return;
     }
-    // Find obra_id from the selected fornecedor
     const forn = fornecedores.find(f => f.id === pForm.fornecedor_id);
     const payload = {
       fornecedor_id: pForm.fornecedor_id, descricao_item_snapshot: pForm.descricao_item_snapshot,
       preco_unitario: parseFloat(pForm.preco_unitario), unidade: pForm.unidade || null,
       data_referencia: pForm.data_referencia, origem_preco: pForm.origem_preco,
+      categoria: pForm.categoria,
       observacoes: pForm.observacoes || null, obra_id: forn?.obra_id || obras[0]?.id,
     };
     if (pEditingId) {
@@ -177,21 +203,20 @@ export default function FornecedoresPage() {
     return o ? (o.codigo ? `${o.codigo}` : o.nome) : '';
   };
 
-  // Filtered fornecedores
   const filteredFornecedores = fornecedores.filter(f =>
     !fSearch || f.nome.toLowerCase().includes(fSearch.toLowerCase()) ||
     (f.cnpj || '').includes(fSearch) ||
     (f.cidade || '').toLowerCase().includes(fSearch.toLowerCase())
   );
 
-  // Preços filtrados
   const filteredPrecos = precos
-    .filter(p => !filterFornecedor || p.fornecedor_id === filterFornecedor)
-    .filter(p => !filterMaterial || (p.descricao_item_snapshot || '').toLowerCase().includes(filterMaterial.toLowerCase()));
+    .filter(p => filterFornecedor === 'todos' || p.fornecedor_id === filterFornecedor)
+    .filter(p => filterCategoria === 'todos' || (p as any).categoria === filterCategoria)
+    .filter(p => !filterItem || (p.descricao_item_snapshot || '').toLowerCase().includes(filterItem.toLowerCase()));
 
-  // Resumos: menor e último preço por item
+  // Resumos
   const itemMap = new Map<string, PrecoFornecedor[]>();
-  precos.forEach(p => {
+  filteredPrecos.forEach(p => {
     const key = (p.descricao_item_snapshot || '').toLowerCase();
     if (!itemMap.has(key)) itemMap.set(key, []);
     itemMap.get(key)!.push(p);
@@ -205,8 +230,8 @@ export default function FornecedoresPage() {
   return (
     <div className="space-y-4 animate-fade-in">
       <PageHeader
-        title="Fornecedores & Preços"
-        subtitle="Banco centralizado de fornecedores e preços de todas as obras"
+        title="Fornecedores & Banco de Preços"
+        subtitle="Banco centralizado de fornecedores e preços de materiais, mão de obra, equipamentos e serviços"
         icon={<Store className="h-5 w-5 text-primary" />}
         showObraSelector={false}
       />
@@ -271,16 +296,23 @@ export default function FornecedoresPage() {
         <TabsContent value="precos" className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-2 justify-between">
             <div className="flex gap-2 flex-wrap">
-              <Select value={filterFornecedor} onValueChange={v => setFilterFornecedor(v === 'all' ? '' : v)}>
+              <Select value={filterFornecedor} onValueChange={setFilterFornecedor}>
                 <SelectTrigger className="w-[180px] h-9 text-sm"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="todos">Todos Fornecedores</SelectItem>
                   {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterCategoria} onValueChange={setFilterCategoria}>
+                <SelectTrigger className="w-[160px] h-9 text-sm"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas Categorias</SelectItem>
+                  {Object.entries(categoriaLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Filtrar material..." value={filterMaterial} onChange={e => setFilterMaterial(e.target.value)} className="h-9 text-sm w-[180px] pl-9" />
+                <Input placeholder="Filtrar item..." value={filterItem} onChange={e => setFilterItem(e.target.value)} className="h-9 text-sm w-[180px] pl-9" />
               </div>
             </div>
             <Button onClick={openCreateP} disabled={fornecedores.length === 0} size="sm">
@@ -330,6 +362,7 @@ export default function FornecedoresPage() {
                   <TableHeader><TableRow>
                     <TableHead className="text-xs">Data</TableHead>
                     <TableHead className="text-xs">Item</TableHead>
+                    <TableHead className="text-xs">Categoria</TableHead>
                     <TableHead className="text-xs">Fornecedor</TableHead>
                     <TableHead className="text-xs">Preço Unit.</TableHead>
                     <TableHead className="text-xs">Unidade</TableHead>
@@ -341,6 +374,11 @@ export default function FornecedoresPage() {
                       <TableRow key={p.id}>
                         <TableCell className="text-xs">{format(parseISO(p.data_referencia), 'dd/MM/yy')}</TableCell>
                         <TableCell className="text-sm">{p.descricao_item_snapshot || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px]">
+                            {categoriaLabels[(p as any).categoria] || 'Material'}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{getFornecedorNome(p.fornecedor_id)}</TableCell>
                         <TableCell className="text-sm font-medium">R$ {p.preco_unitario.toFixed(2)}</TableCell>
                         <TableCell className="text-xs">{p.unidade || '—'}</TableCell>
@@ -403,7 +441,7 @@ export default function FornecedoresPage() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{pEditingId ? 'Editar Preço' : 'Novo Preço'}</DialogTitle>
-            <DialogDescription>Registre o preço de um item.</DialogDescription>
+            <DialogDescription>Registre o preço de um item, serviço ou equipamento.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-1.5">
@@ -413,10 +451,29 @@ export default function FornecedoresPage() {
                 <SelectContent>{fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5"><Label>Item / Material *</Label><Input value={pForm.descricao_item_snapshot} onChange={e => setPForm(f => ({ ...f, descricao_item_snapshot: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Item / Descrição *</Label>
+                <AutocompleteInput
+                  suggestions={itemSuggestions}
+                  value={pForm.descricao_item_snapshot}
+                  onChange={v => setPForm(f => ({ ...f, descricao_item_snapshot: v }))}
+                  placeholder="Ex: Cimento, Pedreiro, Betoneira..."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Categoria</Label>
+                <Select value={pForm.categoria} onValueChange={v => setPForm(f => ({ ...f, categoria: v as CategoriaPreco }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(categoriaLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5"><Label>Preço Unitário *</Label><Input type="number" step="0.01" value={pForm.preco_unitario} onChange={e => setPForm(f => ({ ...f, preco_unitario: e.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>Unidade</Label><Input value={pForm.unidade} onChange={e => setPForm(f => ({ ...f, unidade: e.target.value }))} placeholder="kg, m², un..." /></div>
+              <div className="space-y-1.5"><Label>Unidade</Label><Input value={pForm.unidade} onChange={e => setPForm(f => ({ ...f, unidade: e.target.value }))} placeholder="kg, m², un, h..." /></div>
               <div className="space-y-1.5">
                 <Label>Origem</Label>
                 <Select value={pForm.origem_preco} onValueChange={v => setPForm(f => ({ ...f, origem_preco: v as OrigemPreco }))}>
