@@ -119,7 +119,9 @@ export default function ObrasPage() {
     setDialogOpen(true);
   };
 
+  const [saving, setSaving] = useState(false);
   const handleSave = async () => {
+    if (saving) return;
     if (!form.nome) {
       toast({ title: 'Preencha ao menos o nome da obra.', variant: 'destructive' });
       return;
