@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/data/mockData';
-import { CalendarDays, BarChart3, List } from 'lucide-react';
+import { CalendarDays, BarChart3, List, Calendar } from 'lucide-react';
+import PagamentosCalendarView from './PagamentosCalendarView';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
