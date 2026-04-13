@@ -20,8 +20,9 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
   Plus, CalendarDays, CheckCircle2, Clock, Pencil, Trash2, Filter, AlertTriangle,
-  Play, Calendar, RotateCcw,
+  Play, Calendar, RotateCcw, List, BarChart3,
 } from 'lucide-react';
+import ObraCalendarView, { CalendarEvent } from '@/components/painel/ObraCalendarView';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
 
@@ -107,6 +108,7 @@ export default function AgendaObraPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   // Filtros
   const [search, setSearch] = useState('');
@@ -268,6 +270,14 @@ export default function AgendaObraPage() {
               ))}
             </SelectContent>
           </Select>
+          <div className="flex border border-border rounded-md">
+            <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" className="h-8 rounded-r-none gap-1 text-xs" onClick={() => setViewMode('list')}>
+              <List className="h-3 w-3" /> Lista
+            </Button>
+            <Button variant={viewMode === 'calendar' ? 'default' : 'ghost'} size="sm" className="h-8 rounded-l-none gap-1 text-xs" onClick={() => setViewMode('calendar')}>
+              <Calendar className="h-3 w-3" /> Calendário
+            </Button>
+          </div>
           <Button onClick={openCreate} size="sm"><Plus className="h-4 w-4 mr-1" /> Novo Evento</Button>
         </div>
       </div>
@@ -340,8 +350,15 @@ export default function AgendaObraPage() {
         </Button>
       </div>
 
-      {/* Lista */}
-      {loading ? (
+
+      {/* Conteúdo: Lista ou Calendário */}
+      {viewMode === 'calendar' ? (
+        <ObraCalendarView
+          obraId={obra.id}
+          sources={['agenda']}
+          fetchFromDb={true}
+        />
+      ) : loading ? (
         <div className="text-center py-10 text-muted-foreground">Carregando...</div>
       ) : filtered.length === 0 ? (
         <Card className="shadow-card"><CardContent className="p-10 text-center text-muted-foreground">
@@ -419,7 +436,6 @@ export default function AgendaObraPage() {
           })}
         </div>
       )}
-
       {/* Dialog Criar/Editar */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
