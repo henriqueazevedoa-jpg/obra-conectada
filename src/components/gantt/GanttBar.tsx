@@ -9,10 +9,11 @@ interface GanttBarProps {
   dayWidth: number;
   timelineStart: Date;
   editable: boolean;
+  showBaseline?: boolean;
   onDragStart: (state: GanttDragState) => void;
 }
 
-function GanttBar({ task, dayWidth, timelineStart, editable, onDragStart }: GanttBarProps) {
+function GanttBar({ task, dayWidth, timelineStart, editable, showBaseline = true, onDragStart }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const colors = STATUS_COLORS[task.status] || STATUS_COLORS.nao_iniciada;
 
@@ -63,7 +64,7 @@ function GanttBar({ task, dayWidth, timelineStart, editable, onDragStart }: Gant
   return (
     <div className="h-8 relative">
       {/* Baseline bar (behind) */}
-      {baseline && actual && (
+      {showBaseline && baseline && actual && (
         <div
           className="absolute top-0.5 h-3 rounded-sm bg-muted-foreground/15 border border-dashed border-muted-foreground/20"
           style={{ left: baseline.left, width: baseline.width }}
