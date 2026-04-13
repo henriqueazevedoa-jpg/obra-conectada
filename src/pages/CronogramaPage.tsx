@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
-import GanttChart from '@/components/painel/GanttChart';
+import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento, OrcamentoCategoria, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -290,10 +290,18 @@ export default function CronogramaPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Gráfico de Gantt</CardTitle>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <div className="min-w-[900px]">
-                  <GanttChart categorias={categorias} />
-                </div>
+              <CardContent>
+                <GanttEditorChart
+                  categorias={categorias}
+                  onUpdateDates={(catId, start, end) => {
+                    const idx = categorias.findIndex(c => c.id === catId);
+                    if (idx === -1) return;
+                    const cat = { ...categorias[idx] };
+                    cat.dataInicioPrevista = start;
+                    cat.dataFimPrevista = end;
+                    updateCategoria(idx, cat);
+                  }}
+                />
               </CardContent>
             </Card>
           )}
