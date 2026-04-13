@@ -37,6 +37,7 @@ import PontosAtencao from '@/components/painel/PontosAtencao';
 import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import CronogramaPagamentos from '@/components/painel/CronogramaPagamentos';
 import NoObraState from '@/components/obras/NoObraState';
+import ObraCalendarView from '@/components/painel/ObraCalendarView';
 
 interface DiarioRow {
   id: string; data: string; clima: string; trabalhadores: number;
@@ -242,6 +243,12 @@ function GestorPainel() {
           andamentoPlanejado={andamentoPlanejado}
         />
       </div>
+
+      {/* 4.5. Calendário da Obra */}
+      <ObraCalendarView
+        obraId={obra.id}
+        sources={['agenda', 'pendencias', 'pagamentos', 'diario']}
+      />
 
       {/* 5. Charts Row 1: Curva S + Pizza */}
       <div className="grid md:grid-cols-2 gap-5">
