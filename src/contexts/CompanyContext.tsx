@@ -315,6 +315,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         plan,
         subscription,
         plans,
+        planFeatures,
         loading,
         plansLoading,
         needsOnboarding,
