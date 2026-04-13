@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      obra_agenda: {
+        Row: {
+          alerta_ativo: boolean
+          antecedencia_alerta_em_dias: number | null
+          created_at: string
+          criado_por: string | null
+          data_finalizacao: string | null
+          data_programada: string
+          descricao: string | null
+          hora_programada: string | null
+          id: string
+          local: string | null
+          obra_id: string
+          prioridade: string
+          responsavel: string | null
+          status: string
+          tipo: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          alerta_ativo?: boolean
+          antecedencia_alerta_em_dias?: number | null
+          created_at?: string
+          criado_por?: string | null
+          data_finalizacao?: string | null
+          data_programada: string
+          descricao?: string | null
+          hora_programada?: string | null
+          id?: string
+          local?: string | null
+          obra_id: string
+          prioridade?: string
+          responsavel?: string | null
+          status?: string
+          tipo?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          alerta_ativo?: boolean
+          antecedencia_alerta_em_dias?: number | null
+          created_at?: string
+          criado_por?: string | null
+          data_finalizacao?: string | null
+          data_programada?: string
+          descricao?: string | null
+          hora_programada?: string | null
+          id?: string
+          local?: string | null
+          obra_id?: string
+          prioridade?: string
+          responsavel?: string | null
+          status?: string
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
