@@ -79,6 +79,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [plansLoading, setPlansLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [planFeatures, setPlanFeatures] = useState<PlanFeatures>({ ...DEFAULT_PLAN_FEATURES });
 
   const resetCompanyState = useCallback(() => {
     setCompany(null);
@@ -189,6 +190,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       }
 
       setPlan((planData as Plan) || null);
+      setPlanFeatures(normalizePlanFeatures((planData as any)?.features));
       setSubscription((subData as Subscription) || null);
       setNeedsOnboarding(false);
     } catch (err) {
