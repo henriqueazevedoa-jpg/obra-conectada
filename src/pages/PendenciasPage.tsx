@@ -125,7 +125,6 @@ export default function PendenciasPage() {
     setDialogOpen(true);
   };
 
-  const [saving, setSaving] = useState(false);
   const handleSave = async () => {
     if (saving) return;
     if (!form.titulo) { toast({ title: 'Preencha o título.', variant: 'destructive' }); return; }
