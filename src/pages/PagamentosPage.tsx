@@ -247,6 +247,9 @@ export default function PagamentosPage() {
     setNewFornecedorNome('');
     setNewFornecedorCnpj('');
     setNewFornecedorTel('');
+    // Clean up pending file previews
+    pendingFiles.forEach(pf => { if (pf.preview) URL.revokeObjectURL(pf.preview); });
+    setPendingFiles([]);
   };
 
   const handleCreateFornecedor = async () => {
