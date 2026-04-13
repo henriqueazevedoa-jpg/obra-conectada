@@ -39,7 +39,7 @@ type StatusFilter = 'todos' | 'pago' | 'atrasado' | 'previsto';
 export default function CronogramaPagamentos({ obraId }: Props) {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
-  const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'gantt' | 'calendar'>('list');
 
   useEffect(() => {
     if (!obraId) return;
@@ -126,15 +126,35 @@ export default function CronogramaPagamentos({ obraId }: Props) {
               ))}
             </div>
             {/* View toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2"
-              onClick={() => setViewMode(v => v === 'list' ? 'gantt' : 'list')}
-              title={viewMode === 'list' ? 'Ver Gantt' : 'Ver Lista'}
-            >
-              {viewMode === 'list' ? <BarChart3 className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
-            </Button>
+            <div className="flex gap-0.5 border border-border rounded-md p-0.5">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setViewMode('list')}
+                title="Lista"
+              >
+                <List className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant={viewMode === 'gantt' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setViewMode('gantt')}
+                title="Gantt"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setViewMode('calendar')}
+                title="Calendário"
+              >
+                <Calendar className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       </CardHeader>
