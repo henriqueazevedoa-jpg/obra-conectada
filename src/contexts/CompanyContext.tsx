@@ -85,6 +85,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     setCompany(null);
     setPlan(null);
     setSubscription(null);
+    setPlanFeatures({ ...DEFAULT_PLAN_FEATURES });
   }, []);
 
   const fetchPlans = useCallback(async () => {

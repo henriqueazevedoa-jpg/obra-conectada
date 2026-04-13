@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronRight, Lock } from 'lucide-react';
 import { parseISO, differenceInDays, addDays, format, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useAddonAccess } from '@/hooks/useAddonAccess';
+import { useCompany } from '@/contexts/CompanyContext';
 
 interface Props {
   categorias: OrcamentoCategoria[];
