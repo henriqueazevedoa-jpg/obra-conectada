@@ -18,6 +18,7 @@ export interface GanttChangeInfo {
   oldEnd: string;
   newStart: string;
   newEnd: string;
+  isBaseline?: boolean;
 }
 
 interface Props {
@@ -42,7 +43,9 @@ export default function GanttConfirmDialog({ change, onConfirm, onCancel }: Prop
     <AlertDialog open={!!change} onOpenChange={(open) => { if (!open) onCancel(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Confirmar alteração de datas</AlertDialogTitle>
+          <AlertDialogTitle>
+            {change.isBaseline ? 'Confirmar alteração da baseline' : 'Confirmar alteração de datas'}
+          </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3">
               <p className="font-medium text-foreground">{change.taskName}</p>
