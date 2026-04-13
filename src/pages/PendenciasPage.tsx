@@ -85,6 +85,7 @@ export default function PendenciasPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPrioridade, setFilterPrioridade] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const fetchPendencias = useCallback(async () => {
     if (!obra) { setPendencias([]); setLoading(false); return; }
