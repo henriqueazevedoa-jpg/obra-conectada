@@ -90,7 +90,7 @@ function GanttToolbar({
       {/* Mode indicator */}
       <div className="ml-auto">
         {baselineEditMode ? (
-          <Badge variant="outline" className="text-[9px] gap-1 border-amber-500/50 text-amber-600">
+          <Badge variant="outline" className="text-[9px] gap-1 border-warning/50 text-warning">
             <Pencil className="h-2.5 w-2.5" /> Editando baseline
           </Badge>
         ) : canEdit ? (
