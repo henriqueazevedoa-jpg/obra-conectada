@@ -3,10 +3,12 @@ import { supabase } from '@/integrations/supabase/untyped';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency } from '@/data/mockData';
-import { CalendarDays, BarChart3, List, Calendar } from 'lucide-react';
+import { CalendarDays, List, Calendar, BarChart3, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
 import PagamentosCalendarView from './PagamentosCalendarView';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import PagamentosResumoMensal from './PagamentosResumoMensal';
+import { format, parseISO, differenceInDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface Pagamento {
@@ -35,11 +37,13 @@ const statusLabels: Record<string, string> = {
 };
 
 type StatusFilter = 'todos' | 'pago' | 'atrasado' | 'previsto';
+type ViewMode = 'list' | 'gantt' | 'calendar' | 'resumo';
 
 export default function CronogramaPagamentos({ obraId }: Props) {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
-  const [viewMode, setViewMode] = useState<'list' | 'gantt' | 'calendar'>('list');
+  const [fornecedorFilter, setFornecedorFilter] = useState('todos');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   useEffect(() => {
     if (!obraId) return;
@@ -54,6 +58,10 @@ export default function CronogramaPagamentos({ obraId }: Props) {
   }, [obraId]);
 
   const today = new Date().toISOString().slice(0, 10);
+  const todayDate = new Date();
+  const next7 = format(addDays(todayDate, 7), 'yyyy-MM-dd');
+  const mesAtual = format(todayDate, 'yyyy-MM');
+
   const items = useMemo(() => {
     return pagamentos.map(p => {
       const realStatus =
@@ -63,10 +71,18 @@ export default function CronogramaPagamentos({ obraId }: Props) {
     });
   }, [pagamentos, today]);
 
+  // Fornecedores list
+  const fornecedores = useMemo(() => {
+    const set = new Set(items.filter(p => p.fornecedor).map(p => p.fornecedor!));
+    return Array.from(set).sort();
+  }, [items]);
+
   const filtered = useMemo(() => {
-    if (statusFilter === 'todos') return items;
-    return items.filter(p => p.realStatus === statusFilter);
-  }, [items, statusFilter]);
+    let result = items;
+    if (statusFilter !== 'todos') result = result.filter(p => p.realStatus === statusFilter);
+    if (fornecedorFilter !== 'todos') result = result.filter(p => p.fornecedor === fornecedorFilter);
+    return result;
+  }, [items, statusFilter, fornecedorFilter]);
 
   // Group by month
   const grouped = useMemo(() => {
@@ -79,15 +95,18 @@ export default function CronogramaPagamentos({ obraId }: Props) {
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
   }, [filtered]);
 
+  // Dashboard metrics
   const totalPrevisto = items.reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
   const totalPago = items.filter(p => p.realStatus === 'pago').reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
   const totalAtrasado = items.filter(p => p.realStatus === 'atrasado').reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
+  const totalProx7d = items.filter(p => p.realStatus === 'previsto' && p.data_vencimento >= today && p.data_vencimento <= next7).reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
+  const totalMes = items.filter(p => p.data_vencimento?.startsWith(mesAtual)).reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
 
   // Gantt data
   const ganttData = useMemo(() => {
-    if (filtered.length === 0) return null;
-    const dates = filtered.filter(p => p.data_vencimento).map(p => parseISO(p.data_vencimento));
-    if (dates.length === 0) return null;
+    const withDates = filtered.filter(p => p.data_vencimento);
+    if (withDates.length === 0) return null;
+    const dates = withDates.map(p => parseISO(p.data_vencimento));
     const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
     const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
     const totalDays = Math.max(differenceInDays(maxDate, minDate), 1);
@@ -103,6 +122,13 @@ export default function CronogramaPagamentos({ obraId }: Props) {
     { label: 'Atrasado', value: 'atrasado' },
   ];
 
+  const viewButtons: { icon: React.ReactNode; value: ViewMode; title: string }[] = [
+    { icon: <List className="h-3.5 w-3.5" />, value: 'list', title: 'Lista' },
+    { icon: <BarChart3 className="h-3.5 w-3.5" />, value: 'gantt', title: 'Timeline' },
+    { icon: <Calendar className="h-3.5 w-3.5" />, value: 'calendar', title: 'Calendário' },
+    { icon: <TrendingUp className="h-3.5 w-3.5" />, value: 'resumo', title: 'Resumo Mensal' },
+  ];
+
   return (
     <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid" data-print-section="cronogramaPagamentos">
       <CardHeader className="pb-3">
@@ -110,7 +136,19 @@ export default function CronogramaPagamentos({ obraId }: Props) {
           <CardTitle className="text-base flex items-center gap-2">
             <CalendarDays className="h-4 w-4" /> Cronograma de Pagamentos
           </CardTitle>
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex items-center gap-2 print:hidden flex-wrap">
+            {/* Fornecedor filter */}
+            {fornecedores.length > 0 && (
+              <Select value={fornecedorFilter} onValueChange={setFornecedorFilter}>
+                <SelectTrigger className="h-7 text-xs w-[140px]">
+                  <SelectValue placeholder="Fornecedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos fornecedores</SelectItem>
+                  {fornecedores.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
             {/* Status filters */}
             <div className="flex gap-1">
               {filterButtons.map(fb => (
@@ -127,43 +165,28 @@ export default function CronogramaPagamentos({ obraId }: Props) {
             </div>
             {/* View toggle */}
             <div className="flex gap-0.5 border border-border rounded-md p-0.5">
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => setViewMode('list')}
-                title="Lista"
-              >
-                <List className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant={viewMode === 'gantt' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => setViewMode('gantt')}
-                title="Gantt"
-              >
-                <BarChart3 className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => setViewMode('calendar')}
-                title="Calendário"
-              >
-                <Calendar className="h-3.5 w-3.5" />
-              </Button>
+              {viewButtons.map(vb => (
+                <Button
+                  key={vb.value}
+                  variant={viewMode === vb.value ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setViewMode(vb.value)}
+                  title={vb.title}
+                >
+                  {vb.icon}
+                </Button>
+              ))}
             </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Summary */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Dashboard cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           <div className="text-center p-2 rounded-lg bg-muted">
             <p className="text-sm font-bold text-foreground">{formatCurrency(totalPrevisto)}</p>
-            <p className="text-[10px] text-muted-foreground">Total Previsto</p>
+            <p className="text-[10px] text-muted-foreground">Total Geral</p>
           </div>
           <div className="text-center p-2 rounded-lg bg-success/10">
             <p className="text-sm font-bold text-success">{formatCurrency(totalPago)}</p>
@@ -173,18 +196,24 @@ export default function CronogramaPagamentos({ obraId }: Props) {
             <p className="text-sm font-bold text-destructive">{formatCurrency(totalAtrasado)}</p>
             <p className="text-[10px] text-muted-foreground">Atrasado</p>
           </div>
+          <div className="text-center p-2 rounded-lg bg-primary/10">
+            <p className="text-sm font-bold text-primary">{formatCurrency(totalProx7d)}</p>
+            <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" /> Próx. 7 dias</p>
+          </div>
+          <div className="text-center p-2 rounded-lg bg-accent/50 col-span-2 sm:col-span-1">
+            <p className="text-sm font-bold text-foreground">{formatCurrency(totalMes)}</p>
+            <p className="text-[10px] text-muted-foreground">Mês Atual</p>
+          </div>
         </div>
 
         {filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">Nenhum pagamento com o filtro selecionado.</p>
         ) : viewMode === 'list' ? (
-          /* Timeline by month */
           <div className="space-y-4 max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible">
             {grouped.map(([month, pags]) => {
               const monthLabel = month === 'sem-data' ? 'Sem data'
                 : format(parseISO(month + '-01'), "MMMM 'de' yyyy", { locale: ptBR });
               const monthTotal = pags.reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
-
               return (
                 <div key={month}>
                   <div className="flex items-center justify-between mb-2">
@@ -216,11 +245,12 @@ export default function CronogramaPagamentos({ obraId }: Props) {
           </div>
         ) : viewMode === 'calendar' ? (
           <PagamentosCalendarView items={filtered} />
+        ) : viewMode === 'resumo' ? (
+          <PagamentosResumoMensal items={filtered} />
         ) : (
-          /* Gantt view */
+          /* Gantt/Timeline view */
           ganttData && (
             <div className="space-y-1 max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible">
-              {/* Month headers */}
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-[140px] shrink-0" />
                 <div className="flex-1 flex justify-between text-[10px] text-muted-foreground">
@@ -250,7 +280,6 @@ export default function CronogramaPagamentos({ obraId }: Props) {
                   </div>
                 );
               })}
-              {/* Legend */}
               <div className="flex gap-3 mt-3 pt-2 border-t border-border">
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-primary" /> Previsto</div>
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-success" /> Pago</div>
