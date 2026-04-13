@@ -108,6 +108,7 @@ export default function AgendaObraPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   // Filtros
   const [search, setSearch] = useState('');
@@ -349,7 +350,15 @@ export default function AgendaObraPage() {
         </Button>
       </div>
 
-      {/* Lista */}
+
+      {/* Conteúdo: Lista ou Calendário */}
+      {viewMode === 'calendar' ? (
+        <ObraCalendarView
+          obraId={obra.id}
+          sources={['agenda']}
+          fetchFromDb={true}
+        />
+      ) : (
       {loading ? (
         <div className="text-center py-10 text-muted-foreground">Carregando...</div>
       ) : filtered.length === 0 ? (
@@ -427,6 +436,7 @@ export default function AgendaObraPage() {
             );
           })}
         </div>
+      )}
       )}
 
       {/* Dialog Criar/Editar */}
