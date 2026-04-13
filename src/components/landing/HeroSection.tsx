@@ -34,11 +34,11 @@ export default function HeroSection({ onScrollTo }: HeroSectionProps) {
             ))}
           </ul>
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button size="lg" onClick={() => onScrollTo('planos')} className="gap-2 text-base px-8">
-              Quero organizar minha obra agora <ArrowRight className="h-4 w-4" />
+            <Button size="lg" onClick={() => onScrollTo('planos')} className="gap-2 text-sm sm:text-base px-6 sm:px-8 w-full sm:w-auto">
+              Quero organizar minha obra agora <ArrowRight className="h-4 w-4 shrink-0" />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => onScrollTo('modulos')} className="gap-2 text-base px-8">
-              Ver como funciona <ChevronDown className="h-4 w-4" />
+            <Button size="lg" variant="outline" onClick={() => onScrollTo('modulos')} className="gap-2 text-sm sm:text-base px-6 sm:px-8 w-full sm:w-auto">
+              Ver como funciona <ChevronDown className="h-4 w-4 shrink-0" />
             </Button>
           </div>
         </div>

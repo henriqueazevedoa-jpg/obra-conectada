@@ -19,13 +19,13 @@ export default function WhatsAppServiceSection() {
             </p>
             <Button
               size="lg"
-              className="gap-2 text-base"
+              className="gap-2 text-base whitespace-normal text-center"
               onClick={() => window.open(
                 `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Olá! Quero entender como funciona o serviço de gestão de obra.')}`,
                 '_blank'
               )}
             >
-              <MessageCircle className="h-4 w-4" /> Quero ajuda para organizar minha obra
+              <MessageCircle className="h-4 w-4 shrink-0" /> Quero ajuda para organizar minha obra
             </Button>
           </CardContent>
         </Card>
