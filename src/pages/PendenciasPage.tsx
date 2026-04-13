@@ -85,6 +85,7 @@ export default function PendenciasPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPrioridade, setFilterPrioridade] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const fetchPendencias = useCallback(async () => {
     if (!obra) { setPendencias([]); setLoading(false); return; }
@@ -125,22 +126,26 @@ export default function PendenciasPage() {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     if (!form.titulo) { toast({ title: 'Preencha o título.', variant: 'destructive' }); return; }
-    const payload = {
-      titulo: form.titulo, descricao: form.descricao || null,
-      tipo: form.tipo, prioridade: form.prioridade, status: form.status,
-      data_limite: form.data_limite || null, observacao_interna: form.observacao_interna || null,
-    };
-    if (editingId) {
-      const { error } = await supabase.from('pendencias').update(payload).eq('id', editingId);
-      if (error) { toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Pendência atualizada!' });
-    } else {
-      const { error } = await supabase.from('pendencias').insert({ ...payload, obra_id: obra.id });
-      if (error) { toast({ title: 'Erro ao criar', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Pendência criada!' });
-    }
-    setDialogOpen(false); fetchPendencias();
+    setSaving(true);
+    try {
+      const payload = {
+        titulo: form.titulo, descricao: form.descricao || null,
+        tipo: form.tipo, prioridade: form.prioridade, status: form.status,
+        data_limite: form.data_limite || null, observacao_interna: form.observacao_interna || null,
+      };
+      if (editingId) {
+        const { error } = await supabase.from('pendencias').update(payload).eq('id', editingId);
+        if (error) { toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Pendência atualizada!' });
+      } else {
+        const { error } = await supabase.from('pendencias').insert({ ...payload, obra_id: obra.id });
+        if (error) { toast({ title: 'Erro ao criar', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Pendência criada!' });
+      }
+      setDialogOpen(false); fetchPendencias();
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -321,7 +326,7 @@ export default function PendenciasPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editingId ? 'Salvar' : 'Criar'}</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : editingId ? 'Salvar' : 'Criar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
