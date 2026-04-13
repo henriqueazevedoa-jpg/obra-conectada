@@ -84,6 +84,9 @@ export default function FornecedoresPage() {
   const [filterFornecedor, setFilterFornecedor] = useState('todos');
   const [filterItem, setFilterItem] = useState('');
   const [filterCategoria, setFilterCategoria] = useState('todos');
+  const [filterObra, setFilterObra] = useState('todos');
+  const [savingF, setSavingF] = useState(false);
+  const [savingP, setSavingP] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (obras.length === 0) { setFornecedores([]); setPrecos([]); setLoading(false); return; }
@@ -129,19 +132,23 @@ export default function FornecedoresPage() {
     setFDialogOpen(true);
   };
   const saveF = async () => {
+    if (!fForm.nome || savingF) return;
     if (!fForm.nome) { toast({ title: 'Preencha o nome.', variant: 'destructive' }); return; }
-    const payload = { nome: fForm.nome, cnpj: fForm.cnpj || null, email: fForm.email || null, telefone: fForm.telefone || null, cidade: fForm.cidade || null, observacoes: fForm.observacoes || null };
-    if (fEditingId) {
-      const { error } = await supabase.from('fornecedores').update(payload).eq('id', fEditingId);
-      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Fornecedor atualizado!' });
-    } else {
-      if (!fObraId) { toast({ title: 'Selecione uma obra.', variant: 'destructive' }); return; }
-      const { error } = await supabase.from('fornecedores').insert({ ...payload, obra_id: fObraId });
-      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Fornecedor cadastrado!' });
-    }
-    setFDialogOpen(false); fetchData();
+    setSavingF(true);
+    try {
+      const payload = { nome: fForm.nome, cnpj: fForm.cnpj || null, email: fForm.email || null, telefone: fForm.telefone || null, cidade: fForm.cidade || null, observacoes: fForm.observacoes || null };
+      if (fEditingId) {
+        const { error } = await supabase.from('fornecedores').update(payload).eq('id', fEditingId);
+        if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Fornecedor atualizado!' });
+      } else {
+        if (!fObraId) { toast({ title: 'Selecione uma obra.', variant: 'destructive' }); return; }
+        const { error } = await supabase.from('fornecedores').insert({ ...payload, obra_id: fObraId });
+        if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Fornecedor cadastrado!' });
+      }
+      setFDialogOpen(false); fetchData();
+    } finally { setSavingF(false); }
   };
   const deleteF = async () => {
     if (!fDeleteId) return;
@@ -168,27 +175,28 @@ export default function FornecedoresPage() {
     setPDialogOpen(true);
   };
   const saveP = async () => {
-    if (!pForm.descricao_item_snapshot || !pForm.preco_unitario || !pForm.fornecedor_id) {
-      toast({ title: 'Preencha item, preço e fornecedor.', variant: 'destructive' }); return;
-    }
-    const forn = fornecedores.find(f => f.id === pForm.fornecedor_id);
-    const payload = {
-      fornecedor_id: pForm.fornecedor_id, descricao_item_snapshot: pForm.descricao_item_snapshot,
-      preco_unitario: parseFloat(pForm.preco_unitario), unidade: pForm.unidade || null,
-      data_referencia: pForm.data_referencia, origem_preco: pForm.origem_preco,
-      categoria: pForm.categoria,
-      observacoes: pForm.observacoes || null, obra_id: forn?.obra_id || obras[0]?.id,
-    };
-    if (pEditingId) {
-      const { error } = await supabase.from('precos_fornecedores').update(payload).eq('id', pEditingId);
-      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Preço atualizado!' });
-    } else {
-      const { error } = await supabase.from('precos_fornecedores').insert(payload);
-      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Preço registrado!' });
-    }
-    setPDialogOpen(false); fetchData();
+    if (!pForm.descricao_item_snapshot || !pForm.preco_unitario || !pForm.fornecedor_id || savingP) return;
+    setSavingP(true);
+    try {
+      const forn = fornecedores.find(f => f.id === pForm.fornecedor_id);
+      const payload = {
+        fornecedor_id: pForm.fornecedor_id, descricao_item_snapshot: pForm.descricao_item_snapshot,
+        preco_unitario: parseFloat(pForm.preco_unitario), unidade: pForm.unidade || null,
+        data_referencia: pForm.data_referencia, origem_preco: pForm.origem_preco,
+        categoria: pForm.categoria,
+        observacoes: pForm.observacoes || null, obra_id: forn?.obra_id || obras[0]?.id,
+      };
+      if (pEditingId) {
+        const { error } = await supabase.from('precos_fornecedores').update(payload).eq('id', pEditingId);
+        if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Preço atualizado!' });
+      } else {
+        const { error } = await supabase.from('precos_fornecedores').insert(payload);
+        if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Preço registrado!' });
+      }
+      setPDialogOpen(false); fetchData();
+    } finally { setSavingP(false); }
   };
   const deleteP = async () => {
     if (!pDeleteId) return;
@@ -210,6 +218,7 @@ export default function FornecedoresPage() {
   );
 
   const filteredPrecos = precos
+    .filter(p => filterObra === 'todos' || p.obra_id === filterObra)
     .filter(p => filterFornecedor === 'todos' || p.fornecedor_id === filterFornecedor)
     .filter(p => filterCategoria === 'todos' || (p as any).categoria === filterCategoria)
     .filter(p => !filterItem || (p.descricao_item_snapshot || '').toLowerCase().includes(filterItem.toLowerCase()));
@@ -296,6 +305,13 @@ export default function FornecedoresPage() {
         <TabsContent value="precos" className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-2 justify-between">
             <div className="flex gap-2 flex-wrap">
+              <Select value={filterObra} onValueChange={setFilterObra}>
+                <SelectTrigger className="w-[180px] h-9 text-sm"><SelectValue placeholder="Obra" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas Obras</SelectItem>
+                  {obras.map(o => <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo}` : o.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <Select value={filterFornecedor} onValueChange={setFilterFornecedor}>
                 <SelectTrigger className="w-[180px] h-9 text-sm"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
                 <SelectContent>
@@ -431,7 +447,7 @@ export default function FornecedoresPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={saveF}>{fEditingId ? 'Salvar' : 'Cadastrar'}</Button>
+            <Button onClick={saveF} disabled={savingF}>{savingF ? 'Salvando...' : fEditingId ? 'Salvar' : 'Cadastrar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -487,7 +503,7 @@ export default function FornecedoresPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={saveP}>{pEditingId ? 'Salvar' : 'Registrar'}</Button>
+            <Button onClick={saveP} disabled={savingP}>{savingP ? 'Salvando...' : pEditingId ? 'Salvar' : 'Registrar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
