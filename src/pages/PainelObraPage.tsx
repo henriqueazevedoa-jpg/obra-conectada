@@ -34,7 +34,7 @@ import AcoesPrioritarias from '@/components/painel/AcoesPrioritarias';
 import PendenciasBlock from '@/components/painel/PendenciasBlock';
 import CostPieChart from '@/components/painel/CostPieChart';
 import PontosAtencao from '@/components/painel/PontosAtencao';
-import GanttChart from '@/components/painel/GanttChart';
+import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import CronogramaPagamentos from '@/components/painel/CronogramaPagamentos';
 import NoObraState from '@/components/obras/NoObraState';
 
@@ -309,11 +309,7 @@ function GestorPainel() {
             </div>
 
             {cronogramaView === 'gantt' ? (
-              <div className="overflow-x-auto">
-                <div className="min-w-[700px]">
-                  <GanttChart categorias={categorias} />
-                </div>
-              </div>
+              <GanttEditorChart categorias={categorias} />
             ) : (
               <div className="space-y-2">
                 {categorias.map(c => {
