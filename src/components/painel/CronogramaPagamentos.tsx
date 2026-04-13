@@ -214,6 +214,8 @@ export default function CronogramaPagamentos({ obraId }: Props) {
               );
             })}
           </div>
+        ) : viewMode === 'calendar' ? (
+          <PagamentosCalendarView items={filtered} />
         ) : (
           /* Gantt view */
           ganttData && (
