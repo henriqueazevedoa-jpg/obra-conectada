@@ -44,6 +44,54 @@ export type Database = {
         }
         Relationships: []
       }
+      documentos_obra: {
+        Row: {
+          arquivo_nome: string | null
+          arquivo_tipo: string | null
+          arquivo_url: string | null
+          categoria: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          obra_id: string
+          tamanho_bytes: number | null
+          updated_at: string
+        }
+        Insert: {
+          arquivo_nome?: string | null
+          arquivo_tipo?: string | null
+          arquivo_url?: string | null
+          categoria?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          obra_id: string
+          tamanho_bytes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          arquivo_nome?: string | null
+          arquivo_tipo?: string | null
+          arquivo_url?: string | null
+          categoria?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          obra_id?: string
+          tamanho_bytes?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       insumos_pendentes_cotacao: {
         Row: {
           categoria: string | null
