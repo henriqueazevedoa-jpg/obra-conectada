@@ -395,11 +395,12 @@ export default function PagamentosPage() {
     .reduce((s, p) => s + Number(p.valor_previsto), 0);
 
   // Filtered list
-  const hasActiveFilters = filterStatus !== '_all' || filterTipo !== '_all' || filterPeriodo !== '_all';
+  const hasActiveFilters = filterStatus !== '_all' || filterTipo !== '_all' || filterPeriodo !== '_all' || filterEtapa !== '_all';
 
   const filteredPagamentos = pagamentos.filter(p => {
     if (filterStatus !== '_all' && p.status !== filterStatus) return false;
     if (filterTipo !== '_all' && p.tipo_pagamento !== filterTipo) return false;
+    if (filterEtapa !== '_all' && p.etapa_orcamento !== filterEtapa) return false;
     if (filterPeriodo !== '_all') {
       const d = parseISO(p.data_vencimento);
       if (filterPeriodo === '7dias' && !(d >= hoje && d <= em7dias)) return false;
