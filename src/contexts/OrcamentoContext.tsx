@@ -115,6 +115,11 @@ function dbToSubitem(row: any): OrcamentoSubitem {
     quantidade: row.quantidade != null ? Number(row.quantidade) : null,
     precoUnitario: row.preco_unitario != null ? Number(row.preco_unitario) : null,
     precoTotal: Number(row.preco_total) || 0,
+
+    codigoReferenciaExterna: row.codigo_referencia_externa || undefined,
+    origemGrupoTitulo: row.origem_grupo_titulo || undefined,
+    origemComposicaoCodigo: row.origem_composicao_codigo || undefined,
+    origemComposicaoDescricao: row.origem_composicao_descricao || undefined,
   };
 }
 
@@ -129,6 +134,13 @@ function dbToComposicao(row: any, subitens: OrcamentoSubitem[]): OrcamentoCompos
     precoTotal: Number(row.preco_total) || 0,
     subitens,
     usaSubitens: row.usa_subitens || false,
+
+    fonteReferencia: row.fonte_referencia || undefined,
+    codigoReferenciaExterna: row.codigo_referencia_externa || undefined,
+    referenciaCompetencia: row.referencia_competencia || undefined,
+    ufReferencia: row.uf_referencia || undefined,
+    regimeReferencia: row.regime_referencia || undefined,
+
     dataInicioPrevista: row.data_inicio_prevista || undefined,
     dataFimPrevista: row.data_fim_prevista || undefined,
     dataInicioReal: row.data_inicio_real || undefined,
