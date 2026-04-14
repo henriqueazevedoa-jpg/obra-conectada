@@ -247,49 +247,65 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
     return <div className="text-center py-6 text-muted-foreground text-sm">Nenhuma etapa para exibir.</div>;
   }
 
-  const renderRow = (task: GanttTask, indent = 0) => (
-    <div
-      key={task.id}
-      className={cn(
-        "flex items-stretch border-b border-border/20 transition-colors",
-        selectedTask === task.id ? "bg-primary/5" : "hover:bg-muted/20",
-        dragState?.taskId === task.id && "bg-primary/10",
-      )}
-      style={{ height: ROW_HEIGHT }}
-      onClick={() => setSelectedTask(task.id)}
-    >
+  const renderRow = (task: GanttTask, indent = 0) => {
+    const fin = financeiroByEtapa?.[task.name];
+    const hasFinanceiro = fin && fin.totalPrevisto > 0;
+
+    return (
       <div
-        className="shrink-0 flex items-center gap-1 px-1.5 border-r border-border/40 bg-background"
-        style={{ width: LABEL_WIDTH, paddingLeft: 6 + indent * 14 }}
+        key={task.id}
+        className={cn(
+          "flex items-stretch border-b border-border/20 transition-colors",
+          selectedTask === task.id ? "bg-primary/5" : "hover:bg-muted/20",
+          dragState?.taskId === task.id && "bg-primary/10",
+        )}
+        style={{ height: ROW_HEIGHT }}
+        onClick={() => setSelectedTask(prev => prev === task.id ? null : task.id)}
       >
-        {task.isGroup && (
-          <button onClick={(e) => { e.stopPropagation(); toggleGroup(task.id); }} className="text-muted-foreground hover:text-foreground p-0.5">
-            {expandedGroups.has(task.id) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          </button>
-        )}
-        <span className={cn("text-[10px] truncate", task.isGroup ? "font-semibold text-foreground" : "text-muted-foreground")} title={task.name}>
-          {task.name}
-        </span>
-        {task.isGroup && (
-          <Badge variant="secondary" className="ml-auto text-[8px] px-1 py-0 h-3.5 shrink-0">{task.progress}%</Badge>
-        )}
+        <div
+          className="shrink-0 flex items-center gap-1 px-1.5 border-r border-border/40 bg-background"
+          style={{ width: LABEL_WIDTH, paddingLeft: 6 + indent * 14 }}
+        >
+          {task.isGroup && (
+            <button onClick={(e) => { e.stopPropagation(); toggleGroup(task.id); }} className="text-muted-foreground hover:text-foreground p-0.5">
+              {expandedGroups.has(task.id) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </button>
+          )}
+          <span className={cn("text-[10px] truncate flex-1", task.isGroup ? "font-semibold text-foreground" : "text-muted-foreground")} title={task.name}>
+            {task.name}
+          </span>
+          <div className="flex items-center gap-1 ml-auto shrink-0">
+            {hasFinanceiro && !task.groupId && (
+              <span className={cn(
+                "text-[8px] font-mono px-1 py-0 rounded",
+                fin.totalAtrasado > 0 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+              )} title={`Previsto: ${formatCurrency(fin.totalPrevisto)} | Pago: ${formatCurrency(fin.totalPago)}`}>
+                <DollarSign className="h-2.5 w-2.5 inline -mt-0.5" />
+                {formatCurrency(fin.totalPrevisto).replace('R$\u00a0', '').replace('R$ ', '')}
+              </span>
+            )}
+            {task.isGroup && (
+              <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 shrink-0">{task.progress}%</Badge>
+            )}
+          </div>
+        </div>
+        <div className="relative flex-1 min-w-0" style={{ width: totalDays * dayWidth }}>
+          <GanttBar
+            task={task}
+            dayWidth={dayWidth}
+            timelineStart={timelineStart}
+            editable={editable && !task.groupId && !baselineEditMode}
+            showBaseline={showBaseline && canViewBaseline}
+            baselineEditable={baselineEditMode && canEditBaseline && !task.groupId}
+            onDragStart={handleDragStart}
+            previewOffset={getPreviewOffset(task, false)}
+            baselinePreviewOffset={getPreviewOffset(task, true)}
+            isSelected={selectedTask === task.id}
+          />
+        </div>
       </div>
-      <div className="relative flex-1 min-w-0" style={{ width: totalDays * dayWidth }}>
-        <GanttBar
-          task={task}
-          dayWidth={dayWidth}
-          timelineStart={timelineStart}
-          editable={editable && !task.groupId && !baselineEditMode}
-          showBaseline={showBaseline && canViewBaseline}
-          baselineEditable={baselineEditMode && canEditBaseline && !task.groupId}
-          onDragStart={handleDragStart}
-          previewOffset={getPreviewOffset(task, false)}
-          baselinePreviewOffset={getPreviewOffset(task, true)}
-          isSelected={selectedTask === task.id}
-        />
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <TooltipProvider delayDuration={150}>
