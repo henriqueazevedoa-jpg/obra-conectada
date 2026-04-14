@@ -57,7 +57,7 @@ const LABEL_WIDTH = 200;
 const ROW_HEIGHT = 36;
 const MAX_HEIGHT = 480;
 
-export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBaseline, financeiroByEtapa }: Props) {
+export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBaseline, financeiroByEtapa, dependencies = [], onAddDependency, onRemoveDependency, onCalculateCascade }: Props) {
   const { planFeatures } = useCompany();
   const canView = planFeatures.gantt_view;
   const canEdit = planFeatures.gantt_edit;
