@@ -854,9 +854,17 @@ export default function PagamentosPage() {
           <ChevronDown className={cn("h-3 w-3 ml-1 transition-transform", filtersOpen && "rotate-180")} />
         </Button>
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); }}>
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); }}>
             Limpar filtros
           </Button>
+        )}
+        {filterEtapa !== '_all' && (
+          <Badge variant="secondary" className="bg-primary/10 text-primary gap-1 text-xs">
+            Etapa: {filterEtapa}
+            <button onClick={() => setFilterEtapa('_all')} className="ml-1 hover:text-destructive">
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
         )}
       </div>
 
