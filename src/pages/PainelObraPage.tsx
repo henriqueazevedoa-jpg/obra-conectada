@@ -21,7 +21,7 @@ import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
   Clock, CalendarDays, DollarSign, Users,
   LayoutDashboard, Plus, ChevronDown, List, BarChart3, GitBranch, Calendar,
-  ListChecks, Wallet, GripVertical,
+  ListChecks, Wallet, GripVertical, RotateCcw,
 } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
