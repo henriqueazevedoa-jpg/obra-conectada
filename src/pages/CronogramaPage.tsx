@@ -120,6 +120,7 @@ export default function CronogramaPage() {
   const { getOrcamento, saveOrcamento, catalogoCategorias, generateCategoriaCodigo } = useOrcamento();
 
   const { selectedObraId, setSelectedObraId } = useObraSelection();
+  const { byEtapa: financeiroByEtapa } = useGanttFinanceiro(selectedObraId);
   const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const [newCatName, setNewCatName] = useState('');
