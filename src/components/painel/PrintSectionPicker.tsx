@@ -9,6 +9,7 @@ import {
 export interface PrintSections {
   identificacao: boolean;
   kpis: boolean;
+  acoesPrioritarias: boolean;
   resumoExecutivo: boolean;
   visaoGeral: boolean;
   estoqueCritico: boolean;
@@ -22,6 +23,7 @@ export interface PrintSections {
 export const defaultPrintSections: PrintSections = {
   identificacao: true,
   kpis: true,
+  acoesPrioritarias: true,
   resumoExecutivo: true,
   visaoGeral: true,
   estoqueCritico: true,
@@ -35,10 +37,11 @@ export const defaultPrintSections: PrintSections = {
 const sectionLabels: Record<keyof PrintSections, string> = {
   identificacao: 'Identificação da Obra',
   kpis: 'Indicadores (KPIs)',
+  acoesPrioritarias: 'Ações Prioritárias',
   resumoExecutivo: 'Resumo Executivo',
   visaoGeral: 'Visão Geral da Obra',
   estoqueCritico: 'Materiais com Estoque Baixo',
-  cronogramaPagamentos: 'Cronograma de Pagamentos',
+  cronogramaPagamentos: 'Resumo de Pagamentos',
   cronograma: 'Resumo do Cronograma',
   custosEtapa: 'Distribuição de Custos',
   curvaABC: 'Curva ABC',
