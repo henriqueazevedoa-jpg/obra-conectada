@@ -14,7 +14,186 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cronograma_dependencias: {
+        Row: {
+          created_at: string
+          id: string
+          lag_days: number
+          obra_id: string
+          source_cat_id: string
+          target_cat_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lag_days?: number
+          obra_id: string
+          source_cat_id: string
+          target_cat_id: string
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lag_days?: number
+          obra_id?: string
+          source_cat_id?: string
+          target_cat_id?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
+      documentos_obra: {
+        Row: {
+          arquivo_nome: string | null
+          arquivo_tipo: string | null
+          arquivo_url: string | null
+          categoria: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          obra_id: string
+          tamanho_bytes: number | null
+          updated_at: string
+        }
+        Insert: {
+          arquivo_nome?: string | null
+          arquivo_tipo?: string | null
+          arquivo_url?: string | null
+          categoria?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          obra_id: string
+          tamanho_bytes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          arquivo_nome?: string | null
+          arquivo_tipo?: string | null
+          arquivo_url?: string | null
+          categoria?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          obra_id?: string
+          tamanho_bytes?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      insumos_pendentes_cotacao: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          id: string
+          material_id: string | null
+          nome_insumo: string
+          obra_id: string
+          observacoes: string | null
+          status: string
+          subitem_id: string | null
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          id?: string
+          material_id?: string | null
+          nome_insumo: string
+          obra_id: string
+          observacoes?: string | null
+          status?: string
+          subitem_id?: string | null
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          id?: string
+          material_id?: string | null
+          nome_insumo?: string
+          obra_id?: string
+          observacoes?: string | null
+          status?: string
+          subitem_id?: string | null
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      obra_agenda: {
+        Row: {
+          alerta_ativo: boolean
+          antecedencia_alerta_em_dias: number | null
+          created_at: string
+          criado_por: string | null
+          data_finalizacao: string | null
+          data_programada: string
+          descricao: string | null
+          hora_programada: string | null
+          id: string
+          local: string | null
+          obra_id: string
+          prioridade: string
+          responsavel: string | null
+          status: string
+          tipo: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          alerta_ativo?: boolean
+          antecedencia_alerta_em_dias?: number | null
+          created_at?: string
+          criado_por?: string | null
+          data_finalizacao?: string | null
+          data_programada: string
+          descricao?: string | null
+          hora_programada?: string | null
+          id?: string
+          local?: string | null
+          obra_id: string
+          prioridade?: string
+          responsavel?: string | null
+          status?: string
+          tipo?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          alerta_ativo?: boolean
+          antecedencia_alerta_em_dias?: number | null
+          created_at?: string
+          criado_por?: string | null
+          data_finalizacao?: string | null
+          data_programada?: string
+          descricao?: string | null
+          hora_programada?: string | null
+          id?: string
+          local?: string | null
+          obra_id?: string
+          prioridade?: string
+          responsavel?: string | null
+          status?: string
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -36,7 +36,7 @@ export default function DemoModeBar() {
 
       toast({
         title: hasDemoData ? '🔄 Dados demo atualizados!' : '🎉 Dados demo criados!',
-        description: '3 obras com dados variados foram carregadas e selecionadas automaticamente.',
+        description: '4 obras completas com dados variados foram carregadas.',
       });
       setTimeout(() => window.location.reload(), 800);
     } catch (err: any) {
@@ -83,7 +83,7 @@ export default function DemoModeBar() {
         {open && (
           <div className="space-y-2 border-t border-border px-3 py-3">
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Preenche o sistema com 3 obras completas e variadas para testar todas as telas.
+              Preenche o sistema com 4 obras completas e variadas para testar todas as telas.
             </p>
             <Button
               size="sm"

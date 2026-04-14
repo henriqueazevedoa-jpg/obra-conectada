@@ -29,7 +29,9 @@ import PainelObraPage from "@/pages/PainelObraPage";
 import EquipePage from "@/pages/EquipePage";
 import PerfilPage from "@/pages/PerfilPage";
 import PendenciasPage from "@/pages/PendenciasPage";
+import AgendaObraPage from "@/pages/AgendaObraPage";
 import FornecedoresPage from "@/pages/FornecedoresPage";
+import InsumosPage from "@/pages/InsumosPage";
 import DocumentosPage from "@/pages/DocumentosPage";
 
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -145,7 +147,9 @@ function AppRoutes() {
         <Route path="pagamentos" element={<PagamentosPage />} />
         <Route path="usuarios" element={<EquipePage />} />
         <Route path="pendencias" element={<PendenciasPage />} />
+        <Route path="agenda" element={<AgendaObraPage />} />
         <Route path="fornecedores" element={<FornecedoresPage />} />
+        <Route path="insumos" element={<InsumosPage />} />
         <Route path="documentos" element={<DocumentosPage />} />
         <Route path="perfil" element={<PerfilPage />} />
       </Route>

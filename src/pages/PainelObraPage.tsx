@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
@@ -7,28 +7,37 @@ import { useEstoque } from '@/contexts/EstoqueContext';
 import { useCustoReal } from '@/contexts/CustoRealContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/untyped';
-import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   formatCurrency, formatDate, statusEtapaLabels, climaLabels, statusDiarioLabels
 } from '@/data/mockData';
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
-  Clock, CalendarDays, DollarSign, Users, Building2,
-  BarChart3, Plus, LayoutDashboard, Wallet, ListChecks, Store, FolderOpen, Receipt
+  Clock, CalendarDays, DollarSign, Users,
+  LayoutDashboard, Plus, ChevronDown, List, BarChart3, GitBranch, Calendar,
+  ListChecks, Wallet, GripVertical, RotateCcw,
 } from 'lucide-react';
-import { format, parseISO, isAfter } from 'date-fns';
+import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import SCurveChart from '@/components/painel/SCurveChart';
 import ABCTable from '@/components/painel/ABCTable';
 import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
 import ResumoExecutivo from '@/components/painel/ResumoExecutivo';
+import SmartCards from '@/components/painel/SmartCards';
+import ObraHeader from '@/components/painel/ObraHeader';
+import AcoesPrioritarias from '@/components/painel/AcoesPrioritarias';
+import CostPieChart from '@/components/painel/CostPieChart';
+import GanttEditorChart from '@/components/gantt/GanttEditorChart';
+import CronogramaPagamentos from '@/components/painel/CronogramaPagamentos';
 import NoObraState from '@/components/obras/NoObraState';
+import ObraCalendarView from '@/components/painel/ObraCalendarView';
+import PainelUnifiedListView from '@/components/painel/PainelUnifiedListView';
+import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
 
 interface DiarioRow {
   id: string; data: string; clima: string; trabalhadores: number;
@@ -59,6 +68,13 @@ function computeStatus(cat: any): string {
   return 'nao_iniciada';
 }
 
+type SectionKey = 'identificacao' | 'kpis' | 'acoesPrioritarias' | 'resumoExecutivo' | 'visaoGeral' | 'estoqueCritico' | 'cronogramaPagamentos' | 'cronograma' | 'custosEtapa' | 'curvaABC' | 'diario';
+
+const defaultSectionOrder: SectionKey[] = [
+  'identificacao', 'kpis', 'acoesPrioritarias', 'resumoExecutivo', 'visaoGeral', 'estoqueCritico',
+  'cronogramaPagamentos', 'cronograma', 'custosEtapa', 'curvaABC', 'diario',
+];
+
 function GestorPainel() {
   const { obras } = useObras();
   const { selectedObraId, setSelectedObraId } = useObraSelection();
@@ -68,7 +84,16 @@ function GestorPainel() {
   const { getItensByObra: getCustoItensByObra } = useCustoReal();
   const [printSections, setPrintSections] = useState<PrintSections>(defaultPrintSections);
   const [diarioRegistros, setDiarioRegistros] = useState<DiarioRow[]>([]);
-  const [pagamentos, setPagamentos] = useState<any[]>([]);
+  const [pagamentosAtrasados, setPagamentosAtrasados] = useState<{ count: number; valor: number }>({ count: 0, valor: 0 });
+  const [pendenciasAlta, setPendenciasAlta] = useState(0);
+  const [diarioOpen, setDiarioOpen] = useState(false);
+  const [cronogramaView, setCronogramaView] = useState<'list' | 'gantt'>('list');
+  const [calendarViewMode, setCalendarViewMode] = useState<ViewMode>('calendario');
+  const [calendarSources, setCalendarSources] = useState<Set<'agenda' | 'pendencias' | 'pagamentos' | 'diario'>>(
+    new Set(['agenda', 'pendencias', 'pagamentos', 'diario'])
+  );
+  const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(defaultSectionOrder);
+  const [draggedSection, setDraggedSection] = useState<SectionKey | null>(null);
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
@@ -77,25 +102,37 @@ function GestorPainel() {
     supabase.from('diario_registros').select('*').eq('obra_id', obra.id)
       .order('data', { ascending: false }).limit(10)
       .then(({ data }) => { if (data) setDiarioRegistros(data as DiarioRow[]); });
-    supabase.from('pagamentos').select('id').eq('obra_id', obra.id).limit(1)
-      .then(({ data }) => { setPagamentos(data || []); });
+
+    const today = startOfDay(new Date()).toISOString().slice(0, 10);
+    supabase.from('pagamentos').select('id, valor_previsto, status, data_vencimento')
+      .eq('obra_id', obra.id)
+      .then(({ data }) => {
+        const pags = (data || []) as any[];
+        const atrasados = pags.filter(p =>
+          p.status === 'atrasado' ||
+          (p.status === 'previsto' && p.data_vencimento && p.data_vencimento < today)
+        );
+        setPagamentosAtrasados({
+          count: atrasados.length,
+          valor: atrasados.reduce((s: number, p: any) => s + (Number(p.valor_previsto) || 0), 0),
+        });
+      });
+
+    supabase.from('pendencias').select('id, prioridade, status')
+      .eq('obra_id', obra.id)
+      .then(({ data }) => {
+        const pends = (data || []) as any[];
+        setPendenciasAlta(pends.filter(p => p.prioridade === 'alta' && p.status !== 'resolvida').length);
+      });
   }, [obra?.id]);
 
   const handleObraSelectChange = (value: string) => {
-    if (value === '__nova_obra__') {
-      navigate('/obras?nova=1');
-    } else {
-      setSelectedObraId(value);
-    }
+    if (value === '__nova_obra__') navigate('/obras?nova=1');
+    else setSelectedObraId(value);
   };
 
   if (!obra) {
-    return (
-      <NoObraState
-        title="Nenhuma obra cadastrada"
-        description="Cadastre uma obra para visualizar o painel executivo consolidado."
-      />
-    );
+    return <NoObraState title="Nenhuma obra cadastrada" description="Cadastre uma obra para visualizar o painel executivo consolidado." />;
   }
 
   const orcamento = getOrcamento(obra.id);
@@ -109,7 +146,6 @@ function GestorPainel() {
   const registrosAprovados = diarioRegistros.filter(d => d.status === 'aprovado');
 
   const today = new Date();
-
   const concluidas = categorias.filter(c => computeStatus(c) === 'concluida');
   const emAndamento = categorias.filter(c => computeStatus(c) === 'em_andamento');
   const atrasadas = categorias.filter(c => computeStatus(c) === 'atrasada');
@@ -127,15 +163,10 @@ function GestorPainel() {
     return Math.round((shouldBeDone / categorias.length) * 100);
   })();
 
-  const totalTrabalhadores = registrosAprovados.length > 0
-    ? Math.round(registrosAprovados.reduce((s, r) => s + r.trabalhadores, 0) / registrosAprovados.length)
-    : 0;
-
-  const desvioOrcamento = totalRealizado - totalPrevisto;
-  const statusPrazo = andamentoReal >= andamentoPlanejado ? 'No prazo' : 'Atrasada';
+  const previstoAcumulado = categorias.length === 0 || totalPrevisto === 0 ? 0 :
+    categorias.reduce((sum, cat) => sum + cat.precoTotal * (computePercentual(cat) / 100), 0);
 
   const handlePrint = () => {
-    // Apply print section visibility via data attributes
     document.querySelectorAll('[data-print-section]').forEach(el => {
       const section = el.getAttribute('data-print-section') as keyof PrintSections;
       if (section && !printSections[section]) {
@@ -147,8 +178,296 @@ function GestorPainel() {
     setTimeout(() => window.print(), 100);
   };
 
+  // Drag handlers
+  const handleDragStart = (key: SectionKey) => setDraggedSection(key);
+  const handleDragOver = (e: React.DragEvent, key: SectionKey) => {
+    e.preventDefault();
+    if (!draggedSection || draggedSection === key) return;
+    setSectionOrder(prev => {
+      const newOrder = [...prev];
+      const fromIdx = newOrder.indexOf(draggedSection);
+      const toIdx = newOrder.indexOf(key);
+      newOrder.splice(fromIdx, 1);
+      newOrder.splice(toIdx, 0, draggedSection);
+      return newOrder;
+    });
+  };
+  const handleDragEnd = () => setDraggedSection(null);
+
+  const renderSection = (key: SectionKey) => {
+    if (!printSections[key]) return null;
+
+    const dragProps = {
+      draggable: true,
+      onDragStart: () => handleDragStart(key),
+      onDragOver: (e: React.DragEvent) => handleDragOver(e, key),
+      onDragEnd: handleDragEnd,
+      className: `transition-opacity ${draggedSection === key ? 'opacity-50' : ''}`,
+    };
+
+    const dragHandle = (
+      <div className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground print:hidden">
+        <GripVertical className="h-4 w-4" />
+      </div>
+    );
+
+    switch (key) {
+      case 'identificacao':
+        return <div key={key} {...dragProps} data-print-section="identificacao"><ObraHeader obra={obra} /></div>;
+
+      case 'kpis':
+        return (
+          <div key={key} {...dragProps} data-print-section="kpis">
+            <SmartCards
+              totalPrevisto={totalPrevisto} totalRealizado={totalRealizado}
+              previstoAcumulado={previstoAcumulado} andamentoReal={andamentoReal}
+              andamentoPlanejado={andamentoPlanejado} etapasAtrasadas={atrasadas.length}
+              materiaisBaixo={materiaisBaixo.length} registrosPendentes={registrosPendentes.length}
+              pagamentosAtrasados={pagamentosAtrasados.count}
+            />
+          </div>
+        );
+
+      case 'acoesPrioritarias':
+        return (
+          <div key={key} {...dragProps}>
+            <AcoesPrioritarias
+              pagamentosAtrasados={pagamentosAtrasados.count}
+              pagamentosAtrasadosValor={pagamentosAtrasados.valor}
+              materiaisBaixo={materiaisBaixo.map(m => ({ nome: m.nome, estoqueAtual: m.estoqueAtual, unidade: m.unidade }))}
+              pendenciasAlta={pendenciasAlta}
+              etapasAtrasadas={atrasadas.map(c => ({ nome: c.nome }))}
+              registrosPendentes={registrosPendentes.length}
+            />
+          </div>
+        );
+
+      case 'resumoExecutivo':
+        return (
+          <div key={key} {...dragProps} data-print-section="resumoExecutivo">
+            <ResumoExecutivo obraId={obra.id} totalPrevisto={totalPrevisto} totalRealizado={totalRealizado}
+              andamentoReal={andamentoReal} andamentoPlanejado={andamentoPlanejado} />
+          </div>
+        );
+
+      case 'visaoGeral':
+        return (
+          <div key={key} {...dragProps} data-print-section="visaoGeral">
+            <Card className="shadow-card">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    {dragHandle}
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" /> Visão Geral da Obra
+                    </CardTitle>
+                  </div>
+                  <ViewModeSwitcher value={calendarViewMode} onChange={setCalendarViewMode} />
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(['agenda', 'pendencias', 'pagamentos', 'diario'] as const).map(s => {
+                    const cfg = {
+                      agenda: { icon: CalendarDays, label: 'Agenda', color: 'bg-primary text-primary-foreground' },
+                      pendencias: { icon: ListChecks, label: 'Pendências', color: 'bg-warning text-warning-foreground' },
+                      pagamentos: { icon: Wallet, label: 'Pagamentos', color: 'bg-accent text-accent-foreground' },
+                      diario: { icon: BookOpen, label: 'Diário', color: 'bg-emerald-500/10 text-emerald-700' }
+                    }[s];
+                    const Icon = cfg.icon;
+                    const active = calendarSources.has(s);
+                    return (
+                      <button key={s} onClick={() => setCalendarSources(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; })}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all border ${active ? 'border-transparent ' + cfg.color : 'border-border text-muted-foreground bg-transparent opacity-50'}`}
+                      >
+                        <Icon className="h-3 w-3" /> {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="max-h-[420px] overflow-y-auto">
+                  {calendarViewMode === 'calendario' ? (
+                    <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact embedded />
+                  ) : (
+                    <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'estoqueCritico':
+        if (materiaisBaixo.length === 0) return null;
+        return (
+          <div key={key} {...dragProps} data-print-section="estoqueCritico">
+            <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  {dragHandle}
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Package className="h-4 w-4" /> Materiais com Estoque Baixo
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {materiaisBaixo.map(m => (
+                    <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-destructive/5">
+                      <div><p className="text-sm font-medium text-foreground">{m.nome}</p><p className="text-xs text-muted-foreground">{m.categoria}</p></div>
+                      <div className="text-right"><p className="text-sm font-semibold text-destructive">{m.estoqueAtual} {m.unidade}</p><p className="text-xs text-muted-foreground">Mín: {m.estoqueMinimo} {m.unidade}</p></div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'cronogramaPagamentos':
+        return (
+          <div key={key} {...dragProps} data-print-section="cronogramaPagamentos">
+            <CronogramaPagamentos obraId={obra.id} />
+          </div>
+        );
+
+      case 'cronograma':
+        return (
+          <div key={key} {...dragProps} data-print-section="cronograma">
+            <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    {dragHandle}
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" /> Resumo do Cronograma
+                    </CardTitle>
+                  </div>
+                  <div className="flex border border-border rounded-md print:hidden">
+                    <Button variant={cronogramaView === 'list' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-r-none gap-1 text-xs" onClick={() => setCronogramaView('list')}>
+                      <List className="h-3 w-3" /> Lista
+                    </Button>
+                    <Button variant={cronogramaView === 'gantt' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-l-none gap-1 text-xs" onClick={() => setCronogramaView('gantt')}>
+                      <BarChart3 className="h-3 w-3" /> Gantt
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="text-center p-2 rounded-lg bg-success/10"><p className="text-xl font-bold text-success">{concluidas.length}</p><p className="text-[10px] text-muted-foreground">Concluídas</p></div>
+                  <div className="text-center p-2 rounded-lg bg-primary/10"><p className="text-xl font-bold text-primary">{emAndamento.length}</p><p className="text-[10px] text-muted-foreground">Em Andamento</p></div>
+                  <div className="text-center p-2 rounded-lg bg-destructive/10"><p className="text-xl font-bold text-destructive">{atrasadas.length}</p><p className="text-[10px] text-muted-foreground">Atrasadas</p></div>
+                  <div className="text-center p-2 rounded-lg bg-muted"><p className="text-xl font-bold text-muted-foreground">{naoIniciadas.length}</p><p className="text-[10px] text-muted-foreground">Não Iniciadas</p></div>
+                </div>
+                {cronogramaView === 'gantt' ? (
+                  <GanttEditorChart categorias={categorias} />
+                ) : (
+                  <div className="space-y-2">
+                    {categorias.map(c => {
+                      const status = computeStatus(c);
+                      const pct = computePercentual(c);
+                      return (
+                        <div key={c.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors print:p-1">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {status === 'concluida' ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> :
+                             status === 'atrasada' ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0" /> :
+                             status === 'em_andamento' ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> :
+                             <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
+                            <span className="text-sm text-foreground truncate">{c.nome}</span>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="w-20"><Progress value={pct} className="h-1.5" /></div>
+                            <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                            <Badge variant="secondary" className={
+                              status === 'concluida' ? 'bg-success/10 text-success border-0' :
+                              status === 'atrasada' ? 'bg-destructive/10 text-destructive border-0' :
+                              status === 'em_andamento' ? 'bg-primary/10 text-primary border-0' :
+                              'bg-muted text-muted-foreground border-0'
+                            }>{statusEtapaLabels[status]}</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {categorias.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada no orçamento.</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'custosEtapa':
+        return (
+          <div key={key} {...dragProps} data-print-section="custosEtapa">
+            <CostPieChart categorias={categorias} custoItens={custoItens} />
+          </div>
+        );
+
+      case 'curvaABC':
+        return (
+          <div key={key} {...dragProps} data-print-section="curvaABC">
+            <ABCTable categorias={categorias} custoItens={custoItens} />
+          </div>
+        );
+
+      case 'diario':
+        return (
+          <div key={key} {...dragProps} data-print-section="diario">
+            <Collapsible open={diarioOpen} onOpenChange={setDiarioOpen}>
+              <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {dragHandle}
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <BookOpen className="h-4 w-4" /> Diário de Obra
+                        <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-[10px] ml-1">
+                          {diarioRegistros.length}
+                        </Badge>
+                      </CardTitle>
+                    </div>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 print:hidden">
+                        <ChevronDown className={`h-4 w-4 transition-transform ${diarioOpen ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-0">
+                  {diarioRegistros.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
+                  )}
+                  {diarioRegistros.slice(0, 3).map(r => (
+                    <DiarioItem key={r.id} r={r} />
+                  ))}
+                  <CollapsibleContent className="space-y-3">
+                    {diarioRegistros.slice(3, 8).map(r => (
+                      <DiarioItem key={r.id} r={r} />
+                    ))}
+                  </CollapsibleContent>
+                  {diarioRegistros.length > 3 && !diarioOpen && (
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-xs text-primary w-full print:hidden">
+                        Ver mais {diarioRegistros.length - 3} registro(s)
+                      </Button>
+                    </CollapsibleTrigger>
+                  )}
+                </CardContent>
+              </Card>
+            </Collapsible>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
         <div className="min-w-0">
@@ -156,7 +475,7 @@ function GestorPainel() {
             <LayoutDashboard className="h-5 w-5 text-primary" />
             Painel da Obra
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Visão executiva consolidada</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Central de controle e decisão</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={selectedObraId} onValueChange={handleObraSelectChange}>
@@ -167,71 +486,17 @@ function GestorPainel() {
               {obras.map(o => (
                 <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
               ))}
-              <SelectItem value="__nova_obra__" className="text-primary font-medium">
-                + Criar Nova Obra
-              </SelectItem>
+              <SelectItem value="__nova_obra__" className="text-primary font-medium">+ Criar Nova Obra</SelectItem>
             </SelectContent>
           </Select>
+          {JSON.stringify(sectionOrder) !== JSON.stringify(defaultSectionOrder) && (
+            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground" onClick={() => setSectionOrder(defaultSectionOrder)} title="Resetar posição dos cards">
+              <RotateCcw className="h-3.5 w-3.5" /> Resetar
+            </Button>
+          )}
           <PrintSectionPicker sections={printSections} onChange={setPrintSections} onPrint={handlePrint} />
         </div>
       </div>
-
-      {/* Ações Rápidas - FIRST */}
-      <Card className="shadow-card print:hidden">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Ações Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {[
-              { to: '/pagamentos?novo=1', label: 'Novo Pagamento', icon: Wallet, desc: 'Registrar gasto', color: 'text-primary' },
-              { to: '/pendencias?novo=1', label: 'Nova Pendência', icon: ListChecks, desc: 'Registrar pendência', color: 'text-rose-600' },
-              { to: '/diario?novo=1', label: 'Novo Diário', icon: BookOpen, desc: 'Registrar atividade', color: 'text-amber-600' },
-              { to: '/estoque?novo=1', label: 'Entrada Material', icon: Package, desc: 'Movimentar estoque', color: 'text-emerald-600' },
-              { to: '/documentos?novo=1', label: 'Documento', icon: FolderOpen, desc: 'Arquivos da obra', color: 'text-slate-600' },
-              { to: '/orcamento', label: 'Orçamento', icon: DollarSign, desc: 'Etapas e insumos', color: 'text-blue-600' },
-              { to: '/cronograma', label: 'Cronograma', icon: CalendarDays, desc: 'Prazos e etapas', color: 'text-orange-600' },
-              { to: '/fornecedores', label: 'Fornecedores', icon: Store, desc: 'Cadastro e preços', color: 'text-cyan-600' },
-            ].map(item => (
-              <Link key={item.to} to={item.to}>
-                <Button variant="outline" className="w-full h-auto py-4 flex-col gap-1.5 hover:border-primary/40 hover:bg-primary/5 transition-all">
-                  <item.icon className={cn("h-6 w-6", item.color)} />
-                  <span className="text-sm font-medium">{item.label}</span>
-                  <span className="text-[10px] text-muted-foreground">{item.desc}</span>
-                </Button>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Sugestões para você */}
-      {(() => {
-        const suggestions: { icon: React.ReactNode; text: string; action: string; to: string }[] = [];
-        if (pagamentos.length === 0) suggestions.push({ icon: <Wallet className="h-4 w-4 text-primary" />, text: 'Você ainda não registrou nenhum gasto nesta obra.', action: 'Registrar pagamento', to: '/pagamentos?novo=1' });
-        if (diarioRegistros.length === 0) suggestions.push({ icon: <BookOpen className="h-4 w-4 text-amber-500" />, text: 'Adicione seu primeiro diário de obra.', action: 'Criar diário', to: '/diario?novo=1' });
-        if (categorias.length === 0) suggestions.push({ icon: <DollarSign className="h-4 w-4 text-blue-500" />, text: 'Crie um orçamento para acompanhar custos.', action: 'Criar orçamento', to: '/orcamento' });
-        if (materiaisObra.length === 0) suggestions.push({ icon: <Package className="h-4 w-4 text-emerald-500" />, text: 'Cadastre materiais para controlar estoque.', action: 'Ir para estoque', to: '/estoque' });
-        if (suggestions.length === 0) return null;
-        return (
-          <Card className="shadow-card print:hidden border-primary/10 bg-primary/[0.02]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground font-medium">💡 Sugestões para você</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {suggestions.slice(0, 3).map((s, i) => (
-                <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                  {s.icon}
-                  <span className="text-sm text-foreground flex-1">{s.text}</span>
-                  <Link to={s.to}>
-                    <Button variant="ghost" size="sm" className="text-xs text-primary shrink-0">{s.action}</Button>
-                  </Link>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        );
-      })()}
 
       {/* Print header */}
       <div className="hidden print:block mb-6">
@@ -241,251 +506,34 @@ function GestorPainel() {
         <Separator className="mt-2" />
       </div>
 
-      {/* 1. Cabeçalho da obra */}
-      <div data-print-section="identificacao">
-        <Card className="shadow-card print:shadow-none print:border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Identificação da Obra</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><p className="text-muted-foreground text-xs">Obra</p><p className="font-semibold text-foreground">{obra.nome}</p></div>
-              <div><p className="text-muted-foreground text-xs">Código</p><p className="font-semibold text-foreground">{obra.codigo}</p></div>
-              <div><p className="text-muted-foreground text-xs">Cliente</p><p className="font-semibold text-foreground">{obra.cliente || '—'}</p></div>
-              <div><p className="text-muted-foreground text-xs">Responsável</p><p className="font-semibold text-foreground">{obra.responsavel || '—'}</p></div>
-              <div><p className="text-muted-foreground text-xs">Endereço</p><p className="font-semibold text-foreground">{obra.endereco || '—'}</p></div>
-              <div><p className="text-muted-foreground text-xs">Início</p><p className="font-semibold text-foreground">{formatDate(obra.dataInicio)}</p></div>
-              <div><p className="text-muted-foreground text-xs">Previsão de Término</p><p className="font-semibold text-foreground">{formatDate(obra.dataPrevisaoTermino)}</p></div>
-              <div><p className="text-muted-foreground text-xs">Status</p><Badge variant="secondary" className="mt-0.5">{obra.status === 'em_andamento' ? 'Em Andamento' : obra.status === 'concluida' ? 'Concluída' : obra.status === 'planejamento' ? 'Planejamento' : 'Pausada'}</Badge></div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 2. KPIs */}
-      <div data-print-section="kpis">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 print:grid-cols-4">
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><DollarSign className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Orçamento Planejado</p></div><p className="text-lg font-bold text-foreground">{formatCurrency(totalPrevisto)}</p></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><DollarSign className="h-4 w-4 text-success" /><p className="text-xs text-muted-foreground font-medium">Custo Realizado</p></div><p className="text-lg font-bold text-foreground">{custoItens.length > 0 ? formatCurrency(totalRealizado) : '—'}</p>{custoItens.length > 0 && desvioOrcamento !== 0 && (<p className={`text-[10px] font-medium ${desvioOrcamento > 0 ? 'text-destructive' : 'text-success'}`}>{desvioOrcamento >= 0 ? '+' : ''}{formatCurrency(desvioOrcamento)}</p>)}</CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><CalendarDays className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Andamento Planejado</p></div><p className="text-lg font-bold text-foreground">{andamentoPlanejado}%</p><Progress value={andamentoPlanejado} className="h-1.5 mt-1" /></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><TrendingUp className="h-4 w-4 text-success" /><p className="text-xs text-muted-foreground font-medium">Andamento Real</p></div><p className="text-lg font-bold text-foreground">{andamentoReal}%</p><Progress value={andamentoReal} className="h-1.5 mt-1" />{andamentoPlanejado > 0 && (<p className={`text-[10px] font-medium mt-0.5 ${andamentoReal >= andamentoPlanejado ? 'text-success' : 'text-destructive'}`}>{statusPrazo}</p>)}</CardContent></Card>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 print:grid-cols-4 mt-3">
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><Clock className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Status de Prazo</p></div><Badge variant="secondary" className={andamentoReal >= andamentoPlanejado ? 'bg-success/10 text-success border-0' : 'bg-destructive/10 text-destructive border-0'}>{statusPrazo}</Badge></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><BookOpen className="h-4 w-4 text-warning" /><p className="text-xs text-muted-foreground font-medium">Pendências</p></div><p className="text-lg font-bold text-foreground">{registrosPendentes.length}</p><p className="text-[10px] text-muted-foreground">aguardando aprovação</p></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><Users className="h-4 w-4 text-primary" /><p className="text-xs text-muted-foreground font-medium">Méd. Trabalhadores/dia</p></div><p className="text-lg font-bold text-foreground">{totalTrabalhadores}</p><p className="text-[10px] text-muted-foreground">{registrosAprovados.length} registro(s)</p></CardContent></Card>
-          <Card className="shadow-card print:shadow-none print:border"><CardContent className="p-4"><div className="flex items-center gap-2 mb-1"><AlertTriangle className="h-4 w-4 text-warning" /><p className="text-xs text-muted-foreground font-medium">Alertas Totais</p></div><p className={`text-lg font-bold ${(atrasadas.length + materiaisBaixo.length + registrosPendentes.length) > 0 ? 'text-warning' : 'text-foreground'}`}>{atrasadas.length + materiaisBaixo.length + registrosPendentes.length}</p></CardContent></Card>
-        </div>
-      </div>
-
-      {/* Resumo Executivo */}
-      <div data-print-section="resumoExecutivo">
-        <ResumoExecutivo
-          obraId={obra.id}
-          totalPrevisto={totalPrevisto}
-          totalRealizado={totalRealizado}
-          andamentoReal={andamentoReal}
-          andamentoPlanejado={andamentoPlanejado}
-        />
-      </div>
-
-      {/* 3. Pontos de Atenção */}
-      {(atrasadas.length > 0 || materiaisBaixo.length > 0 || registrosPendentes.length > 0) && (
-        <div data-print-section="pontosAtencao">
-          <Card className="shadow-card border-warning/30 print:shadow-none print:border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning" /> Pontos de Atenção
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {atrasadas.map(c => (
-                <div key={c.id} className="flex items-start gap-2 text-sm text-foreground">
-                  <span className="text-destructive mt-0.5">📅</span>
-                  <span><strong>{c.nome}</strong> — etapa atrasada ({computePercentual(c)}% concluído)</span>
-                </div>
-              ))}
-              {materiaisBaixo.map(m => (
-                <div key={m.id} className="flex items-start gap-2 text-sm text-foreground">
-                  <span className="text-warning mt-0.5">📦</span>
-                  <span><strong>{m.nome}</strong> — estoque em {m.estoqueAtual} {m.unidade} (mínimo: {m.estoqueMinimo})</span>
-                </div>
-              ))}
-              {registrosPendentes.length > 0 && (
-                <div className="flex items-start gap-2 text-sm text-foreground">
-                  <span className="text-warning mt-0.5">📋</span>
-                  <span>{registrosPendentes.length} registro(s) de diário pendente(s) de aprovação</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 4. Curva S */}
-      <div data-print-section="curvaS">
-        <SCurveChart
-          categorias={categorias}
-          custoItens={custoItens}
-          obraInicio={obra.dataInicio}
-          obraFim={obra.dataPrevisaoTermino}
-        />
-      </div>
-
-      {/* 5. Resumo do Cronograma */}
-      <div data-print-section="cronograma">
-        <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" /> Resumo do Cronograma
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-4 gap-3 mb-4">
-              <div className="text-center p-2 rounded-lg bg-success/10"><p className="text-xl font-bold text-success">{concluidas.length}</p><p className="text-[10px] text-muted-foreground">Concluídas</p></div>
-              <div className="text-center p-2 rounded-lg bg-primary/10"><p className="text-xl font-bold text-primary">{emAndamento.length}</p><p className="text-[10px] text-muted-foreground">Em Andamento</p></div>
-              <div className="text-center p-2 rounded-lg bg-destructive/10"><p className="text-xl font-bold text-destructive">{atrasadas.length}</p><p className="text-[10px] text-muted-foreground">Atrasadas</p></div>
-              <div className="text-center p-2 rounded-lg bg-muted"><p className="text-xl font-bold text-muted-foreground">{naoIniciadas.length}</p><p className="text-[10px] text-muted-foreground">Não Iniciadas</p></div>
-            </div>
-            <div className="space-y-2">
-              {categorias.map(c => {
-                const status = computeStatus(c);
-                const pct = computePercentual(c);
-                return (
-                  <div key={c.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors print:p-1">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {status === 'concluida' ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> :
-                       status === 'atrasada' ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0" /> :
-                       status === 'em_andamento' ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> :
-                       <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
-                      <span className="text-sm text-foreground truncate">{c.nome}</span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="w-20"><Progress value={pct} className="h-1.5" /></div>
-                      <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
-                      <Badge variant="secondary" className={
-                        status === 'concluida' ? 'bg-success/10 text-success border-0' :
-                        status === 'atrasada' ? 'bg-destructive/10 text-destructive border-0' :
-                        status === 'em_andamento' ? 'bg-primary/10 text-primary border-0' :
-                        'bg-muted text-muted-foreground border-0'
-                      }>{statusEtapaLabels[status]}</Badge>
-                    </div>
-                  </div>
-                );
-              })}
-              {categorias.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada no orçamento.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 6. Custos por Etapa */}
-      <div data-print-section="custosEtapa">
-        <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <DollarSign className="h-4 w-4" /> Custos por Etapa
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {categorias.map(c => {
-                const pctCusto = totalPrevisto > 0 ? Math.round((c.precoTotal / totalPrevisto) * 100) : 0;
-                return (
-                  <div key={c.id} className="flex items-center gap-4">
-                    <span className="text-sm text-foreground w-40 sm:w-48 shrink-0 truncate">{c.nome}</span>
-                    <div className="flex-1"><Progress value={pctCusto} className="h-2" /></div>
-                    <span className="text-xs text-muted-foreground w-24 text-right hidden sm:block">{formatCurrency(c.precoTotal)}</span>
-                    <span className="text-xs text-muted-foreground w-10 text-right">{pctCusto}%</span>
-                  </div>
-                );
-              })}
-              {categorias.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-semibold text-foreground w-40 sm:w-48 shrink-0">Total</span>
-                    <div className="flex-1" />
-                    <span className="text-sm font-bold text-foreground w-24 text-right hidden sm:block">{formatCurrency(totalPrevisto)}</span>
-                    <span className="text-xs text-muted-foreground w-10 text-right">100%</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 7. Curva ABC */}
-      <div data-print-section="curvaABC">
-        <ABCTable categorias={categorias} custoItens={custoItens} />
-      </div>
-
-      {/* 8. Estoque Crítico */}
-      {materiaisBaixo.length > 0 && (
-        <div data-print-section="estoqueCritico">
-          <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="h-4 w-4" /> Materiais com Estoque Baixo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {materiaisBaixo.map(m => (
-                  <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-destructive/5">
-                    <div><p className="text-sm font-medium text-foreground">{m.nome}</p><p className="text-xs text-muted-foreground">{m.categoria}</p></div>
-                    <div className="text-right"><p className="text-sm font-semibold text-destructive">{m.estoqueAtual} {m.unidade}</p><p className="text-xs text-muted-foreground">Mín: {m.estoqueMinimo} {m.unidade}</p></div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 9. Últimos Registros do Diário */}
-      <div data-print-section="diario">
-        <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="h-4 w-4" /> Últimos Registros do Diário
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {diarioRegistros.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
-            )}
-            {diarioRegistros.slice(0, 8).map(r => (
-              <div key={r.id} className="border-b border-border pb-3 last:border-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <p className="text-sm font-medium text-foreground">{formatDate(r.data)}</p>
-                  <span className="text-xs">{climaLabels[r.clima as keyof typeof climaLabels]}</span>
-                  <span className="text-xs text-muted-foreground">· {r.usuario_nome}</span>
-                  <span className="text-xs text-muted-foreground">· {r.trabalhadores} trab.</span>
-                  <Badge variant="secondary" className={
-                    r.status === 'aprovado' ? 'bg-success/10 text-success border-0 text-[10px]' :
-                    r.status === 'pendente' ? 'bg-warning/10 text-warning border-0 text-[10px]' :
-                    'bg-destructive/10 text-destructive border-0 text-[10px]'
-                  }>{statusDiarioLabels[r.status as keyof typeof statusDiarioLabels] || r.status}</Badge>
-                </div>
-                {r.servicos_executados && (<p className="text-sm text-muted-foreground line-clamp-1">{r.servicos_executados}</p>)}
-                {r.problemas && (<p className="text-xs text-destructive mt-1">⚠️ {r.problemas}</p>)}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Old Ações Rápidas section removed - now at top */}
+      {/* Draggable sections */}
+      {sectionOrder.map(key => renderSection(key))}
 
       {/* Rodapé print */}
       <div className="hidden print:block text-center text-xs text-muted-foreground mt-8 pt-4 border-t border-border">
         <p>Panorama Geral gerado em {format(today, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
         <p>{obra.codigo} — {obra.nome}</p>
       </div>
+    </div>
+  );
+}
+
+function DiarioItem({ r }: { r: DiarioRow }) {
+  return (
+    <div className="border-b border-border pb-3 last:border-0">
+      <div className="flex items-center gap-2 mb-1 flex-wrap">
+        <p className="text-sm font-medium text-foreground">{formatDate(r.data)}</p>
+        <span className="text-xs">{climaLabels[r.clima as keyof typeof climaLabels]}</span>
+        <span className="text-xs text-muted-foreground">· {r.usuario_nome}</span>
+        <span className="text-xs text-muted-foreground">· {r.trabalhadores} trab.</span>
+        <Badge variant="secondary" className={
+          r.status === 'aprovado' ? 'bg-success/10 text-success border-0 text-[10px]' :
+          r.status === 'pendente' ? 'bg-warning/10 text-warning border-0 text-[10px]' :
+          'bg-destructive/10 text-destructive border-0 text-[10px]'
+        }>{statusDiarioLabels[r.status as keyof typeof statusDiarioLabels] || r.status}</Badge>
+      </div>
+      {r.servicos_executados && (<p className="text-sm text-muted-foreground line-clamp-1">{r.servicos_executados}</p>)}
+      {r.problemas && (<p className="text-xs text-destructive mt-1">⚠️ {r.problemas}</p>)}
     </div>
   );
 }

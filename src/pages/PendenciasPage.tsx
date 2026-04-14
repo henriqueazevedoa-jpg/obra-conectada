@@ -22,6 +22,9 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
+import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
+import PendenciasTimelineView from '@/components/painel/PendenciasTimelineView';
+import ObraCalendarView from '@/components/painel/ObraCalendarView';
 
 type PendenciaPrioridade = 'baixa' | 'media' | 'alta';
 type PendenciaStatus = 'aberta' | 'em_andamento' | 'resolvida';
@@ -85,6 +88,8 @@ export default function PendenciasPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPrioridade, setFilterPrioridade] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('lista');
 
   const fetchPendencias = useCallback(async () => {
     if (!obra) { setPendencias([]); setLoading(false); return; }
@@ -125,22 +130,26 @@ export default function PendenciasPage() {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     if (!form.titulo) { toast({ title: 'Preencha o título.', variant: 'destructive' }); return; }
-    const payload = {
-      titulo: form.titulo, descricao: form.descricao || null,
-      tipo: form.tipo, prioridade: form.prioridade, status: form.status,
-      data_limite: form.data_limite || null, observacao_interna: form.observacao_interna || null,
-    };
-    if (editingId) {
-      const { error } = await supabase.from('pendencias').update(payload).eq('id', editingId);
-      if (error) { toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Pendência atualizada!' });
-    } else {
-      const { error } = await supabase.from('pendencias').insert({ ...payload, obra_id: obra.id });
-      if (error) { toast({ title: 'Erro ao criar', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Pendência criada!' });
-    }
-    setDialogOpen(false); fetchPendencias();
+    setSaving(true);
+    try {
+      const payload = {
+        titulo: form.titulo, descricao: form.descricao || null,
+        tipo: form.tipo, prioridade: form.prioridade, status: form.status,
+        data_limite: form.data_limite || null, observacao_interna: form.observacao_interna || null,
+      };
+      if (editingId) {
+        const { error } = await supabase.from('pendencias').update(payload).eq('id', editingId);
+        if (error) { toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Pendência atualizada!' });
+      } else {
+        const { error } = await supabase.from('pendencias').insert({ ...payload, obra_id: obra.id });
+        if (error) { toast({ title: 'Erro ao criar', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Pendência criada!' });
+      }
+      setDialogOpen(false); fetchPendencias();
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -178,6 +187,7 @@ export default function PendenciasPage() {
               ))}
             </SelectContent>
           </Select>
+          <ViewModeSwitcher value={viewMode} onChange={setViewMode} />
           <Button onClick={openCreate} size="sm"><Plus className="h-4 w-4 mr-1" /> Nova Pendência</Button>
         </div>
       </div>
@@ -224,8 +234,13 @@ export default function PendenciasPage() {
         </Select>
       </div>
 
-      {/* Lista */}
-      {loading ? (
+      {/* Content */}
+      {viewMode === 'calendario' ? (
+        <ObraCalendarView obraId={obra.id} sources={['pendencias']} fetchFromDb={true} />
+      ) : viewMode === 'timeline' ? (
+        loading ? <div className="text-center py-10 text-muted-foreground">Carregando...</div> :
+        <PendenciasTimelineView items={filtered} />
+      ) : loading ? (
         <div className="text-center py-10 text-muted-foreground">Carregando...</div>
       ) : filtered.length === 0 ? (
         <Card className="shadow-card"><CardContent className="p-10 text-center text-muted-foreground">
@@ -321,7 +336,7 @@ export default function PendenciasPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editingId ? 'Salvar' : 'Criar'}</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : editingId ? 'Salvar' : 'Criar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

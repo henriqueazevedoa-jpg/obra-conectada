@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from './AuthContext';
+import { PlanFeatures, DEFAULT_PLAN_FEATURES } from '@/types/planFeatures';
+import { normalizePlanFeatures } from '@/utils/normalizePlanFeatures';
 
 export interface Plan {
   id: string;
@@ -48,6 +50,7 @@ interface CompanyContextType {
   plan: Plan | null;
   subscription: Subscription | null;
   plans: Plan[];
+  planFeatures: PlanFeatures;
   loading: boolean;
   plansLoading: boolean;
   needsOnboarding: boolean;
@@ -76,11 +79,13 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [plansLoading, setPlansLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [planFeatures, setPlanFeatures] = useState<PlanFeatures>({ ...DEFAULT_PLAN_FEATURES });
 
   const resetCompanyState = useCallback(() => {
     setCompany(null);
     setPlan(null);
     setSubscription(null);
+    setPlanFeatures({ ...DEFAULT_PLAN_FEATURES });
   }, []);
 
   const fetchPlans = useCallback(async () => {
@@ -186,6 +191,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       }
 
       setPlan((planData as Plan) || null);
+      setPlanFeatures(normalizePlanFeatures((planData as any)?.features));
       setSubscription((subData as Subscription) || null);
       setNeedsOnboarding(false);
     } catch (err) {
@@ -310,6 +316,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         plan,
         subscription,
         plans,
+        planFeatures,
         loading,
         plansLoading,
         needsOnboarding,

@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
+import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento, OrcamentoCategoria, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
+import { useGanttFinanceiro } from '@/hooks/useGanttFinanceiro';
+import { useGanttDependencies } from '@/hooks/useGanttDependencies';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -82,84 +85,6 @@ function DatePicker({ value, onChange, placeholder }: { value?: string; onChange
   );
 }
 
-// --- Gantt Chart ---
-function GanttChart({ categorias }: { categorias: OrcamentoCategoria[] }) {
-  const allDates = categorias.flatMap(c => [c.dataInicioPrevista, c.dataFimPrevista, c.dataInicioReal, c.dataFimReal].filter(Boolean) as string[]);
-  if (allDates.length === 0) return <div className="text-center py-8 text-muted-foreground text-sm">Nenhuma data definida para exibir o Gantt.</div>;
-
-  const minDate = parseISO(allDates.sort()[0]);
-  const maxDate = parseISO(allDates.sort().reverse()[0]);
-  const totalDays = Math.max(differenceInDays(maxDate, minDate) + 1, 1);
-
-  const getBar = (start?: string, end?: string) => {
-    if (!start || !end) return null;
-    const s = parseISO(start);
-    const e = parseISO(end);
-    const left = (differenceInDays(s, minDate) / totalDays) * 100;
-    const width = Math.max(((differenceInDays(e, s) + 1) / totalDays) * 100, 1);
-    return { left: `${left}%`, width: `${width}%` };
-  };
-
-  // Month markers
-  const months: { label: string; left: string }[] = [];
-  const cur = new Date(minDate);
-  cur.setDate(1);
-  while (isBefore(cur, maxDate) || cur.getMonth() === maxDate.getMonth()) {
-    const dayOffset = differenceInDays(cur, minDate);
-    if (dayOffset >= 0) {
-      months.push({ label: format(cur, 'MMM yy', { locale: ptBR }), left: `${(dayOffset / totalDays) * 100}%` });
-    }
-    cur.setMonth(cur.getMonth() + 1);
-    if (months.length > 24) break;
-  }
-
-  return (
-    <div className="space-y-1">
-      {/* Month headers */}
-      <div className="relative h-6 border-b border-border ml-[200px]">
-        {months.map((m, i) => (
-          <span key={i} className="absolute text-[9px] text-muted-foreground top-0" style={{ left: m.left }}>{m.label}</span>
-        ))}
-      </div>
-      {categorias.map(cat => {
-        const prevBar = getBar(cat.dataInicioPrevista, cat.dataFimPrevista);
-        const realBar = getBar(cat.dataInicioReal, cat.dataFimReal || (cat.dataInicioReal ? format(new Date(), 'yyyy-MM-dd') : undefined));
-        const status = computeStatus(cat);
-        return (
-          <div key={cat.id} className="flex items-center h-10 group hover:bg-muted/30">
-            <div className="w-[200px] shrink-0 pr-2 truncate text-xs font-medium text-foreground" title={cat.nome}>
-              {cat.nome}
-            </div>
-            <div className="flex-1 relative h-full">
-              {prevBar && (
-                <div className="absolute top-1 h-3 rounded-sm bg-primary/20 border border-primary/30" style={prevBar} title="Previsto" />
-              )}
-              {realBar && (
-                <div
-                  className={cn(
-                    "absolute top-5 h-3 rounded-sm",
-                    status === 'concluida' ? 'bg-success/60' :
-                    status === 'atrasada' ? 'bg-destructive/60' :
-                    'bg-primary/60'
-                  )}
-                  style={realBar}
-                  title="Real"
-                />
-              )}
-            </div>
-          </div>
-        );
-      })}
-      <div className="flex items-center gap-4 ml-[200px] pt-2 text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-primary/20 border border-primary/30 inline-block" /> Previsto</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-primary/60 inline-block" /> Real</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-success/60 inline-block" /> Concluído</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-destructive/60 inline-block" /> Atrasado</span>
-      </div>
-    </div>
-  );
-}
-
 // --- Composição row in cronograma ---
 function CompCronRow({ comp, onChange }: { comp: OrcamentoComposicao; onChange: (c: OrcamentoComposicao) => void }) {
   return (
@@ -196,6 +121,8 @@ export default function CronogramaPage() {
   const { getOrcamento, saveOrcamento, catalogoCategorias, generateCategoriaCodigo } = useOrcamento();
 
   const { selectedObraId, setSelectedObraId } = useObraSelection();
+  const { byEtapa: financeiroByEtapa } = useGanttFinanceiro(selectedObraId);
+  const { deps: ganttDeps, addDep, removeDep, calculateCascade } = useGanttDependencies(selectedObraId);
   const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const [newCatName, setNewCatName] = useState('');
@@ -367,10 +294,30 @@ export default function CronogramaPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Gráfico de Gantt</CardTitle>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <div className="min-w-[900px]">
-                  <GanttChart categorias={categorias} />
-                </div>
+              <CardContent>
+                <GanttEditorChart
+                  categorias={categorias}
+                  financeiroByEtapa={financeiroByEtapa}
+                  dependencies={ganttDeps}
+                  onAddDependency={addDep}
+                  onRemoveDependency={removeDep}
+                  onCalculateCascade={(catId, newStart, newEnd) =>
+                    calculateCascade(catId, newStart, newEnd, categorias.map(c => ({
+                      id: c.id,
+                      nome: c.nome,
+                      startDate: c.dataInicioPrevista,
+                      endDate: c.dataFimPrevista,
+                    })))
+                  }
+                  onUpdateDates={(catId, start, end) => {
+                    const idx = categorias.findIndex(c => c.id === catId);
+                    if (idx === -1) return;
+                    const cat = { ...categorias[idx] };
+                    cat.dataInicioPrevista = start;
+                    cat.dataFimPrevista = end;
+                    updateCategoria(idx, cat);
+                  }}
+                />
               </CardContent>
             </Card>
           )}

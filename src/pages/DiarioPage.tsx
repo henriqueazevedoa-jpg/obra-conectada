@@ -23,6 +23,9 @@ import { cn } from '@/lib/utils';
 import { formatDate, statusDiarioLabels, climaLabels, DiarioRegistro, DiarioServico, DiarioMaterialUsado } from '@/data/mockData';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Users, CheckCircle2, Clock, XCircle, Trash2, Link2, Package, Pencil, CalendarIcon, Filter, ChevronDown, Printer, Square, CheckSquare, Camera, BookOpen } from 'lucide-react';
+import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
+import DiarioTimelineView from '@/components/painel/DiarioTimelineView';
+import ObraCalendarView from '@/components/painel/ObraCalendarView';
 import { toast } from '@/hooks/use-toast';
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import NoObraState from '@/components/obras/NoObraState';
@@ -48,6 +51,7 @@ export default function DiarioPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('lista');
 
   // Auto-open form via ?novo=1
   useEffect(() => {
@@ -651,6 +655,9 @@ ${toPrint.map(r => {
             Diário de Obra
           </h1>
         </div>
+        <div className="flex items-center gap-2">
+          <ViewModeSwitcher value={viewMode} onChange={setViewMode} />
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={obraId} onValueChange={setObraId}>
             <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
@@ -930,8 +937,17 @@ ${toPrint.map(r => {
         </div>
       )}
 
-      {/* Timeline */}
-      {loading ? (
+      {/* Content views */}
+      {viewMode === 'calendario' ? (
+        <ObraCalendarView obraId={obra.id} sources={['diario']} fetchFromDb={true} />
+      ) : viewMode === 'timeline' ? (
+        loading ? <div className="text-center py-12 text-muted-foreground text-sm">Carregando registros...</div> :
+        <DiarioTimelineView items={sortedRegistros.map(r => ({
+          id: r.id, data: r.data, clima: r.clima, trabalhadores: r.trabalhadores,
+          servicosExecutados: r.servicosExecutados, problemas: r.problemas,
+          observacoes: r.observacoes, status: r.status, usuario: r.usuario,
+        }))} />
+      ) : loading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">Carregando registros...</div>
       ) : sortedRegistros.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm">

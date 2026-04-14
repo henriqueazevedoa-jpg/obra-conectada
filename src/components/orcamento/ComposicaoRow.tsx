@@ -14,9 +14,10 @@ interface Props {
   onChange: (updated: OrcamentoComposicao) => void;
   onRemove: () => void;
   generateSubitemCodigo: (compCode: string, existing: string[]) => string;
+  obraId?: string;
 }
 
-export default function ComposicaoRow({ composicao, unidades, onChange, onRemove, generateSubitemCodigo }: Props) {
+export default function ComposicaoRow({ composicao, unidades, onChange, onRemove, generateSubitemCodigo, obraId }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const update = (field: string, value: any) => {
@@ -122,7 +123,7 @@ export default function ComposicaoRow({ composicao, unidades, onChange, onRemove
             <span>Código</span><span>Descrição</span><span>Un</span><span>Qtd</span><span>P. Unit</span><span>P. Total</span><span />
           </div>
           {composicao.subitens.map((si, idx) => (
-            <SubitemRow key={si.id} subitem={si} unidades={unidades} onChange={s => updateSubitem(idx, s)} onRemove={() => removeSubitem(idx)} />
+            <SubitemRow key={si.id} subitem={si} unidades={unidades} onChange={s => updateSubitem(idx, s)} onRemove={() => removeSubitem(idx)} obraId={obraId} />
           ))}
           <Button variant="ghost" size="sm" className="text-xs h-6 ml-8" onClick={addSubitem}>
             <Plus className="h-3 w-3 mr-1" /> Subitem

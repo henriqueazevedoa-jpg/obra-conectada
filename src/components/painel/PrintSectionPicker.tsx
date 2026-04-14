@@ -9,49 +9,43 @@ import {
 export interface PrintSections {
   identificacao: boolean;
   kpis: boolean;
+  acoesPrioritarias: boolean;
   resumoExecutivo: boolean;
-  pontosAtencao: boolean;
-  curvaS: boolean;
+  visaoGeral: boolean;
+  estoqueCritico: boolean;
+  cronogramaPagamentos: boolean;
   cronograma: boolean;
   custosEtapa: boolean;
   curvaABC: boolean;
-  estoqueCritico: boolean;
   diario: boolean;
-  pagamentos: boolean;
-  pendencias: boolean;
-  fornecedores: boolean;
 }
 
 export const defaultPrintSections: PrintSections = {
   identificacao: true,
   kpis: true,
+  acoesPrioritarias: true,
   resumoExecutivo: true,
-  pontosAtencao: true,
-  curvaS: true,
+  visaoGeral: true,
+  estoqueCritico: true,
+  cronogramaPagamentos: true,
   cronograma: true,
   custosEtapa: true,
   curvaABC: true,
-  estoqueCritico: true,
   diario: true,
-  pagamentos: true,
-  pendencias: true,
-  fornecedores: true,
 };
 
 const sectionLabels: Record<keyof PrintSections, string> = {
   identificacao: 'Identificação da Obra',
   kpis: 'Indicadores (KPIs)',
+  acoesPrioritarias: 'Ações Prioritárias',
   resumoExecutivo: 'Resumo Executivo',
-  pontosAtencao: 'Pontos de Atenção',
-  curvaS: 'Curva S',
+  visaoGeral: 'Visão Geral da Obra',
+  estoqueCritico: 'Materiais com Estoque Baixo',
+  cronogramaPagamentos: 'Resumo de Pagamentos',
   cronograma: 'Resumo do Cronograma',
-  custosEtapa: 'Custos por Etapa',
+  custosEtapa: 'Distribuição de Custos',
   curvaABC: 'Curva ABC',
-  estoqueCritico: 'Estoque Crítico',
-  diario: 'Últimos Registros do Diário',
-  pagamentos: 'Pagamentos',
-  pendencias: 'Pendências',
-  fornecedores: 'Fornecedores',
+  diario: 'Diário de Obra',
 };
 
 interface Props {
@@ -79,13 +73,13 @@ export default function PrintSectionPicker({ sections, onChange, onPrint }: Prop
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="gap-1.5 h-9">
             <Settings2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Configurar PDF</span>
+            <span className="hidden sm:inline">Configurar Painel</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-64" align="end">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-foreground">Seções do Relatório</p>
+              <p className="text-sm font-semibold text-foreground">Seções Visíveis</p>
               <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={toggleAll}>
                 {allSelected ? 'Desmarcar' : 'Marcar'} todos
               </Button>

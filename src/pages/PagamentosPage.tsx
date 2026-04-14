@@ -30,8 +30,10 @@ import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import {
   Plus, DollarSign, AlertTriangle, CheckCircle2, Clock, Pencil, Trash2,
   CalendarIcon, Filter, ChevronDown, Paperclip, Upload, FileText, Image, X,
-  Package,
+  Package, List, GitBranch, CalendarDays,
 } from 'lucide-react';
+import PagamentosTimelineView from '@/components/painel/PagamentosTimelineView';
+import PagamentosCalendarView from '@/components/painel/PagamentosCalendarView';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
 
@@ -173,11 +175,19 @@ export default function PagamentosPage() {
   const [creatingFornecedor, setCreatingFornecedor] = useState(false);
 
   // Auto-open form via ?novo=1
+  // Read etapa filter from URL
+  const [filterEtapa, setFilterEtapa] = useState('_all');
+
   useEffect(() => {
+    const etapaParam = searchParams.get('etapa');
+    if (etapaParam) {
+      setFilterEtapa(etapaParam);
+      setSearchParams(prev => { prev.delete('etapa'); return prev; }, { replace: true });
+    }
     if (searchParams.get('novo') === '1' && obra) {
       resetForm();
       setDialogOpen(true);
-      setSearchParams({}, { replace: true });
+      setSearchParams(prev => { prev.delete('novo'); return prev; }, { replace: true });
     }
   }, [searchParams, obra?.id]);
 
@@ -186,6 +196,11 @@ export default function PagamentosPage() {
   const [viewAnexosId, setViewAnexosId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Pending files for new payments (before save)
+  interface PendingFile { id: string; file: File; tipo: string; preview?: string; }
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const pendingFileInputRef = useRef<HTMLInputElement>(null);
 
   // New etapa
   const [showNewEtapa, setShowNewEtapa] = useState(false);
@@ -197,6 +212,7 @@ export default function PagamentosPage() {
   const [filterTipo, setFilterTipo] = useState('_all');
   const [filterPeriodo, setFilterPeriodo] = useState('_all');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'lista' | 'timeline' | 'calendario'>('lista');
 
   // Form
   const [form, setForm] = useState({
@@ -242,6 +258,9 @@ export default function PagamentosPage() {
     setNewFornecedorNome('');
     setNewFornecedorCnpj('');
     setNewFornecedorTel('');
+    // Clean up pending file previews
+    pendingFiles.forEach(pf => { if (pf.preview) URL.revokeObjectURL(pf.preview); });
+    setPendingFiles([]);
   };
 
   const handleCreateFornecedor = async () => {
@@ -379,11 +398,12 @@ export default function PagamentosPage() {
     .reduce((s, p) => s + Number(p.valor_previsto), 0);
 
   // Filtered list
-  const hasActiveFilters = filterStatus !== '_all' || filterTipo !== '_all' || filterPeriodo !== '_all';
+  const hasActiveFilters = filterStatus !== '_all' || filterTipo !== '_all' || filterPeriodo !== '_all' || filterEtapa !== '_all';
 
   const filteredPagamentos = pagamentos.filter(p => {
     if (filterStatus !== '_all' && p.status !== filterStatus) return false;
     if (filterTipo !== '_all' && p.tipo_pagamento !== filterTipo) return false;
+    if (filterEtapa !== '_all' && p.etapa_orcamento !== filterEtapa) return false;
     if (filterPeriodo !== '_all') {
       const d = parseISO(p.data_vencimento);
       if (filterPeriodo === '7dias' && !(d >= hoje && d <= em7dias)) return false;
@@ -602,6 +622,25 @@ export default function PagamentosPage() {
         await refreshEstoque();
       }
 
+      // Upload pending files for new payments
+      if (!editingId && pagamentoId && pendingFiles.length > 0) {
+        for (const pf of pendingFiles) {
+          const ext = pf.file.name.split('.').pop();
+          const path = `${obra.id}/${pagamentoId}/${crypto.randomUUID()}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from('pagamento-anexos')
+            .upload(path, pf.file);
+          if (!uploadError) {
+            await (supabase as any).from('pagamento_anexos').insert({
+              pagamento_id: pagamentoId,
+              nome: pf.file.name,
+              storage_path: path,
+              tipo: pf.tipo,
+            });
+          }
+        }
+      }
+
       setDialogOpen(false);
       resetForm();
       fetchPagamentos();
@@ -807,21 +846,59 @@ export default function PagamentosPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline" size="sm"
-          onClick={() => setFiltersOpen(!filtersOpen)}
-          className={cn(hasActiveFilters && "border-primary text-primary")}
-        >
-          <Filter className="h-4 w-4 mr-1" />Filtros
-          <ChevronDown className={cn("h-3 w-3 ml-1 transition-transform", filtersOpen && "rotate-180")} />
-        </Button>
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); }}>
-            Limpar filtros
+      {/* Filters + View Mode */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={cn(hasActiveFilters && "border-primary text-primary")}
+          >
+            <Filter className="h-4 w-4 mr-1" />Filtros
+            <ChevronDown className={cn("h-3 w-3 ml-1 transition-transform", filtersOpen && "rotate-180")} />
           </Button>
-        )}
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); }}>
+              Limpar filtros
+            </Button>
+          )}
+          {filterEtapa !== '_all' && (
+            <Badge variant="secondary" className="bg-primary/10 text-primary gap-1 text-xs">
+              Etapa: {filterEtapa}
+              <button onClick={() => setFilterEtapa('_all')} className="ml-1 hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+        </div>
+
+        {/* View mode toggle */}
+        <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+          <Button
+            variant={viewMode === 'lista' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('lista')}
+          >
+            <List className="h-3.5 w-3.5" /> Lista
+          </Button>
+          <Button
+            variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('timeline')}
+          >
+            <GitBranch className="h-3.5 w-3.5" /> Timeline
+          </Button>
+          <Button
+            variant={viewMode === 'calendario' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('calendario')}
+          >
+            <CalendarDays className="h-3.5 w-3.5" /> Calendário
+          </Button>
+        </div>
       </div>
 
       {filtersOpen && (
@@ -853,10 +930,19 @@ export default function PagamentosPage() {
               <SelectItem value="atrasados">Atrasados</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={filterEtapa} onValueChange={setFilterEtapa}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Etapa" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todas etapas</SelectItem>
+              {[...new Set(pagamentos.map(p => p.etapa_orcamento).filter(Boolean))].map(e => (
+                <SelectItem key={e!} value={e!}>{e}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
-      {/* List */}
+      {/* Content views */}
       {loading ? (
         <p className="text-center text-muted-foreground py-8">Carregando...</p>
       ) : filteredPagamentos.length === 0 ? (
@@ -868,6 +954,20 @@ export default function PagamentosPage() {
             </p>
           </CardContent>
         </Card>
+      ) : viewMode === 'timeline' ? (
+        <PagamentosTimelineView items={filteredPagamentos} />
+      ) : viewMode === 'calendario' ? (
+        <PagamentosCalendarView
+          items={filteredPagamentos.map(p => ({
+            id: p.id,
+            descricao: p.descricao,
+            valor_previsto: p.valor_previsto,
+            data_vencimento: p.data_vencimento,
+            status: p.status,
+            fornecedor: p.fornecedor,
+            realStatus: p.status,
+          }))}
+        />
       ) : (
         <div className="space-y-2">
           {/* Desktop table */}
@@ -1462,7 +1562,77 @@ export default function PagamentosPage() {
                 )}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground italic">💡 Após salvar, você poderá anexar boletos, contratos, recibos e fotos.</p>
+              <div className="border border-dashed border-border rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1.5"><Paperclip className="h-4 w-4" /> Documentos e Fotos</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(anexoTipoLabels).map(([tipo, label]) => (
+                    <Button
+                      key={tipo}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      type="button"
+                      onClick={() => {
+                        const input = pendingFileInputRef.current;
+                        if (input) {
+                          input.setAttribute('data-tipo', tipo);
+                          input.click();
+                        }
+                      }}
+                    >
+                      {tipo === 'foto' ? <Image className="h-3 w-3 mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                <input
+                  ref={pendingFileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      const tipo = e.target.getAttribute('data-tipo') || 'outro';
+                      const newFiles: PendingFile[] = Array.from(e.target.files).map(file => ({
+                        id: crypto.randomUUID(),
+                        file,
+                        tipo,
+                        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+                      }));
+                      setPendingFiles(prev => [...prev, ...newFiles]);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                {pendingFiles.length > 0 && (
+                  <div className="space-y-1 mt-2">
+                    {pendingFiles.map(pf => (
+                      <div key={pf.id} className="flex items-center gap-2 text-xs p-1.5 bg-muted rounded">
+                        {pf.preview ? (
+                          <img src={pf.preview} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
+                        ) : (
+                          <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="truncate flex-1">{pf.file.name}</span>
+                        <span className="text-muted-foreground">{anexoTipoLabels[pf.tipo] || pf.tipo}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 shrink-0"
+                          type="button"
+                          onClick={() => {
+                            if (pf.preview) URL.revokeObjectURL(pf.preview);
+                            setPendingFiles(prev => prev.filter(f => f.id !== pf.id));
+                          }}
+                        >
+                          <X className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             <input
