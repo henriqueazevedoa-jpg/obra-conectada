@@ -30,8 +30,10 @@ import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import {
   Plus, DollarSign, AlertTriangle, CheckCircle2, Clock, Pencil, Trash2,
   CalendarIcon, Filter, ChevronDown, Paperclip, Upload, FileText, Image, X,
-  Package,
+  Package, List, GitBranch, CalendarDays,
 } from 'lucide-react';
+import PagamentosTimelineView from '@/components/painel/PagamentosTimelineView';
+import PagamentosCalendarView from '@/components/painel/PagamentosCalendarView';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
 
