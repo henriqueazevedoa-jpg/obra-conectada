@@ -23,7 +23,15 @@ export interface CalendarEvent {
   source: CalendarEventSource;
   status?: string;
   isOverdue?: boolean;
+  clima?: string;
 }
+
+const climaIcons: Record<string, string> = {
+  sol: '☀️',
+  nublado: '⛅',
+  chuva: '🌧️',
+  chuvoso_forte: '⛈️',
+};
 
 const sourceLabels: Record<CalendarEventSource, string> = {
   agenda: 'Agenda', pendencias: 'Pendências', pagamentos: 'Pagamentos', diario: 'Diário',
@@ -139,16 +147,22 @@ export default function ObraCalendarView({
 
     if (sources.includes('diario')) {
       promises.push(
-        supabase.from('diario_registros').select('id, data, servicos_executados, status')
+        supabase.from('diario_registros').select('id, data, clima, servicos_executados, status, created_at')
           .eq('obra_id', obraId)
+          .order('created_at', { ascending: true })
           .then(({ data }: any) => {
+            // Keep only the first diary per day (for clima icon)
+            const seenDays = new Set<string>();
             (data || []).forEach((item: any) => {
               const title = item.servicos_executados
                 ? (item.servicos_executados.length > 60 ? item.servicos_executados.slice(0, 60) + '…' : item.servicos_executados)
                 : 'Registro de diário';
+              const isFirstOfDay = !seenDays.has(item.data);
+              if (isFirstOfDay) seenDays.add(item.data);
               allEvents.push({
                 id: item.id, date: item.data, title,
                 source: 'diario', status: item.status,
+                clima: isFirstOfDay ? item.clima : undefined,
               });
             });
           })
@@ -253,6 +267,8 @@ export default function ObraCalendarView({
 
             // Group dots by source (max 1 dot per source)
             const dotSources = [...new Set(dayEvents.map(e => e.source))];
+            // Get clima from the first diario event of the day
+            const dayClima = dayEvents.find(e => e.source === 'diario' && e.clima)?.clima;
 
             return (
               <button
@@ -265,13 +281,20 @@ export default function ObraCalendarView({
                   isTodayDay && !isSelected && "bg-accent/20",
                 )}
               >
-                <span className={cn(
-                  "text-xs font-medium leading-tight",
-                  isTodayDay && "text-primary font-bold",
-                  hasOverdue && "text-destructive",
-                )}>
-                  {format(day, 'd')}
-                </span>
+                <div className="flex items-center gap-0.5">
+                  <span className={cn(
+                    "text-xs font-medium leading-tight",
+                    isTodayDay && "text-primary font-bold",
+                    hasOverdue && "text-destructive",
+                  )}>
+                    {format(day, 'd')}
+                  </span>
+                  {dayClima && climaIcons[dayClima] && (
+                    <span className="text-[10px] leading-none" title={dayClima}>
+                      {climaIcons[dayClima]}
+                    </span>
+                  )}
+                </div>
                 {/* Dots */}
                 {dotSources.length > 0 && (
                   <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
