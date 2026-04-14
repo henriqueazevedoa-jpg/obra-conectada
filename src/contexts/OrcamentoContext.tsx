@@ -317,16 +317,21 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
         for (const sub of comp.subitens) {
           newSubIds.add(sub.id);
 
-          await (supabase.from('orcamento_subitens') as any).upsert({
-            id: sub.id,
-            composicao_id: comp.id,
-            codigo: sub.codigo,
-            descricao: sub.descricao,
-            unidade: sub.unidade || null,
-            quantidade: sub.quantidade,
-            preco_unitario: sub.precoUnitario,
-            preco_total: sub.precoTotal,
-          });
+        await (supabase.from('orcamento_subitens') as any).upsert({
+          id: sub.id,
+          composicao_id: comp.id,
+          codigo: sub.codigo,
+          descricao: sub.descricao,
+          unidade: sub.unidade || null,
+          quantidade: sub.quantidade,
+          preco_unitario: sub.precoUnitario,
+          preco_total: sub.precoTotal,
+        
+          codigo_referencia_externa: sub.codigoReferenciaExterna || null,
+          origem_grupo_titulo: sub.origemGrupoTitulo || null,
+          origem_composicao_codigo: sub.origemComposicaoCodigo || null,
+          origem_composicao_descricao: sub.origemComposicaoDescricao || null,
+        });
         }
       }
     }
