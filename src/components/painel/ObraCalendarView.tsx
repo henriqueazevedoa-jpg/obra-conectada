@@ -267,6 +267,8 @@ export default function ObraCalendarView({
 
             // Group dots by source (max 1 dot per source)
             const dotSources = [...new Set(dayEvents.map(e => e.source))];
+            // Get clima from the first diario event of the day
+            const dayClima = dayEvents.find(e => e.source === 'diario' && e.clima)?.clima;
 
             return (
               <button
@@ -279,13 +281,20 @@ export default function ObraCalendarView({
                   isTodayDay && !isSelected && "bg-accent/20",
                 )}
               >
-                <span className={cn(
-                  "text-xs font-medium leading-tight",
-                  isTodayDay && "text-primary font-bold",
-                  hasOverdue && "text-destructive",
-                )}>
-                  {format(day, 'd')}
-                </span>
+                <div className="flex items-center gap-0.5">
+                  <span className={cn(
+                    "text-xs font-medium leading-tight",
+                    isTodayDay && "text-primary font-bold",
+                    hasOverdue && "text-destructive",
+                  )}>
+                    {format(day, 'd')}
+                  </span>
+                  {dayClima && climaIcons[dayClima] && (
+                    <span className="text-[10px] leading-none" title={dayClima}>
+                      {climaIcons[dayClima]}
+                    </span>
+                  )}
+                </div>
                 {/* Dots */}
                 {dotSources.length > 0 && (
                   <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
