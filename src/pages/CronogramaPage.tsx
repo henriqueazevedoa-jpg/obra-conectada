@@ -298,6 +298,17 @@ export default function CronogramaPage() {
                 <GanttEditorChart
                   categorias={categorias}
                   financeiroByEtapa={financeiroByEtapa}
+                  dependencies={ganttDeps}
+                  onAddDependency={addDep}
+                  onRemoveDependency={removeDep}
+                  onCalculateCascade={(catId, newStart, newEnd) =>
+                    calculateCascade(catId, newStart, newEnd, categorias.map(c => ({
+                      id: c.id,
+                      nome: c.nome,
+                      startDate: c.dataInicioPrevista,
+                      endDate: c.dataFimPrevista,
+                    })))
+                  }
                   onUpdateDates={(catId, start, end) => {
                     const idx = categorias.findIndex(c => c.id === catId);
                     if (idx === -1) return;
