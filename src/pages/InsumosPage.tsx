@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useObras } from '@/contexts/ObrasContext';
@@ -64,10 +65,12 @@ export default function InsumosPage() {
   const [pendentes, setPendentes] = useState<InsumoPendente[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [searchParams] = useSearchParams();
+
   // Filters - banco de preços
   const [filterObra, setFilterObra] = useState('todos');
   const [filterCategoria, setFilterCategoria] = useState('todos');
-  const [filterFornecedor, setFilterFornecedor] = useState('todos');
+  const [filterFornecedor, setFilterFornecedor] = useState(searchParams.get('fornecedor') || 'todos');
   const [filterItem, setFilterItem] = useState('');
 
   // Filters - não orçados
