@@ -59,13 +59,12 @@ const MAX_HEIGHT = 480;
 
 export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBaseline, financeiroByEtapa, dependencies = [], onAddDependency, onRemoveDependency, onCalculateCascade }: Props) {
   const { planFeatures } = useCompany();
-  const canViewDeps = planFeatures.gantt_dependencies;
-  const canEditDeps = canViewDeps && canEditGantt;
-
   const canView = planFeatures.gantt_view;
   const canEditGantt = planFeatures.gantt_edit;
   const canViewBaseline = planFeatures.gantt_baseline;
   const canEditBaseline = planFeatures.gantt_baseline_edit;
+  const canViewDeps = planFeatures.gantt_dependencies;
+  const canEditDeps = canViewDeps && canEditGantt;
 
   const editable = canEditGantt && !!onUpdateDates;
 
