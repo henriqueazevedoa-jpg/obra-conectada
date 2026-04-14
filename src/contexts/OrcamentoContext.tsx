@@ -43,6 +43,7 @@ export interface OrcamentoComposicao {
   pesoCronograma?: number;
   concluida?: boolean;
 }
+
 export interface OrcamentoCategoria {
   id: string;
   codigo: string;
@@ -69,6 +70,8 @@ export interface CategoriaTemplate {
   codigo: string;
   nome: string;
 }
+
+type DbRow = Record<string, unknown>;
 
 const defaultCategorias: CategoriaTemplate[] = [
   { codigo: 'CAT-001', nome: 'Serviços Preliminares' },
@@ -105,67 +108,107 @@ interface OrcamentoContextType {
 
 const OrcamentoContext = createContext<OrcamentoContextType | null>(null);
 
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  return undefined;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  const parsed = asNumber(value);
+  return parsed ?? null;
+}
+
+function asBoolean(value: unknown): boolean {
+  return value === true;
+}
+
+function asStatusCronograma(
+  value: unknown
+): OrcamentoCategoria['statusCronograma'] {
+  if (
+    value === 'nao_iniciada' ||
+    value === 'em_andamento' ||
+    value === 'concluida' ||
+    value === 'atrasada'
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
 // --- DB mapping helpers ---
-function dbToSubitem(row: any): OrcamentoSubitem {
+function dbToSubitem(row: DbRow): OrcamentoSubitem {
   return {
-    id: row.id,
-    codigo: row.codigo || '',
-    descricao: row.descricao || '',
-    unidade: row.unidade || '',
-    quantidade: row.quantidade != null ? Number(row.quantidade) : null,
-    precoUnitario: row.preco_unitario != null ? Number(row.preco_unitario) : null,
-    precoTotal: Number(row.preco_total) || 0,
+    id: asString(row.id),
+    codigo: asString(row.codigo),
+    descricao: asString(row.descricao),
+    unidade: asString(row.unidade),
+    quantidade: asNullableNumber(row.quantidade),
+    precoUnitario: asNullableNumber(row.preco_unitario),
+    precoTotal: asNumber(row.preco_total) ?? 0,
 
-    codigoReferenciaExterna: row.codigo_referencia_externa || undefined,
-    origemGrupoTitulo: row.origem_grupo_titulo || undefined,
-    origemComposicaoCodigo: row.origem_composicao_codigo || undefined,
-    origemComposicaoDescricao: row.origem_composicao_descricao || undefined,
+    codigoReferenciaExterna: asOptionalString(row.codigo_referencia_externa),
+    origemGrupoTitulo: asOptionalString(row.origem_grupo_titulo),
+    origemComposicaoCodigo: asOptionalString(row.origem_composicao_codigo),
+    origemComposicaoDescricao: asOptionalString(row.origem_composicao_descricao),
   };
 }
 
-function dbToComposicao(row: any, subitens: OrcamentoSubitem[]): OrcamentoComposicao {
+function dbToComposicao(row: DbRow, subitens: OrcamentoSubitem[]): OrcamentoComposicao {
   return {
-    id: row.id,
-    codigo: row.codigo || '',
-    descricao: row.descricao || '',
-    unidade: row.unidade || '',
-    quantidade: row.quantidade != null ? Number(row.quantidade) : null,
-    precoUnitario: row.preco_unitario != null ? Number(row.preco_unitario) : null,
-    precoTotal: Number(row.preco_total) || 0,
+    id: asString(row.id),
+    codigo: asString(row.codigo),
+    descricao: asString(row.descricao),
+    unidade: asString(row.unidade),
+    quantidade: asNullableNumber(row.quantidade),
+    precoUnitario: asNullableNumber(row.preco_unitario),
+    precoTotal: asNumber(row.preco_total) ?? 0,
     subitens,
-    usaSubitens: row.usa_subitens || false,
+    usaSubitens: asBoolean(row.usa_subitens),
 
-    fonteReferencia: row.fonte_referencia || undefined,
-    codigoReferenciaExterna: row.codigo_referencia_externa || undefined,
-    referenciaCompetencia: row.referencia_competencia || undefined,
-    ufReferencia: row.uf_referencia || undefined,
-    regimeReferencia: row.regime_referencia || undefined,
+    fonteReferencia: asOptionalString(row.fonte_referencia),
+    codigoReferenciaExterna: asOptionalString(row.codigo_referencia_externa),
+    referenciaCompetencia: asOptionalString(row.referencia_competencia),
+    ufReferencia: asOptionalString(row.uf_referencia),
+    regimeReferencia: asOptionalString(row.regime_referencia),
 
-    dataInicioPrevista: row.data_inicio_prevista || undefined,
-    dataFimPrevista: row.data_fim_prevista || undefined,
-    dataInicioReal: row.data_inicio_real || undefined,
-    dataFimReal: row.data_fim_real || undefined,
-    pesoCronograma: row.peso_cronograma != null ? Number(row.peso_cronograma) : undefined,
-    concluida: row.concluida || false,
+    dataInicioPrevista: asOptionalString(row.data_inicio_prevista),
+    dataFimPrevista: asOptionalString(row.data_fim_prevista),
+    dataInicioReal: asOptionalString(row.data_inicio_real),
+    dataFimReal: asOptionalString(row.data_fim_real),
+    pesoCronograma: asNumber(row.peso_cronograma),
+    concluida: asBoolean(row.concluida),
   };
 }
 
-function dbToCategoria(row: any, composicoes: OrcamentoComposicao[]): OrcamentoCategoria {
+function dbToCategoria(row: DbRow, composicoes: OrcamentoComposicao[]): OrcamentoCategoria {
   return {
-    id: row.id,
-    codigo: row.codigo || '',
-    nome: row.nome || '',
-    precoTotal: Number(row.preco_total) || 0,
-    usaComposicoes: row.usa_composicoes || false,
+    id: asString(row.id),
+    codigo: asString(row.codigo),
+    nome: asString(row.nome),
+    precoTotal: asNumber(row.preco_total) ?? 0,
+    usaComposicoes: asBoolean(row.usa_composicoes),
     composicoes,
-    dataInicioPrevista: row.data_inicio_prevista || undefined,
-    dataFimPrevista: row.data_fim_prevista || undefined,
-    dataInicioReal: row.data_inicio_real || undefined,
-    dataFimReal: row.data_fim_real || undefined,
-    statusCronograma: row.status_cronograma || undefined,
-    percentualCronograma: row.percentual_cronograma != null ? Number(row.percentual_cronograma) : undefined,
-    responsavel: row.responsavel || undefined,
-    observacoesCronograma: row.observacoes_cronograma || undefined,
+    dataInicioPrevista: asOptionalString(row.data_inicio_prevista),
+    dataFimPrevista: asOptionalString(row.data_fim_prevista),
+    dataInicioReal: asOptionalString(row.data_inicio_real),
+    dataFimReal: asOptionalString(row.data_fim_real),
+    statusCronograma: asStatusCronograma(row.status_cronograma),
+    percentualCronograma: asNumber(row.percentual_cronograma),
+    responsavel: asOptionalString(row.responsavel),
+    observacoesCronograma: asOptionalString(row.observacoes_cronograma),
   };
 }
 
@@ -176,7 +219,11 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!user) { setOrcamentos([]); setLoading(false); return; }
+    if (!user) {
+      setOrcamentos([]);
+      setLoading(false);
+      return;
+    }
 
     const [catRes, compRes, subRes] = await Promise.all([
       supabase.from('orcamento_categorias').select('*'),
@@ -184,36 +231,42 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
       supabase.from('orcamento_subitens').select('*'),
     ]);
 
-    const cats = catRes.data || [];
-    const comps = compRes.data || [];
-    const subs = subRes.data || [];
+    if (catRes.error) throw catRes.error;
+    if (compRes.error) throw compRes.error;
+    if (subRes.error) throw subRes.error;
 
-    // Group subitens by composicao_id
-    const subsByComp = new Map<string, any[]>();
+    const cats = (catRes.data || []) as DbRow[];
+    const comps = (compRes.data || []) as DbRow[];
+    const subs = (subRes.data || []) as DbRow[];
+
+    const subsByComp = new Map<string, DbRow[]>();
     for (const s of subs) {
-      const arr = subsByComp.get((s as any).composicao_id) || [];
+      const composicaoId = asString(s.composicao_id);
+      const arr = subsByComp.get(composicaoId) || [];
       arr.push(s);
-      subsByComp.set((s as any).composicao_id, arr);
+      subsByComp.set(composicaoId, arr);
     }
 
-    // Group composicoes by categoria_id
     const compsByCat = new Map<string, OrcamentoComposicao[]>();
     for (const c of comps) {
-      const compSubs = (subsByComp.get(c.id) || []).map(dbToSubitem);
+      const compId = asString(c.id);
+      const categoriaId = asString(c.categoria_id);
+      const compSubs = (subsByComp.get(compId) || []).map(dbToSubitem);
       const comp = dbToComposicao(c, compSubs);
-      const arr = compsByCat.get(c.categoria_id) || [];
+      const arr = compsByCat.get(categoriaId) || [];
       arr.push(comp);
-      compsByCat.set(c.categoria_id, arr);
+      compsByCat.set(categoriaId, arr);
     }
 
-    // Group categorias by obra_id
     const obraMap = new Map<string, OrcamentoCategoria[]>();
     for (const cat of cats) {
-      const catComps = compsByCat.get(cat.id) || [];
+      const catId = asString(cat.id);
+      const obraId = asString(cat.obra_id);
+      const catComps = compsByCat.get(catId) || [];
       const categoria = dbToCategoria(cat, catComps);
-      const arr = obraMap.get(cat.obra_id) || [];
+      const arr = obraMap.get(obraId) || [];
       arr.push(categoria);
-      obraMap.set(cat.obra_id, arr);
+      obraMap.set(obraId, arr);
     }
 
     const result: OrcamentoObra[] = [];
@@ -223,12 +276,13 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
 
     setOrcamentos(result);
 
-    // Update catalog with found categories
-    setCatalogo(prev => {
+    setCatalogo((prev) => {
       const next = [...prev];
       for (const cat of cats) {
-        if (!next.some(c => c.codigo === cat.codigo)) {
-          next.push({ codigo: cat.codigo, nome: cat.nome });
+        const codigo = asString(cat.codigo);
+        const nome = asString(cat.nome);
+        if (!next.some((c) => c.codigo === codigo)) {
+          next.push({ codigo, nome });
         }
       }
       return next;
@@ -238,18 +292,17 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll();
   }, [fetchAll]);
 
   const getOrcamento = useCallback((obraId: string) => {
-    return orcamentos.find(o => o.obraId === obraId);
+    return orcamentos.find((o) => o.obraId === obraId);
   }, [orcamentos]);
 
   const saveOrcamento = useCallback(async (orc: OrcamentoObra) => {
     const obraId = orc.obraId;
 
-    // Get existing IDs from current cache
-    const existing = orcamentos.find(o => o.obraId === obraId);
+    const existing = orcamentos.find((o) => o.obraId === obraId);
     const existingCatIds = new Set<string>();
     const existingCompIds = new Set<string>();
     const existingSubIds = new Set<string>();
@@ -270,11 +323,10 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     const newCompIds = new Set<string>();
     const newSubIds = new Set<string>();
 
-    // Upsert categorias
     for (const cat of orc.categorias) {
       newCatIds.add(cat.id);
 
-      await supabase.from('orcamento_categorias').upsert({
+      const { error: catError } = await supabase.from('orcamento_categorias').upsert({
         id: cat.id,
         obra_id: obraId,
         codigo: cat.codigo,
@@ -285,17 +337,18 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
         data_fim_prevista: cat.dataFimPrevista || null,
         data_inicio_real: cat.dataInicioReal || null,
         data_fim_real: cat.dataFimReal || null,
-        status_cronograma: (cat.statusCronograma as any) || null,
+        status_cronograma: cat.statusCronograma || null,
         percentual_cronograma: cat.percentualCronograma ?? null,
         responsavel: cat.responsavel || null,
         observacoes_cronograma: cat.observacoesCronograma || null,
       });
 
-      // Upsert composicoes
+      if (catError) throw catError;
+
       for (const comp of cat.composicoes) {
         newCompIds.add(comp.id);
 
-        await supabase.from('orcamento_composicoes').upsert({
+        const { error: compError } = await supabase.from('orcamento_composicoes').upsert({
           id: comp.id,
           categoria_id: cat.id,
           codigo: comp.codigo,
@@ -305,6 +358,13 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
           preco_unitario: comp.precoUnitario,
           preco_total: comp.precoTotal,
           usa_subitens: comp.usaSubitens,
+
+          fonte_referencia: comp.fonteReferencia || null,
+          codigo_referencia_externa: comp.codigoReferenciaExterna || null,
+          referencia_competencia: comp.referenciaCompetencia || null,
+          uf_referencia: comp.ufReferencia || null,
+          regime_referencia: comp.regimeReferencia || null,
+
           data_inicio_prevista: comp.dataInicioPrevista || null,
           data_fim_prevista: comp.dataFimPrevista || null,
           data_inicio_real: comp.dataInicioReal || null,
@@ -313,67 +373,77 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
           concluida: comp.concluida || false,
         });
 
-        // Upsert subitens
+        if (compError) throw compError;
+
         for (const sub of comp.subitens) {
           newSubIds.add(sub.id);
 
-        await (supabase.from('orcamento_subitens') as any).upsert({
-          id: sub.id,
-          composicao_id: comp.id,
-          codigo: sub.codigo,
-          descricao: sub.descricao,
-          unidade: sub.unidade || null,
-          quantidade: sub.quantidade,
-          preco_unitario: sub.precoUnitario,
-          preco_total: sub.precoTotal,
-        
-          codigo_referencia_externa: sub.codigoReferenciaExterna || null,
-          origem_grupo_titulo: sub.origemGrupoTitulo || null,
-          origem_composicao_codigo: sub.origemComposicaoCodigo || null,
-          origem_composicao_descricao: sub.origemComposicaoDescricao || null,
-        });
+          const { error: subError } = await supabase.from('orcamento_subitens').upsert({
+            id: sub.id,
+            composicao_id: comp.id,
+            codigo: sub.codigo,
+            descricao: sub.descricao,
+            unidade: sub.unidade || null,
+            quantidade: sub.quantidade,
+            preco_unitario: sub.precoUnitario,
+            preco_total: sub.precoTotal,
+
+            codigo_referencia_externa: sub.codigoReferenciaExterna || null,
+            origem_grupo_titulo: sub.origemGrupoTitulo || null,
+            origem_composicao_codigo: sub.origemComposicaoCodigo || null,
+            origem_composicao_descricao: sub.origemComposicaoDescricao || null,
+          });
+
+          if (subError) throw subError;
         }
       }
     }
 
-    // Delete removed items (order: subitens → composicoes → categorias)
-    const subsToDelete = [...existingSubIds].filter(id => !newSubIds.has(id));
-    const compsToDelete = [...existingCompIds].filter(id => !newCompIds.has(id));
-    const catsToDelete = [...existingCatIds].filter(id => !newCatIds.has(id));
+    const subsToDelete = [...existingSubIds].filter((id) => !newSubIds.has(id));
+    const compsToDelete = [...existingCompIds].filter((id) => !newCompIds.has(id));
+    const catsToDelete = [...existingCatIds].filter((id) => !newCatIds.has(id));
 
     if (subsToDelete.length > 0) {
-      await supabase.from('orcamento_subitens').delete().in('id', subsToDelete);
+      const { error } = await supabase.from('orcamento_subitens').delete().in('id', subsToDelete);
+      if (error) throw error;
     }
     if (compsToDelete.length > 0) {
-      await supabase.from('orcamento_composicoes').delete().in('id', compsToDelete);
+      const { error } = await supabase.from('orcamento_composicoes').delete().in('id', compsToDelete);
+      if (error) throw error;
     }
     if (catsToDelete.length > 0) {
-      await supabase.from('orcamento_categorias').delete().in('id', catsToDelete);
+      const { error } = await supabase.from('orcamento_categorias').delete().in('id', catsToDelete);
+      if (error) throw error;
     }
 
-    // Update catalog
-    for (const cat of orc.categorias) {
-      setCatalogo(prev => {
-        if (prev.some(c => c.codigo === cat.codigo)) return prev;
-        return [...prev, { codigo: cat.codigo, nome: cat.nome }];
-      });
-    }
+    setCatalogo((prev) => {
+      const next = [...prev];
+      for (const cat of orc.categorias) {
+        if (!next.some((c) => c.codigo === cat.codigo)) {
+          next.push({ codigo: cat.codigo, nome: cat.nome });
+        }
+      }
+      return next;
+    });
 
-    // Refetch
     await fetchAll();
   }, [orcamentos, fetchAll]);
 
   const addCategoriaToCatalogo = useCallback((cat: CategoriaTemplate) => {
-    setCatalogo(prev => {
-      if (prev.some(c => c.codigo === cat.codigo)) return prev;
+    setCatalogo((prev) => {
+      if (prev.some((c) => c.codigo === cat.codigo)) return prev;
       return [...prev, cat];
     });
   }, []);
 
   const generateCategoriaCodigo = useCallback(() => {
     const nums = catalogoCategorias
-      .map(c => { const m = c.codigo.match(/^CAT-(\d+)$/); return m ? parseInt(m[1]) : 0; })
-      .filter(n => n > 0);
+      .map((c) => {
+        const m = c.codigo.match(/^CAT-(\d+)$/);
+        return m ? parseInt(m[1], 10) : 0;
+      })
+      .filter((n) => n > 0);
+
     const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
     return `CAT-${String(next).padStart(3, '0')}`;
   }, [catalogoCategorias]);
@@ -381,26 +451,31 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
   const generateComposicaoCodigo = useCallback((categoriaCode: string, existingCodes: string[]) => {
     const prefix = categoriaCode.replace('CAT-', 'COMP-');
     let max = 0;
+
     for (const code of existingCodes) {
       const m = code.match(new RegExp(`^${prefix}-(\\d+)$`));
-      if (m) max = Math.max(max, parseInt(m[1]));
+      if (m) max = Math.max(max, parseInt(m[1], 10));
     }
+
     return `${prefix}-${String(max + 1).padStart(2, '0')}`;
   }, []);
 
   const generateSubitemCodigo = useCallback((composicaoCodigo: string, existingCodes: string[]) => {
     const prefix = composicaoCodigo.replace('COMP-', 'SUB-');
     let max = 0;
+
     for (const code of existingCodes) {
       const m = code.match(new RegExp(`^${prefix}-(\\d+)$`));
-      if (m) max = Math.max(max, parseInt(m[1]));
+      if (m) max = Math.max(max, parseInt(m[1], 10));
     }
+
     return `${prefix}-${String(max + 1).padStart(2, '0')}`;
   }, []);
 
   const getUnidadesUsadas = useCallback(() => {
     const set = new Set<string>();
-    ['vb', 'm²', 'm³', 'm', 'un', 'kg', 'saco', 'barra', 'rolo', 'l', 't', 'mês', 'dia', 'h'].forEach(u => set.add(u));
+    ['vb', 'm²', 'm³', 'm', 'un', 'kg', 'saco', 'barra', 'rolo', 'l', 't', 'mês', 'dia', 'h'].forEach((u) => set.add(u));
+
     for (const orc of orcamentos) {
       for (const cat of orc.categorias) {
         for (const comp of cat.composicoes) {
@@ -411,49 +486,73 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
+
     return Array.from(set).sort();
   }, [orcamentos]);
 
   const getSugestaoInsumos = useCallback((categoriaNome: string): InsumoTemplate[] => {
-    const fromCatalog = catalogoInsumos.filter(i => i.categoriaRef === categoriaNome);
+    const fromCatalog = catalogoInsumos.filter((i) => i.categoriaRef === categoriaNome);
     const fromExisting: InsumoTemplate[] = [];
+
     for (const orc of orcamentos) {
       for (const cat of orc.categorias) {
         if (cat.nome === categoriaNome) {
           for (const comp of cat.composicoes) {
-            if (comp.descricao && !fromCatalog.some(c => c.descricao === comp.descricao) && !fromExisting.some(e => e.descricao === comp.descricao)) {
-              fromExisting.push({ descricao: comp.descricao, unidade: comp.unidade, categoriaRef: categoriaNome });
+            if (
+              comp.descricao &&
+              !fromCatalog.some((c) => c.descricao === comp.descricao) &&
+              !fromExisting.some((e) => e.descricao === comp.descricao)
+            ) {
+              fromExisting.push({
+                descricao: comp.descricao,
+                unidade: comp.unidade,
+                categoriaRef: categoriaNome,
+              });
             }
           }
         }
       }
     }
+
     return [...fromCatalog, ...fromExisting];
   }, [orcamentos]);
 
   const getComposicoesUsadasPorCategoria = useCallback((categoriaNome: string) => {
     const result: { descricao: string; unidade: string }[] = [];
+
     for (const orc of orcamentos) {
       for (const cat of orc.categorias) {
         if (cat.nome === categoriaNome) {
           for (const comp of cat.composicoes) {
-            if (comp.descricao && !result.some(r => r.descricao === comp.descricao)) {
+            if (comp.descricao && !result.some((r) => r.descricao === comp.descricao)) {
               result.push({ descricao: comp.descricao, unidade: comp.unidade });
             }
           }
         }
       }
     }
+
     return result;
   }, [orcamentos]);
 
   return (
-    <OrcamentoContext.Provider value={{
-      orcamentos, loading, getOrcamento, saveOrcamento, catalogoCategorias,
-      addCategoriaToCatalogo, generateCategoriaCodigo, getUnidadesUsadas,
-      getSugestaoInsumos, getComposicoesUsadasPorCategoria,
-      generateComposicaoCodigo, generateSubitemCodigo, refreshOrcamentos: fetchAll,
-    }}>
+    <OrcamentoContext.Provider
+      value={{
+        orcamentos,
+        loading,
+        getOrcamento,
+        saveOrcamento,
+        catalogoCategorias,
+        addCategoriaToCatalogo,
+        generateCategoriaCodigo,
+        getUnidadesUsadas,
+        getSugestaoInsumos,
+        getComposicoesUsadasPorCategoria,
+        generateComposicaoCodigo,
+        generateSubitemCodigo,
+        refreshOrcamentos: fetchAll,
+      }}
+    >
       {children}
     </OrcamentoContext.Provider>
   );

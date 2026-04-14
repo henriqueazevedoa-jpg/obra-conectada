@@ -1,11 +1,33 @@
-import { useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+type SinapiComposicaoResumo = {
+  codigo: number;
+  descricao: string;
+  unidade: string | null;
+  grupo: string | null;
+};
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
+
+import { listarReferenciasSinapi } from '@/lib/sinapi/listarReferencias';
+import { buscarComposicoesSinapi } from '@/lib/sinapi/buscarComposicoes';
+
 import type { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
 import type { SinapiRegime } from '@/lib/sinapi/expandComposicao';
 
@@ -13,7 +35,6 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categorias: OrcamentoCategoria[];
-  defaultReferenciaId?: string;
   defaultCompetencia?: string;
   onConfirm: (params: {
     categoriaId: string;
@@ -41,16 +62,20 @@ export default function ImportarSinapiDialog({
   open,
   onOpenChange,
   categorias,
-  defaultReferenciaId = '',
   defaultCompetencia = '',
   onConfirm,
 }: Props) {
   const [categoriaId, setCategoriaId] = useState('');
-  const [referenciaId, setReferenciaId] = useState(defaultReferenciaId);
+  const [referenciaId, setReferenciaId] = useState('');
   const [competencia, setCompetencia] = useState(defaultCompetencia);
-  const [codigoComposicao, setCodigoComposicao] = useState('');
+
   const [uf, setUf] = useState('SP');
   const [regime, setRegime] = useState<SinapiRegime>('SEM_DESONERACAO');
+
+  const [referencias, setReferencias] = useState<{ id: string; label: string }[]>([]);
+  const [busca, setBusca] = useState('');
+  const [resultados, setResultados] = useState<SinapiComposicaoResumo[]>([]);
+  const [composicaoSelecionada, setComposicaoSelecionada] = useState<SinapiComposicaoResumo | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -66,58 +91,78 @@ export default function ImportarSinapiDialog({
     if (typeof value === 'number') setProgress(value);
   }
 
+  // carregar referências
+  useEffect(() => {
+    if (!open) return;
+
+    listarReferenciasSinapi().then(setReferencias);
+  }, [open]);
+
+  // busca com debounce
+  useEffect(() => {
+    if (!referenciaId || busca.length < 3) return;
+
+    const timeout = setTimeout(async () => {
+      try {
+        const data = await buscarComposicoesSinapi({
+          referenciaId,
+          termo: busca,
+        });
+        setResultados(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [busca, referenciaId]);
+
   async function handleSubmit() {
     if (!categoriaId) {
-      toast({ title: 'Selecione a categoria de destino', variant: 'destructive' });
+      toast({ title: 'Selecione a categoria', variant: 'destructive' });
       return;
     }
 
-    if (!referenciaId.trim()) {
-      toast({ title: 'Informe o ID da referência SINAPI', variant: 'destructive' });
+    if (!referenciaId) {
+      toast({ title: 'Selecione a referência SINAPI', variant: 'destructive' });
       return;
     }
 
-    if (!competencia.trim()) {
-      toast({ title: 'Informe a competência da referência', variant: 'destructive' });
-      return;
-    }
-
-    const codigo = Number(codigoComposicao);
-    if (!codigo) {
-      toast({ title: 'Informe um código de composição válido', variant: 'destructive' });
+    if (!composicaoSelecionada) {
+      toast({ title: 'Selecione uma composição', variant: 'destructive' });
       return;
     }
 
     setIsLoading(true);
     setLogs([]);
-    setProgress(5);
+    setProgress(10);
 
     try {
-      appendLog('Iniciando importação...', 10);
+      appendLog('Buscando composição...', 20);
 
       await onConfirm({
         categoriaId,
-        referenciaId: referenciaId.trim(),
-        competencia: competencia.trim(),
-        codigoComposicao: codigo,
+        referenciaId,
+        competencia,
+        codigoComposicao: Number(composicaoSelecionada.codigo),
         uf,
         regime,
-        onProgress: (value, message) => appendLog(message, value),
+        onProgress: (p: number, msg: string) => appendLog(msg, p),
       });
 
-      appendLog('Composição importada com sucesso.', 100);
+      appendLog('Importação concluída.', 100);
 
-      toast({ title: 'Composição SINAPI adicionada ao orçamento' });
+      toast({ title: 'Composição importada com sucesso' });
       onOpenChange(false);
     } catch (error: unknown) {
       const message =
-         error instanceof Error ? error.message : 'Falha inesperada';
+        error instanceof Error ? error.message : 'Erro inesperado';
 
-        toast({
-          title: 'Erro ao importar composição SINAPI',
-          description: message,
-          variant: 'destructive',
-        });
+      toast({
+        title: 'Erro ao importar',
+        description: message,
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -127,15 +172,17 @@ export default function ImportarSinapiDialog({
     <Dialog open={open} onOpenChange={(next) => !isLoading && onOpenChange(next)}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Importar composição da SINAPI</DialogTitle>
+          <DialogTitle>Importar da SINAPI</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
+
+          {/* Categoria */}
           <div className="grid gap-2">
-            <Label>Categoria de destino</Label>
+            <Label>Categoria destino</Label>
             <Select value={categoriaId} onValueChange={setCategoriaId}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione a categoria" />
+                <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
                 {categoriaOptions.map((cat) => (
@@ -147,88 +194,106 @@ export default function ImportarSinapiDialog({
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>ID da referência</Label>
-              <Input
-                value={referenciaId}
-                onChange={(e) => setReferenciaId(e.target.value)}
-                placeholder="UUID da sinapi_referencias"
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Competência</Label>
-              <Input
-                value={competencia}
-                onChange={(e) => setCompetencia(e.target.value)}
-                placeholder="2026-02"
-                disabled={isLoading}
-              />
-            </div>
+          {/* Referência */}
+          <div className="grid gap-2">
+            <Label>Referência SINAPI</Label>
+            <Select value={referenciaId} onValueChange={setReferenciaId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a referência" />
+              </SelectTrigger>
+              <SelectContent>
+                {referencias.map((ref) => (
+                  <SelectItem key={ref.id} value={ref.id}>
+                    {ref.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="grid gap-2 sm:col-span-1">
-              <Label>Código da composição</Label>
-              <Input
-                value={codigoComposicao}
-                onChange={(e) => setCodigoComposicao(e.target.value)}
-                placeholder="Ex: 104658"
-                disabled={isLoading}
-              />
-            </div>
+          {/* Busca */}
+          <div className="grid gap-2">
+            <Label>Buscar composição</Label>
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Digite nome ou código"
+              disabled={!referenciaId || isLoading}
+            />
+          </div>
 
-            <div className="grid gap-2">
+          {/* Resultados */}
+          {resultados.length > 0 && (
+            <div className="border rounded-md max-h-40 overflow-auto">
+              {resultados.map((item) => (
+                <div
+                  key={item.codigo}
+                  className={`p-2 cursor-pointer hover:bg-muted ${
+                    composicaoSelecionada?.codigo === item.codigo
+                      ? 'bg-muted'
+                      : ''
+                  }`}
+                  onClick={() => setComposicaoSelecionada(item)}
+                >
+                  <div className="text-sm font-medium">
+                    {item.codigo} — {item.descricao}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {item.unidade} • {item.grupo}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* UF + Regime */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <Label>UF</Label>
               <Select value={uf} onValueChange={setUf}>
                 <SelectTrigger>
-                  <SelectValue placeholder="UF" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {UFS.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
+                  {UFS.map((u) => (
+                    <SelectItem key={u} value={u}>{u}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="grid gap-2">
+            <div>
               <Label>Regime</Label>
               <Select value={regime} onValueChange={(v) => setRegime(v as SinapiRegime)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Regime" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {REGIMES.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
+                  {REGIMES.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
+          {/* Loading */}
           {isLoading && (
-            <div className="rounded-xl border p-4 space-y-3 bg-muted/30">
-              <div className="flex items-center justify-between text-sm">
-                <span>Importando dados da SINAPI</span>
+            <div className="border p-3 rounded-md space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Importando...</span>
                 <span>{progress}%</span>
               </div>
-
               <Progress value={progress} />
 
-              <div className="rounded-md bg-background border p-3 max-h-40 overflow-auto text-xs space-y-1">
-                {logs.map((log, index) => (
-                  <div key={`${log}-${index}`}>{log}</div>
+              <div className="text-xs max-h-32 overflow-auto space-y-1">
+                {logs.map((log, i) => (
+                  <div key={i}>{log}</div>
                 ))}
               </div>
             </div>
           )}
+
         </div>
 
         <DialogFooter>
@@ -236,7 +301,7 @@ export default function ImportarSinapiDialog({
             Cancelar
           </Button>
           <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? 'Importando...' : 'Importar'}
+            Importar
           </Button>
         </DialogFooter>
       </DialogContent>
