@@ -37,7 +37,7 @@ const statusLabels: Record<string, string> = {
 };
 
 type StatusFilter = 'todos' | 'pago' | 'atrasado' | 'previsto';
-type ViewMode = 'list' | 'gantt' | 'calendar' | 'resumo';
+type ViewMode = 'list' | 'resumo';
 
 export default function CronogramaPagamentos({ obraId }: Props) {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
@@ -124,8 +124,6 @@ export default function CronogramaPagamentos({ obraId }: Props) {
 
   const viewButtons: { icon: React.ReactNode; value: ViewMode; title: string }[] = [
     { icon: <List className="h-3.5 w-3.5" />, value: 'list', title: 'Lista' },
-    { icon: <BarChart3 className="h-3.5 w-3.5" />, value: 'gantt', title: 'Timeline' },
-    { icon: <Calendar className="h-3.5 w-3.5" />, value: 'calendar', title: 'Calendário' },
     { icon: <TrendingUp className="h-3.5 w-3.5" />, value: 'resumo', title: 'Resumo Mensal' },
   ];
 
@@ -243,50 +241,8 @@ export default function CronogramaPagamentos({ obraId }: Props) {
               );
             })}
           </div>
-        ) : viewMode === 'calendar' ? (
-          <PagamentosCalendarView items={filtered} />
-        ) : viewMode === 'resumo' ? (
-          <PagamentosResumoMensal items={filtered} />
         ) : (
-          /* Gantt/Timeline view */
-          ganttData && (
-            <div className="space-y-1 max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-[140px] shrink-0" />
-                <div className="flex-1 flex justify-between text-[10px] text-muted-foreground">
-                  <span>{format(ganttData.minDate, 'dd/MM', { locale: ptBR })}</span>
-                  <span>{format(ganttData.maxDate, 'dd/MM', { locale: ptBR })}</span>
-                </div>
-              </div>
-              {filtered.filter(p => p.data_vencimento).map(p => {
-                const date = parseISO(p.data_vencimento);
-                const offset = (differenceInDays(date, ganttData.minDate) / ganttData.totalDays) * 100;
-                const color = p.realStatus === 'pago' ? 'bg-success' : p.realStatus === 'atrasado' ? 'bg-destructive' : 'bg-primary';
-                return (
-                  <div key={p.id} className="flex items-center gap-2 group">
-                    <div className="w-[140px] shrink-0 truncate text-xs text-foreground" title={p.descricao}>
-                      {p.descricao}
-                    </div>
-                    <div className="flex-1 relative h-6 bg-muted/50 rounded">
-                      <div
-                        className={`absolute top-1 h-4 w-4 rounded-full ${color} ring-2 ring-background shadow-sm`}
-                        style={{ left: `calc(${Math.min(Math.max(offset, 0), 100)}% - 8px)` }}
-                        title={`${format(date, 'dd/MM/yyyy')} — ${formatCurrency(Number(p.valor_previsto))} — ${statusLabels[p.realStatus]}`}
-                      />
-                    </div>
-                    <span className="text-[10px] font-mono text-muted-foreground w-[70px] text-right shrink-0">
-                      {formatCurrency(Number(p.valor_previsto))}
-                    </span>
-                  </div>
-                );
-              })}
-              <div className="flex gap-3 mt-3 pt-2 border-t border-border">
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-primary" /> Previsto</div>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-success" /> Pago</div>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-destructive" /> Atrasado</div>
-              </div>
-            </div>
-          )
+          <PagamentosResumoMensal items={filtered} />
         )}
       </CardContent>
     </Card>

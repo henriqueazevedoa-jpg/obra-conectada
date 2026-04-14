@@ -10,51 +10,39 @@ export interface PrintSections {
   identificacao: boolean;
   kpis: boolean;
   resumoExecutivo: boolean;
-  pontosAtencao: boolean;
-  curvaS: boolean;
+  visaoGeral: boolean;
+  estoqueCritico: boolean;
+  cronogramaPagamentos: boolean;
   cronograma: boolean;
   custosEtapa: boolean;
   curvaABC: boolean;
-  cronogramaPagamentos: boolean;
-  estoqueCritico: boolean;
   diario: boolean;
-  pagamentos: boolean;
-  pendencias: boolean;
-  fornecedores: boolean;
 }
 
 export const defaultPrintSections: PrintSections = {
   identificacao: true,
   kpis: true,
   resumoExecutivo: true,
-  pontosAtencao: true,
-  curvaS: true,
+  visaoGeral: true,
+  estoqueCritico: true,
+  cronogramaPagamentos: true,
   cronograma: true,
   custosEtapa: true,
   curvaABC: true,
-  cronogramaPagamentos: true,
-  estoqueCritico: true,
   diario: true,
-  pagamentos: true,
-  pendencias: true,
-  fornecedores: true,
 };
 
 const sectionLabels: Record<keyof PrintSections, string> = {
   identificacao: 'Identificação da Obra',
   kpis: 'Indicadores (KPIs)',
   resumoExecutivo: 'Resumo Executivo',
-  pontosAtencao: 'Pontos de Atenção',
-  curvaS: 'Curva S',
-  cronograma: 'Resumo do Cronograma',
-  custosEtapa: 'Custos por Etapa',
-  curvaABC: 'Curva ABC',
+  visaoGeral: 'Visão Geral da Obra',
+  estoqueCritico: 'Materiais com Estoque Baixo',
   cronogramaPagamentos: 'Cronograma de Pagamentos',
-  estoqueCritico: 'Estoque Crítico',
-  diario: 'Últimos Registros do Diário',
-  pagamentos: 'Pagamentos',
-  pendencias: 'Pendências',
-  fornecedores: 'Fornecedores',
+  cronograma: 'Resumo do Cronograma',
+  custosEtapa: 'Distribuição de Custos',
+  curvaABC: 'Curva ABC',
+  diario: 'Diário de Obra',
 };
 
 interface Props {
