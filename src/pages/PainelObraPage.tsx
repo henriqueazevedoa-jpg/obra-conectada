@@ -68,10 +68,10 @@ function computeStatus(cat: any): string {
   return 'nao_iniciada';
 }
 
-type SectionKey = 'identificacao' | 'kpis' | 'resumoExecutivo' | 'visaoGeral' | 'estoqueCritico' | 'cronogramaPagamentos' | 'cronograma' | 'custosEtapa' | 'curvaABC' | 'diario';
+type SectionKey = 'identificacao' | 'kpis' | 'acoesPrioritarias' | 'resumoExecutivo' | 'visaoGeral' | 'estoqueCritico' | 'cronogramaPagamentos' | 'cronograma' | 'custosEtapa' | 'curvaABC' | 'diario';
 
 const defaultSectionOrder: SectionKey[] = [
-  'identificacao', 'kpis', 'resumoExecutivo', 'visaoGeral', 'estoqueCritico',
+  'identificacao', 'kpis', 'acoesPrioritarias', 'resumoExecutivo', 'visaoGeral', 'estoqueCritico',
   'cronogramaPagamentos', 'cronograma', 'custosEtapa', 'curvaABC', 'diario',
 ];
 
@@ -224,6 +224,20 @@ function GestorPainel() {
               andamentoPlanejado={andamentoPlanejado} etapasAtrasadas={atrasadas.length}
               materiaisBaixo={materiaisBaixo.length} registrosPendentes={registrosPendentes.length}
               pagamentosAtrasados={pagamentosAtrasados.count}
+            />
+          </div>
+        );
+
+      case 'acoesPrioritarias':
+        return (
+          <div key={key} {...dragProps}>
+            <AcoesPrioritarias
+              pagamentosAtrasados={pagamentosAtrasados.count}
+              pagamentosAtrasadosValor={pagamentosAtrasados.valor}
+              materiaisBaixo={materiaisBaixo.map(m => ({ nome: m.nome, estoqueAtual: m.estoqueAtual, unidade: m.unidade }))}
+              pendenciasAlta={pendenciasAlta}
+              etapasAtrasadas={atrasadas.map(c => ({ nome: c.nome }))}
+              registrosPendentes={registrosPendentes.length}
             />
           </div>
         );
