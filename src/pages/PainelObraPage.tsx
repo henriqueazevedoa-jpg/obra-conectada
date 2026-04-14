@@ -20,24 +20,25 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
   Clock, CalendarDays, DollarSign, Users,
-  LayoutDashboard, Plus, ChevronDown, List, BarChart3,
+  LayoutDashboard, Plus, ChevronDown, List, BarChart3, GitBranch, Calendar,
+  ListChecks, Wallet,
 } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfDay, differenceInWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import SCurveChart from '@/components/painel/SCurveChart';
 import ABCTable from '@/components/painel/ABCTable';
 import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
 import ResumoExecutivo from '@/components/painel/ResumoExecutivo';
 import SmartCards from '@/components/painel/SmartCards';
 import ObraHeader from '@/components/painel/ObraHeader';
 import AcoesPrioritarias from '@/components/painel/AcoesPrioritarias';
-import PendenciasBlock from '@/components/painel/PendenciasBlock';
 import CostPieChart from '@/components/painel/CostPieChart';
 import PontosAtencao from '@/components/painel/PontosAtencao';
 import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import CronogramaPagamentos from '@/components/painel/CronogramaPagamentos';
 import NoObraState from '@/components/obras/NoObraState';
 import ObraCalendarView from '@/components/painel/ObraCalendarView';
+import PainelUnifiedListView from '@/components/painel/PainelUnifiedListView';
+import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
 
 interface DiarioRow {
   id: string; data: string; clima: string; trabalhadores: number;
@@ -81,6 +82,10 @@ function GestorPainel() {
   const [pendenciasAlta, setPendenciasAlta] = useState(0);
   const [diarioOpen, setDiarioOpen] = useState(false);
   const [cronogramaView, setCronogramaView] = useState<'list' | 'gantt'>('list');
+  const [calendarViewMode, setCalendarViewMode] = useState<ViewMode>('calendario');
+  const [calendarSources, setCalendarSources] = useState<Set<'agenda' | 'pendencias' | 'pagamentos' | 'diario'>>(
+    new Set(['agenda', 'pendencias', 'pagamentos', 'diario'])
+  );
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
@@ -244,25 +249,45 @@ function GestorPainel() {
         />
       </div>
 
-      {/* 4.5. Calendário da Obra */}
-      <ObraCalendarView
-        obraId={obra.id}
-        sources={['agenda', 'pendencias', 'pagamentos', 'diario']}
-      />
+      {/* 4.5. Visão Unificada da Obra */}
+      <Card className="shadow-card">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Visão Geral da Obra
+            </CardTitle>
+            <ViewModeSwitcher value={calendarViewMode} onChange={setCalendarViewMode} />
+          </div>
+          {/* Source toggles */}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {(['agenda', 'pendencias', 'pagamentos', 'diario'] as const).map(s => {
+              const cfg = { agenda: { icon: CalendarDays, label: 'Agenda', color: 'bg-primary text-primary-foreground' }, pendencias: { icon: ListChecks, label: 'Pendências', color: 'bg-warning text-warning-foreground' }, pagamentos: { icon: Wallet, label: 'Pagamentos', color: 'bg-accent text-accent-foreground' }, diario: { icon: BookOpen, label: 'Diário', color: 'bg-emerald-500/10 text-emerald-700' } }[s];
+              const Icon = cfg.icon;
+              const active = calendarSources.has(s);
+              return (
+                <button key={s} onClick={() => setCalendarSources(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; })}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all border ${active ? 'border-transparent ' + cfg.color : 'border-border text-muted-foreground bg-transparent opacity-50'}`}
+                >
+                  <Icon className="h-3 w-3" /> {cfg.label}
+                </button>
+              );
+            })}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-2">
+          {calendarViewMode === 'calendario' ? (
+            <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact />
+          ) : calendarViewMode === 'timeline' ? (
+            <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
+          ) : (
+            <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
+          )}
+        </CardContent>
+      </Card>
 
-      {/* 5. Charts Row 1: Curva S + Pizza */}
-      <div className="grid md:grid-cols-2 gap-5">
-        <div data-print-section="curvaS">
-          <SCurveChart
-            categorias={categorias}
-            custoItens={custoItens}
-            obraInicio={obra.dataInicio}
-            obraFim={obra.dataPrevisaoTermino}
-          />
-        </div>
-        <div data-print-section="custosEtapa">
-          <CostPieChart categorias={categorias} custoItens={custoItens} />
-        </div>
+      {/* 5. Custos por Etapa */}
+      <div data-print-section="custosEtapa">
+        <CostPieChart categorias={categorias} custoItens={custoItens} />
       </div>
 
       {/* 6. Curva ABC — Full Width */}
@@ -270,20 +295,17 @@ function GestorPainel() {
         <ABCTable categorias={categorias} custoItens={custoItens} />
       </div>
 
-      {/* 7. Pendências + Pontos de Atenção */}
-      <div className="grid md:grid-cols-2 gap-5">
-        <PendenciasBlock obraId={obra.id} />
-        <PontosAtencao
-          etapasAtrasadas={etapasAtrasadasData}
-          materiaisBaixo={materiaisBaixo.map(m => ({
-            id: m.id, nome: m.nome, estoqueAtual: m.estoqueAtual,
-            estoqueMinimo: m.estoqueMinimo, unidade: m.unidade,
-          }))}
-          registrosPendentes={registrosPendentes.length}
-          pagamentosAtrasados={pagamentosAtrasados.count}
-          pagamentosAtrasadosValor={pagamentosAtrasados.valor}
-        />
-      </div>
+      {/* 7. Pontos de Atenção */}
+      <PontosAtencao
+        etapasAtrasadas={etapasAtrasadasData}
+        materiaisBaixo={materiaisBaixo.map(m => ({
+          id: m.id, nome: m.nome, estoqueAtual: m.estoqueAtual,
+          estoqueMinimo: m.estoqueMinimo, unidade: m.unidade,
+        }))}
+        registrosPendentes={registrosPendentes.length}
+        pagamentosAtrasados={pagamentosAtrasados.count}
+        pagamentosAtrasadosValor={pagamentosAtrasados.valor}
+      />
 
       {/* 8. Cronograma de Pagamentos */}
       <CronogramaPagamentos obraId={obra.id} />
