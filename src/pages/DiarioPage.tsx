@@ -937,8 +937,17 @@ ${toPrint.map(r => {
         </div>
       )}
 
-      {/* Timeline */}
-      {loading ? (
+      {/* Content views */}
+      {viewMode === 'calendario' ? (
+        <ObraCalendarView obraId={obra.id} sources={['diario']} fetchFromDb={true} />
+      ) : viewMode === 'timeline' ? (
+        loading ? <div className="text-center py-12 text-muted-foreground text-sm">Carregando registros...</div> :
+        <DiarioTimelineView items={sortedRegistros.map(r => ({
+          id: r.id, data: r.data, clima: r.clima, trabalhadores: r.trabalhadores,
+          servicosExecutados: r.servicosExecutados, problemas: r.problemas,
+          observacoes: r.observacoes, status: r.status, usuario: r.usuario,
+        }))} />
+      ) : loading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">Carregando registros...</div>
       ) : sortedRegistros.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
