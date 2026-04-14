@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useObras } from '@/contexts/ObrasContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,14 +15,10 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
-  Plus, Pencil, Trash2, Store, DollarSign, Search,
+  Plus, Pencil, Trash2, Store, Search, Package,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
-import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 
 interface Fornecedor {
   id: string; obra_id: string; nome: string; cnpj: string | null;
@@ -30,42 +26,13 @@ interface Fornecedor {
   observacoes: string | null; created_at: string;
 }
 
-interface PrecoFornecedor {
-  id: string; fornecedor_id: string; obra_id: string | null;
-  material_id: string | null; descricao_item_snapshot: string | null;
-  preco_unitario: number; unidade: string | null;
-  data_referencia: string; origem_preco: string;
-  observacoes: string | null; created_at: string;
-}
-
-const origemLabels: Record<string, string> = {
-  compra_real: 'Compra Real', cotacao: 'Cotação', tabela: 'Tabela', outro: 'Outro',
-};
-
-const categoriaLabels: Record<string, string> = {
-  material: 'Material',
-  mao_de_obra: 'Mão de Obra',
-  equipamento: 'Equipamento',
-  servico: 'Serviço',
-  outro: 'Outro',
-};
-
 const emptyFornecedor = { nome: '', cnpj: '', email: '', telefone: '', cidade: '', observacoes: '' };
-type OrigemPreco = 'compra_real' | 'cotacao' | 'tabela' | 'outro';
-type CategoriaPreco = 'material' | 'mao_de_obra' | 'equipamento' | 'servico' | 'outro';
-
-const emptyPreco = {
-  fornecedor_id: '', descricao_item_snapshot: '', preco_unitario: '',
-  unidade: '', data_referencia: new Date().toISOString().slice(0, 10),
-  origem_preco: 'cotacao' as OrigemPreco, categoria: 'material' as CategoriaPreco,
-  observacoes: '',
-};
 
 export default function FornecedoresPage() {
   const { obras } = useObras();
+  const navigate = useNavigate();
 
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [precos, setPrecos] = useState<PrecoFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [fDialogOpen, setFDialogOpen] = useState(false);
@@ -73,51 +40,25 @@ export default function FornecedoresPage() {
   const [fForm, setFForm] = useState(emptyFornecedor);
   const [fDeleteId, setFDeleteId] = useState<string | null>(null);
   const [fSearch, setFSearch] = useState('');
-
-  const [pDialogOpen, setPDialogOpen] = useState(false);
-  const [pEditingId, setPEditingId] = useState<string | null>(null);
-  const [pForm, setPForm] = useState(emptyPreco);
-  const [pDeleteId, setPDeleteId] = useState<string | null>(null);
   const [fObraId, setFObraId] = useState(obras[0]?.id || '');
-
-  const [filterFornecedor, setFilterFornecedor] = useState('todos');
-  const [filterItem, setFilterItem] = useState('');
-  const [filterCategoria, setFilterCategoria] = useState('todos');
-  const [filterObra, setFilterObra] = useState('todos');
   const [savingF, setSavingF] = useState(false);
-  const [savingP, setSavingP] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (obras.length === 0) { setFornecedores([]); setPrecos([]); setLoading(false); return; }
+    if (obras.length === 0) { setFornecedores([]); setLoading(false); return; }
     setLoading(true);
     const obraIds = obras.map(o => o.id);
-    const [fRes, pRes] = await Promise.all([
-      supabase.from('fornecedores').select('*').in('obra_id', obraIds).order('nome'),
-      supabase.from('precos_fornecedores').select('*').in('obra_id', obraIds).order('data_referencia', { ascending: false }),
-    ]);
-    setFornecedores((fRes.data || []) as Fornecedor[]);
-    setPrecos((pRes.data || []) as PrecoFornecedor[]);
+    const { data } = await supabase.from('fornecedores').select('*').in('obra_id', obraIds).order('nome');
+    setFornecedores((data || []) as Fornecedor[]);
     setLoading(false);
   }, [obras.map(o => o.id).join(',')]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Autocomplete suggestions from existing items
-  const itemSuggestions = useMemo(() => {
-    const unique = new Map<string, string>();
-    precos.forEach(p => {
-      const desc = p.descricao_item_snapshot || '';
-      if (desc && !unique.has(desc.toLowerCase())) {
-        unique.set(desc.toLowerCase(), desc);
-      }
-    });
-    return Array.from(unique.values()).map(label => ({
-      label,
-      value: label.toLowerCase(),
-    }));
-  }, [precos]);
+  const getObraNome = (obraId: string) => {
+    const o = obras.find(ob => ob.id === obraId);
+    return o ? (o.codigo ? `${o.codigo}` : o.nome) : '';
+  };
 
-  // -- Fornecedor CRUD --
   const openCreateF = () => {
     setFEditingId(null);
     setFForm(emptyFornecedor);
@@ -132,7 +73,6 @@ export default function FornecedoresPage() {
   };
   const saveF = async () => {
     if (!fForm.nome || savingF) return;
-    if (!fForm.nome) { toast({ title: 'Preencha o nome.', variant: 'destructive' }); return; }
     setSavingF(true);
     try {
       const payload = { nome: fForm.nome, cnpj: fForm.cnpj || null, email: fForm.email || null, telefone: fForm.telefone || null, cidade: fForm.cidade || null, observacoes: fForm.observacoes || null };
@@ -156,263 +96,76 @@ export default function FornecedoresPage() {
     toast({ title: 'Fornecedor excluído.' }); setFDeleteId(null); fetchData();
   };
 
-  // -- Preço CRUD --
-  const openCreateP = () => {
-    setPEditingId(null);
-    setPForm({ ...emptyPreco, fornecedor_id: fornecedores[0]?.id || '' });
-    setPDialogOpen(true);
-  };
-  const openEditP = (p: PrecoFornecedor) => {
-    setPEditingId(p.id);
-    setPForm({
-      fornecedor_id: p.fornecedor_id, descricao_item_snapshot: p.descricao_item_snapshot || '',
-      preco_unitario: String(p.preco_unitario), unidade: p.unidade || '',
-      data_referencia: p.data_referencia, origem_preco: p.origem_preco as OrigemPreco,
-      categoria: ((p as any).categoria || 'material') as CategoriaPreco,
-      observacoes: p.observacoes || '',
-    });
-    setPDialogOpen(true);
-  };
-  const saveP = async () => {
-    if (!pForm.descricao_item_snapshot || !pForm.preco_unitario || !pForm.fornecedor_id || savingP) return;
-    setSavingP(true);
-    try {
-      const forn = fornecedores.find(f => f.id === pForm.fornecedor_id);
-      const payload = {
-        fornecedor_id: pForm.fornecedor_id, descricao_item_snapshot: pForm.descricao_item_snapshot,
-        preco_unitario: parseFloat(pForm.preco_unitario), unidade: pForm.unidade || null,
-        data_referencia: pForm.data_referencia, origem_preco: pForm.origem_preco,
-        categoria: pForm.categoria,
-        observacoes: pForm.observacoes || null, obra_id: forn?.obra_id || obras[0]?.id,
-      };
-      if (pEditingId) {
-        const { error } = await supabase.from('precos_fornecedores').update(payload).eq('id', pEditingId);
-        if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
-        toast({ title: 'Preço atualizado!' });
-      } else {
-        const { error } = await supabase.from('precos_fornecedores').insert(payload);
-        if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
-        toast({ title: 'Preço registrado!' });
-      }
-      setPDialogOpen(false); fetchData();
-    } finally { setSavingP(false); }
-  };
-  const deleteP = async () => {
-    if (!pDeleteId) return;
-    const { error } = await supabase.from('precos_fornecedores').delete().eq('id', pDeleteId);
-    if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Preço excluído.' }); setPDeleteId(null); fetchData();
-  };
-
-  const getFornecedorNome = (id: string) => fornecedores.find(f => f.id === id)?.nome || '—';
-  const getObraNome = (obraId: string) => {
-    const o = obras.find(ob => ob.id === obraId);
-    return o ? (o.codigo ? `${o.codigo}` : o.nome) : '';
-  };
-
   const filteredFornecedores = fornecedores.filter(f =>
     !fSearch || f.nome.toLowerCase().includes(fSearch.toLowerCase()) ||
     (f.cnpj || '').includes(fSearch) ||
     (f.cidade || '').toLowerCase().includes(fSearch.toLowerCase())
   );
 
-  const filteredPrecos = precos
-    .filter(p => filterObra === 'todos' || p.obra_id === filterObra)
-    .filter(p => filterFornecedor === 'todos' || p.fornecedor_id === filterFornecedor)
-    .filter(p => filterCategoria === 'todos' || (p as any).categoria === filterCategoria)
-    .filter(p => !filterItem || (p.descricao_item_snapshot || '').toLowerCase().includes(filterItem.toLowerCase()));
-
-  // Resumos
-  const itemMap = new Map<string, PrecoFornecedor[]>();
-  filteredPrecos.forEach(p => {
-    const key = (p.descricao_item_snapshot || '').toLowerCase();
-    if (!itemMap.has(key)) itemMap.set(key, []);
-    itemMap.get(key)!.push(p);
-  });
-  const resumos = Array.from(itemMap.entries()).map(([item, list]) => {
-    const sorted = [...list].sort((a, b) => b.data_referencia.localeCompare(a.data_referencia));
-    const menor = list.reduce((m, p) => p.preco_unitario < m.preco_unitario ? p : m, list[0]);
-    return { item: list[0].descricao_item_snapshot || item, menor, ultimo: sorted[0] };
-  });
-
   return (
     <div className="space-y-4 animate-fade-in">
       <PageHeader
-        title="Fornecedores & Banco de Preços"
-        subtitle="Banco centralizado de fornecedores e preços de materiais, mão de obra, equipamentos e serviços"
+        title="Fornecedores"
+        subtitle="Cadastro e gestão de fornecedores"
         icon={<Store className="h-5 w-5 text-primary" />}
         showObraSelector={false}
       />
 
-      <Tabs defaultValue="fornecedores">
-        <TabsList>
-          <TabsTrigger value="fornecedores"><Store className="h-4 w-4 mr-1" /> Fornecedores</TabsTrigger>
-          <TabsTrigger value="precos"><DollarSign className="h-4 w-4 mr-1" /> Banco de Preços</TabsTrigger>
-        </TabsList>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar fornecedor..."
+            value={fSearch}
+            onChange={e => setFSearch(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/insumos')} className="gap-1">
+            <Package className="h-4 w-4" /> Ver Banco de Preços
+          </Button>
+          <Button onClick={openCreateF} size="sm">
+            <Plus className="h-4 w-4 mr-1" /> Novo Fornecedor
+          </Button>
+        </div>
+      </div>
 
-        {/* === TAB FORNECEDORES === */}
-        <TabsContent value="fornecedores" className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar fornecedor..."
-                value={fSearch}
-                onChange={e => setFSearch(e.target.value)}
-                className="pl-9 h-9"
-              />
-            </div>
-            <Button onClick={openCreateF} size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Novo Fornecedor
-            </Button>
-          </div>
-          {loading ? <div className="text-center py-10 text-muted-foreground">Carregando...</div> :
-           filteredFornecedores.length === 0 ? (
-            <Card><CardContent className="p-10 text-center text-muted-foreground">
-              <Store className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Nenhum fornecedor cadastrado.</p>
-            </CardContent></Card>
-          ) : (
-            <div className="space-y-2">
-              {filteredFornecedores.map(f => (
-                <Card key={f.id}>
-                  <CardContent className="p-4 flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">{f.nome}</p>
-                        <Badge variant="outline" className="text-[10px] shrink-0">{getObraNome(f.obra_id)}</Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-1">
-                        {f.cnpj && <span>CNPJ: {f.cnpj}</span>}
-                        {f.telefone && <span>Tel: {f.telefone}</span>}
-                        {f.email && <span>{f.email}</span>}
-                        {f.cidade && <span>{f.cidade}</span>}
-                      </div>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button onClick={() => openEditF(f)} className="p-1.5 rounded-md hover:bg-accent"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                      <button onClick={() => setFDeleteId(f.id)} className="p-1.5 rounded-md hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* === TAB PREÇOS === */}
-        <TabsContent value="precos" className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-2 justify-between">
-            <div className="flex gap-2 flex-wrap">
-              <Select value={filterObra} onValueChange={setFilterObra}>
-                <SelectTrigger className="w-[180px] h-9 text-sm"><SelectValue placeholder="Obra" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas Obras</SelectItem>
-                  {obras.map(o => <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo}` : o.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filterFornecedor} onValueChange={setFilterFornecedor}>
-                <SelectTrigger className="w-[180px] h-9 text-sm"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos Fornecedores</SelectItem>
-                  {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filterCategoria} onValueChange={setFilterCategoria}>
-                <SelectTrigger className="w-[160px] h-9 text-sm"><SelectValue placeholder="Categoria" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas Categorias</SelectItem>
-                  {Object.entries(categoriaLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Filtrar item..." value={filterItem} onChange={e => setFilterItem(e.target.value)} className="h-9 text-sm w-[180px] pl-9" />
-              </div>
-            </div>
-            <Button onClick={openCreateP} disabled={fornecedores.length === 0} size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Novo Preço
-            </Button>
-          </div>
-
-          {/* Resumo de preços */}
-          {resumos.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Resumo de Preços</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader><TableRow>
-                    <TableHead className="text-xs">Item</TableHead>
-                    <TableHead className="text-xs">Menor Preço</TableHead>
-                    <TableHead className="text-xs">Fornecedor (menor)</TableHead>
-                    <TableHead className="text-xs">Último Preço</TableHead>
-                    <TableHead className="text-xs">Data Último</TableHead>
-                  </TableRow></TableHeader>
-                  <TableBody>
-                    {resumos.map((r, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-sm">{r.item}</TableCell>
-                        <TableCell className="text-sm font-medium text-success">R$ {r.menor.preco_unitario.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{getFornecedorNome(r.menor.fornecedor_id)}</TableCell>
-                        <TableCell className="text-sm">R$ {r.ultimo.preco_unitario.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{format(parseISO(r.ultimo.data_referencia), 'dd/MM/yy')}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+      {loading ? <div className="text-center py-10 text-muted-foreground">Carregando...</div> :
+       filteredFornecedores.length === 0 ? (
+        <Card><CardContent className="p-10 text-center text-muted-foreground">
+          <Store className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          <p className="text-sm">Nenhum fornecedor cadastrado.</p>
+        </CardContent></Card>
+      ) : (
+        <div className="space-y-2">
+          {filteredFornecedores.map(f => (
+            <Card key={f.id}>
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">{f.nome}</p>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{getObraNome(f.obra_id)}</Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-1">
+                    {f.cnpj && <span>CNPJ: {f.cnpj}</span>}
+                    {f.telefone && <span>Tel: {f.telefone}</span>}
+                    {f.email && <span>{f.email}</span>}
+                    {f.cidade && <span>{f.cidade}</span>}
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => navigate(`/insumos?fornecedor=${f.id}`)} className="p-1.5 rounded-md hover:bg-accent" title="Ver preços">
+                    <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                  <button onClick={() => openEditF(f)} className="p-1.5 rounded-md hover:bg-accent"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                  <button onClick={() => setFDeleteId(f.id)} className="p-1.5 rounded-md hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
+                </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* Lista de preços */}
-          {filteredPrecos.length === 0 ? (
-            <Card><CardContent className="p-10 text-center text-muted-foreground">
-              <DollarSign className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Nenhum registro de preço.</p>
-            </CardContent></Card>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader><TableRow>
-                    <TableHead className="text-xs">Data</TableHead>
-                    <TableHead className="text-xs">Item</TableHead>
-                    <TableHead className="text-xs">Categoria</TableHead>
-                    <TableHead className="text-xs">Fornecedor</TableHead>
-                    <TableHead className="text-xs">Preço Unit.</TableHead>
-                    <TableHead className="text-xs">Unidade</TableHead>
-                    <TableHead className="text-xs">Origem</TableHead>
-                    <TableHead className="text-xs w-16"></TableHead>
-                  </TableRow></TableHeader>
-                  <TableBody>
-                    {filteredPrecos.map(p => (
-                      <TableRow key={p.id}>
-                        <TableCell className="text-xs">{format(parseISO(p.data_referencia), 'dd/MM/yy')}</TableCell>
-                        <TableCell className="text-sm">{p.descricao_item_snapshot || '—'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[10px]">
-                            {categoriaLabels[(p as any).categoria] || 'Material'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{getFornecedorNome(p.fornecedor_id)}</TableCell>
-                        <TableCell className="text-sm font-medium">R$ {p.preco_unitario.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs">{p.unidade || '—'}</TableCell>
-                        <TableCell><Badge variant="outline" className="text-[10px]">{origemLabels[p.origem_preco] || p.origem_preco}</Badge></TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <button onClick={() => openEditP(p)} className="p-1 rounded hover:bg-accent"><Pencil className="h-3 w-3 text-muted-foreground" /></button>
-                            <button onClick={() => setPDeleteId(p.id)} className="p-1 rounded hover:bg-destructive/10"><Trash2 className="h-3 w-3 text-destructive" /></button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+          ))}
+        </div>
+      )}
 
       {/* Dialog Fornecedor */}
       <Dialog open={fDialogOpen} onOpenChange={setFDialogOpen}>
@@ -451,73 +204,11 @@ export default function FornecedoresPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Preço */}
-      <Dialog open={pDialogOpen} onOpenChange={setPDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{pEditingId ? 'Editar Preço' : 'Novo Preço'}</DialogTitle>
-            <DialogDescription>Registre o preço de um item, serviço ou equipamento.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Fornecedor *</Label>
-              <Select value={pForm.fornecedor_id} onValueChange={v => setPForm(f => ({ ...f, fornecedor_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>{fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Item / Descrição *</Label>
-                <AutocompleteInput
-                  suggestions={itemSuggestions}
-                  value={pForm.descricao_item_snapshot}
-                  onChange={v => setPForm(f => ({ ...f, descricao_item_snapshot: v }))}
-                  placeholder="Ex: Cimento, Pedreiro, Betoneira..."
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Categoria</Label>
-                <Select value={pForm.categoria} onValueChange={v => setPForm(f => ({ ...f, categoria: v as CategoriaPreco }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(categoriaLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5"><Label>Preço Unitário *</Label><Input type="number" step="0.01" value={pForm.preco_unitario} onChange={e => setPForm(f => ({ ...f, preco_unitario: e.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>Unidade</Label><Input value={pForm.unidade} onChange={e => setPForm(f => ({ ...f, unidade: e.target.value }))} placeholder="kg, m², un, h..." /></div>
-              <div className="space-y-1.5">
-                <Label>Origem</Label>
-                <Select value={pForm.origem_preco} onValueChange={v => setPForm(f => ({ ...f, origem_preco: v as OrigemPreco }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.entries(origemLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5"><Label>Data de Referência</Label><Input type="date" value={pForm.data_referencia} onChange={e => setPForm(f => ({ ...f, data_referencia: e.target.value }))} /></div>
-            <div className="space-y-1.5"><Label>Observações</Label><Textarea value={pForm.observacoes} onChange={e => setPForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={saveP} disabled={savingP}>{savingP ? 'Salvando...' : pEditingId ? 'Salvar' : 'Registrar'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm Deletes */}
+      {/* Confirm Delete */}
       <Dialog open={!!fDeleteId} onOpenChange={() => setFDeleteId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Excluir Fornecedor</DialogTitle><DialogDescription>Tem certeza? Preços vinculados também serão perdidos.</DialogDescription></DialogHeader>
           <DialogFooter><Button variant="outline" onClick={() => setFDeleteId(null)}>Cancelar</Button><Button variant="destructive" onClick={deleteF}>Excluir</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={!!pDeleteId} onOpenChange={() => setPDeleteId(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Excluir Preço</DialogTitle><DialogDescription>Tem certeza?</DialogDescription></DialogHeader>
-          <DialogFooter><Button variant="outline" onClick={() => setPDeleteId(null)}>Cancelar</Button><Button variant="destructive" onClick={deleteP}>Excluir</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
