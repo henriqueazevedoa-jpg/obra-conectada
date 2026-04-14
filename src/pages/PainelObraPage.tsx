@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
@@ -21,9 +21,9 @@ import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
   Clock, CalendarDays, DollarSign, Users,
   LayoutDashboard, Plus, ChevronDown, List, BarChart3, GitBranch, Calendar,
-  ListChecks, Wallet,
+  ListChecks, Wallet, GripVertical,
 } from 'lucide-react';
-import { format, parseISO, isAfter, isBefore, startOfDay, differenceInWeeks, addWeeks } from 'date-fns';
+import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ABCTable from '@/components/painel/ABCTable';
 import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
@@ -32,7 +32,6 @@ import SmartCards from '@/components/painel/SmartCards';
 import ObraHeader from '@/components/painel/ObraHeader';
 import AcoesPrioritarias from '@/components/painel/AcoesPrioritarias';
 import CostPieChart from '@/components/painel/CostPieChart';
-import PontosAtencao from '@/components/painel/PontosAtencao';
 import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import CronogramaPagamentos from '@/components/painel/CronogramaPagamentos';
 import NoObraState from '@/components/obras/NoObraState';
@@ -69,6 +68,13 @@ function computeStatus(cat: any): string {
   return 'nao_iniciada';
 }
 
+type SectionKey = 'identificacao' | 'kpis' | 'resumoExecutivo' | 'visaoGeral' | 'estoqueCritico' | 'cronogramaPagamentos' | 'cronograma' | 'custosEtapa' | 'curvaABC' | 'diario';
+
+const defaultSectionOrder: SectionKey[] = [
+  'identificacao', 'kpis', 'resumoExecutivo', 'visaoGeral', 'estoqueCritico',
+  'cronogramaPagamentos', 'cronograma', 'custosEtapa', 'curvaABC', 'diario',
+];
+
 function GestorPainel() {
   const { obras } = useObras();
   const { selectedObraId, setSelectedObraId } = useObraSelection();
@@ -86,6 +92,8 @@ function GestorPainel() {
   const [calendarSources, setCalendarSources] = useState<Set<'agenda' | 'pendencias' | 'pagamentos' | 'diario'>>(
     new Set(['agenda', 'pendencias', 'pagamentos', 'diario'])
   );
+  const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(defaultSectionOrder);
+  const [draggedSection, setDraggedSection] = useState<SectionKey | null>(null);
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
@@ -155,13 +163,8 @@ function GestorPainel() {
     return Math.round((shouldBeDone / categorias.length) * 100);
   })();
 
-  // Previsto acumulado proporcional ao avanço real (no hook, just derived)
   const previstoAcumulado = categorias.length === 0 || totalPrevisto === 0 ? 0 :
     categorias.reduce((sum, cat) => sum + cat.precoTotal * (computePercentual(cat) / 100), 0);
-
-  const totalTrabalhadores = registrosAprovados.length > 0
-    ? Math.round(registrosAprovados.reduce((s, r) => s + r.trabalhadores, 0) / registrosAprovados.length)
-    : 0;
 
   const handlePrint = () => {
     document.querySelectorAll('[data-print-section]').forEach(el => {
@@ -175,7 +178,279 @@ function GestorPainel() {
     setTimeout(() => window.print(), 100);
   };
 
-  const etapasAtrasadasData = atrasadas.map(c => ({ id: c.id, nome: c.nome, percentual: computePercentual(c) }));
+  // Drag handlers
+  const handleDragStart = (key: SectionKey) => setDraggedSection(key);
+  const handleDragOver = (e: React.DragEvent, key: SectionKey) => {
+    e.preventDefault();
+    if (!draggedSection || draggedSection === key) return;
+    setSectionOrder(prev => {
+      const newOrder = [...prev];
+      const fromIdx = newOrder.indexOf(draggedSection);
+      const toIdx = newOrder.indexOf(key);
+      newOrder.splice(fromIdx, 1);
+      newOrder.splice(toIdx, 0, draggedSection);
+      return newOrder;
+    });
+  };
+  const handleDragEnd = () => setDraggedSection(null);
+
+  const renderSection = (key: SectionKey) => {
+    if (!printSections[key]) return null;
+
+    const dragProps = {
+      draggable: true,
+      onDragStart: () => handleDragStart(key),
+      onDragOver: (e: React.DragEvent) => handleDragOver(e, key),
+      onDragEnd: handleDragEnd,
+      className: `transition-opacity ${draggedSection === key ? 'opacity-50' : ''}`,
+    };
+
+    const dragHandle = (
+      <div className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground print:hidden">
+        <GripVertical className="h-4 w-4" />
+      </div>
+    );
+
+    switch (key) {
+      case 'identificacao':
+        return <div key={key} {...dragProps} data-print-section="identificacao"><ObraHeader obra={obra} /></div>;
+
+      case 'kpis':
+        return (
+          <div key={key} {...dragProps} data-print-section="kpis">
+            <SmartCards
+              totalPrevisto={totalPrevisto} totalRealizado={totalRealizado}
+              previstoAcumulado={previstoAcumulado} andamentoReal={andamentoReal}
+              andamentoPlanejado={andamentoPlanejado} etapasAtrasadas={atrasadas.length}
+              materiaisBaixo={materiaisBaixo.length} registrosPendentes={registrosPendentes.length}
+              pagamentosAtrasados={pagamentosAtrasados.count}
+            />
+          </div>
+        );
+
+      case 'resumoExecutivo':
+        return (
+          <div key={key} {...dragProps} data-print-section="resumoExecutivo">
+            <ResumoExecutivo obraId={obra.id} totalPrevisto={totalPrevisto} totalRealizado={totalRealizado}
+              andamentoReal={andamentoReal} andamentoPlanejado={andamentoPlanejado} />
+          </div>
+        );
+
+      case 'visaoGeral':
+        return (
+          <div key={key} {...dragProps} data-print-section="visaoGeral">
+            <Card className="shadow-card">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    {dragHandle}
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" /> Visão Geral da Obra
+                    </CardTitle>
+                  </div>
+                  <ViewModeSwitcher value={calendarViewMode} onChange={setCalendarViewMode} />
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(['agenda', 'pendencias', 'pagamentos', 'diario'] as const).map(s => {
+                    const cfg = {
+                      agenda: { icon: CalendarDays, label: 'Agenda', color: 'bg-primary text-primary-foreground' },
+                      pendencias: { icon: ListChecks, label: 'Pendências', color: 'bg-warning text-warning-foreground' },
+                      pagamentos: { icon: Wallet, label: 'Pagamentos', color: 'bg-accent text-accent-foreground' },
+                      diario: { icon: BookOpen, label: 'Diário', color: 'bg-emerald-500/10 text-emerald-700' }
+                    }[s];
+                    const Icon = cfg.icon;
+                    const active = calendarSources.has(s);
+                    return (
+                      <button key={s} onClick={() => setCalendarSources(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; })}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all border ${active ? 'border-transparent ' + cfg.color : 'border-border text-muted-foreground bg-transparent opacity-50'}`}
+                      >
+                        <Icon className="h-3 w-3" /> {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="max-h-[420px] overflow-y-auto">
+                  {calendarViewMode === 'calendario' ? (
+                    <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact embedded />
+                  ) : (
+                    <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'estoqueCritico':
+        if (materiaisBaixo.length === 0) return null;
+        return (
+          <div key={key} {...dragProps} data-print-section="estoqueCritico">
+            <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  {dragHandle}
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Package className="h-4 w-4" /> Materiais com Estoque Baixo
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {materiaisBaixo.map(m => (
+                    <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-destructive/5">
+                      <div><p className="text-sm font-medium text-foreground">{m.nome}</p><p className="text-xs text-muted-foreground">{m.categoria}</p></div>
+                      <div className="text-right"><p className="text-sm font-semibold text-destructive">{m.estoqueAtual} {m.unidade}</p><p className="text-xs text-muted-foreground">Mín: {m.estoqueMinimo} {m.unidade}</p></div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'cronogramaPagamentos':
+        return (
+          <div key={key} {...dragProps} data-print-section="cronogramaPagamentos">
+            <CronogramaPagamentos obraId={obra.id} />
+          </div>
+        );
+
+      case 'cronograma':
+        return (
+          <div key={key} {...dragProps} data-print-section="cronograma">
+            <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    {dragHandle}
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" /> Resumo do Cronograma
+                    </CardTitle>
+                  </div>
+                  <div className="flex border border-border rounded-md print:hidden">
+                    <Button variant={cronogramaView === 'list' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-r-none gap-1 text-xs" onClick={() => setCronogramaView('list')}>
+                      <List className="h-3 w-3" /> Lista
+                    </Button>
+                    <Button variant={cronogramaView === 'gantt' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-l-none gap-1 text-xs" onClick={() => setCronogramaView('gantt')}>
+                      <BarChart3 className="h-3 w-3" /> Gantt
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="text-center p-2 rounded-lg bg-success/10"><p className="text-xl font-bold text-success">{concluidas.length}</p><p className="text-[10px] text-muted-foreground">Concluídas</p></div>
+                  <div className="text-center p-2 rounded-lg bg-primary/10"><p className="text-xl font-bold text-primary">{emAndamento.length}</p><p className="text-[10px] text-muted-foreground">Em Andamento</p></div>
+                  <div className="text-center p-2 rounded-lg bg-destructive/10"><p className="text-xl font-bold text-destructive">{atrasadas.length}</p><p className="text-[10px] text-muted-foreground">Atrasadas</p></div>
+                  <div className="text-center p-2 rounded-lg bg-muted"><p className="text-xl font-bold text-muted-foreground">{naoIniciadas.length}</p><p className="text-[10px] text-muted-foreground">Não Iniciadas</p></div>
+                </div>
+                {cronogramaView === 'gantt' ? (
+                  <GanttEditorChart categorias={categorias} />
+                ) : (
+                  <div className="space-y-2">
+                    {categorias.map(c => {
+                      const status = computeStatus(c);
+                      const pct = computePercentual(c);
+                      return (
+                        <div key={c.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors print:p-1">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {status === 'concluida' ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> :
+                             status === 'atrasada' ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0" /> :
+                             status === 'em_andamento' ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> :
+                             <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
+                            <span className="text-sm text-foreground truncate">{c.nome}</span>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="w-20"><Progress value={pct} className="h-1.5" /></div>
+                            <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                            <Badge variant="secondary" className={
+                              status === 'concluida' ? 'bg-success/10 text-success border-0' :
+                              status === 'atrasada' ? 'bg-destructive/10 text-destructive border-0' :
+                              status === 'em_andamento' ? 'bg-primary/10 text-primary border-0' :
+                              'bg-muted text-muted-foreground border-0'
+                            }>{statusEtapaLabels[status]}</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {categorias.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada no orçamento.</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'custosEtapa':
+        return (
+          <div key={key} {...dragProps} data-print-section="custosEtapa">
+            <CostPieChart categorias={categorias} custoItens={custoItens} />
+          </div>
+        );
+
+      case 'curvaABC':
+        return (
+          <div key={key} {...dragProps} data-print-section="curvaABC">
+            <ABCTable categorias={categorias} custoItens={custoItens} />
+          </div>
+        );
+
+      case 'diario':
+        return (
+          <div key={key} {...dragProps} data-print-section="diario">
+            <Collapsible open={diarioOpen} onOpenChange={setDiarioOpen}>
+              <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {dragHandle}
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <BookOpen className="h-4 w-4" /> Diário de Obra
+                        <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-[10px] ml-1">
+                          {diarioRegistros.length}
+                        </Badge>
+                      </CardTitle>
+                    </div>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 print:hidden">
+                        <ChevronDown className={`h-4 w-4 transition-transform ${diarioOpen ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-0">
+                  {diarioRegistros.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
+                  )}
+                  {diarioRegistros.slice(0, 3).map(r => (
+                    <DiarioItem key={r.id} r={r} />
+                  ))}
+                  <CollapsibleContent className="space-y-3">
+                    {diarioRegistros.slice(3, 8).map(r => (
+                      <DiarioItem key={r.id} r={r} />
+                    ))}
+                  </CollapsibleContent>
+                  {diarioRegistros.length > 3 && !diarioOpen && (
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-xs text-primary w-full print:hidden">
+                        Ver mais {diarioRegistros.length - 3} registro(s)
+                      </Button>
+                    </CollapsibleTrigger>
+                  )}
+                </CardContent>
+              </Card>
+            </Collapsible>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -212,25 +487,7 @@ function GestorPainel() {
         <Separator className="mt-2" />
       </div>
 
-      {/* 1. Compact Obra Header */}
-      {printSections.identificacao && <ObraHeader obra={obra} />}
-
-      {/* 2. Smart Cards */}
-      {printSections.kpis && (
-      <SmartCards
-        totalPrevisto={totalPrevisto}
-        totalRealizado={totalRealizado}
-        previstoAcumulado={previstoAcumulado}
-        andamentoReal={andamentoReal}
-        andamentoPlanejado={andamentoPlanejado}
-        etapasAtrasadas={atrasadas.length}
-        materiaisBaixo={materiaisBaixo.length}
-        registrosPendentes={registrosPendentes.length}
-        pagamentosAtrasados={pagamentosAtrasados.count}
-      />
-      )}
-
-      {/* 3. Ações Prioritárias */}
+      {/* Ações Prioritárias (always visible, not draggable) */}
       <AcoesPrioritarias
         pagamentosAtrasados={pagamentosAtrasados.count}
         pagamentosAtrasadosValor={pagamentosAtrasados.valor}
@@ -240,268 +497,8 @@ function GestorPainel() {
         registrosPendentes={registrosPendentes.length}
       />
 
-      {/* 4. Resumo Executivo */}
-      {printSections.resumoExecutivo && (
-      <div data-print-section="resumoExecutivo">
-        <ResumoExecutivo
-          obraId={obra.id}
-          totalPrevisto={totalPrevisto}
-          totalRealizado={totalRealizado}
-          andamentoReal={andamentoReal}
-          andamentoPlanejado={andamentoPlanejado}
-        />
-      </div>
-      )}
-
-      {/* 4.5. Visão Unificada da Obra */}
-      {printSections.cronograma && (
-      <Card className="shadow-card">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" /> Visão Geral da Obra
-            </CardTitle>
-            <ViewModeSwitcher value={calendarViewMode} onChange={setCalendarViewMode} />
-          </div>
-          {/* Source toggles */}
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {(['agenda', 'pendencias', 'pagamentos', 'diario'] as const).map(s => {
-              const cfg = { agenda: { icon: CalendarDays, label: 'Agenda', color: 'bg-primary text-primary-foreground' }, pendencias: { icon: ListChecks, label: 'Pendências', color: 'bg-warning text-warning-foreground' }, pagamentos: { icon: Wallet, label: 'Pagamentos', color: 'bg-accent text-accent-foreground' }, diario: { icon: BookOpen, label: 'Diário', color: 'bg-emerald-500/10 text-emerald-700' } }[s];
-              const Icon = cfg.icon;
-              const active = calendarSources.has(s);
-              return (
-                <button key={s} onClick={() => setCalendarSources(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; })}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all border ${active ? 'border-transparent ' + cfg.color : 'border-border text-muted-foreground bg-transparent opacity-50'}`}
-                >
-                  <Icon className="h-3 w-3" /> {cfg.label}
-                </button>
-              );
-            })}
-          </div>
-        </CardHeader>
-        <CardContent className="pt-2">
-          <div className="max-h-[420px] overflow-y-auto">
-            {calendarViewMode === 'calendario' ? (
-              <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact embedded />
-            ) : calendarViewMode === 'timeline' ? (
-              <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
-            ) : (
-              <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      )}
-
-      {/* 5. Custos por Etapa */}
-      {printSections.custosEtapa && (
-      <div data-print-section="custosEtapa">
-        <CostPieChart categorias={categorias} custoItens={custoItens} />
-      </div>
-      )}
-
-      {/* 6. Curva ABC — Full Width */}
-      {printSections.curvaABC && (
-      <div data-print-section="curvaABC">
-        <ABCTable categorias={categorias} custoItens={custoItens} />
-      </div>
-      )}
-
-      {/* 7. Pontos de Atenção */}
-      {printSections.pontosAtencao && (
-      <PontosAtencao
-        etapasAtrasadas={etapasAtrasadasData}
-        materiaisBaixo={materiaisBaixo.map(m => ({
-          id: m.id, nome: m.nome, estoqueAtual: m.estoqueAtual,
-          estoqueMinimo: m.estoqueMinimo, unidade: m.unidade,
-        }))}
-        registrosPendentes={registrosPendentes.length}
-        pagamentosAtrasados={pagamentosAtrasados.count}
-        pagamentosAtrasadosValor={pagamentosAtrasados.valor}
-      />
-      )}
-
-      {/* 8. Cronograma de Pagamentos */}
-      {printSections.cronogramaPagamentos && (
-      <CronogramaPagamentos obraId={obra.id} />
-      )}
-
-      {/* 9. Resumo do Cronograma com Gantt */}
-      {printSections.cronograma && (
-      <div data-print-section="cronograma">
-        <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <CalendarDays className="h-4 w-4" /> Resumo do Cronograma
-              </CardTitle>
-              <div className="flex border border-border rounded-md print:hidden">
-                <Button variant={cronogramaView === 'list' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-r-none gap-1 text-xs" onClick={() => setCronogramaView('list')}>
-                  <List className="h-3 w-3" /> Lista
-                </Button>
-                <Button variant={cronogramaView === 'gantt' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-l-none gap-1 text-xs" onClick={() => setCronogramaView('gantt')}>
-                  <BarChart3 className="h-3 w-3" /> Gantt
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-4 gap-3 mb-4">
-              <div className="text-center p-2 rounded-lg bg-success/10"><p className="text-xl font-bold text-success">{concluidas.length}</p><p className="text-[10px] text-muted-foreground">Concluídas</p></div>
-              <div className="text-center p-2 rounded-lg bg-primary/10"><p className="text-xl font-bold text-primary">{emAndamento.length}</p><p className="text-[10px] text-muted-foreground">Em Andamento</p></div>
-              <div className="text-center p-2 rounded-lg bg-destructive/10"><p className="text-xl font-bold text-destructive">{atrasadas.length}</p><p className="text-[10px] text-muted-foreground">Atrasadas</p></div>
-              <div className="text-center p-2 rounded-lg bg-muted"><p className="text-xl font-bold text-muted-foreground">{naoIniciadas.length}</p><p className="text-[10px] text-muted-foreground">Não Iniciadas</p></div>
-            </div>
-
-            {cronogramaView === 'gantt' ? (
-              <GanttEditorChart categorias={categorias} />
-            ) : (
-              <div className="space-y-2">
-                {categorias.map(c => {
-                  const status = computeStatus(c);
-                  const pct = computePercentual(c);
-                  return (
-                    <div key={c.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors print:p-1">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {status === 'concluida' ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> :
-                         status === 'atrasada' ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0" /> :
-                         status === 'em_andamento' ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> :
-                         <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
-                        <span className="text-sm text-foreground truncate">{c.nome}</span>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-20"><Progress value={pct} className="h-1.5" /></div>
-                        <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
-                        <Badge variant="secondary" className={
-                          status === 'concluida' ? 'bg-success/10 text-success border-0' :
-                          status === 'atrasada' ? 'bg-destructive/10 text-destructive border-0' :
-                          status === 'em_andamento' ? 'bg-primary/10 text-primary border-0' :
-                          'bg-muted text-muted-foreground border-0'
-                        }>{statusEtapaLabels[status]}</Badge>
-                      </div>
-                    </div>
-                  );
-                })}
-                {categorias.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada no orçamento.</p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      )}
-
-      {/* 9. Estoque Crítico */}
-      {printSections.estoqueCritico && materiaisBaixo.length > 0 && (
-        <div data-print-section="estoqueCritico">
-          <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="h-4 w-4" /> Materiais com Estoque Baixo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {materiaisBaixo.map(m => (
-                  <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-destructive/5">
-                    <div><p className="text-sm font-medium text-foreground">{m.nome}</p><p className="text-xs text-muted-foreground">{m.categoria}</p></div>
-                    <div className="text-right"><p className="text-sm font-semibold text-destructive">{m.estoqueAtual} {m.unidade}</p><p className="text-xs text-muted-foreground">Mín: {m.estoqueMinimo} {m.unidade}</p></div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 10. Diário de Obra — Collapsible */}
-      {printSections.diario && (
-        <div data-print-section="diario">
-          <Collapsible open={diarioOpen} onOpenChange={setDiarioOpen}>
-            <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" /> Diário de Obra
-                    <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-[10px] ml-1">
-                      {diarioRegistros.length}
-                    </Badge>
-                  </CardTitle>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 print:hidden">
-                      <ChevronDown className={`h-4 w-4 transition-transform ${diarioOpen ? 'rotate-180' : ''}`} />
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                {diarioRegistros.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
-                )}
-                {diarioRegistros.slice(0, 3).map(r => (
-                  <DiarioItem key={r.id} r={r} />
-                ))}
-                <CollapsibleContent className="space-y-3">
-                  {diarioRegistros.slice(3, 8).map(r => (
-                    <DiarioItem key={r.id} r={r} />
-                  ))}
-                </CollapsibleContent>
-                {diarioRegistros.length > 3 && !diarioOpen && (
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-xs text-primary w-full print:hidden">
-                      Ver mais {diarioRegistros.length - 3} registro(s)
-                    </Button>
-                  </CollapsibleTrigger>
-                )}
-              </CardContent>
-            </Card>
-          </Collapsible>
-        </div>
-      )}
-
-      {/* 10. Diário de Obra — Collapsible */}
-      <div data-print-section="diario">
-        <Collapsible open={diarioOpen} onOpenChange={setDiarioOpen}>
-          <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" /> Diário de Obra
-                  <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-[10px] ml-1">
-                    {diarioRegistros.length}
-                  </Badge>
-                </CardTitle>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 print:hidden">
-                    <ChevronDown className={`h-4 w-4 transition-transform ${diarioOpen ? 'rotate-180' : ''}`} />
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              {diarioRegistros.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
-              )}
-              {diarioRegistros.slice(0, 3).map(r => (
-                <DiarioItem key={r.id} r={r} />
-              ))}
-              <CollapsibleContent className="space-y-3">
-                {diarioRegistros.slice(3, 8).map(r => (
-                  <DiarioItem key={r.id} r={r} />
-                ))}
-              </CollapsibleContent>
-              {diarioRegistros.length > 3 && !diarioOpen && (
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-xs text-primary w-full print:hidden">
-                    Ver mais {diarioRegistros.length - 3} registro(s)
-                  </Button>
-                </CollapsibleTrigger>
-              )}
-            </CardContent>
-          </Card>
-        </Collapsible>
-      </div>
+      {/* Draggable sections */}
+      {sectionOrder.map(key => renderSection(key))}
 
       {/* Rodapé print */}
       <div className="hidden print:block text-center text-xs text-muted-foreground mt-8 pt-4 border-t border-border">
