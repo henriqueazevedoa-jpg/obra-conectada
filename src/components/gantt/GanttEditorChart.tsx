@@ -5,13 +5,16 @@ import GanttBar from './GanttBar';
 import GanttTimelineHeader from './GanttTimelineHeader';
 import GanttToolbar from './GanttToolbar';
 import GanttConfirmDialog, { GanttChangeInfo } from './GanttConfirmDialog';
+import GanttFinanceiroPanel from './GanttFinanceiroPanel';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronRight, Lock } from 'lucide-react';
+import { ChevronDown, ChevronRight, Lock, DollarSign } from 'lucide-react';
 import { parseISO, differenceInDays, addDays, format, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useCompany } from '@/contexts/CompanyContext';
 import { toast } from 'sonner';
+import { FinanceiroByEtapa } from '@/hooks/useGanttFinanceiro';
+import { formatCurrency } from '@/data/mockData';
 
 interface Props {
   categorias: OrcamentoCategoria[];
