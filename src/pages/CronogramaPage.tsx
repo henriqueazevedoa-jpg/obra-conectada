@@ -5,6 +5,7 @@ import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento, OrcamentoCategoria, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
 import { useGanttFinanceiro } from '@/hooks/useGanttFinanceiro';
+import { useGanttDependencies } from '@/hooks/useGanttDependencies';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
