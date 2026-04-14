@@ -60,7 +60,7 @@ const MAX_HEIGHT = 480;
 export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBaseline, financeiroByEtapa, dependencies = [], onAddDependency, onRemoveDependency, onCalculateCascade }: Props) {
   const { planFeatures } = useCompany();
   const canViewDeps = planFeatures.gantt_dependencies;
-  const canEditDeps = canViewDeps && canEdit;
+  const canEditDeps = canViewDeps && canEditGantt;
 
   const canView = planFeatures.gantt_view;
   const canEditGantt = planFeatures.gantt_edit;
@@ -336,7 +336,7 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
         />
 
         {/* Read-only indicator */}
-        {!canEdit && canView && (
+        {!canEditGantt && canView && (
           <div className="flex items-center gap-2 px-3 py-1 bg-muted/50 border-b border-border text-[10px] text-muted-foreground">
             <Lock className="h-3 w-3" />
             Modo visualização — faça upgrade para editar
