@@ -383,6 +383,22 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
         </div>
       </div>
 
+      {/* Financial detail panel */}
+      {selectedTask && financeiroByEtapa && (() => {
+        const cat = categorias.find(c => c.id === selectedTask);
+        const fin = cat ? financeiroByEtapa[cat.nome] : undefined;
+        if (!fin || fin.totalPrevisto === 0) return null;
+        return (
+          <div className="mt-3">
+            <GanttFinanceiroPanel
+              etapaNome={cat!.nome}
+              financeiro={fin}
+              onClose={() => setSelectedTask(null)}
+            />
+          </div>
+        );
+      })()}
+
       <GanttConfirmDialog change={pendingChange} onConfirm={handleConfirm} onCancel={handleCancel} />
     </TooltipProvider>
   );
