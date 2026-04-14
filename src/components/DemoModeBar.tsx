@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
-import { seedDemoData, clearDemoData } from '@/data/demoSeeder';
+import { seedDemoData, removeDemoData } from '@/data/demoSeeder';
 import { toast } from '@/hooks/use-toast';
 import { Sparkles, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import {
