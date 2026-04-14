@@ -6,6 +6,8 @@ import GanttTimelineHeader from './GanttTimelineHeader';
 import GanttToolbar from './GanttToolbar';
 import GanttConfirmDialog, { GanttChangeInfo } from './GanttConfirmDialog';
 import GanttFinanceiroPanel from './GanttFinanceiroPanel';
+import GanttDependencyArrows from './GanttDependencyArrows';
+import GanttDependencyEditor from './GanttDependencyEditor';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronRight, Lock, DollarSign } from 'lucide-react';
@@ -15,12 +17,17 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { toast } from 'sonner';
 import { FinanceiroByEtapa } from '@/hooks/useGanttFinanceiro';
 import { formatCurrency } from '@/data/mockData';
+import { GanttDependency, DepType, CascadeResult } from '@/hooks/useGanttDependencies';
 
 interface Props {
   categorias: OrcamentoCategoria[];
   onUpdateDates?: (catId: string, startDate: string, endDate: string) => void;
   onUpdateBaseline?: (catId: string, startDate: string, endDate: string) => void;
   financeiroByEtapa?: FinanceiroByEtapa;
+  dependencies?: GanttDependency[];
+  onAddDependency?: (sourceId: string, targetId: string, tipo: DepType) => Promise<boolean | undefined>;
+  onRemoveDependency?: (depId: string) => void;
+  onCalculateCascade?: (catId: string, newStart: string, newEnd: string) => CascadeResult[];
 }
 
 function computeStatus(cat: OrcamentoCategoria): GanttTask['status'] {
@@ -50,14 +57,16 @@ const LABEL_WIDTH = 200;
 const ROW_HEIGHT = 36;
 const MAX_HEIGHT = 480;
 
-export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBaseline, financeiroByEtapa }: Props) {
+export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBaseline, financeiroByEtapa, dependencies = [], onAddDependency, onRemoveDependency, onCalculateCascade }: Props) {
   const { planFeatures } = useCompany();
   const canView = planFeatures.gantt_view;
-  const canEdit = planFeatures.gantt_edit;
+  const canEditGantt = planFeatures.gantt_edit;
   const canViewBaseline = planFeatures.gantt_baseline;
   const canEditBaseline = planFeatures.gantt_baseline_edit;
+  const canViewDeps = planFeatures.gantt_dependencies;
+  const canEditDeps = canViewDeps && canEditGantt;
 
-  const editable = canEdit && !!onUpdateDates;
+  const editable = canEditGantt && !!onUpdateDates;
 
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [showBaseline, setShowBaseline] = useState(canViewBaseline);
@@ -178,14 +187,23 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
         }
 
         const taskName = categorias.find(c => c.id === dragState.taskId)?.nome || 'Tarefa';
+        const newStartStr = format(newStart, 'yyyy-MM-dd');
+        const newEndStr = format(newEnd, 'yyyy-MM-dd');
+
+        // Calculate cascade impact
+        const cascadeResults = !dragState.isBaseline && onCalculateCascade
+          ? onCalculateCascade(dragState.taskId, newStartStr, newEndStr)
+          : [];
+
         setPendingChange({
           taskId: dragState.taskId,
           taskName,
           oldStart: dragState.originalStart,
           oldEnd: dragState.originalEnd,
-          newStart: format(newStart, 'yyyy-MM-dd'),
-          newEnd: format(newEnd, 'yyyy-MM-dd'),
+          newStart: newStartStr,
+          newEnd: newEndStr,
           isBaseline: dragState.isBaseline,
+          cascadeResults,
         });
       }
       setDragState(null);
@@ -199,20 +217,41 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
 
   const handleConfirm = useCallback(() => {
     if (!pendingChange) return;
-    const { taskId, taskName, oldStart, oldEnd, newStart, newEnd, isBaseline } = pendingChange;
+    const { taskId, taskName, oldStart, oldEnd, newStart, newEnd, isBaseline, cascadeResults } = pendingChange;
     const updateFn = isBaseline ? onUpdateBaseline : onUpdateDates;
     if (!updateFn) return;
 
+    // Apply main change
     updateFn(taskId, newStart, newEnd);
+
+    // Apply cascade changes
+    if (cascadeResults && cascadeResults.length > 0 && onUpdateDates) {
+      cascadeResults.forEach(cr => {
+        onUpdateDates(cr.catId, cr.newStart, cr.newEnd);
+      });
+    }
+
     setPendingChange(null);
 
-    toast.success(`${isBaseline ? 'Baseline' : 'Datas'} de "${taskName}" atualizado`, {
-      action: {
-        label: 'Desfazer',
-        onClick: () => { updateFn(taskId, oldStart, oldEnd); toast.info('Alteração desfeita'); },
-      },
-      duration: 8000,
-    });
+    const totalAffected = 1 + (cascadeResults?.length || 0);
+    toast.success(
+      totalAffected > 1
+        ? `${totalAffected} etapas atualizadas`
+        : `${isBaseline ? 'Baseline' : 'Datas'} de "${taskName}" atualizado`,
+      {
+        action: {
+          label: 'Desfazer',
+          onClick: () => {
+            updateFn(taskId, oldStart, oldEnd);
+            if (cascadeResults && onUpdateDates) {
+              cascadeResults.forEach(cr => onUpdateDates(cr.catId, cr.oldStart, cr.oldEnd));
+            }
+            toast.info('Alteração desfeita');
+          },
+        },
+        duration: 8000,
+      }
+    );
   }, [pendingChange, onUpdateDates, onUpdateBaseline]);
 
   const handleCancel = useCallback(() => setPendingChange(null), []);
@@ -326,7 +365,7 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
         />
 
         {/* Read-only indicator */}
-        {!canEdit && canView && (
+        {!canEditGantt && canView && (
           <div className="flex items-center gap-2 px-3 py-1 bg-muted/50 border-b border-border text-[10px] text-muted-foreground">
             <Lock className="h-3 w-3" />
             Modo visualização — faça upgrade para editar
@@ -349,6 +388,18 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
                 <div className="absolute top-0 bottom-0 w-px bg-destructive/50 z-10 pointer-events-none" style={{ left: LABEL_WIDTH + todayOffset }}>
                   <div className="absolute -top-0 -left-2 bg-destructive text-destructive-foreground text-[7px] px-1 py-0 rounded-b font-medium">Hoje</div>
                 </div>
+              )}
+
+              {/* Dependency arrows */}
+              {canViewDeps && dependencies.length > 0 && (
+                <GanttDependencyArrows
+                  tasks={tasks}
+                  dependencies={dependencies}
+                  dayWidth={dayWidth}
+                  timelineStart={timelineStart}
+                  labelWidth={LABEL_WIDTH}
+                  rowHeight={ROW_HEIGHT}
+                />
               )}
 
               {tasks.map(task => (
@@ -398,6 +449,18 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
           </div>
         );
       })()}
+
+      {/* Dependency editor */}
+      {canEditDeps && onAddDependency && onRemoveDependency && (
+        <div className="mt-3 border border-border rounded-lg p-3 bg-background">
+          <GanttDependencyEditor
+            tasks={tasks}
+            dependencies={dependencies}
+            onAdd={onAddDependency}
+            onRemove={onRemoveDependency}
+          />
+        </div>
+      )}
 
       <GanttConfirmDialog change={pendingChange} onConfirm={handleConfirm} onCancel={handleCancel} />
     </TooltipProvider>

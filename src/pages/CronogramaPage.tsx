@@ -5,6 +5,7 @@ import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento, OrcamentoCategoria, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
 import { useGanttFinanceiro } from '@/hooks/useGanttFinanceiro';
+import { useGanttDependencies } from '@/hooks/useGanttDependencies';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -121,6 +122,7 @@ export default function CronogramaPage() {
 
   const { selectedObraId, setSelectedObraId } = useObraSelection();
   const { byEtapa: financeiroByEtapa } = useGanttFinanceiro(selectedObraId);
+  const { deps: ganttDeps, addDep, removeDep, calculateCascade } = useGanttDependencies(selectedObraId);
   const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const [newCatName, setNewCatName] = useState('');
@@ -296,6 +298,17 @@ export default function CronogramaPage() {
                 <GanttEditorChart
                   categorias={categorias}
                   financeiroByEtapa={financeiroByEtapa}
+                  dependencies={ganttDeps}
+                  onAddDependency={addDep}
+                  onRemoveDependency={removeDep}
+                  onCalculateCascade={(catId, newStart, newEnd) =>
+                    calculateCascade(catId, newStart, newEnd, categorias.map(c => ({
+                      id: c.id,
+                      nome: c.nome,
+                      startDate: c.dataInicioPrevista,
+                      endDate: c.dataFimPrevista,
+                    })))
+                  }
                   onUpdateDates={(catId, start, end) => {
                     const idx = categorias.findIndex(c => c.id === catId);
                     if (idx === -1) return;

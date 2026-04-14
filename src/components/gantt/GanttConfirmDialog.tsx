@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { CascadeResult } from '@/hooks/useGanttDependencies';
 
 export interface GanttChangeInfo {
   taskId: string;
@@ -19,6 +20,7 @@ export interface GanttChangeInfo {
   newStart: string;
   newEnd: string;
   isBaseline?: boolean;
+  cascadeResults?: CascadeResult[];
 }
 
 interface Props {
@@ -38,6 +40,7 @@ export default function GanttConfirmDialog({ change, onConfirm, onCancel }: Prop
   const newDuration = differenceInDays(parseISO(change.newEnd), parseISO(change.newStart)) + 1;
   const startDiff = differenceInDays(parseISO(change.newStart), parseISO(change.oldStart));
   const endDiff = differenceInDays(parseISO(change.newEnd), parseISO(change.oldEnd));
+  const hasCascade = change.cascadeResults && change.cascadeResults.length > 0;
 
   return (
     <AlertDialog open={!!change} onOpenChange={(open) => { if (!open) onCancel(); }}>
@@ -77,12 +80,33 @@ export default function GanttConfirmDialog({ change, onConfirm, onCancel }: Prop
                   )}
                 </div>
               )}
+
+              {/* Cascade impact */}
+              {hasCascade && (
+                <div className="border border-primary/20 bg-primary/5 rounded-md p-2.5 space-y-1.5">
+                  <p className="text-xs font-semibold text-primary">⚡ Impacto em etapas dependentes:</p>
+                  {change.cascadeResults!.map(cr => {
+                    const daysDiff = differenceInDays(parseISO(cr.newStart), parseISO(cr.oldStart));
+                    return (
+                      <div key={cr.catId} className="text-xs text-foreground bg-background/50 rounded p-1.5">
+                        <p className="font-medium">{cr.catName}</p>
+                        <p className="text-muted-foreground">
+                          {fmtDate(cr.oldStart)} → {fmtDate(cr.newStart)}
+                          {daysDiff > 0 && <span className="text-destructive ml-1">(+{daysDiff}d)</span>}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Confirmar alteração</AlertDialogAction>
+          <AlertDialogAction onClick={onConfirm}>
+            {hasCascade ? `Confirmar (${change.cascadeResults!.length + 1} etapas)` : 'Confirmar alteração'}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
