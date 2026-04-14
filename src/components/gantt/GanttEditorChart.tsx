@@ -59,12 +59,15 @@ const MAX_HEIGHT = 480;
 
 export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBaseline, financeiroByEtapa, dependencies = [], onAddDependency, onRemoveDependency, onCalculateCascade }: Props) {
   const { planFeatures } = useCompany();
+  const canViewDeps = planFeatures.gantt_dependencies;
+  const canEditDeps = canViewDeps && canEdit;
+
   const canView = planFeatures.gantt_view;
-  const canEdit = planFeatures.gantt_edit;
+  const canEditGantt = planFeatures.gantt_edit;
   const canViewBaseline = planFeatures.gantt_baseline;
   const canEditBaseline = planFeatures.gantt_baseline_edit;
 
-  const editable = canEdit && !!onUpdateDates;
+  const editable = canEditGantt && !!onUpdateDates;
 
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [showBaseline, setShowBaseline] = useState(canViewBaseline);
