@@ -35,7 +35,11 @@ export function useGanttFinanceiro(obraId: string | undefined) {
       .select('id, descricao, valor_previsto, data_vencimento, status, fornecedor, etapa_orcamento')
       .eq('obra_id', obraId)
       .order('data_vencimento', { ascending: true })
-      .then(({ data }: any) => {
+      .then(({ data, error }: any) => {
+        console.log('[GanttFinanceiro] obraId:', obraId, 'data:', data?.length, 'error:', error);
+        if (data) {
+          console.log('[GanttFinanceiro] etapas encontradas:', [...new Set(data.map((p: any) => p.etapa_orcamento))]);
+        }
         setPagamentos((data as Pagamento[]) || []);
         setLoading(false);
       });
