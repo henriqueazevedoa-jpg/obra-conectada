@@ -30,8 +30,10 @@ import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import {
   Plus, DollarSign, AlertTriangle, CheckCircle2, Clock, Pencil, Trash2,
   CalendarIcon, Filter, ChevronDown, Paperclip, Upload, FileText, Image, X,
-  Package,
+  Package, List, GitBranch, CalendarDays,
 } from 'lucide-react';
+import PagamentosTimelineView from '@/components/painel/PagamentosTimelineView';
+import PagamentosCalendarView from '@/components/painel/PagamentosCalendarView';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
 
@@ -210,6 +212,7 @@ export default function PagamentosPage() {
   const [filterTipo, setFilterTipo] = useState('_all');
   const [filterPeriodo, setFilterPeriodo] = useState('_all');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'lista' | 'timeline' | 'calendario'>('lista');
 
   // Form
   const [form, setForm] = useState({
@@ -843,29 +846,59 @@ export default function PagamentosPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline" size="sm"
-          onClick={() => setFiltersOpen(!filtersOpen)}
-          className={cn(hasActiveFilters && "border-primary text-primary")}
-        >
-          <Filter className="h-4 w-4 mr-1" />Filtros
-          <ChevronDown className={cn("h-3 w-3 ml-1 transition-transform", filtersOpen && "rotate-180")} />
-        </Button>
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); }}>
-            Limpar filtros
+      {/* Filters + View Mode */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={cn(hasActiveFilters && "border-primary text-primary")}
+          >
+            <Filter className="h-4 w-4 mr-1" />Filtros
+            <ChevronDown className={cn("h-3 w-3 ml-1 transition-transform", filtersOpen && "rotate-180")} />
           </Button>
-        )}
-        {filterEtapa !== '_all' && (
-          <Badge variant="secondary" className="bg-primary/10 text-primary gap-1 text-xs">
-            Etapa: {filterEtapa}
-            <button onClick={() => setFilterEtapa('_all')} className="ml-1 hover:text-destructive">
-              <X className="h-3 w-3" />
-            </button>
-          </Badge>
-        )}
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); }}>
+              Limpar filtros
+            </Button>
+          )}
+          {filterEtapa !== '_all' && (
+            <Badge variant="secondary" className="bg-primary/10 text-primary gap-1 text-xs">
+              Etapa: {filterEtapa}
+              <button onClick={() => setFilterEtapa('_all')} className="ml-1 hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+        </div>
+
+        {/* View mode toggle */}
+        <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+          <Button
+            variant={viewMode === 'lista' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('lista')}
+          >
+            <List className="h-3.5 w-3.5" /> Lista
+          </Button>
+          <Button
+            variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('timeline')}
+          >
+            <GitBranch className="h-3.5 w-3.5" /> Timeline
+          </Button>
+          <Button
+            variant={viewMode === 'calendario' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('calendario')}
+          >
+            <CalendarDays className="h-3.5 w-3.5" /> Calendário
+          </Button>
+        </div>
       </div>
 
       {filtersOpen && (
@@ -897,10 +930,19 @@ export default function PagamentosPage() {
               <SelectItem value="atrasados">Atrasados</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={filterEtapa} onValueChange={setFilterEtapa}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Etapa" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todas etapas</SelectItem>
+              {[...new Set(pagamentos.map(p => p.etapa_orcamento).filter(Boolean))].map(e => (
+                <SelectItem key={e!} value={e!}>{e}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
-      {/* List */}
+      {/* Content views */}
       {loading ? (
         <p className="text-center text-muted-foreground py-8">Carregando...</p>
       ) : filteredPagamentos.length === 0 ? (
@@ -912,6 +954,20 @@ export default function PagamentosPage() {
             </p>
           </CardContent>
         </Card>
+      ) : viewMode === 'timeline' ? (
+        <PagamentosTimelineView items={filteredPagamentos} />
+      ) : viewMode === 'calendario' ? (
+        <PagamentosCalendarView
+          items={filteredPagamentos.map(p => ({
+            id: p.id,
+            descricao: p.descricao,
+            valor_previsto: p.valor_previsto,
+            data_vencimento: p.data_vencimento,
+            status: p.status,
+            fornecedor: p.fornecedor,
+            realStatus: p.status,
+          }))}
+        />
       ) : (
         <div className="space-y-2">
           {/* Desktop table */}
