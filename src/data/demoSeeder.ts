@@ -6,10 +6,14 @@ function demoId() { return crypto.randomUUID(); }
 function daysAgo(n: number) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 function daysFromNow(n: number) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
 
-async function checkedInsert(table: string, data: any[]) {
+async function checkedInsert(table: string, data: any[], optional = false) {
   if (data.length === 0) return;
   const { error } = await (supabase.from as any)(table).insert(data);
   if (error) {
+    if (optional || error.message?.includes('Could not find the table')) {
+      console.warn(`Demo seed: ${table} skipped (table not found)`);
+      return;
+    }
     console.error(`Demo seed: ${table} insert failed:`, error.message, error.details, error.hint);
     throw new Error(`${table}: ${error.message}`);
   }
