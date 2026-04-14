@@ -213,9 +213,10 @@ function GestorPainel() {
       </div>
 
       {/* 1. Compact Obra Header */}
-      <ObraHeader obra={obra} />
+      {printSections.identificacao && <ObraHeader obra={obra} />}
 
       {/* 2. Smart Cards */}
+      {printSections.kpis && (
       <SmartCards
         totalPrevisto={totalPrevisto}
         totalRealizado={totalRealizado}
@@ -227,6 +228,7 @@ function GestorPainel() {
         registrosPendentes={registrosPendentes.length}
         pagamentosAtrasados={pagamentosAtrasados.count}
       />
+      )}
 
       {/* 3. Ações Prioritárias */}
       <AcoesPrioritarias
@@ -239,6 +241,7 @@ function GestorPainel() {
       />
 
       {/* 4. Resumo Executivo */}
+      {printSections.resumoExecutivo && (
       <div data-print-section="resumoExecutivo">
         <ResumoExecutivo
           obraId={obra.id}
@@ -248,8 +251,10 @@ function GestorPainel() {
           andamentoPlanejado={andamentoPlanejado}
         />
       </div>
+      )}
 
       {/* 4.5. Visão Unificada da Obra */}
+      {printSections.cronograma && (
       <Card className="shadow-card">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -275,27 +280,35 @@ function GestorPainel() {
           </div>
         </CardHeader>
         <CardContent className="pt-2">
-          {calendarViewMode === 'calendario' ? (
-            <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact />
-          ) : calendarViewMode === 'timeline' ? (
-            <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
-          ) : (
-            <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
-          )}
+          <div className="max-h-[420px] overflow-y-auto">
+            {calendarViewMode === 'calendario' ? (
+              <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact embedded />
+            ) : calendarViewMode === 'timeline' ? (
+              <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
+            ) : (
+              <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
+            )}
+          </div>
         </CardContent>
       </Card>
+      )}
 
       {/* 5. Custos por Etapa */}
+      {printSections.custosEtapa && (
       <div data-print-section="custosEtapa">
         <CostPieChart categorias={categorias} custoItens={custoItens} />
       </div>
+      )}
 
       {/* 6. Curva ABC — Full Width */}
+      {printSections.curvaABC && (
       <div data-print-section="curvaABC">
         <ABCTable categorias={categorias} custoItens={custoItens} />
       </div>
+      )}
 
       {/* 7. Pontos de Atenção */}
+      {printSections.pontosAtencao && (
       <PontosAtencao
         etapasAtrasadas={etapasAtrasadasData}
         materiaisBaixo={materiaisBaixo.map(m => ({
@@ -306,11 +319,15 @@ function GestorPainel() {
         pagamentosAtrasados={pagamentosAtrasados.count}
         pagamentosAtrasadosValor={pagamentosAtrasados.valor}
       />
+      )}
 
       {/* 8. Cronograma de Pagamentos */}
+      {printSections.cronogramaPagamentos && (
       <CronogramaPagamentos obraId={obra.id} />
+      )}
 
       {/* 9. Resumo do Cronograma com Gantt */}
+      {printSections.cronograma && (
       <div data-print-section="cronograma">
         <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
           <CardHeader className="pb-3">
@@ -327,7 +344,6 @@ function GestorPainel() {
                 </Button>
               </div>
             </div>
-            <p className="hidden print:block text-xs text-muted-foreground mt-1">Visão: {cronogramaView === 'gantt' ? 'Gantt' : 'Lista'}</p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-3 mb-4">
@@ -374,9 +390,10 @@ function GestorPainel() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* 9. Estoque Crítico */}
-      {materiaisBaixo.length > 0 && (
+      {printSections.estoqueCritico && materiaisBaixo.length > 0 && (
         <div data-print-section="estoqueCritico">
           <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
             <CardHeader className="pb-3">
@@ -395,6 +412,51 @@ function GestorPainel() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* 10. Diário de Obra — Collapsible */}
+      {printSections.diario && (
+        <div data-print-section="diario">
+          <Collapsible open={diarioOpen} onOpenChange={setDiarioOpen}>
+            <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" /> Diário de Obra
+                    <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-[10px] ml-1">
+                      {diarioRegistros.length}
+                    </Badge>
+                  </CardTitle>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 print:hidden">
+                      <ChevronDown className={`h-4 w-4 transition-transform ${diarioOpen ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-0">
+                {diarioRegistros.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
+                )}
+                {diarioRegistros.slice(0, 3).map(r => (
+                  <DiarioItem key={r.id} r={r} />
+                ))}
+                <CollapsibleContent className="space-y-3">
+                  {diarioRegistros.slice(3, 8).map(r => (
+                    <DiarioItem key={r.id} r={r} />
+                  ))}
+                </CollapsibleContent>
+                {diarioRegistros.length > 3 && !diarioOpen && (
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-xs text-primary w-full print:hidden">
+                      Ver mais {diarioRegistros.length - 3} registro(s)
+                    </Button>
+                  </CollapsibleTrigger>
+                )}
+              </CardContent>
+            </Card>
+          </Collapsible>
         </div>
       )}
 

@@ -82,13 +82,13 @@ export default function PrintSectionPicker({ sections, onChange, onPrint }: Prop
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="gap-1.5 h-9">
             <Settings2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Configurar PDF</span>
+            <span className="hidden sm:inline">Configurar Painel</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-64" align="end">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-foreground">Seções do Relatório</p>
+              <p className="text-sm font-semibold text-foreground">Seções Visíveis</p>
               <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={toggleAll}>
                 {allSelected ? 'Desmarcar' : 'Marcar'} todos
               </Button>
