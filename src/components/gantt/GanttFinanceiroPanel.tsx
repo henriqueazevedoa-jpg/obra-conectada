@@ -19,8 +19,13 @@ const statusColors: Record<string, string> = {
 };
 
 export default function GanttFinanceiroPanel({ etapaNome, financeiro, onClose }: Props) {
+  const navigate = useNavigate();
   const { totalPrevisto, totalPago, totalAberto, totalAtrasado, proximoVencimento, pagamentos } = financeiro;
   const percentPago = totalPrevisto > 0 ? Math.round((totalPago / totalPrevisto) * 100) : 0;
+
+  const handleVerPagamentos = () => {
+    navigate(`/pagamentos?etapa=${encodeURIComponent(etapaNome)}`);
+  };
 
   return (
     <div className="border border-border rounded-lg bg-background shadow-md p-3 space-y-3 animate-fade-in">
@@ -29,9 +34,14 @@ export default function GanttFinanceiroPanel({ etapaNome, financeiro, onClose }:
           <DollarSign className="h-3.5 w-3.5 text-primary" />
           {etapaNome}
         </h4>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-0.5">
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-primary" onClick={handleVerPagamentos}>
+            <ExternalLink className="h-3 w-3" /> Ver pagamentos
+          </Button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-0.5">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
