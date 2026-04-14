@@ -173,11 +173,19 @@ export default function PagamentosPage() {
   const [creatingFornecedor, setCreatingFornecedor] = useState(false);
 
   // Auto-open form via ?novo=1
+  // Read etapa filter from URL
+  const [filterEtapa, setFilterEtapa] = useState('_all');
+
   useEffect(() => {
+    const etapaParam = searchParams.get('etapa');
+    if (etapaParam) {
+      setFilterEtapa(etapaParam);
+      setSearchParams(prev => { prev.delete('etapa'); return prev; }, { replace: true });
+    }
     if (searchParams.get('novo') === '1' && obra) {
       resetForm();
       setDialogOpen(true);
-      setSearchParams({}, { replace: true });
+      setSearchParams(prev => { prev.delete('novo'); return prev; }, { replace: true });
     }
   }, [searchParams, obra?.id]);
 
@@ -387,11 +395,12 @@ export default function PagamentosPage() {
     .reduce((s, p) => s + Number(p.valor_previsto), 0);
 
   // Filtered list
-  const hasActiveFilters = filterStatus !== '_all' || filterTipo !== '_all' || filterPeriodo !== '_all';
+  const hasActiveFilters = filterStatus !== '_all' || filterTipo !== '_all' || filterPeriodo !== '_all' || filterEtapa !== '_all';
 
   const filteredPagamentos = pagamentos.filter(p => {
     if (filterStatus !== '_all' && p.status !== filterStatus) return false;
     if (filterTipo !== '_all' && p.tipo_pagamento !== filterTipo) return false;
+    if (filterEtapa !== '_all' && p.etapa_orcamento !== filterEtapa) return false;
     if (filterPeriodo !== '_all') {
       const d = parseISO(p.data_vencimento);
       if (filterPeriodo === '7dias' && !(d >= hoje && d <= em7dias)) return false;
@@ -845,9 +854,17 @@ export default function PagamentosPage() {
           <ChevronDown className={cn("h-3 w-3 ml-1 transition-transform", filtersOpen && "rotate-180")} />
         </Button>
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); }}>
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); }}>
             Limpar filtros
           </Button>
+        )}
+        {filterEtapa !== '_all' && (
+          <Badge variant="secondary" className="bg-primary/10 text-primary gap-1 text-xs">
+            Etapa: {filterEtapa}
+            <button onClick={() => setFilterEtapa('_all')} className="ml-1 hover:text-destructive">
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
         )}
       </div>
 
