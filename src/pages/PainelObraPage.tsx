@@ -489,6 +489,11 @@ function GestorPainel() {
               <SelectItem value="__nova_obra__" className="text-primary font-medium">+ Criar Nova Obra</SelectItem>
             </SelectContent>
           </Select>
+          {JSON.stringify(sectionOrder) !== JSON.stringify(defaultSectionOrder) && (
+            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground" onClick={() => setSectionOrder(defaultSectionOrder)} title="Resetar posição dos cards">
+              <RotateCcw className="h-3.5 w-3.5" /> Resetar
+            </Button>
+          )}
           <PrintSectionPicker sections={printSections} onChange={setPrintSections} onPrint={handlePrint} />
         </div>
       </div>
