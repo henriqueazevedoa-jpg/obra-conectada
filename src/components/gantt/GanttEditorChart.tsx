@@ -390,6 +390,18 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
                 </div>
               )}
 
+              {/* Dependency arrows */}
+              {canViewDeps && dependencies.length > 0 && (
+                <GanttDependencyArrows
+                  tasks={tasks}
+                  dependencies={dependencies}
+                  dayWidth={dayWidth}
+                  timelineStart={timelineStart}
+                  labelWidth={LABEL_WIDTH}
+                  rowHeight={ROW_HEIGHT}
+                />
+              )}
+
               {tasks.map(task => (
                 <div key={task.id}>
                   {renderRow(task)}
