@@ -212,6 +212,7 @@ export default function PagamentosPage() {
   const [filterTipo, setFilterTipo] = useState('_all');
   const [filterPeriodo, setFilterPeriodo] = useState('_all');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'lista' | 'timeline' | 'calendario'>('lista');
 
   // Form
   const [form, setForm] = useState({
