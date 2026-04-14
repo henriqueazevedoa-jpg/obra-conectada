@@ -173,11 +173,19 @@ export default function PagamentosPage() {
   const [creatingFornecedor, setCreatingFornecedor] = useState(false);
 
   // Auto-open form via ?novo=1
+  // Read etapa filter from URL
+  const [filterEtapa, setFilterEtapa] = useState('_all');
+
   useEffect(() => {
+    const etapaParam = searchParams.get('etapa');
+    if (etapaParam) {
+      setFilterEtapa(etapaParam);
+      setSearchParams(prev => { prev.delete('etapa'); return prev; }, { replace: true });
+    }
     if (searchParams.get('novo') === '1' && obra) {
       resetForm();
       setDialogOpen(true);
-      setSearchParams({}, { replace: true });
+      setSearchParams(prev => { prev.delete('novo'); return prev; }, { replace: true });
     }
   }, [searchParams, obra?.id]);
 
