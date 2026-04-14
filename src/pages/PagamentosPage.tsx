@@ -942,7 +942,7 @@ export default function PagamentosPage() {
         </div>
       )}
 
-      {/* List */}
+      {/* Content views */}
       {loading ? (
         <p className="text-center text-muted-foreground py-8">Carregando...</p>
       ) : filteredPagamentos.length === 0 ? (
@@ -954,6 +954,20 @@ export default function PagamentosPage() {
             </p>
           </CardContent>
         </Card>
+      ) : viewMode === 'timeline' ? (
+        <PagamentosTimelineView items={filteredPagamentos} />
+      ) : viewMode === 'calendario' ? (
+        <PagamentosCalendarView
+          items={filteredPagamentos.map(p => ({
+            id: p.id,
+            descricao: p.descricao,
+            valor_previsto: p.valor_previsto,
+            data_vencimento: p.data_vencimento,
+            status: p.status,
+            fornecedor: p.fornecedor,
+            realStatus: p.status,
+          }))}
+        />
       ) : (
         <div className="space-y-2">
           {/* Desktop table */}
