@@ -149,6 +149,7 @@ function AppRoutes() {
         <Route path="pendencias" element={<PendenciasPage />} />
         <Route path="agenda" element={<AgendaObraPage />} />
         <Route path="fornecedores" element={<FornecedoresPage />} />
+        <Route path="insumos" element={<InsumosPage />} />
         <Route path="documentos" element={<DocumentosPage />} />
         <Route path="perfil" element={<PerfilPage />} />
       </Route>
