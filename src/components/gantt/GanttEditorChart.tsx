@@ -6,6 +6,8 @@ import GanttTimelineHeader from './GanttTimelineHeader';
 import GanttToolbar from './GanttToolbar';
 import GanttConfirmDialog, { GanttChangeInfo } from './GanttConfirmDialog';
 import GanttFinanceiroPanel from './GanttFinanceiroPanel';
+import GanttDependencyArrows from './GanttDependencyArrows';
+import GanttDependencyEditor from './GanttDependencyEditor';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronRight, Lock, DollarSign } from 'lucide-react';
@@ -15,12 +17,17 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { toast } from 'sonner';
 import { FinanceiroByEtapa } from '@/hooks/useGanttFinanceiro';
 import { formatCurrency } from '@/data/mockData';
+import { GanttDependency, DepType, CascadeResult } from '@/hooks/useGanttDependencies';
 
 interface Props {
   categorias: OrcamentoCategoria[];
   onUpdateDates?: (catId: string, startDate: string, endDate: string) => void;
   onUpdateBaseline?: (catId: string, startDate: string, endDate: string) => void;
   financeiroByEtapa?: FinanceiroByEtapa;
+  dependencies?: GanttDependency[];
+  onAddDependency?: (sourceId: string, targetId: string, tipo: DepType) => Promise<boolean | undefined>;
+  onRemoveDependency?: (depId: string) => void;
+  onCalculateCascade?: (catId: string, newStart: string, newEnd: string) => CascadeResult[];
 }
 
 function computeStatus(cat: OrcamentoCategoria): GanttTask['status'] {
