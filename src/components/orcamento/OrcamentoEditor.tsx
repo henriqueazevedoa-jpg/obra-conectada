@@ -1,3 +1,6 @@
+import ImportarSinapiDialog from './ImportarSinapiDialog';
+import { expandirComposicaoSinapi, type SinapiRegime } from '@/lib/sinapi/expandComposicao';
+import { sinapiExpandidaParaOrcamentoComposicao } from '@/lib/sinapi/toOrcamento';
 import { useState, useEffect } from 'react';
 import { useOrcamento, OrcamentoObra, OrcamentoCategoria } from '@/contexts/OrcamentoContext';
 import { useObras } from '@/contexts/ObrasContext';
@@ -20,7 +23,7 @@ interface Props {
 export default function OrcamentoEditor({ obraId, obraNome, onBack }: Props) {
   const { getOrcamento, saveOrcamento, orcamentos, catalogoCategorias, generateCategoriaCodigo, getUnidadesUsadas, getSugestaoInsumos, generateComposicaoCodigo, generateSubitemCodigo } = useOrcamento();
   const { obras } = useObras();
-
+  const [importSinapiOpen, setImportSinapiOpen] = useState(false);
   const [categorias, setCategorias] = useState<OrcamentoCategoria[]>([]);
   const [newCatMode, setNewCatMode] = useState<'select' | 'custom'>('select');
   const [selectedCat, setSelectedCat] = useState('');
@@ -28,6 +31,60 @@ export default function OrcamentoEditor({ obraId, obraNome, onBack }: Props) {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importObraId, setImportObraId] = useState('');
   const [allExpanded, setAllExpanded] = useState<boolean | undefined>(undefined);
+
+const handleImportarSinapi = async (params: {
+  categoriaId: string;
+  referenciaId: string;
+  competencia: string;
+  codigoComposicao: number;
+  uf: string;
+  regime: SinapiRegime;
+  onProgress?: (progress: number, message: string) => void;
+}) => {
+  const {
+    categoriaId,
+    referenciaId,
+    competencia,
+    codigoComposicao,
+    uf,
+    regime,
+    onProgress,
+  } = params;
+
+  onProgress?.(20, 'Buscando composição principal...');
+  const expandida = await expandirComposicaoSinapi({
+    referenciaId,
+    codigoComposicao,
+    uf,
+    regime,
+  });
+
+  onProgress?.(70, 'Convertendo composição para o formato do orçamento...');
+  const composicao = sinapiExpandidaParaOrcamentoComposicao({
+    resultado: expandida,
+    competencia,
+  });
+
+  onProgress?.(90, 'Inserindo composição na categoria selecionada...');
+
+  setCategorias((prev) =>
+    prev.map((cat) => {
+      if (cat.id !== categoriaId) return cat;
+
+      const composicoes = [...cat.composicoes, composicao];
+      const precoTotal = composicoes.reduce((acc, item) => acc + (Number(item.precoTotal) || 0), 0);
+
+      return {
+        ...cat,
+        usaComposicoes: true,
+        composicoes,
+        precoTotal,
+      };
+    })
+  );
+
+  onProgress?.(100, 'Finalizado.');
+};
 
   const unidades = getUnidadesUsadas();
 
@@ -185,6 +242,12 @@ export default function OrcamentoEditor({ obraId, obraNome, onBack }: Props) {
           <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setAllExpanded(false)}>
             <ChevronRight className="h-3 w-3 mr-1" /> Fechar Todas
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setImportSinapiOpen(true)}
+          >
+            Importar da SINAPI
+          </Button>
         </div>
       )}
       <div className="space-y-4">
@@ -252,6 +315,14 @@ export default function OrcamentoEditor({ obraId, obraNome, onBack }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* NOVO DIALOG SINAPI */}
+      <ImportarSinapiDialog
+            open={importSinapiOpen}
+            onOpenChange={setImportSinapiOpen}
+            categorias={categorias}
+            defaultCompetencia="2026-02"
+            onConfirm={handleImportarSinapi}
+          />
     </div>
   );
 }
