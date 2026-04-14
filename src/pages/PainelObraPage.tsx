@@ -501,16 +501,6 @@ function GestorPainel() {
         <Separator className="mt-2" />
       </div>
 
-      {/* Ações Prioritárias (always visible, not draggable) */}
-      <AcoesPrioritarias
-        pagamentosAtrasados={pagamentosAtrasados.count}
-        pagamentosAtrasadosValor={pagamentosAtrasados.valor}
-        materiaisBaixo={materiaisBaixo.map(m => ({ nome: m.nome, estoqueAtual: m.estoqueAtual, unidade: m.unidade }))}
-        pendenciasAlta={pendenciasAlta}
-        etapasAtrasadas={atrasadas.map(c => ({ nome: c.nome }))}
-        registrosPendentes={registrosPendentes.length}
-      />
-
       {/* Draggable sections */}
       {sectionOrder.map(key => renderSection(key))}
 
