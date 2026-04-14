@@ -2,7 +2,9 @@ import { EtapaFinanceiro } from '@/hooks/useGanttFinanceiro';
 import { formatCurrency } from '@/data/mockData';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, AlertTriangle, Clock, CheckCircle2, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DollarSign, AlertTriangle, Clock, CheckCircle2, X, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   etapaNome: string;
