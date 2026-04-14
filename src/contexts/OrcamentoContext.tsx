@@ -12,6 +12,11 @@ export interface OrcamentoSubitem {
   quantidade: number | null;
   precoUnitario: number | null;
   precoTotal: number;
+
+  codigoReferenciaExterna?: string;
+  origemGrupoTitulo?: string;
+  origemComposicaoCodigo?: string;
+  origemComposicaoDescricao?: string;
 }
 
 export interface OrcamentoComposicao {
@@ -24,6 +29,13 @@ export interface OrcamentoComposicao {
   precoTotal: number;
   subitens: OrcamentoSubitem[];
   usaSubitens: boolean;
+
+  fonteReferencia?: string;
+  codigoReferenciaExterna?: string;
+  referenciaCompetencia?: string;
+  ufReferencia?: string;
+  regimeReferencia?: string;
+
   dataInicioPrevista?: string;
   dataFimPrevista?: string;
   dataInicioReal?: string;
@@ -31,7 +43,6 @@ export interface OrcamentoComposicao {
   pesoCronograma?: number;
   concluida?: boolean;
 }
-
 export interface OrcamentoCategoria {
   id: string;
   codigo: string;
