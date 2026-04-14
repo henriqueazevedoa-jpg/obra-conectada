@@ -654,7 +654,10 @@ ${toPrint.map(r => {
             <BookOpen className="h-5 w-5 text-primary" />
             Diário de Obra
           </h1>
+        </div>
+        <div className="flex items-center gap-2">
           <ViewModeSwitcher value={viewMode} onChange={setViewMode} />
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={obraId} onValueChange={setObraId}>
             <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
