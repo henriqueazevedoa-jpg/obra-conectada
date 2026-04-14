@@ -20,6 +20,7 @@ interface Props {
   categorias: OrcamentoCategoria[];
   onUpdateDates?: (catId: string, startDate: string, endDate: string) => void;
   onUpdateBaseline?: (catId: string, startDate: string, endDate: string) => void;
+  financeiroByEtapa?: FinanceiroByEtapa;
 }
 
 function computeStatus(cat: OrcamentoCategoria): GanttTask['status'] {
