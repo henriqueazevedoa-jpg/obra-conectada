@@ -294,16 +294,21 @@ function GestorPainel() {
       )}
 
       {/* 5. Custos por Etapa */}
+      {printSections.custosEtapa && (
       <div data-print-section="custosEtapa">
         <CostPieChart categorias={categorias} custoItens={custoItens} />
       </div>
+      )}
 
       {/* 6. Curva ABC — Full Width */}
+      {printSections.curvaABC && (
       <div data-print-section="curvaABC">
         <ABCTable categorias={categorias} custoItens={custoItens} />
       </div>
+      )}
 
       {/* 7. Pontos de Atenção */}
+      {printSections.pontosAtencao && (
       <PontosAtencao
         etapasAtrasadas={etapasAtrasadasData}
         materiaisBaixo={materiaisBaixo.map(m => ({
@@ -314,9 +319,12 @@ function GestorPainel() {
         pagamentosAtrasados={pagamentosAtrasados.count}
         pagamentosAtrasadosValor={pagamentosAtrasados.valor}
       />
+      )}
 
       {/* 8. Cronograma de Pagamentos */}
+      {printSections.cronogramaPagamentos && (
       <CronogramaPagamentos obraId={obra.id} />
+      )}
 
       {/* 9. Resumo do Cronograma com Gantt */}
       <div data-print-section="cronograma">
