@@ -467,7 +467,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra4Id, titulo: `${DEMO_PREFIX} Entrega de chaves`, tipo: 'administrativo', data_programada: daysFromNow(10), hora_programada: '16:00:00', responsavel: 'Eng. Roberto', status: 'programado' as const, prioridade: 'alta' as const },
     { obra_id: obra4Id, titulo: `${DEMO_PREFIX} Foto profissional da obra concluída`, tipo: 'outro', data_programada: daysFromNow(8), hora_programada: '09:00:00', responsavel: 'Fotógrafo Studio', status: 'programado' as const, prioridade: 'baixa' as const },
   ];
-  await checkedInsert('obra_agenda', agenda);
+  await checkedInsert('obra_agenda', agenda, true);
 
   // ══════════════════════ 11. DOCUMENTOS ══════════════════════
   const documentos = [
