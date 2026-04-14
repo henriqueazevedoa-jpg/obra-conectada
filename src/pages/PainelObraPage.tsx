@@ -213,9 +213,10 @@ function GestorPainel() {
       </div>
 
       {/* 1. Compact Obra Header */}
-      <ObraHeader obra={obra} />
+      {printSections.identificacao && <ObraHeader obra={obra} />}
 
       {/* 2. Smart Cards */}
+      {printSections.kpis && (
       <SmartCards
         totalPrevisto={totalPrevisto}
         totalRealizado={totalRealizado}
@@ -227,6 +228,7 @@ function GestorPainel() {
         registrosPendentes={registrosPendentes.length}
         pagamentosAtrasados={pagamentosAtrasados.count}
       />
+      )}
 
       {/* 3. Ações Prioritárias */}
       <AcoesPrioritarias
@@ -239,6 +241,7 @@ function GestorPainel() {
       />
 
       {/* 4. Resumo Executivo */}
+      {printSections.resumoExecutivo && (
       <div data-print-section="resumoExecutivo">
         <ResumoExecutivo
           obraId={obra.id}
@@ -248,6 +251,7 @@ function GestorPainel() {
           andamentoPlanejado={andamentoPlanejado}
         />
       </div>
+      )}
 
       {/* 4.5. Visão Unificada da Obra */}
       {printSections.cronograma && (
