@@ -495,7 +495,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra4Id, company_id: companyId, nome: `${DEMO_PREFIX} Manual do Proprietário`, categoria: 'Outros', descricao: 'Manual de uso, garantias e manutenção preventiva', arquivo_url: '', arquivo_nome: 'manual-proprietario-riviera.pdf', arquivo_tipo: 'application/pdf', tamanho_bytes: 680000, created_by: userId },
     { obra_id: obra4Id, company_id: companyId, nome: `${DEMO_PREFIX} Habite-se (pendente)`, categoria: 'Licenças', descricao: 'Protocolo de solicitação do habite-se na prefeitura', arquivo_url: '', arquivo_nome: 'protocolo-habite-se.pdf', arquivo_tipo: 'application/pdf', tamanho_bytes: 85000, created_by: userId },
   ];
-  await checkedInsert('documentos_obra', documentos);
+  await checkedInsert('documentos_obra', documentos, true);
 
   return { obra1Id, obra2Id, obra3Id, obra4Id };
 }
