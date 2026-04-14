@@ -20,24 +20,25 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
   Clock, CalendarDays, DollarSign, Users,
-  LayoutDashboard, Plus, ChevronDown, List, BarChart3,
+  LayoutDashboard, Plus, ChevronDown, List, BarChart3, GitBranch, Calendar,
+  ListChecks, Wallet,
 } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfDay, differenceInWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import SCurveChart from '@/components/painel/SCurveChart';
 import ABCTable from '@/components/painel/ABCTable';
 import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
 import ResumoExecutivo from '@/components/painel/ResumoExecutivo';
 import SmartCards from '@/components/painel/SmartCards';
 import ObraHeader from '@/components/painel/ObraHeader';
 import AcoesPrioritarias from '@/components/painel/AcoesPrioritarias';
-import PendenciasBlock from '@/components/painel/PendenciasBlock';
 import CostPieChart from '@/components/painel/CostPieChart';
 import PontosAtencao from '@/components/painel/PontosAtencao';
 import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import CronogramaPagamentos from '@/components/painel/CronogramaPagamentos';
 import NoObraState from '@/components/obras/NoObraState';
 import ObraCalendarView from '@/components/painel/ObraCalendarView';
+import PainelUnifiedListView from '@/components/painel/PainelUnifiedListView';
+import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
 
 interface DiarioRow {
   id: string; data: string; clima: string; trabalhadores: number;
