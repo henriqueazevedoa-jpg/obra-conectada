@@ -295,6 +295,7 @@ export default function CronogramaPage() {
               <CardContent>
                 <GanttEditorChart
                   categorias={categorias}
+                  financeiroByEtapa={financeiroByEtapa}
                   onUpdateDates={(catId, start, end) => {
                     const idx = categorias.findIndex(c => c.id === catId);
                     if (idx === -1) return;
