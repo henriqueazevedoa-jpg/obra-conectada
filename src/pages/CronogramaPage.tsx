@@ -122,6 +122,7 @@ export default function CronogramaPage() {
 
   const { selectedObraId, setSelectedObraId } = useObraSelection();
   const { byEtapa: financeiroByEtapa } = useGanttFinanceiro(selectedObraId);
+  const { deps: ganttDeps, addDep, removeDep, calculateCascade } = useGanttDependencies(selectedObraId);
   const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const [newCatName, setNewCatName] = useState('');
