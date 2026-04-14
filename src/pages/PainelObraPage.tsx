@@ -82,6 +82,10 @@ function GestorPainel() {
   const [pendenciasAlta, setPendenciasAlta] = useState(0);
   const [diarioOpen, setDiarioOpen] = useState(false);
   const [cronogramaView, setCronogramaView] = useState<'list' | 'gantt'>('list');
+  const [calendarViewMode, setCalendarViewMode] = useState<ViewMode>('calendario');
+  const [calendarSources, setCalendarSources] = useState<Set<'agenda' | 'pendencias' | 'pagamentos' | 'diario'>>(
+    new Set(['agenda', 'pendencias', 'pagamentos', 'diario'])
+  );
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
