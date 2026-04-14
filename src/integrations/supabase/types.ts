@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      cronograma_dependencias: {
+        Row: {
+          created_at: string
+          id: string
+          lag_days: number
+          obra_id: string
+          source_cat_id: string
+          target_cat_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lag_days?: number
+          obra_id: string
+          source_cat_id: string
+          target_cat_id: string
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lag_days?: number
+          obra_id?: string
+          source_cat_id?: string
+          target_cat_id?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
       insumos_pendentes_cotacao: {
         Row: {
           categoria: string | null
