@@ -36,10 +36,7 @@ export function useGanttFinanceiro(obraId: string | undefined) {
       .eq('obra_id', obraId)
       .order('data_vencimento', { ascending: true })
       .then(({ data, error }: any) => {
-        console.log('[GanttFinanceiro] obraId:', obraId, 'data:', data?.length, 'error:', error);
-        if (data) {
-          console.log('[GanttFinanceiro] etapas encontradas:', [...new Set(data.map((p: any) => p.etapa_orcamento))]);
-        }
+        if (error) console.warn('[GanttFinanceiro] error:', error.message);
         setPagamentos((data as Pagamento[]) || []);
         setLoading(false);
       });
