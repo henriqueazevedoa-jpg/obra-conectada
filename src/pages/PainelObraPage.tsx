@@ -21,7 +21,7 @@ import {
   TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
   Clock, CalendarDays, DollarSign, Users,
   LayoutDashboard, Plus, ChevronDown, List, BarChart3, GitBranch, Calendar,
-  ListChecks, Wallet, GripVertical,
+  ListChecks, Wallet, GripVertical, RotateCcw,
 } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -68,10 +68,10 @@ function computeStatus(cat: any): string {
   return 'nao_iniciada';
 }
 
-type SectionKey = 'identificacao' | 'kpis' | 'resumoExecutivo' | 'visaoGeral' | 'estoqueCritico' | 'cronogramaPagamentos' | 'cronograma' | 'custosEtapa' | 'curvaABC' | 'diario';
+type SectionKey = 'identificacao' | 'kpis' | 'acoesPrioritarias' | 'resumoExecutivo' | 'visaoGeral' | 'estoqueCritico' | 'cronogramaPagamentos' | 'cronograma' | 'custosEtapa' | 'curvaABC' | 'diario';
 
 const defaultSectionOrder: SectionKey[] = [
-  'identificacao', 'kpis', 'resumoExecutivo', 'visaoGeral', 'estoqueCritico',
+  'identificacao', 'kpis', 'acoesPrioritarias', 'resumoExecutivo', 'visaoGeral', 'estoqueCritico',
   'cronogramaPagamentos', 'cronograma', 'custosEtapa', 'curvaABC', 'diario',
 ];
 
@@ -224,6 +224,20 @@ function GestorPainel() {
               andamentoPlanejado={andamentoPlanejado} etapasAtrasadas={atrasadas.length}
               materiaisBaixo={materiaisBaixo.length} registrosPendentes={registrosPendentes.length}
               pagamentosAtrasados={pagamentosAtrasados.count}
+            />
+          </div>
+        );
+
+      case 'acoesPrioritarias':
+        return (
+          <div key={key} {...dragProps}>
+            <AcoesPrioritarias
+              pagamentosAtrasados={pagamentosAtrasados.count}
+              pagamentosAtrasadosValor={pagamentosAtrasados.valor}
+              materiaisBaixo={materiaisBaixo.map(m => ({ nome: m.nome, estoqueAtual: m.estoqueAtual, unidade: m.unidade }))}
+              pendenciasAlta={pendenciasAlta}
+              etapasAtrasadas={atrasadas.map(c => ({ nome: c.nome }))}
+              registrosPendentes={registrosPendentes.length}
             />
           </div>
         );
@@ -475,6 +489,11 @@ function GestorPainel() {
               <SelectItem value="__nova_obra__" className="text-primary font-medium">+ Criar Nova Obra</SelectItem>
             </SelectContent>
           </Select>
+          {JSON.stringify(sectionOrder) !== JSON.stringify(defaultSectionOrder) && (
+            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground" onClick={() => setSectionOrder(defaultSectionOrder)} title="Resetar posição dos cards">
+              <RotateCcw className="h-3.5 w-3.5" /> Resetar
+            </Button>
+          )}
           <PrintSectionPicker sections={printSections} onChange={setPrintSections} onPrint={handlePrint} />
         </div>
       </div>
@@ -486,16 +505,6 @@ function GestorPainel() {
         <p className="text-xs text-muted-foreground">Emitido em {format(today, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
         <Separator className="mt-2" />
       </div>
-
-      {/* Ações Prioritárias (always visible, not draggable) */}
-      <AcoesPrioritarias
-        pagamentosAtrasados={pagamentosAtrasados.count}
-        pagamentosAtrasadosValor={pagamentosAtrasados.valor}
-        materiaisBaixo={materiaisBaixo.map(m => ({ nome: m.nome, estoqueAtual: m.estoqueAtual, unidade: m.unidade }))}
-        pendenciasAlta={pendenciasAlta}
-        etapasAtrasadas={atrasadas.map(c => ({ nome: c.nome }))}
-        registrosPendentes={registrosPendentes.length}
-      />
 
       {/* Draggable sections */}
       {sectionOrder.map(key => renderSection(key))}

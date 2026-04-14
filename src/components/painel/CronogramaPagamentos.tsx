@@ -132,7 +132,7 @@ export default function CronogramaPagamentos({ obraId }: Props) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" /> Cronograma de Pagamentos
+            <CalendarDays className="h-4 w-4" /> Resumo de Pagamentos
           </CardTitle>
           <div className="flex items-center gap-2 print:hidden flex-wrap">
             {/* Fornecedor filter */}
