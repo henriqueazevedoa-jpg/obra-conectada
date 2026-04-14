@@ -217,20 +217,41 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
 
   const handleConfirm = useCallback(() => {
     if (!pendingChange) return;
-    const { taskId, taskName, oldStart, oldEnd, newStart, newEnd, isBaseline } = pendingChange;
+    const { taskId, taskName, oldStart, oldEnd, newStart, newEnd, isBaseline, cascadeResults } = pendingChange;
     const updateFn = isBaseline ? onUpdateBaseline : onUpdateDates;
     if (!updateFn) return;
 
+    // Apply main change
     updateFn(taskId, newStart, newEnd);
+
+    // Apply cascade changes
+    if (cascadeResults && cascadeResults.length > 0 && onUpdateDates) {
+      cascadeResults.forEach(cr => {
+        onUpdateDates(cr.catId, cr.newStart, cr.newEnd);
+      });
+    }
+
     setPendingChange(null);
 
-    toast.success(`${isBaseline ? 'Baseline' : 'Datas'} de "${taskName}" atualizado`, {
-      action: {
-        label: 'Desfazer',
-        onClick: () => { updateFn(taskId, oldStart, oldEnd); toast.info('Alteração desfeita'); },
-      },
-      duration: 8000,
-    });
+    const totalAffected = 1 + (cascadeResults?.length || 0);
+    toast.success(
+      totalAffected > 1
+        ? `${totalAffected} etapas atualizadas`
+        : `${isBaseline ? 'Baseline' : 'Datas'} de "${taskName}" atualizado`,
+      {
+        action: {
+          label: 'Desfazer',
+          onClick: () => {
+            updateFn(taskId, oldStart, oldEnd);
+            if (cascadeResults && onUpdateDates) {
+              cascadeResults.forEach(cr => onUpdateDates(cr.catId, cr.oldStart, cr.oldEnd));
+            }
+            toast.info('Alteração desfeita');
+          },
+        },
+        duration: 8000,
+      }
+    );
   }, [pendingChange, onUpdateDates, onUpdateBaseline]);
 
   const handleCancel = useCallback(() => setPendingChange(null), []);
