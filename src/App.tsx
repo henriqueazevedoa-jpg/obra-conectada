@@ -31,6 +31,7 @@ import PerfilPage from "@/pages/PerfilPage";
 import PendenciasPage from "@/pages/PendenciasPage";
 import AgendaObraPage from "@/pages/AgendaObraPage";
 import FornecedoresPage from "@/pages/FornecedoresPage";
+import InsumosPage from "@/pages/InsumosPage";
 import DocumentosPage from "@/pages/DocumentosPage";
 
 import AdminLayout from "@/pages/admin/AdminLayout";
