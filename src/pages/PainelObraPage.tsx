@@ -250,6 +250,7 @@ function GestorPainel() {
       </div>
 
       {/* 4.5. Visão Unificada da Obra */}
+      {printSections.cronograma && (
       <Card className="shadow-card">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -275,15 +276,18 @@ function GestorPainel() {
           </div>
         </CardHeader>
         <CardContent className="pt-2">
-          {calendarViewMode === 'calendario' ? (
-            <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact />
-          ) : calendarViewMode === 'timeline' ? (
-            <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
-          ) : (
-            <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
-          )}
+          <div className="max-h-[420px] overflow-y-auto">
+            {calendarViewMode === 'calendario' ? (
+              <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact embedded />
+            ) : calendarViewMode === 'timeline' ? (
+              <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
+            ) : (
+              <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
+            )}
+          </div>
         </CardContent>
       </Card>
+      )}
 
       {/* 5. Custos por Etapa */}
       <div data-print-section="custosEtapa">

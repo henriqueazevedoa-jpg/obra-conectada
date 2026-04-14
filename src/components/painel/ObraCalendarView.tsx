@@ -67,6 +67,8 @@ interface Props {
   /** If true, fetch all sources from DB. If false, only use externalEvents */
   fetchFromDb?: boolean;
   compact?: boolean;
+  /** When true, renders without Card wrapper, title, and internal filters */
+  embedded?: boolean;
 }
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
