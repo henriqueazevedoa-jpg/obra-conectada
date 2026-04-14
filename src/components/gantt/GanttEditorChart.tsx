@@ -450,6 +450,18 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
         );
       })()}
 
+      {/* Dependency editor */}
+      {canEditDeps && onAddDependency && onRemoveDependency && (
+        <div className="mt-3 border border-border rounded-lg p-3 bg-background">
+          <GanttDependencyEditor
+            tasks={tasks}
+            dependencies={dependencies}
+            onAdd={onAddDependency}
+            onRemove={onRemoveDependency}
+          />
+        </div>
+      )}
+
       <GanttConfirmDialog change={pendingChange} onConfirm={handleConfirm} onCancel={handleCancel} />
     </TooltipProvider>
   );
