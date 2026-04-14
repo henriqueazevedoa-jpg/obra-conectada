@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      insumos_pendentes_cotacao: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          id: string
+          material_id: string | null
+          nome_insumo: string
+          obra_id: string
+          observacoes: string | null
+          status: string
+          subitem_id: string | null
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          id?: string
+          material_id?: string | null
+          nome_insumo: string
+          obra_id: string
+          observacoes?: string | null
+          status?: string
+          subitem_id?: string | null
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          id?: string
+          material_id?: string | null
+          nome_insumo?: string
+          obra_id?: string
+          observacoes?: string | null
+          status?: string
+          subitem_id?: string | null
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       obra_agenda: {
         Row: {
           alerta_ativo: boolean

@@ -21,6 +21,7 @@ import {
   Store,
   FolderOpen,
   CalendarCheck,
+  ShoppingBasket,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ const obraFinanceiroLinks: NavItem[] = [
   { to: "/orcamento", label: "Orçamento", icon: DollarSign },
   { to: "/custo-real", label: "Custo Real", icon: Receipt },
   { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
+  { to: "/insumos", label: "Insumos", icon: ShoppingBasket },
   { to: "/fornecedores", label: "Fornecedores", icon: Store },
 ];
 
