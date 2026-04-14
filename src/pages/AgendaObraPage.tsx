@@ -23,6 +23,8 @@ import {
   Play, Calendar, RotateCcw, List, BarChart3,
 } from 'lucide-react';
 import ObraCalendarView, { CalendarEvent } from '@/components/painel/ObraCalendarView';
+import AgendaTimelineView from '@/components/painel/AgendaTimelineView';
+import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
 
@@ -108,7 +110,7 @@ export default function AgendaObraPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('lista');
 
   // Filtros
   const [search, setSearch] = useState('');
@@ -270,14 +272,7 @@ export default function AgendaObraPage() {
               ))}
             </SelectContent>
           </Select>
-          <div className="flex border border-border rounded-md">
-            <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" className="h-8 rounded-r-none gap-1 text-xs" onClick={() => setViewMode('list')}>
-              <List className="h-3 w-3" /> Lista
-            </Button>
-            <Button variant={viewMode === 'calendar' ? 'default' : 'ghost'} size="sm" className="h-8 rounded-l-none gap-1 text-xs" onClick={() => setViewMode('calendar')}>
-              <Calendar className="h-3 w-3" /> Calendário
-            </Button>
-          </div>
+          <ViewModeSwitcher value={viewMode} onChange={setViewMode} />
           <Button onClick={openCreate} size="sm"><Plus className="h-4 w-4 mr-1" /> Novo Evento</Button>
         </div>
       </div>
@@ -351,13 +346,12 @@ export default function AgendaObraPage() {
       </div>
 
 
-      {/* Conteúdo: Lista ou Calendário */}
-      {viewMode === 'calendar' ? (
-        <ObraCalendarView
-          obraId={obra.id}
-          sources={['agenda']}
-          fetchFromDb={true}
-        />
+      {/* Conteúdo */}
+      {viewMode === 'calendario' ? (
+        <ObraCalendarView obraId={obra.id} sources={['agenda']} fetchFromDb={true} />
+      ) : viewMode === 'timeline' ? (
+        loading ? <div className="text-center py-10 text-muted-foreground">Carregando...</div> :
+        <AgendaTimelineView items={filtered as any} />
       ) : loading ? (
         <div className="text-center py-10 text-muted-foreground">Carregando...</div>
       ) : filtered.length === 0 ? (

@@ -22,6 +22,9 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
+import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
+import PendenciasTimelineView from '@/components/painel/PendenciasTimelineView';
+import ObraCalendarView from '@/components/painel/ObraCalendarView';
 
 type PendenciaPrioridade = 'baixa' | 'media' | 'alta';
 type PendenciaStatus = 'aberta' | 'em_andamento' | 'resolvida';
@@ -86,6 +89,7 @@ export default function PendenciasPage() {
   const [filterPrioridade, setFilterPrioridade] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('lista');
 
   const fetchPendencias = useCallback(async () => {
     if (!obra) { setPendencias([]); setLoading(false); return; }
@@ -183,6 +187,7 @@ export default function PendenciasPage() {
               ))}
             </SelectContent>
           </Select>
+          <ViewModeSwitcher value={viewMode} onChange={setViewMode} />
           <Button onClick={openCreate} size="sm"><Plus className="h-4 w-4 mr-1" /> Nova Pendência</Button>
         </div>
       </div>
@@ -229,8 +234,13 @@ export default function PendenciasPage() {
         </Select>
       </div>
 
-      {/* Lista */}
-      {loading ? (
+      {/* Content */}
+      {viewMode === 'calendario' ? (
+        <ObraCalendarView obraId={obra.id} sources={['pendencias']} fetchFromDb={true} />
+      ) : viewMode === 'timeline' ? (
+        loading ? <div className="text-center py-10 text-muted-foreground">Carregando...</div> :
+        <PendenciasTimelineView items={filtered} />
+      ) : loading ? (
         <div className="text-center py-10 text-muted-foreground">Carregando...</div>
       ) : filtered.length === 0 ? (
         <Card className="shadow-card"><CardContent className="p-10 text-center text-muted-foreground">
