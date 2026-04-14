@@ -846,29 +846,59 @@ export default function PagamentosPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline" size="sm"
-          onClick={() => setFiltersOpen(!filtersOpen)}
-          className={cn(hasActiveFilters && "border-primary text-primary")}
-        >
-          <Filter className="h-4 w-4 mr-1" />Filtros
-          <ChevronDown className={cn("h-3 w-3 ml-1 transition-transform", filtersOpen && "rotate-180")} />
-        </Button>
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); }}>
-            Limpar filtros
+      {/* Filters + View Mode */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={cn(hasActiveFilters && "border-primary text-primary")}
+          >
+            <Filter className="h-4 w-4 mr-1" />Filtros
+            <ChevronDown className={cn("h-3 w-3 ml-1 transition-transform", filtersOpen && "rotate-180")} />
           </Button>
-        )}
-        {filterEtapa !== '_all' && (
-          <Badge variant="secondary" className="bg-primary/10 text-primary gap-1 text-xs">
-            Etapa: {filterEtapa}
-            <button onClick={() => setFilterEtapa('_all')} className="ml-1 hover:text-destructive">
-              <X className="h-3 w-3" />
-            </button>
-          </Badge>
-        )}
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); }}>
+              Limpar filtros
+            </Button>
+          )}
+          {filterEtapa !== '_all' && (
+            <Badge variant="secondary" className="bg-primary/10 text-primary gap-1 text-xs">
+              Etapa: {filterEtapa}
+              <button onClick={() => setFilterEtapa('_all')} className="ml-1 hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+        </div>
+
+        {/* View mode toggle */}
+        <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+          <Button
+            variant={viewMode === 'lista' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('lista')}
+          >
+            <List className="h-3.5 w-3.5" /> Lista
+          </Button>
+          <Button
+            variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('timeline')}
+          >
+            <GitBranch className="h-3.5 w-3.5" /> Timeline
+          </Button>
+          <Button
+            variant={viewMode === 'calendario' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode('calendario')}
+          >
+            <CalendarDays className="h-3.5 w-3.5" /> Calendário
+          </Button>
+        </div>
       </div>
 
       {filtersOpen && (
@@ -898,6 +928,15 @@ export default function PagamentosPage() {
               <SelectItem value="7dias">Próximos 7 dias</SelectItem>
               <SelectItem value="30dias">Próximos 30 dias</SelectItem>
               <SelectItem value="atrasados">Atrasados</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterEtapa} onValueChange={setFilterEtapa}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Etapa" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todas etapas</SelectItem>
+              {[...new Set(pagamentos.map(p => p.etapa_orcamento).filter(Boolean))].map(e => (
+                <SelectItem key={e!} value={e!}>{e}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
