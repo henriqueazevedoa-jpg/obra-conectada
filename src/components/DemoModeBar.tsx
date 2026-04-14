@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
-import { seedDemoData, clearDemoData } from '@/data/demoSeeder';
+import { seedDemoData, removeDemoData } from '@/data/demoSeeder';
 import { toast } from '@/hooks/use-toast';
 import { Sparkles, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import {
@@ -28,11 +28,10 @@ export default function DemoModeBar() {
     setLoading(true);
     try {
       if (hasDemoData) {
-        await clearDemoData(company.id);
+        await removeDemoData(company.id);
       }
 
-      const seeded = await seedDemoData(user.id, company.id);
-      setSelectedObraId(seeded.obra1Id);
+      await seedDemoData(user.id, company.id);
 
       toast({
         title: hasDemoData ? '🔄 Dados demo atualizados!' : '🎉 Dados demo criados!',
@@ -50,7 +49,7 @@ export default function DemoModeBar() {
     setLoading(true);
     setConfirmClear(false);
     try {
-      await clearDemoData(company.id);
+      await removeDemoData(company.id);
       toast({ title: '🧹 Dados demo removidos!', description: 'Todas as obras demo foram excluídas.' });
       setTimeout(() => window.location.reload(), 800);
     } catch (err: any) {

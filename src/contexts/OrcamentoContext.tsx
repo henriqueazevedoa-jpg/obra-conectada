@@ -12,6 +12,11 @@ export interface OrcamentoSubitem {
   quantidade: number | null;
   precoUnitario: number | null;
   precoTotal: number;
+
+  codigoReferenciaExterna?: string;
+  origemGrupoTitulo?: string;
+  origemComposicaoCodigo?: string;
+  origemComposicaoDescricao?: string;
 }
 
 export interface OrcamentoComposicao {
@@ -24,6 +29,13 @@ export interface OrcamentoComposicao {
   precoTotal: number;
   subitens: OrcamentoSubitem[];
   usaSubitens: boolean;
+
+  fonteReferencia?: string;
+  codigoReferenciaExterna?: string;
+  referenciaCompetencia?: string;
+  ufReferencia?: string;
+  regimeReferencia?: string;
+
   dataInicioPrevista?: string;
   dataFimPrevista?: string;
   dataInicioReal?: string;
@@ -31,7 +43,6 @@ export interface OrcamentoComposicao {
   pesoCronograma?: number;
   concluida?: boolean;
 }
-
 export interface OrcamentoCategoria {
   id: string;
   codigo: string;
@@ -104,6 +115,11 @@ function dbToSubitem(row: any): OrcamentoSubitem {
     quantidade: row.quantidade != null ? Number(row.quantidade) : null,
     precoUnitario: row.preco_unitario != null ? Number(row.preco_unitario) : null,
     precoTotal: Number(row.preco_total) || 0,
+
+    codigoReferenciaExterna: row.codigo_referencia_externa || undefined,
+    origemGrupoTitulo: row.origem_grupo_titulo || undefined,
+    origemComposicaoCodigo: row.origem_composicao_codigo || undefined,
+    origemComposicaoDescricao: row.origem_composicao_descricao || undefined,
   };
 }
 
@@ -118,6 +134,13 @@ function dbToComposicao(row: any, subitens: OrcamentoSubitem[]): OrcamentoCompos
     precoTotal: Number(row.preco_total) || 0,
     subitens,
     usaSubitens: row.usa_subitens || false,
+
+    fonteReferencia: row.fonte_referencia || undefined,
+    codigoReferenciaExterna: row.codigo_referencia_externa || undefined,
+    referenciaCompetencia: row.referencia_competencia || undefined,
+    ufReferencia: row.uf_referencia || undefined,
+    regimeReferencia: row.regime_referencia || undefined,
+
     dataInicioPrevista: row.data_inicio_prevista || undefined,
     dataFimPrevista: row.data_fim_prevista || undefined,
     dataInicioReal: row.data_inicio_real || undefined,
@@ -294,16 +317,21 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
         for (const sub of comp.subitens) {
           newSubIds.add(sub.id);
 
-          await (supabase.from('orcamento_subitens') as any).upsert({
-            id: sub.id,
-            composicao_id: comp.id,
-            codigo: sub.codigo,
-            descricao: sub.descricao,
-            unidade: sub.unidade || null,
-            quantidade: sub.quantidade,
-            preco_unitario: sub.precoUnitario,
-            preco_total: sub.precoTotal,
-          });
+        await (supabase.from('orcamento_subitens') as any).upsert({
+          id: sub.id,
+          composicao_id: comp.id,
+          codigo: sub.codigo,
+          descricao: sub.descricao,
+          unidade: sub.unidade || null,
+          quantidade: sub.quantidade,
+          preco_unitario: sub.precoUnitario,
+          preco_total: sub.precoTotal,
+        
+          codigo_referencia_externa: sub.codigoReferenciaExterna || null,
+          origem_grupo_titulo: sub.origemGrupoTitulo || null,
+          origem_composicao_codigo: sub.origemComposicaoCodigo || null,
+          origem_composicao_descricao: sub.origemComposicaoDescricao || null,
+        });
         }
       }
     }
