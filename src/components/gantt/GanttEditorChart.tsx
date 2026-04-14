@@ -187,14 +187,23 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
         }
 
         const taskName = categorias.find(c => c.id === dragState.taskId)?.nome || 'Tarefa';
+        const newStartStr = format(newStart, 'yyyy-MM-dd');
+        const newEndStr = format(newEnd, 'yyyy-MM-dd');
+
+        // Calculate cascade impact
+        const cascadeResults = !dragState.isBaseline && onCalculateCascade
+          ? onCalculateCascade(dragState.taskId, newStartStr, newEndStr)
+          : [];
+
         setPendingChange({
           taskId: dragState.taskId,
           taskName,
           oldStart: dragState.originalStart,
           oldEnd: dragState.originalEnd,
-          newStart: format(newStart, 'yyyy-MM-dd'),
-          newEnd: format(newEnd, 'yyyy-MM-dd'),
+          newStart: newStartStr,
+          newEnd: newEndStr,
           isBaseline: dragState.isBaseline,
+          cascadeResults,
         });
       }
       setDragState(null);
