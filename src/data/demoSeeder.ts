@@ -242,4 +242,67 @@ export async function seedDemoData(userId: string, companyId: string) {
   await checkedInsert('obra_agenda', agenda, true);
 
   console.log('🔥 DEMO PREMIUM CRIADO');
+
+  return { obra1Id, obra2Id, obra3Id, obra4Id };
+}
+
+export async function clearDemoData(companyId: string) {
+  // Find all demo obras
+  const { data: demoObras } = await (supabase.from as any)('obras')
+    .select('id')
+    .eq('company_id', companyId)
+    .like('nome', '[DEMO]%');
+
+  if (!demoObras || demoObras.length === 0) return;
+
+  const obraIds = demoObras.map((o: any) => o.id);
+
+  // Delete related data in order (child tables first)
+  const tables = [
+    'obra_agenda',
+    'documentos_obra',
+    'cronograma_dependencias',
+    'diario_registros',
+    'orcamento_subitens',
+    'orcamento_composicoes',
+    'orcamento_categorias',
+    'pagamentos',
+    'pendencias',
+    'fornecedores',
+    'estoque_movimentacoes',
+    'estoque_items',
+    'obra_memberships',
+  ];
+
+  for (const table of tables) {
+    const { error } = await (supabase.from as any)(table)
+      .delete()
+      .in('obra_id', obraIds);
+    if (error && !error.message?.includes('Could not find the table')) {
+      console.warn(`clearDemoData: ${table} error:`, error.message);
+    }
+  }
+
+  // Delete subitens via composicoes
+  const { data: cats } = await (supabase.from as any)('orcamento_categorias')
+    .select('id')
+    .in('obra_id', obraIds);
+  if (cats?.length) {
+    const catIds = cats.map((c: any) => c.id);
+    const { data: comps } = await (supabase.from as any)('orcamento_composicoes')
+      .select('id')
+      .in('categoria_id', catIds);
+    if (comps?.length) {
+      await (supabase.from as any)('orcamento_subitens')
+        .delete()
+        .in('composicao_id', comps.map((c: any) => c.id));
+    }
+    await (supabase.from as any)('orcamento_composicoes').delete().in('categoria_id', catIds);
+    await (supabase.from as any)('orcamento_categorias').delete().in('id', catIds);
+  }
+
+  // Finally delete the obras
+  await (supabase.from as any)('obras').delete().in('id', obraIds);
+
+  console.log('🧹 DEMO DATA CLEARED');
 }
