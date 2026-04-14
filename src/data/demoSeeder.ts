@@ -6,10 +6,14 @@ function demoId() { return crypto.randomUUID(); }
 function daysAgo(n: number) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 function daysFromNow(n: number) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
 
-async function checkedInsert(table: string, data: any[]) {
+async function checkedInsert(table: string, data: any[], optional = false) {
   if (data.length === 0) return;
   const { error } = await (supabase.from as any)(table).insert(data);
   if (error) {
+    if (optional || error.message?.includes('Could not find the table')) {
+      console.warn(`Demo seed: ${table} skipped (table not found)`);
+      return;
+    }
     console.error(`Demo seed: ${table} insert failed:`, error.message, error.details, error.hint);
     throw new Error(`${table}: ${error.message}`);
   }
@@ -463,7 +467,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra4Id, titulo: `${DEMO_PREFIX} Entrega de chaves`, tipo: 'administrativo', data_programada: daysFromNow(10), hora_programada: '16:00:00', responsavel: 'Eng. Roberto', status: 'programado' as const, prioridade: 'alta' as const },
     { obra_id: obra4Id, titulo: `${DEMO_PREFIX} Foto profissional da obra concluída`, tipo: 'outro', data_programada: daysFromNow(8), hora_programada: '09:00:00', responsavel: 'Fotógrafo Studio', status: 'programado' as const, prioridade: 'baixa' as const },
   ];
-  await checkedInsert('obra_agenda', agenda);
+  await checkedInsert('obra_agenda', agenda, true);
 
   // ══════════════════════ 11. DOCUMENTOS ══════════════════════
   const documentos = [
@@ -491,7 +495,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     { obra_id: obra4Id, company_id: companyId, nome: `${DEMO_PREFIX} Manual do Proprietário`, categoria: 'Outros', descricao: 'Manual de uso, garantias e manutenção preventiva', arquivo_url: '', arquivo_nome: 'manual-proprietario-riviera.pdf', arquivo_tipo: 'application/pdf', tamanho_bytes: 680000, created_by: userId },
     { obra_id: obra4Id, company_id: companyId, nome: `${DEMO_PREFIX} Habite-se (pendente)`, categoria: 'Licenças', descricao: 'Protocolo de solicitação do habite-se na prefeitura', arquivo_url: '', arquivo_nome: 'protocolo-habite-se.pdf', arquivo_tipo: 'application/pdf', tamanho_bytes: 85000, created_by: userId },
   ];
-  await checkedInsert('documentos_obra', documentos);
+  await checkedInsert('documentos_obra', documentos, true);
 
   return { obra1Id, obra2Id, obra3Id, obra4Id };
 }
