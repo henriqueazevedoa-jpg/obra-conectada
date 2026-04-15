@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -37,17 +37,16 @@ import { toast } from '@/hooks/use-toast';
 import {
   Search,
   Database,
-  MapPin,
-  FileText,
   Loader2,
   ChevronsUpDown,
   Check,
+  LayoutList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { listarReferenciasSinapi } from '@/lib/sinapi/listarReferencias';
 import {
-  buscarComposicoesSinapi,
+  listarComposicoesPorGrupo,
   type SinapiComposicaoResumo,
 } from '@/lib/sinapi/buscarComposicoes';
 import { listarGruposSinapi } from '@/lib/sinapi/listarGrupos';
@@ -58,6 +57,8 @@ import {
 } from '@/lib/sinapi/expandComposicao';
 
 import type { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type ImportarSinapiDialogProps = {
   open: boolean;
@@ -92,6 +93,8 @@ type PreviewData = {
   }[];
 };
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
 const REGIMES: { value: SinapiRegime; label: string }[] = [
   { value: 'SEM_DESONERACAO', label: 'Sem desoneração' },
   { value: 'COM_DESONERACAO', label: 'Com desoneração' },
@@ -103,12 +106,14 @@ const UFS = [
   'PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO',
 ];
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
-function buildPreview(resultadoBase: SinapiComposicaoExpandida): PreviewData {
-  const itensFinais = resultadoBase.consolidado
+function buildPreview(base: SinapiComposicaoExpandida): PreviewData {
+  const itensFinais = base.consolidado
     .map((item) => ({
       codigo: item.codigo,
       descricao: item.descricao,
@@ -122,7 +127,7 @@ function buildPreview(resultadoBase: SinapiComposicaoExpandida): PreviewData {
     .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'));
 
   const origemMap = new Map<string, { quantidade: number; subtotal: number }>();
-  for (const item of resultadoBase.consolidado) {
+  for (const item of base.consolidado) {
     for (const origem of item.origens) {
       const nome = origem.grupoOrigemDescricao || 'Composição principal';
       const q = Number(origem.quantidade) || 0;
@@ -138,14 +143,16 @@ function buildPreview(resultadoBase: SinapiComposicaoExpandida): PreviewData {
     .sort((a, b) => b.subtotal - a.subtotal);
 
   return {
-    custoUnitario: Number(resultadoBase.custoTotal) || 0,
-    totalInsumosDetalhados: resultadoBase.detalhado.length,
-    totalInsumosConsolidados: resultadoBase.consolidado.length,
+    custoUnitario: Number(base.custoTotal) || 0,
+    totalInsumosDetalhados: base.detalhado.length,
+    totalInsumosConsolidados: base.consolidado.length,
     totalOrigens: origens.length,
     origens,
     itensFinais,
   };
 }
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ImportarSinapiDialog({
   open,
@@ -154,53 +161,58 @@ export default function ImportarSinapiDialog({
   defaultCompetencia = '',
   onConfirm,
 }: ImportarSinapiDialogProps) {
-  // ── Seleções de contexto ──
-  const [categoriaId, setCategoriaId] = useState('');
+
+  // Filtros
   const [referenciaId, setReferenciaId] = useState('');
-  const [competencia, setCompetencia] = useState(defaultCompetencia);
-  const [uf, setUf] = useState('SP');
-  const [regime, setRegime] = useState<SinapiRegime>('SEM_DESONERACAO');
-
-  // ── Referências SINAPI ──
-  const [referencias, setReferencias] = useState<{ id: string; label: string; competencia: string }[]>([]);
-
-  // ── Grupos ──
-  const [grupos, setGrupos] = useState<string[]>([]);
-  const [loadingGrupos, setLoadingGrupos] = useState(false);
+  const [uf, setUf]                     = useState('SP');
+  const [regime, setRegime]             = useState<SinapiRegime>('SEM_DESONERACAO');
+  const [categoriaId, setCategoriaId]   = useState('');
   const [grupoSelecionado, setGrupoSelecionado] = useState('');
-  const [grupoPopoverOpen, setGrupoPopoverOpen] = useState(false);
+  const [competencia, setCompetencia]   = useState(defaultCompetencia);
 
-  // ── Busca de composição ──
-  const [busca, setBusca] = useState('');
-  const [resultados, setResultados] = useState<SinapiComposicaoResumo[]>([]);
-  const [composicaoSelecionada, setComposicaoSelecionada] = useState<SinapiComposicaoResumo | null>(null);
+  // Dados carregados do banco
+  const [referencias, setReferencias]   = useState<{ id: string; label: string; competencia: string }[]>([]);
+  const [grupos, setGrupos]             = useState<string[]>([]);
+  const [todasComposicoes, setTodasComposicoes] = useState<SinapiComposicaoResumo[]>([]);
+
+  // Loading states
+  const [loadingGrupos, setLoadingGrupos]           = useState(false);
   const [loadingComposicoes, setLoadingComposicoes] = useState(false);
 
-  // ── Preview ──
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
-  const [activePreviewTab, setActivePreviewTab] = useState('resumo');
+  // Combobox grupo
+  const [grupoPopoverOpen, setGrupoPopoverOpen] = useState(false);
 
-  // ── Importação ──
+  // Busca local (filtra todasComposicoes)
+  const [buscaLocal, setBuscaLocal] = useState('');
+
+  // Composição selecionada e preview
+  const [composicaoSelecionada, setComposicaoSelecionada] = useState<SinapiComposicaoResumo | null>(null);
+  const [summaryLoading, setSummaryLoading]               = useState(false);
+  const [previewData, setPreviewData]                     = useState<PreviewData | null>(null);
+  const [activePreviewTab, setActivePreviewTab]           = useState('resumo');
+
+  // Importação em curso
   const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [progress, setProgress]   = useState(0);
+  const [logs, setLogs]           = useState<string[]>([]);
 
   const previewCacheRef = useRef<Map<string, SinapiComposicaoExpandida>>(new Map());
 
-  // ─────────── helpers ───────────
+  // Lista filtrada pelo campo de busca (client-side)
+  const composicoesFiltradas = useMemo(() => {
+    const termo = buscaLocal.trim().toLowerCase();
+    if (!termo) return todasComposicoes;
+    return todasComposicoes.filter((c) =>
+      c.descricao.toLowerCase().includes(termo) ||
+      String(c.codigo).includes(termo)
+    );
+  }, [todasComposicoes, buscaLocal]);
 
-  function appendLog(message: string, value?: number) {
-    setLogs((prev) => [...prev, message]);
-    if (typeof value === 'number') setProgress(value);
-  }
+  // ─── Helpers ─────────────────────────────────────────────────────────────
 
-  function resetBusca() {
-    setBusca('');
-    setResultados([]);
-    setComposicaoSelecionada(null);
-    setPreviewData(null);
-    setActivePreviewTab('resumo');
+  function appendLog(msg: string, val?: number) {
+    setLogs((p) => [...p, msg]);
+    if (typeof val === 'number') setProgress(val);
   }
 
   function getCacheKey(sel?: SinapiComposicaoResumo | null) {
@@ -217,7 +229,12 @@ export default function ImportarSinapiDialog({
     if (cached) { setPreviewData(buildPreview(cached)); return; }
     try {
       setSummaryLoading(true);
-      const res = await expandirComposicaoSinapi({ referenciaId, codigoComposicao: sel.codigo, uf, regime });
+      const res = await expandirComposicaoSinapi({
+        referenciaId,
+        codigoComposicao: sel.codigo,
+        uf,
+        regime,
+      });
       previewCacheRef.current.set(key, res);
       setPreviewData(buildPreview(res));
     } catch (err) {
@@ -228,9 +245,17 @@ export default function ImportarSinapiDialog({
     }
   }
 
-  // ─────────── effects ───────────
+  function resetComposicoes() {
+    setTodasComposicoes([]);
+    setBuscaLocal('');
+    setComposicaoSelecionada(null);
+    setPreviewData(null);
+    setActivePreviewTab('resumo');
+  }
 
-  // Carrega referências ao abrir (apenas 1x)
+  // ─── Effects ─────────────────────────────────────────────────────────────
+
+  // Carrega referências ao abrir (1x)
   useEffect(() => {
     if (!open) return;
     listarReferenciasSinapi()
@@ -254,7 +279,11 @@ export default function ImportarSinapiDialog({
     if (ref) setCompetencia(ref.competencia || '');
     setLoadingGrupos(true);
     listarGruposSinapi(referenciaId)
-      .then((data) => { setGrupos(data); setGrupoSelecionado(''); resetBusca(); })
+      .then((data) => {
+        setGrupos(data);
+        setGrupoSelecionado('');
+        resetComposicoes();
+      })
       .catch((err: unknown) => toast({
         title: 'Erro ao carregar grupos',
         description: err instanceof Error ? err.message : 'Falha inesperada',
@@ -264,35 +293,37 @@ export default function ImportarSinapiDialog({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [referenciaId, referencias]);
 
-  // Busca com debounce
+  // Quando grupo muda: carrega TODAS as composições do grupo
   useEffect(() => {
-    if (!referenciaId || busca.trim().length < 2) {
-      setResultados([]);
-      setLoadingComposicoes(false);
+    if (!referenciaId || !grupoSelecionado) {
+      resetComposicoes();
       return;
     }
-    const t = window.setTimeout(async () => {
-      try {
-        setLoadingComposicoes(true);
-        const data = await buscarComposicoesSinapi({ referenciaId, termo: busca, grupo: grupoSelecionado || undefined });
-        setResultados(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingComposicoes(false);
-      }
-    }, 300);
-    return () => window.clearTimeout(t);
-  }, [busca, referenciaId, grupoSelecionado]);
+    setLoadingComposicoes(true);
+    resetComposicoes();
+    listarComposicoesPorGrupo({ referenciaId, grupo: grupoSelecionado })
+      .then((data) => setTodasComposicoes(data))
+      .catch((err: unknown) => toast({
+        title: 'Erro ao carregar composições',
+        description: err instanceof Error ? err.message : 'Falha inesperada',
+        variant: 'destructive',
+      }))
+      .finally(() => setLoadingComposicoes(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grupoSelecionado, referenciaId]);
 
-  // Preview automático ao selecionar
+  // Preview automático ao selecionar composição
   useEffect(() => {
-    if (!composicaoSelecionada) { setPreviewData(null); setActivePreviewTab('resumo'); return; }
+    if (!composicaoSelecionada) {
+      setPreviewData(null);
+      setActivePreviewTab('resumo');
+      return;
+    }
     void loadPreview(composicaoSelecionada);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composicaoSelecionada, referenciaId, uf, regime]);
 
-  // ─────────── submit ───────────
+  // ─── Submit ──────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
     if (!categoriaId) { toast({ title: 'Selecione a etapa destino', variant: 'destructive' }); return; }
@@ -305,7 +336,12 @@ export default function ImportarSinapiDialog({
     setIsLoading(true); setLogs([]); setProgress(10);
     try {
       appendLog(resultadoBase ? 'Usando composição já carregada...' : 'Carregando composição...', 20);
-      await onConfirm({ categoriaId, referenciaId, competencia, codigoComposicao: composicaoSelecionada.codigo, uf, regime, resultadoBase, onProgress: (p, m) => appendLog(m, p) });
+      await onConfirm({
+        categoriaId, referenciaId, competencia,
+        codigoComposicao: composicaoSelecionada.codigo,
+        uf, regime, resultadoBase,
+        onProgress: (p, m) => appendLog(m, p),
+      });
       appendLog('Importação concluída.', 100);
       toast({ title: 'Composição importada com sucesso!' });
       onOpenChange(false);
@@ -318,21 +354,15 @@ export default function ImportarSinapiDialog({
 
   const regimeLabel = REGIMES.find((r) => r.value === regime)?.label ?? regime;
 
+  // ─── Render ──────────────────────────────────────────────────────────────
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!isLoading) onOpenChange(v); }}>
-      {/*
-        Layout:
-          ┌────────────── Header ──────────────┐
-          │ barra de filtros (1 linha)         │
-          ├────────────────────────────────────┤
-          │ [Busca + Resultados] │ [Preview]   │
-          ├────────────── Footer ──────────────┤
-      */}
       <DialogContent className="w-[95vw] max-w-5xl h-[88vh] p-0 overflow-hidden flex flex-col gap-0">
 
-        {/* ── HEADER ── */}
+        {/* ════ HEADER ════ */}
         <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
-          <DialogTitle className="flex items-center gap-2 mb-3">
+          <DialogTitle className="flex items-center gap-2 mb-4">
             <Database className="w-5 h-5 text-primary" />
             Importar da SINAPI
             {competencia && (
@@ -340,30 +370,15 @@ export default function ImportarSinapiDialog({
             )}
           </DialogTitle>
 
-          {/* ── BARRA DE FILTROS — linha compacta ── */}
-          <div className="grid grid-cols-[1fr_1fr_88px_1fr_1fr] gap-3 pb-4">
+          {/* ── LINHA 1: Referência | UF | Regime ── */}
+          {/* items-end alinha todos os inputs pelo fundo, independente da altura do label */}
+          <div className="grid grid-cols-[1fr_80px_1fr] gap-3 mb-3 items-end">
 
-            {/* Etapa destino */}
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Etapa destino</Label>
-              <Select value={categoriaId} onValueChange={setCategoriaId}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue placeholder="Selecione a etapa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categorias.filter(c => !!c.id).map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.codigo} — {cat.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Referência SINAPI */}
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Referência SINAPI</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground h-4 flex items-center">Referência SINAPI</Label>
               <Select value={referenciaId} onValueChange={setReferenciaId}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue placeholder="Selecione" />
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Selecione a referência" />
                 </SelectTrigger>
                 <SelectContent>
                   {referencias.map((ref) => (
@@ -373,13 +388,10 @@ export default function ImportarSinapiDialog({
               </Select>
             </div>
 
-            {/* UF */}
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <MapPin className="w-3 h-3" />UF
-              </Label>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground h-4 flex items-center">UF</Label>
               <Select value={uf} onValueChange={setUf}>
-                <SelectTrigger className="h-8 text-sm">
+                <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -388,13 +400,10 @@ export default function ImportarSinapiDialog({
               </Select>
             </div>
 
-            {/* Regime */}
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <FileText className="w-3 h-3" />Regime
-              </Label>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground h-4 flex items-center">Regime de contratação</Label>
               <Select value={regime} onValueChange={(v) => setRegime(v as SinapiRegime)}>
-                <SelectTrigger className="h-8 text-sm">
+                <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -402,43 +411,63 @@ export default function ImportarSinapiDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            {/* Grupo — Combobox com busca */}
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Grupo de serviço</Label>
+          {/* ── LINHA 2: Etapa destino | Grupo de serviço ── */}
+          <div className="grid grid-cols-2 gap-3 mb-4 items-end">
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground h-4 flex items-center">Etapa destino</Label>
+              <Select value={categoriaId} onValueChange={setCategoriaId}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Selecione a etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categorias.filter((c) => !!c.id).map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.codigo} — {cat.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground h-4 flex items-center">Grupo de serviço</Label>
               <Popover open={grupoPopoverOpen} onOpenChange={setGrupoPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     disabled={!referenciaId || loadingGrupos}
-                    className="h-8 w-full justify-between text-sm font-normal px-3"
+                    className="h-9 w-full justify-between font-normal px-3"
                   >
                     {loadingGrupos ? (
-                      <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                        <Loader2 className="w-3 h-3 animate-spin" />Carregando...
+                      <span className="flex items-center gap-1.5 text-muted-foreground text-sm">
+                        <Loader2 className="w-3 h-3 animate-spin" />Carregando grupos...
                       </span>
                     ) : (
-                      <span className={cn('truncate', !grupoSelecionado && 'text-muted-foreground')}>
-                        {grupoSelecionado || 'Todos os grupos'}
+                      <span className={cn('truncate text-sm', !grupoSelecionado && 'text-muted-foreground')}>
+                        {grupoSelecionado || 'Selecione um grupo'}
                       </span>
                     )}
-                    <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-72 p-0" align="end">
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Buscar grupo..." className="h-8" />
+                    <CommandInput placeholder="Buscar grupo de serviço..." />
                     <CommandList>
                       <CommandEmpty>Nenhum grupo encontrado.</CommandEmpty>
                       <CommandGroup>
-                        <CommandItem value="__todos__" onSelect={() => { setGrupoSelecionado(''); setGrupoPopoverOpen(false); resetBusca(); }}>
-                          <Check className={cn('mr-2 h-4 w-4', !grupoSelecionado ? 'opacity-100' : 'opacity-0')} />
-                          Todos os grupos
-                        </CommandItem>
                         {grupos.map((g) => (
-                          <CommandItem key={g} value={g} onSelect={() => { setGrupoSelecionado(g); setGrupoPopoverOpen(false); resetBusca(); }}>
-                            <Check className={cn('mr-2 h-4 w-4', grupoSelecionado === g ? 'opacity-100' : 'opacity-0')} />
+                          <CommandItem
+                            key={g}
+                            value={g}
+                            onSelect={() => {
+                              setGrupoSelecionado(g);
+                              setGrupoPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4 shrink-0', grupoSelecionado === g ? 'opacity-100' : 'opacity-0')} />
                             {g}
                           </CommandItem>
                         ))}
@@ -453,58 +482,65 @@ export default function ImportarSinapiDialog({
           <Separator />
         </DialogHeader>
 
-        {/* ── BODY: 2 colunas ── */}
+        {/* ════ BODY: 2 colunas ════ */}
         <div className="flex-1 min-h-0 grid grid-cols-2 divide-x overflow-hidden">
 
-          {/* ── COLUNA ESQUERDA: Busca + Lista de resultados ── */}
+          {/* ── Esquerda: Campo de busca + Lista ── */}
           <div className="flex flex-col min-h-0 p-4 gap-3">
 
-            {/* Campo de busca — fixo no topo da coluna */}
+            {/* Campo de busca (filtro client-side) */}
             <div className="shrink-0 space-y-1">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <Search className="w-3 h-3" /> Buscar composição
+                <Search className="w-3 h-3" />
+                {grupoSelecionado ? 'Filtrar composições' : 'Buscar composição'}
               </Label>
               <div className="relative">
-                <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
-                  value={busca}
-                  onChange={(e) => {
-                    setBusca(e.target.value);
-                    if (!e.target.value) { setComposicaoSelecionada(null); setPreviewData(null); }
-                  }}
-                  placeholder="Digite nome ou código (mín. 2 caracteres)"
-                  disabled={!referenciaId || isLoading}
-                  className="pl-8 pr-8 h-9"
+                  value={buscaLocal}
+                  onChange={(e) => setBuscaLocal(e.target.value)}
+                  placeholder={
+                    !grupoSelecionado
+                      ? 'Selecione um grupo para ver as composições'
+                      : 'Filtrar por nome ou código...'
+                  }
+                  disabled={!grupoSelecionado || isLoading}
+                  className="pl-8 h-9"
                 />
-                {loadingComposicoes && (
-                  <Loader2 className="absolute right-2.5 top-2 h-4 w-4 animate-spin text-muted-foreground" />
-                )}
               </div>
 
-              {/* Status da busca */}
+              {/* Contagem de resultados */}
               <p className="text-xs text-muted-foreground">
-                {!referenciaId ? 'Selecione uma referência SINAPI acima'
-                  : busca.trim().length < 2 ? 'Digite ao menos 2 caracteres para buscar'
-                  : loadingComposicoes ? 'Buscando...'
-                  : resultados.length > 0 ? `${resultados.length} resultado(s) encontrado(s)`
-                  : 'Nenhuma composição encontrada'}
+                {!grupoSelecionado
+                  ? 'Selecione um grupo de serviço acima para carregar as composições'
+                  : loadingComposicoes
+                  ? 'Carregando composições do grupo...'
+                  : composicoesFiltradas.length === 0 && buscaLocal
+                  ? 'Nenhuma composição corresponde ao filtro'
+                  : `${composicoesFiltradas.length} composição(ões) • ${todasComposicoes.length} no grupo`}
               </p>
             </div>
 
-            {/* Lista de resultados — ocupa o espaço restante com scroll */}
+            {/* Lista de composições — ocupa o espaço restante */}
             <div className="flex-1 min-h-0 overflow-y-auto rounded-md border">
-              {resultados.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center text-sm text-muted-foreground p-6 gap-2">
+              {!grupoSelecionado ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-sm text-muted-foreground p-8 gap-3">
+                  <LayoutList className="w-10 h-10 opacity-20" />
+                  <p>Selecione um grupo de serviço<br />para ver as composições disponíveis.</p>
+                </div>
+              ) : loadingComposicoes ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-sm text-muted-foreground p-8 gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin opacity-50" />
+                  <p>Carregando composições...</p>
+                </div>
+              ) : composicoesFiltradas.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-sm text-muted-foreground p-8 gap-2">
                   <Search className="w-8 h-8 opacity-20" />
-                  {busca.trim().length < 2
-                    ? 'Busque por nome ou código da composição'
-                    : loadingComposicoes
-                    ? 'Buscando...'
-                    : 'Nenhuma composição encontrada para esta busca'}
+                  <p>Nenhuma composição encontrada para este filtro.</p>
                 </div>
               ) : (
                 <div className="divide-y">
-                  {resultados.map((item) => (
+                  {composicoesFiltradas.map((item) => (
                     <button
                       key={item.codigo}
                       type="button"
@@ -523,9 +559,8 @@ export default function ImportarSinapiDialog({
                       <div className="text-sm font-medium leading-snug">
                         {item.codigo} — {item.descricao}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5 flex gap-2">
-                        <span>{item.unidade || '-'}</span>
-                        {item.grupo && <><span>•</span><span>{item.grupo}</span></>}
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {item.unidade || '-'}
                       </div>
                     </button>
                   ))}
@@ -534,16 +569,16 @@ export default function ImportarSinapiDialog({
             </div>
           </div>
 
-          {/* ── COLUNA DIREITA: Preview ── */}
+          {/* ── Direita: Preview ── */}
           <div className="flex flex-col min-h-0 p-4 overflow-y-auto">
-            <Tabs value={activePreviewTab} onValueChange={setActivePreviewTab} className="flex flex-col min-h-0 flex-1">
+            <Tabs value={activePreviewTab} onValueChange={setActivePreviewTab} className="flex flex-col flex-1 min-h-0">
               <TabsList className="grid w-full grid-cols-3 shrink-0">
                 <TabsTrigger value="resumo">Resumo</TabsTrigger>
                 <TabsTrigger value="origens" disabled={!previewData}>Origens</TabsTrigger>
                 <TabsTrigger value="itens" disabled={!previewData}>Itens</TabsTrigger>
               </TabsList>
 
-              {/* Resumo */}
+              {/* ── Resumo ── */}
               <TabsContent value="resumo" className="mt-4 flex-1">
                 {!composicaoSelecionada ? (
                   <div className="flex flex-col items-center justify-center h-48 rounded-lg border border-dashed text-center text-sm text-muted-foreground gap-2">
@@ -553,7 +588,7 @@ export default function ImportarSinapiDialog({
                 ) : summaryLoading ? (
                   <div className="flex flex-col items-center justify-center h-48 rounded-lg border text-sm text-muted-foreground gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Carregando dados...
+                    Calculando custos...
                   </div>
                 ) : (
                   <div className="rounded-lg border p-4 space-y-4 bg-muted/20">
@@ -563,7 +598,7 @@ export default function ImportarSinapiDialog({
                         {composicaoSelecionada.codigo} — {composicaoSelecionada.descricao}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {composicaoSelecionada.unidade || '-'} • {composicaoSelecionada.grupo || 'Sem grupo'}
+                        Unidade: {composicaoSelecionada.unidade || '-'}
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         <Badge variant="outline" className="text-xs">{uf}</Badge>
@@ -596,7 +631,7 @@ export default function ImportarSinapiDialog({
                 )}
               </TabsContent>
 
-              {/* Origens */}
+              {/* ── Origens ── */}
               <TabsContent value="origens" className="mt-4">
                 {previewData ? (
                   <div className="border rounded-lg overflow-hidden">
@@ -606,7 +641,7 @@ export default function ImportarSinapiDialog({
                     <div className="divide-y">
                       {previewData.origens.map((o) => (
                         <div key={o.nome} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                          <div className="min-w-0 pr-3 text-sm">{o.nome}</div>
+                          <div className="min-w-0 pr-3">{o.nome}</div>
                           <div className="text-right shrink-0">
                             <div className="font-medium">{formatCurrency(o.subtotal)}</div>
                             <div className="text-xs text-muted-foreground">{o.quantidade.toFixed(2)} un.</div>
@@ -622,7 +657,7 @@ export default function ImportarSinapiDialog({
                 )}
               </TabsContent>
 
-              {/* Itens */}
+              {/* ── Itens ── */}
               <TabsContent value="itens" className="mt-4">
                 {previewData ? (
                   <div className="border rounded-lg overflow-hidden">
@@ -631,13 +666,13 @@ export default function ImportarSinapiDialog({
                     </div>
                     <div className="divide-y">
                       {previewData.itensFinais.map((item) => (
-                        <div key={`${item.codigo}-${item.descricao}`} className="grid grid-cols-[1fr_48px_72px_88px] gap-2 items-start px-4 py-2 text-sm">
+                        <div key={`${item.codigo}-${item.descricao}`} className="grid grid-cols-[1fr_48px_76px_96px] gap-2 items-start px-4 py-2 text-sm">
                           <div className="min-w-0">
                             <div className="font-medium leading-snug">{item.descricao}</div>
                             <div className="text-xs text-muted-foreground">{item.codigo}</div>
                           </div>
                           <div className="text-xs text-muted-foreground pt-0.5">{item.unidade || '-'}</div>
-                          <div className="text-right text-xs pt-0.5">{item.quantidade.toFixed(3)}</div>
+                          <div className="text-right text-xs pt-0.5">{item.quantidade.toFixed(4)}</div>
                           <div className="text-right font-medium">
                             {item.custoTotal != null
                               ? formatCurrency(item.custoTotal)
@@ -657,7 +692,7 @@ export default function ImportarSinapiDialog({
           </div>
         </div>
 
-        {/* ── FOOTER ── */}
+        {/* ════ FOOTER ════ */}
         <div className="border-t bg-background shrink-0 px-6 py-3 space-y-2">
           {isLoading && (
             <div className="border p-3 rounded-md space-y-2 bg-muted/30">
@@ -676,7 +711,11 @@ export default function ImportarSinapiDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={isLoading || !composicaoSelecionada || !categoriaId} className="gap-2">
+            <Button
+              onClick={handleSubmit}
+              disabled={isLoading || !composicaoSelecionada || !categoriaId}
+              className="gap-2"
+            >
               {isLoading
                 ? <><Loader2 className="w-4 h-4 animate-spin" />Importando...</>
                 : <><Database className="w-4 h-4" />Importar composição</>}

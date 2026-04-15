@@ -14,12 +14,17 @@ type SinapiComposicaoResumoRow = {
   grupo: string | null;
 };
 
+/**
+ * Busca composições por termo (código ou descrição).
+ * Continua sendo usada quando o usuário digita no campo de busca.
+ */
 export async function buscarComposicoesSinapi(params: {
   referenciaId: string;
   termo: string;
   grupo?: string;
+  limit?: number;
 }): Promise<SinapiComposicaoResumo[]> {
-  const { referenciaId, termo, grupo } = params;
+  const { referenciaId, termo, grupo, limit = 50 } = params;
 
   const termoLimpo = termo.trim();
   if (termoLimpo.length < 1) return [];
@@ -31,7 +36,7 @@ export async function buscarComposicoesSinapi(params: {
     .from('sinapi_composicoes')
     .select('codigo, descricao, unidade, grupo')
     .eq('referencia_id', referenciaId)
-    .limit(30);
+    .limit(limit);
 
   if (grupo && grupo.trim() !== '') {
     query = query.eq('grupo', grupo);
@@ -46,8 +51,33 @@ export async function buscarComposicoesSinapi(params: {
   const { data, error } = await query;
   if (error) throw error;
 
-  const rows = (data ?? []) as SinapiComposicaoResumoRow[];
+  return parseRows((data ?? []) as SinapiComposicaoResumoRow[]);
+}
 
+/**
+ * Lista TODAS as composições de um grupo SINAPI.
+ * Chamada quando o usuário seleciona um grupo — preenche a lista completa.
+ * A filtragem posterior é feita client-side pelo campo de busca.
+ */
+export async function listarComposicoesPorGrupo(params: {
+  referenciaId: string;
+  grupo: string;
+}): Promise<SinapiComposicaoResumo[]> {
+  const { referenciaId, grupo } = params;
+
+  const { data, error } = await supabase
+    .from('sinapi_composicoes')
+    .select('codigo, descricao, unidade, grupo')
+    .eq('referencia_id', referenciaId)
+    .eq('grupo', grupo)
+    .order('descricao', { ascending: true });
+
+  if (error) throw error;
+
+  return parseRows((data ?? []) as SinapiComposicaoResumoRow[]);
+}
+
+function parseRows(rows: SinapiComposicaoResumoRow[]): SinapiComposicaoResumo[] {
   return rows
     .filter((row) => row.codigo !== null && typeof row.descricao === 'string')
     .map((row) => ({
