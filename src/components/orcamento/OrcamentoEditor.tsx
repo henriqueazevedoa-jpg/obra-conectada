@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   useOrcamento,
   OrcamentoObra,
@@ -22,6 +22,7 @@ import {
   Copy,
   ChevronDown,
   ChevronRight,
+  DatabaseZap,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/data/mockData';
@@ -37,6 +38,7 @@ import ImportarSinapiDialog from './ImportarSinapiDialog';
 import {
   expandirComposicaoSinapi,
   type SinapiRegime,
+  type SinapiComposicaoExpandida,
 } from '@/lib/sinapi/expandComposicao';
 import { sinapiExpandidaParaOrcamentoComposicao } from '@/lib/sinapi/toOrcamento';
 
@@ -45,6 +47,8 @@ interface Props {
   obraNome: string;
   onBack: () => void;
 }
+
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export default function OrcamentoEditor({
   obraId,
@@ -74,19 +78,66 @@ export default function OrcamentoEditor({
   const [importObraId, setImportObraId] = useState('');
 
   const [importSinapiOpen, setImportSinapiOpen] = useState(false);
+  const [expandedCategoriaId, setExpandedCategoriaId] = useState<string | null>(null);
 
   const [allExpanded, setAllExpanded] = useState<boolean | undefined>(undefined);
 
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+
   const unidades = getUnidadesUsadas();
+
+  const hasLoadedInitialDataRef = useRef(false);
+  const lastSavedSnapshotRef = useRef<string>('');
+  const autosaveTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const existing = getOrcamento(obraId);
-    if (existing) {
-      setCategorias(existing.categorias);
-    } else {
-      setCategorias([]);
-    }
+    const categoriasIniciais = existing ? existing.categorias : [];
+
+    setCategorias(categoriasIniciais);
+    lastSavedSnapshotRef.current = JSON.stringify(categoriasIniciais);
+    hasLoadedInitialDataRef.current = true;
+    setSaveStatus('idle');
   }, [obraId, getOrcamento]);
+
+  useEffect(() => {
+    if (!hasLoadedInitialDataRef.current) return;
+
+    const currentSnapshot = JSON.stringify(categorias);
+    if (currentSnapshot === lastSavedSnapshotRef.current) return;
+
+    if (autosaveTimeoutRef.current) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    setSaveStatus('saving');
+
+    autosaveTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        const orcamento: OrcamentoObra = {
+          obraId,
+          categorias,
+        };
+
+        await saveOrcamento(orcamento);
+        lastSavedSnapshotRef.current = JSON.stringify(categorias);
+        setSaveStatus('saved');
+
+        window.setTimeout(() => {
+          setSaveStatus((prev) => (prev === 'saved' ? 'idle' : prev));
+        }, 1500);
+      } catch (error) {
+        console.error(error);
+        setSaveStatus('error');
+      }
+    }, 1000);
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [categorias, obraId, saveOrcamento]);
 
   const totalGeral = categorias.reduce(
     (sum: number, categoria: OrcamentoCategoria) => sum + (categoria.precoTotal || 0),
@@ -110,7 +161,7 @@ export default function OrcamentoEditor({
 
     if (!nome) {
       toast({
-        title: 'Selecione ou digite o nome da categoria',
+        title: 'Selecione ou digite o nome da etapa',
         variant: 'destructive',
       });
       return;
@@ -118,7 +169,7 @@ export default function OrcamentoEditor({
 
     if (categorias.some((c) => c.nome === nome)) {
       toast({
-        title: 'Categoria já adicionada',
+        title: 'Etapa já adicionada',
         variant: 'destructive',
       });
       return;
@@ -151,16 +202,34 @@ export default function OrcamentoEditor({
   };
 
   const handleSave = async () => {
-    const orcamento: OrcamentoObra = {
-      obraId,
-      categorias,
-    };
+    try {
+      setSaveStatus('saving');
 
-    await saveOrcamento(orcamento);
+      const orcamento: OrcamentoObra = {
+        obraId,
+        categorias,
+      };
 
-    toast({
-      title: 'Orçamento salvo com sucesso!',
-    });
+      await saveOrcamento(orcamento);
+      lastSavedSnapshotRef.current = JSON.stringify(categorias);
+      setSaveStatus('saved');
+
+      toast({
+        title: 'Orçamento salvo com sucesso!',
+      });
+
+      window.setTimeout(() => {
+        setSaveStatus((prev) => (prev === 'saved' ? 'idle' : prev));
+      }, 1500);
+    } catch (error) {
+      console.error(error);
+      setSaveStatus('error');
+
+      toast({
+        title: 'Erro ao salvar orçamento',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleImport = () => {
@@ -204,6 +273,7 @@ export default function OrcamentoEditor({
     codigoComposicao: number;
     uf: string;
     regime: SinapiRegime;
+    resultadoBase?: SinapiComposicaoExpandida;
     onProgress?: (progress: number, message: string) => void;
   }) => {
     const {
@@ -213,26 +283,27 @@ export default function OrcamentoEditor({
       codigoComposicao,
       uf,
       regime,
+      resultadoBase,
       onProgress,
     } = params;
 
-    onProgress?.(20, 'Buscando composição principal...');
+    onProgress?.(20, 'Carregando composição...');
 
-    const expandida = await expandirComposicaoSinapi({
+    const expandida = resultadoBase ?? await expandirComposicaoSinapi({
       referenciaId,
       codigoComposicao,
       uf,
       regime,
     });
 
-    onProgress?.(70, 'Convertendo composição para o formato do orçamento...');
+    onProgress?.(70, 'Convertendo composição para o orçamento...');
 
     const composicao = sinapiExpandidaParaOrcamentoComposicao({
       resultado: expandida,
       competencia,
     });
 
-    onProgress?.(90, 'Inserindo composição na categoria selecionada...');
+    onProgress?.(90, 'Inserindo composição na etapa selecionada...');
 
     setCategorias((prev) =>
       prev.map((cat) => {
@@ -253,6 +324,10 @@ export default function OrcamentoEditor({
       })
     );
 
+    // Auto-expand a categoria que recebeu a composição
+    setExpandedCategoriaId(categoriaId);
+    setAllExpanded(undefined); // reseta forceExpanded para não sobrescrever
+
     onProgress?.(100, 'Finalizado.');
   };
 
@@ -264,6 +339,24 @@ export default function OrcamentoEditor({
     (o) => o.obraId !== obraId && o.categorias.length > 0
   );
 
+  const saveStatusLabel =
+    saveStatus === 'saving'
+      ? 'Salvando automaticamente...'
+      : saveStatus === 'saved'
+      ? 'Salvo automaticamente'
+      : saveStatus === 'error'
+      ? 'Erro no salvamento automático'
+      : 'Auto-save ativo';
+
+  const saveStatusColor =
+    saveStatus === 'saving'
+      ? 'text-muted-foreground'
+      : saveStatus === 'saved'
+      ? 'text-emerald-600'
+      : saveStatus === 'error'
+      ? 'text-red-600'
+      : 'text-muted-foreground';
+
   return (
     <>
       <div className="space-y-6">
@@ -273,10 +366,16 @@ export default function OrcamentoEditor({
             Voltar
           </Button>
 
-          <Button onClick={handleSave}>
-            <Save className="w-4 h-4 mr-2" />
-            Salvar Orçamento
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm ${saveStatusColor}`}>
+              {saveStatusLabel}
+            </span>
+
+            <Button onClick={handleSave}>
+              <Save className="w-4 h-4 mr-2" />
+              Salvar Orçamento
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -285,7 +384,7 @@ export default function OrcamentoEditor({
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              Defina as categorias e composições de custo previsto
+              Defina as etapas e composições de custo previsto
             </p>
 
             <div className="rounded-lg border p-4">
@@ -299,10 +398,10 @@ export default function OrcamentoEditor({
 
         <Card>
           <CardHeader>
-            <CardTitle>Adicionar Categoria</CardTitle>
+            <CardTitle>Adicionar Etapa</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant={newCatMode === 'select' ? 'default' : 'outline'}
                 size="sm"
@@ -318,13 +417,11 @@ export default function OrcamentoEditor({
               >
                 Nova
               </Button>
-            </div>
 
-            <div className="flex flex-wrap gap-2 items-center">
               {newCatMode === 'select' ? (
                 <Select value={selectedCat} onValueChange={setSelectedCat}>
                   <SelectTrigger className="w-80">
-                    <SelectValue placeholder="Selecione uma categoria" />
+                    <SelectValue placeholder="Selecione uma etapa" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableCats.map((c) => (
@@ -338,7 +435,7 @@ export default function OrcamentoEditor({
                 <Input
                   value={customCatName}
                   onChange={(e) => setCustomCatName(e.target.value)}
-                  placeholder="Nome da nova categoria"
+                  placeholder="Nome da nova etapa"
                   className="w-80"
                 />
               )}
@@ -347,15 +444,23 @@ export default function OrcamentoEditor({
                 <Plus className="w-4 h-4 mr-2" />
                 Adicionar
               </Button>
+            </div>
 
+            <div className="flex flex-wrap gap-2">
               {obrasComOrcamento.length > 0 && (
-                <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+                <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
                   <Copy className="w-4 h-4 mr-2" />
                   Importar Orçamento
                 </Button>
               )}
 
-              <Button variant="outline" onClick={() => setImportSinapiOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setImportSinapiOpen(true)}
+                className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
+              >
+                <DatabaseZap className="w-3.5 h-3.5" />
                 Importar da SINAPI
               </Button>
             </div>
@@ -387,7 +492,7 @@ export default function OrcamentoEditor({
               getSugestaoInsumos={getSugestaoInsumos}
               generateComposicaoCodigo={generateComposicaoCodigo}
               generateSubitemCodigo={generateSubitemCodigo}
-              forceExpanded={allExpanded}
+              forceExpanded={expandedCategoriaId === cat.id ? true : allExpanded}
             />
           ))}
         </div>
@@ -395,7 +500,7 @@ export default function OrcamentoEditor({
         {categorias.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              Nenhuma categoria adicionada. Use o painel acima para começar.
+              Nenhuma etapa adicionada. Use o painel acima para começar.
             </CardContent>
           </Card>
         )}
@@ -406,7 +511,7 @@ export default function OrcamentoEditor({
               <div>
                 <div className="text-sm text-muted-foreground">Total Geral Previsto</div>
                 <div className="text-sm text-muted-foreground">
-                  {categorias.length} categoria{categorias.length !== 1 ? 's' : ''}
+                  {categorias.length} etapa{categorias.length !== 1 ? 's' : ''}
                 </div>
               </div>
 
@@ -438,7 +543,7 @@ export default function OrcamentoEditor({
                   const obra = obras.find((ob) => ob.id === o.obraId);
                   return (
                     <SelectItem key={o.obraId} value={o.obraId}>
-                      {obra?.nome || o.obraId} ({o.categorias.length} categorias)
+                      {obra?.nome || o.obraId} ({o.categorias.length} etapas)
                     </SelectItem>
                   );
                 })}

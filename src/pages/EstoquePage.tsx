@@ -38,6 +38,7 @@ import {
 import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import NoObraState from '@/components/obras/NoObraState';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 const categoriasEstoque = [
   'Cimento',
@@ -67,7 +68,7 @@ export default function EstoquePage() {
   } = useEstoque();
   const { selectedObraId: obraId, setSelectedObraId: setObraId } = useObraSelection();
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = usePersistentPageState<string>('estoque:search', '', obraId);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Auto-open form via ?novo=1
@@ -77,7 +78,7 @@ export default function EstoquePage() {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams]);
-  const [movTipo, setMovTipo] = useState<'entrada' | 'saida'>('entrada');
+  const [movTipo, setMovTipo] = usePersistentPageState<'entrada' | 'saida'>('estoque:movTipo', 'entrada', obraId);
   const [newMov, setNewMov] = useState({
     materialId: '',
     quantidade: '',

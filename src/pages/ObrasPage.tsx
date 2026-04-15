@@ -15,6 +15,7 @@ import { Search, Plus, MapPin, Calendar, Pencil, Trash2, Building2 } from 'lucid
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 const statusColors: Record<string, string> = {
   planejamento: 'bg-muted text-muted-foreground border-0',
@@ -48,8 +49,8 @@ export default function ObrasPage() {
   const { setSelectedObraId } = useObraSelection();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = usePersistentPageState<string>('obras:search', '');
+  const [statusFilter, setStatusFilter] = usePersistentPageState<string>('obras:statusFilter', '');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);

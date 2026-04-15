@@ -27,6 +27,7 @@ import AgendaTimelineView from '@/components/painel/AgendaTimelineView';
 import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 /* ── Tipos ── */
 type AgendaTipo = 'execucao' | 'entrega_material' | 'instalacao' | 'vistoria' | 'ensaio' | 'reuniao' | 'medicao' | 'administrativo' | 'fornecedor' | 'outro';
@@ -110,15 +111,15 @@ export default function AgendaObraPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('lista');
+  const [viewMode, setViewMode] = usePersistentPageState<ViewMode>('agenda:viewMode', 'lista', selectedObraId);
 
   // Filtros
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterTipo, setFilterTipo] = useState('');
-  const [filterPrioridade, setFilterPrioridade] = useState('');
-  const [filterAtrasados, setFilterAtrasados] = useState(false);
-  const [filterProximos, setFilterProximos] = useState(false);
+  const [search, setSearch] = usePersistentPageState<string>('agenda:search', '', selectedObraId);
+  const [filterStatus, setFilterStatus] = usePersistentPageState<string>('agenda:filterStatus', '', selectedObraId);
+  const [filterTipo, setFilterTipo] = usePersistentPageState<string>('agenda:filterTipo', '', selectedObraId);
+  const [filterPrioridade, setFilterPrioridade] = usePersistentPageState<string>('agenda:filterPrioridade', '', selectedObraId);
+  const [filterAtrasados, setFilterAtrasados] = usePersistentPageState<boolean>('agenda:filterAtrasados', false, selectedObraId);
+  const [filterProximos, setFilterProximos] = usePersistentPageState<boolean>('agenda:filterProximos', false, selectedObraId);
 
   const today = startOfDay(new Date());
   const in7Days = addDays(today, 7);

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 interface Fornecedor {
   id: string; obra_id: string; nome: string; cnpj: string | null;
@@ -39,8 +40,8 @@ export default function FornecedoresPage() {
   const [fEditingId, setFEditingId] = useState<string | null>(null);
   const [fForm, setFForm] = useState(emptyFornecedor);
   const [fDeleteId, setFDeleteId] = useState<string | null>(null);
-  const [fSearch, setFSearch] = useState('');
-  const [fObraId, setFObraId] = useState(obras[0]?.id || '');
+  const [fSearch, setFSearch] = usePersistentPageState<string>('fornecedores:search', '');
+  const [fObraId, setFObraId] = usePersistentPageState<string>('fornecedores:obraId', obras[0]?.id || '');
   const [savingF, setSavingF] = useState(false);
 
   const fetchData = useCallback(async () => {

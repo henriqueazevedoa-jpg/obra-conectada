@@ -426,8 +426,19 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
 
-    await fetchAll();
-  }, [orcamentos, fetchAll]);
+    // Optimistic update: atualiza estado local sem buscar novamente do banco.
+    // Evita o re-fetch completo (3 tabelas) após cada autosave, que causava
+    // refreshes visíveis na UI. Os dados no banco já foram persistidos acima.
+    setOrcamentos((prev) => {
+      const idx = prev.findIndex((o) => o.obraId === obraId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { obraId, categorias: orc.categorias };
+        return next;
+      }
+      return [...prev, { obraId, categorias: orc.categorias }];
+    });
+  }, [orcamentos]);
 
   const addCategoriaToCatalogo = useCallback((cat: CategoriaTemplate) => {
     setCatalogo((prev) => {

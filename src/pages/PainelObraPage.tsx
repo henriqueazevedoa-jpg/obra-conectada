@@ -38,6 +38,7 @@ import NoObraState from '@/components/obras/NoObraState';
 import ObraCalendarView from '@/components/painel/ObraCalendarView';
 import PainelUnifiedListView from '@/components/painel/PainelUnifiedListView';
 import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 interface DiarioRow {
   id: string; data: string; clima: string; trabalhadores: number;
@@ -86,9 +87,9 @@ function GestorPainel() {
   const [diarioRegistros, setDiarioRegistros] = useState<DiarioRow[]>([]);
   const [pagamentosAtrasados, setPagamentosAtrasados] = useState<{ count: number; valor: number }>({ count: 0, valor: 0 });
   const [pendenciasAlta, setPendenciasAlta] = useState(0);
-  const [diarioOpen, setDiarioOpen] = useState(false);
-  const [cronogramaView, setCronogramaView] = useState<'list' | 'gantt'>('list');
-  const [calendarViewMode, setCalendarViewMode] = useState<ViewMode>('calendario');
+  const [diarioOpen, setDiarioOpen] = usePersistentPageState<boolean>('painel:diarioOpen', false, selectedObraId);
+  const [cronogramaView, setCronogramaView] = usePersistentPageState<'list' | 'gantt'>('painel:cronogramaView', 'list', selectedObraId);
+  const [calendarViewMode, setCalendarViewMode] = usePersistentPageState<ViewMode>('painel:calendarViewMode', 'calendario', selectedObraId);
   const [calendarSources, setCalendarSources] = useState<Set<'agenda' | 'pendencias' | 'pagamentos' | 'diario'>>(
     new Set(['agenda', 'pendencias', 'pagamentos', 'diario'])
   );

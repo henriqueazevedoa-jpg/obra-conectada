@@ -25,6 +25,7 @@ import NoObraState from '@/components/obras/NoObraState';
 import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
 import PendenciasTimelineView from '@/components/painel/PendenciasTimelineView';
 import ObraCalendarView from '@/components/painel/ObraCalendarView';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 type PendenciaPrioridade = 'baixa' | 'media' | 'alta';
 type PendenciaStatus = 'aberta' | 'em_andamento' | 'resolvida';
@@ -85,11 +86,11 @@ export default function PendenciasPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterPrioridade, setFilterPrioridade] = useState('');
-  const [filterTipo, setFilterTipo] = useState('');
+  const [filterStatus, setFilterStatus] = usePersistentPageState<string>('pendencias:filterStatus', '', obraId);
+  const [filterPrioridade, setFilterPrioridade] = usePersistentPageState<string>('pendencias:filterPrioridade', '', obraId);
+  const [filterTipo, setFilterTipo] = usePersistentPageState<string>('pendencias:filterTipo', '', obraId);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('lista');
+  const [viewMode, setViewMode] = usePersistentPageState<ViewMode>('pendencias:viewMode', 'lista', obraId);
 
   const fetchPendencias = useCallback(async () => {
     if (!obra) { setPendencias([]); setLoading(false); return; }

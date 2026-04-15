@@ -1,7 +1,4 @@
-import type {
-  OrcamentoComposicao,
-  OrcamentoSubitem,
-} from '@/contexts/OrcamentoContext';
+import type { OrcamentoComposicao, OrcamentoSubitem } from '@/contexts/OrcamentoContext';
 import type { SinapiComposicaoExpandida } from './expandComposicao';
 
 function gerarCodigoSubitem(index: number) {
@@ -16,15 +13,19 @@ export function sinapiExpandidaParaOrcamentoComposicao(params: {
 
   const subitens: OrcamentoSubitem[] = resultado.consolidado.map((item, index) => {
     const origemPrincipal = item.origens[0];
+    const precoUnitario = item.precoUnitario;
+    const precoTotal = precoUnitario != null
+      ? Number(item.quantidade) * precoUnitario
+      : 0;
 
     return {
       id: crypto.randomUUID(),
       codigo: gerarCodigoSubitem(index),
       descricao: item.descricao,
       unidade: item.unidade || '',
-      quantidade: item.quantidade,
-      precoUnitario: item.precoUnitario,
-      precoTotal: Number(item.custoTotal) || 0,
+      quantidade: Number(item.quantidade),
+      precoUnitario,
+      precoTotal,
 
       codigoReferenciaExterna: String(item.codigo),
       origemGrupoTitulo: item.origens
@@ -37,14 +38,16 @@ export function sinapiExpandidaParaOrcamentoComposicao(params: {
     };
   });
 
+  const custoUnitario = Number(resultado.custoTotal) || 0;
+
   return {
     id: crypto.randomUUID(),
     codigo: `SINAPI-${resultado.composicaoPrincipal.codigo}`,
     descricao: resultado.composicaoPrincipal.descricao,
     unidade: resultado.composicaoPrincipal.unidade || '',
     quantidade: 1,
-    precoUnitario: resultado.custoTotal,
-    precoTotal: resultado.custoTotal,
+    precoUnitario: custoUnitario,
+    precoTotal: custoUnitario,
     subitens,
     usaSubitens: true,
 

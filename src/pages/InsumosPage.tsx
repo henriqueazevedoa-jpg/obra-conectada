@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 interface PrecoFornecedor {
   id: string; fornecedor_id: string; obra_id: string | null;
@@ -68,15 +69,15 @@ export default function InsumosPage() {
   const [searchParams] = useSearchParams();
 
   // Filters - banco de preços
-  const [filterObra, setFilterObra] = useState('todos');
-  const [filterCategoria, setFilterCategoria] = useState('todos');
-  const [filterFornecedor, setFilterFornecedor] = useState(searchParams.get('fornecedor') || 'todos');
-  const [filterItem, setFilterItem] = useState('');
+  const [filterObra, setFilterObra] = usePersistentPageState<string>('insumos:filterObra', 'todos');
+  const [filterCategoria, setFilterCategoria] = usePersistentPageState<string>('insumos:filterCategoria', 'todos');
+  const [filterFornecedor, setFilterFornecedor] = usePersistentPageState<string>('insumos:filterFornecedor', searchParams.get('fornecedor') || 'todos');
+  const [filterItem, setFilterItem] = usePersistentPageState<string>('insumos:filterItem', '');
 
   // Filters - não orçados
-  const [filterObraPend, setFilterObraPend] = useState('todos');
-  const [filterCategoriaPend, setFilterCategoriaPend] = useState('todos');
-  const [filterStatusPend, setFilterStatusPend] = useState('todos');
+  const [filterObraPend, setFilterObraPend] = usePersistentPageState<string>('insumos:filterObraPend', 'todos');
+  const [filterCategoriaPend, setFilterCategoriaPend] = usePersistentPageState<string>('insumos:filterCategoriaPend', 'todos');
+  const [filterStatusPend, setFilterStatusPend] = usePersistentPageState<string>('insumos:filterStatusPend', 'todos');
 
   const fetchData = useCallback(async () => {
     if (obras.length === 0) { setPrecos([]); setFornecedores([]); setPendentes([]); setLoading(false); return; }

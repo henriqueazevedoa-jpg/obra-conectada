@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import PageHeader from "@/components/PageHeader";
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 const CATEGORIAS = [
   "Contratos",
@@ -88,8 +89,8 @@ export default function DocumentosPage() {
 
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [search, setSearch] = usePersistentPageState<string>('documentos:search', '', selectedObraId);
+  const [filtroCategoria, setFiltroCategoria] = usePersistentPageState<string>('documentos:filtroCategoria', 'todas', selectedObraId);
 
   // Upload dialog
   const [dialogOpen, setDialogOpen] = useState(false);

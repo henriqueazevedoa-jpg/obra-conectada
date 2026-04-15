@@ -13,6 +13,7 @@ import { formatCurrency } from '@/data/mockData';
 import { DollarSign, Edit, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import CustoRealEditor from '@/components/custo-real/CustoRealEditor';
 import NoObraState from '@/components/obras/NoObraState';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 export default function CustoRealPage() {
   const { user } = useAuth();
@@ -20,7 +21,7 @@ export default function CustoRealPage() {
   const { getOrcamento } = useOrcamento();
   const { getItensByObra } = useCustoReal();
   const { selectedObraId, setSelectedObraId } = useObraSelection();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = usePersistentPageState<boolean>('custo-real:editing', false, selectedObraId);
 
   const obra = obras.find(o => o.id === selectedObraId);
   const orcamento = selectedObraId ? getOrcamento(selectedObraId) : undefined;

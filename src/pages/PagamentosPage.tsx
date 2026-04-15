@@ -36,6 +36,7 @@ import PagamentosTimelineView from '@/components/painel/PagamentosTimelineView';
 import PagamentosCalendarView from '@/components/painel/PagamentosCalendarView';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 interface Pagamento {
   id: string;
@@ -165,7 +166,7 @@ export default function PagamentosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = usePersistentPageState<boolean>('pagamentos:showAdvanced', false, obraId);
 
   // Inline fornecedor creation
   const [showNewFornecedor, setShowNewFornecedor] = useState(false);
@@ -176,7 +177,7 @@ export default function PagamentosPage() {
 
   // Auto-open form via ?novo=1
   // Read etapa filter from URL
-  const [filterEtapa, setFilterEtapa] = useState('_all');
+  const [filterEtapa, setFilterEtapa] = usePersistentPageState<string>('pagamentos:filterEtapa', '_all', obraId);
 
   useEffect(() => {
     const etapaParam = searchParams.get('etapa');
@@ -208,11 +209,11 @@ export default function PagamentosPage() {
   const [creatingEtapa, setCreatingEtapa] = useState(false);
 
   // Filters
-  const [filterStatus, setFilterStatus] = useState('_all');
-  const [filterTipo, setFilterTipo] = useState('_all');
-  const [filterPeriodo, setFilterPeriodo] = useState('_all');
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'lista' | 'timeline' | 'calendario'>('lista');
+  const [filterStatus, setFilterStatus] = usePersistentPageState<string>('pagamentos:filterStatus', '_all', obraId);
+  const [filterTipo, setFilterTipo] = usePersistentPageState<string>('pagamentos:filterTipo', '_all', obraId);
+  const [filterPeriodo, setFilterPeriodo] = usePersistentPageState<string>('pagamentos:filterPeriodo', '_all', obraId);
+  const [filtersOpen, setFiltersOpen] = usePersistentPageState<boolean>('pagamentos:filtersOpen', false, obraId);
+  const [viewMode, setViewMode] = usePersistentPageState<'lista' | 'timeline' | 'calendario'>('pagamentos:viewMode', 'lista', obraId);
 
   // Form
   const [form, setForm] = useState({

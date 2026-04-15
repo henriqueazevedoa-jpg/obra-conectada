@@ -31,6 +31,7 @@ import VoiceInputButton from '@/components/voice/VoiceInputButton';
 import NoObraState from '@/components/obras/NoObraState';
 import DiarioFotoUpload, { FotoPendente } from '@/components/diario/DiarioFotoUpload';
 import DiarioReportPicker, { DiarioReportSections, defaultDiarioReportSections } from '@/components/diario/DiarioReportPicker';
+import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 const statusIcons: Record<string, React.ReactNode> = {
   pendente: <Clock className="h-4 w-4 text-warning" />,
@@ -50,8 +51,8 @@ export default function DiarioPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('lista');
+  const [filtersOpen, setFiltersOpen] = usePersistentPageState<boolean>('diario:filtersOpen', false, obraId);
+  const [viewMode, setViewMode] = usePersistentPageState<ViewMode>('diario:viewMode', 'lista', obraId);
 
   // Auto-open form via ?novo=1
   useEffect(() => {
@@ -159,10 +160,10 @@ export default function DiarioPage() {
   }, [fetchRegistros]);
 
   // Filters
-  const [filterEtapa, setFilterEtapa] = useState('_all');
-  const [filterMaterial, setFilterMaterial] = useState('_all');
-  const [filterStatus, setFilterStatus] = useState('_all');
-  const [filterProblemas, setFilterProblemas] = useState('_all');
+  const [filterEtapa, setFilterEtapa] = usePersistentPageState<string>('diario:filterEtapa', '_all', obraId);
+  const [filterMaterial, setFilterMaterial] = usePersistentPageState<string>('diario:filterMaterial', '_all', obraId);
+  const [filterStatus, setFilterStatus] = usePersistentPageState<string>('diario:filterStatus', '_all', obraId);
+  const [filterProblemas, setFilterProblemas] = usePersistentPageState<string>('diario:filterProblemas', '_all', obraId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
