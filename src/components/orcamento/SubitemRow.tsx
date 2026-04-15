@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { OrcamentoSubitem } from '@/contexts/OrcamentoContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/untyped';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { COMPOSICAO_GRID } from './ComposicaoRow';
 
 interface PriceInfo {
   menorPreco: number;
@@ -30,7 +30,7 @@ export default function SubitemRow({ subitem, unidades, onChange, onRemove, obra
   const [showPriceRef, setShowPriceRef] = useState(false);
   const [precoRefTipo, setPrecoRefTipo] = useState<string>((subitem as any).precoReferenciaTipo || 'manual');
 
-  // Fetch material suggestions
+  // Busca sugestões de materiais
   useEffect(() => {
     const fetchSuggestions = async () => {
       const { data } = await supabase.from('precos_fornecedores').select('descricao_item_snapshot').limit(200);
@@ -46,7 +46,7 @@ export default function SubitemRow({ subitem, unidades, onChange, onRemove, obra
     fetchSuggestions();
   }, []);
 
-  // Fetch price info when description changes
+  // Busca referência de preço ao mudar a descrição
   const fetchPriceInfo = useCallback(async (descricao: string) => {
     if (!descricao || descricao.length < 3) { setPriceInfo(null); return; }
     const { data } = await supabase
@@ -62,7 +62,6 @@ export default function SubitemRow({ subitem, unidades, onChange, onRemove, obra
     const menor = precos.reduce((m, p) => p.preco_unitario < m.preco_unitario ? p : m, precos[0]);
     const media = precos.reduce((s, p) => s + p.preco_unitario, 0) / precos.length;
 
-    // Get fornecedor name
     let fornNome = '—';
     if (menor.fornecedor_id) {
       const { data: fData } = await supabase.from('fornecedores').select('nome').eq('id', menor.fornecedor_id).single();
@@ -105,29 +104,78 @@ export default function SubitemRow({ subitem, unidades, onChange, onRemove, obra
   };
 
   return (
-    <div className="space-y-1">
-      <div className="grid grid-cols-[80px_1fr_80px_80px_100px_100px_36px] gap-1 items-center text-xs pl-8">
-        <div className="text-xs font-mono text-muted-foreground px-1 truncate" title={subitem.codigo}>{subitem.codigo}</div>
+    <div>
+      {/* ── Linha principal — mesmo grid de ComposicaoRow ── */}
+      <div className={`grid ${COMPOSICAO_GRID} gap-2 items-center px-3 py-1.5`}>
+        {/* Código */}
+        <div className="text-[10px] font-mono text-muted-foreground truncate" title={subitem.codigo}>
+          {subitem.codigo}
+        </div>
+
+        {/* Descrição com autocomplete */}
         <AutocompleteInput
           suggestions={suggestions}
           value={subitem.descricao}
           onChange={handleDescricaoChange}
           placeholder="Descrição / insumo"
-          className="h-7 text-xs px-1"
+          className="h-8 text-xs px-2"
         />
-        <div className="relative">
-          <Input value={subitem.unidade} onChange={e => update('unidade', e.target.value)} className="h-7 text-xs px-1" placeholder="Un" list={`un-sub-${subitem.id}`} />
-          <datalist id={`un-sub-${subitem.id}`}>{unidades.map(u => <option key={u} value={u} />)}</datalist>
+
+        {/* Unidade */}
+        <div>
+          <Input
+            value={subitem.unidade}
+            onChange={e => update('unidade', e.target.value)}
+            className="h-8 text-xs px-2"
+            placeholder="Un"
+            list={`un-sub-${subitem.id}`}
+          />
+          <datalist id={`un-sub-${subitem.id}`}>
+            {unidades.map(u => <option key={u} value={u} />)}
+          </datalist>
         </div>
-        <Input type="number" value={subitem.quantidade ?? ''} onChange={e => update('quantidade', e.target.value ? parseFloat(e.target.value) : null)} className="h-7 text-xs px-1" placeholder="Qtd" />
-        <Input type="number" value={subitem.precoUnitario ?? ''} onChange={e => update('precoUnitario', e.target.value ? parseFloat(e.target.value) : null)} className="h-7 text-xs px-1" placeholder="P. Unit" />
-        <Input type="number" value={subitem.precoTotal || ''} onChange={e => update('precoTotal', parseFloat(e.target.value) || 0)} className="h-7 text-xs px-1" placeholder="P. Total" />
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onRemove}><Trash2 className="h-3 w-3" /></Button>
+
+        {/* Quantidade */}
+        <Input
+          type="number"
+          value={subitem.quantidade ?? ''}
+          onChange={e => update('quantidade', e.target.value ? parseFloat(e.target.value) : null)}
+          className="h-8 text-xs px-2 text-right"
+          placeholder="Qtd"
+        />
+
+        {/* P. Unit */}
+        <Input
+          type="number"
+          value={subitem.precoUnitario ?? ''}
+          onChange={e => update('precoUnitario', e.target.value ? parseFloat(e.target.value) : null)}
+          className="h-8 text-xs px-2 text-right"
+          placeholder="P. Unit"
+        />
+
+        {/* P. Total */}
+        <Input
+          type="number"
+          value={subitem.precoTotal || ''}
+          onChange={e => update('precoTotal', parseFloat(e.target.value) || 0)}
+          className="h-8 text-xs px-2 text-right"
+          placeholder="P. Total"
+        />
+
+        {/* Excluir */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          onClick={onRemove}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
       </div>
 
-      {/* Price reference toggle */}
+      {/* ── Referência de preço ── */}
       {priceInfo && (
-        <div className="pl-8">
+        <div className="px-3 pb-1.5">
           <button
             onClick={() => setShowPriceRef(!showPriceRef)}
             className="flex items-center gap-1 text-[10px] text-primary hover:underline"
@@ -137,10 +185,12 @@ export default function SubitemRow({ subitem, unidades, onChange, onRemove, obra
           </button>
 
           {showPriceRef && (
-            <div className="mt-1 p-2 rounded-md border border-border bg-muted/30 space-y-2">
-              <div className="flex flex-wrap gap-3 text-[11px]">
+            <div className="mt-1.5 p-2.5 rounded-md border bg-muted/30 space-y-2">
+              <div className="flex flex-wrap gap-4 text-[11px]">
                 <span>
-                  Menor: <strong className="text-green-600 dark:text-green-400">R$ {priceInfo.menorPreco.toFixed(2)}</strong>
+                  Menor: <strong className="text-green-600 dark:text-green-400">
+                    R$ {priceInfo.menorPreco.toFixed(2)}
+                  </strong>
                   <span className="text-muted-foreground ml-1">({priceInfo.fornecedorMenor})</span>
                 </span>
                 <span>Médio: <strong>R$ {priceInfo.precoMedio.toFixed(2)}</strong></span>
@@ -149,7 +199,7 @@ export default function SubitemRow({ subitem, unidades, onChange, onRemove, obra
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-muted-foreground">Usar:</span>
                 <Select value={precoRefTipo} onValueChange={v => applyPrice(v)}>
-                  <SelectTrigger className="h-6 text-[10px] w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="menor_preco">Menor Preço</SelectItem>
                     <SelectItem value="preco_medio">Preço Médio</SelectItem>

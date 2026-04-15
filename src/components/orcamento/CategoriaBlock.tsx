@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Trash2, Plus, ChevronDown, ChevronRight, CalendarIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import ComposicaoRow from './ComposicaoRow';
+import ComposicaoRow, { COMPOSICAO_GRID } from './ComposicaoRow';
 import { formatCurrency } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 interface Props {
@@ -167,19 +167,29 @@ export default function CategoriaBlock({ categoria, unidades, onChange, onRemove
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-[80px_1fr_80px_80px_100px_100px_36px] gap-1 text-[10px] text-muted-foreground font-medium">
-                  <span>Código</span><span>Descrição</span><span>Un</span><span>Qtd</span><span>P. Unit</span><span>P. Total</span><span />
+                {/* Cabeçalho das colunas */}
+                <div className={`grid ${COMPOSICAO_GRID} gap-2 items-center text-[10px] font-medium text-muted-foreground px-2 pb-1 border-b`}>
+                  <span>Código</span>
+                  <span>Descrição</span>
+                  <span>Un</span>
+                  <span className="text-right">Qtd</span>
+                  <span className="text-right">P. Unit</span>
+                  <span className="text-right">P. Total</span>
+                  <span />
                 </div>
-                {categoria.composicoes.map((comp, idx) => (
-                  <ComposicaoRow
-                    key={comp.id}
-                    composicao={comp}
-                    unidades={unidades}
-                    onChange={c => updateComposicao(idx, c)}
-                    onRemove={() => removeComposicao(idx)}
-                    generateSubitemCodigo={generateSubitemCodigo}
-                  />
-                ))}
+                {/* Composições */}
+                <div className="space-y-1.5">
+                  {categoria.composicoes.map((comp, idx) => (
+                    <ComposicaoRow
+                      key={comp.id}
+                      composicao={comp}
+                      unidades={unidades}
+                      onChange={c => updateComposicao(idx, c)}
+                      onRemove={() => removeComposicao(idx)}
+                      generateSubitemCodigo={generateSubitemCodigo}
+                    />
+                  ))}
+                </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <div className="flex items-center gap-1">
                     <Button variant={addMode === 'sugestao' ? 'default' : 'outline'} size="sm" className="text-[10px] h-6" onClick={() => setAddMode('sugestao')}>Sugerido</Button>
