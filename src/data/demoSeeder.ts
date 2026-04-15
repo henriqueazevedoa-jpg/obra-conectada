@@ -59,11 +59,9 @@ export async function seedDemoData(userId: string, companyId: string) {
       percentual_andamento: 62,
       descricao:
         'Reforma completa de apartamento de 180m² com demolição total do layout anterior, novo projeto de iluminação, automação, marcenaria sob medida e acabamentos premium.',
-      company_id: companyId,
-      tipo_implantacao: 'em_andamento' as const,
+      tipo_implantacao: 'em_andamento',
       percentual_inicial: 10,
       valor_gasto_anterior: 38000,
-      origem_dados: 'real' as const,
       observacao_interna:
         'Clientes exigentes. Aprovação de materiais sempre presencial. Obra excelente para demonstrar acabamentos, pagamentos parcelados e pendências.',
     },
@@ -80,9 +78,7 @@ export async function seedDemoData(userId: string, companyId: string) {
       percentual_andamento: 38,
       descricao:
         'Construção de residência unifamiliar de 2 pavimentos, 320m², com piscina, churrasqueira, área gourmet e edícula.',
-      company_id: companyId,
-      tipo_implantacao: 'nova' as const,
-      origem_dados: 'real' as const,
+      tipo_implantacao: 'nova',
       observacao_interna:
         'Obra ideal para demonstrar estrutura, alvenaria, estoque, consumo de materiais e pagamentos recorrentes de mão de obra.',
     },
@@ -99,10 +95,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       percentual_andamento: 22,
       descricao:
         'Construção de galpão comercial de 2.000m² com mezanino de 400m², docas, piso industrial e área administrativa.',
-      company_id: companyId,
-      tipo_implantacao: 'nova' as const,
-      origem_dados: 'real' as const,
-      observacoes_implantacao:
+      tipo_implantacao: 'nova',
+      observacao_interna:
         'Projeto com alta movimentação de fornecedores, contratos e logística. Ideal para demonstrar fluxo financeiro e agenda de obra.',
     },
     {
@@ -118,25 +112,22 @@ export async function seedDemoData(userId: string, companyId: string) {
       percentual_andamento: 94,
       descricao:
         'Casa de praia de 250m², com 3 suítes, varanda gourmet, piscina com borda infinita e fase final de acabamento, vistoria e entrega.',
-      company_id: companyId,
-      tipo_implantacao: 'nova' as const,
-      origem_dados: 'real' as const,
+      tipo_implantacao: 'nova',
       observacao_interna:
         'Obra ideal para demonstrar checklist final, pendências de entrega, documentos finais, garantias e pagamentos de encerramento.',
     },
   ];
 
-  await checkedInsert('obras', obras);
-
-  for (const obraId of [obra1Id, obra2Id, obra3Id, obra4Id]) {
-    await (supabase.from as any)('obra_memberships').upsert(
-      {
-        obra_id: obraId,
-        user_id: userId,
-        role: 'gestor' as const,
-      },
-      { onConflict: 'obra_id,user_id' }
-    );
+  // Bootstrap via SECURITY DEFINER RPC — bypasses obras RLS and creates
+  // memberships atomically. After this call, all child inserts below work
+  // because is_obra_member() returns true for this user.
+  const { error: bootstrapError } = await (supabase as any).rpc('bootstrap_demo_obras', {
+    p_user_id: userId,
+    p_company_id: companyId,
+    p_obras: obras,
+  });
+  if (bootstrapError) {
+    throw new Error(`bootstrap_demo_obras: ${bootstrapError.message}`);
   }
     // ══════════════════════ 2. ORÇAMENTO / CATEGORIAS ══════════════════════
 
@@ -2949,61 +2940,14 @@ export async function seedDemoData(userId: string, companyId: string) {
 // REMOVE DEMO DATA
 // ═══════════════════════════════════════════════════════════════
 
-export async function removeDemoData(companyId: string) {
-  const { data: obrasDemo, error: obrasError } = await (supabase.from as any)('obras')
-    .select('id, nome')
-    .eq('company_id', companyId)
-    .ilike('nome', `${DEMO_PREFIX}%`);
-
-  if (obrasError) {
-    throw new Error(`Erro ao buscar obras demo: ${obrasError.message}`);
+// remove_demo_data uses a SECURITY DEFINER RPC that cascades deletes
+// server-side in the correct FK order — no more 15 sequential round trips.
+export async function removeDemoData(userId: string, companyId: string) {
+  const { error } = await (supabase as any).rpc('remove_demo_data', {
+    p_user_id: userId,
+    p_company_id: companyId,
+  });
+  if (error) {
+    throw new Error(`remove_demo_data: ${error.message}`);
   }
-
-  if (!obrasDemo || obrasDemo.length === 0) {
-    return;
-  }
-
-  const obraIds = obrasDemo.map((o: any) => o.id);
-
-  // filhos / dependências
-  await (supabase.from as any)('precos_fornecedores').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('fornecedores').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('pagamento_itens').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('pagamentos').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('pendencias').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('documentos_obra').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('obra_agenda').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('diario_registros').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('movimentacoes').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('materiais').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('custo_real_itens').delete().in('obra_id', obraIds);
-  await (supabase.from as any)('cronograma_dependencias').delete().in('obra_id', obraIds);
-
-  // orçamento
-  const { data: categorias } = await (supabase.from as any)('orcamento_categorias')
-    .select('id')
-    .in('obra_id', obraIds);
-
-  const categoriaIds = (categorias || []).map((c: any) => c.id);
-
-  if (categoriaIds.length > 0) {
-    const { data: composicoes } = await (supabase.from as any)('orcamento_composicoes')
-      .select('id')
-      .in('categoria_id', categoriaIds);
-
-    const composicaoIds = (composicoes || []).map((c: any) => c.id);
-
-    if (composicaoIds.length > 0) {
-      await (supabase.from as any)('orcamento_subitens').delete().in('composicao_id', composicaoIds);
-      await (supabase.from as any)('orcamento_composicoes').delete().in('id', composicaoIds);
-    }
-
-    await (supabase.from as any)('orcamento_categorias').delete().in('id', categoriaIds);
-  }
-
-  // memberships
-  await (supabase.from as any)('obra_memberships').delete().in('obra_id', obraIds);
-
-  // por fim, obras
-  await (supabase.from as any)('obras').delete().in('id', obraIds);
 }
