@@ -141,6 +141,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[0],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '01',
       nome: 'Demolição e Remoção',
       preco_total: 22000,
@@ -155,6 +156,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[1],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '02',
       nome: 'Infraestrutura Elétrica',
       preco_total: 36000,
@@ -169,6 +171,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[2],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '03',
       nome: 'Infraestrutura Hidráulica',
       preco_total: 27000,
@@ -183,6 +186,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[3],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '04',
       nome: 'Gesso e Forros',
       preco_total: 24000,
@@ -197,6 +201,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[4],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '05',
       nome: 'Revestimentos e Pisos',
       preco_total: 72000,
@@ -210,6 +215,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[5],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '06',
       nome: 'Marcenaria Sob Medida',
       preco_total: 98000,
@@ -223,6 +229,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[6],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '07',
       nome: 'Pintura',
       preco_total: 21000,
@@ -235,6 +242,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[7],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '08',
       nome: 'Louças e Metais',
       preco_total: 26000,
@@ -247,6 +255,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[8],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '09',
       nome: 'Automação e Iluminação Final',
       preco_total: 32000,
@@ -259,6 +268,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c1[9],
       obra_id: obra1Id,
+      company_id: companyId,
       codigo: '10',
       nome: 'Limpeza e Entrega',
       preco_total: 7000,
@@ -273,6 +283,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[0],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '01',
       nome: 'Serviços Preliminares',
       preco_total: 38000,
@@ -287,6 +298,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[1],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '02',
       nome: 'Fundação',
       preco_total: 110000,
@@ -301,6 +313,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[2],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '03',
       nome: 'Estrutura',
       preco_total: 185000,
@@ -314,6 +327,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[3],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '04',
       nome: 'Alvenaria e Vedação',
       preco_total: 84000,
@@ -327,6 +341,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[4],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '05',
       nome: 'Cobertura',
       preco_total: 56000,
@@ -339,6 +354,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[5],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '06',
       nome: 'Instalações Elétricas',
       preco_total: 62000,
@@ -351,6 +367,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[6],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '07',
       nome: 'Instalações Hidráulicas',
       preco_total: 47000,
@@ -363,6 +380,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[7],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '08',
       nome: 'Esquadrias',
       preco_total: 44000,
@@ -375,6 +393,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[8],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '09',
       nome: 'Revestimentos',
       preco_total: 72000,
@@ -387,6 +406,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[9],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '10',
       nome: 'Pintura e Acabamentos',
       preco_total: 42000,
@@ -399,6 +419,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[10],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '11',
       nome: 'Piscina e Área Externa',
       preco_total: 95000,
@@ -411,6 +432,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c2[11],
       obra_id: obra2Id,
+      company_id: companyId,
       codigo: '12',
       nome: 'Entrega Final',
       preco_total: 9000,
@@ -425,6 +447,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[0],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '01',
       nome: 'Terraplenagem',
       preco_total: 135000,
@@ -439,6 +462,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[1],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '02',
       nome: 'Fundação Profunda',
       preco_total: 320000,
@@ -452,6 +476,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[2],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '03',
       nome: 'Estrutura Metálica',
       preco_total: 560000,
@@ -464,6 +489,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[3],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '04',
       nome: 'Cobertura Metálica',
       preco_total: 220000,
@@ -476,6 +502,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[4],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '05',
       nome: 'Piso Industrial',
       preco_total: 210000,
@@ -488,6 +515,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[5],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '06',
       nome: 'Instalações Elétricas Industriais',
       preco_total: 178000,
@@ -500,6 +528,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[6],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '07',
       nome: 'Hidrossanitário e Drenagem',
       preco_total: 98000,
@@ -512,6 +541,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[7],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '08',
       nome: 'Mezanino e Escritórios',
       preco_total: 162000,
@@ -524,6 +554,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[8],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '09',
       nome: 'Docas e Fechamentos',
       preco_total: 118000,
@@ -536,6 +567,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c3[9],
       obra_id: obra3Id,
+      company_id: companyId,
       codigo: '10',
       nome: 'Comissionamento e Entrega',
       preco_total: 18000,
@@ -550,6 +582,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[0],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '01',
       nome: 'Serviços Preliminares',
       preco_total: 32000,
@@ -564,6 +597,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[1],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '02',
       nome: 'Fundação',
       preco_total: 84000,
@@ -578,6 +612,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[2],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '03',
       nome: 'Estrutura',
       preco_total: 132000,
@@ -592,6 +627,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[3],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '04',
       nome: 'Alvenaria e Cobertura',
       preco_total: 98000,
@@ -606,6 +642,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[4],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '05',
       nome: 'Instalações',
       preco_total: 71000,
@@ -620,6 +657,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[5],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '06',
       nome: 'Revestimentos e Pisos',
       preco_total: 91000,
@@ -634,6 +672,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[6],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '07',
       nome: 'Pintura',
       preco_total: 34000,
@@ -648,6 +687,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[7],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '08',
       nome: 'Piscina e Área Externa',
       preco_total: 98000,
@@ -662,6 +702,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[8],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '09',
       nome: 'Limpeza Final e Vistoria',
       preco_total: 12000,
@@ -675,6 +716,7 @@ export async function seedDemoData(userId: string, companyId: string) {
     {
       id: c4[9],
       obra_id: obra4Id,
+      company_id: companyId,
       codigo: '10',
       nome: 'Entrega e Assistência Inicial',
       preco_total: 10000,
@@ -691,127 +733,127 @@ export async function seedDemoData(userId: string, companyId: string) {
 
   const composicoes = [
     // ───────────────── OBRA 1 — REFORMA APTO ALTO PADRÃO ─────────────────
-    { id: demoId(), categoria_id: c1[0], codigo: '01.01', descricao: 'Demolição de paredes e forros', preco_total: 7800, preco_unitario: 52, quantidade: 150, unidade: 'm²', usa_subitens: true, concluida: true },
-    { id: demoId(), categoria_id: c1[0], codigo: '01.02', descricao: 'Remoção de pisos e revestimentos', preco_total: 6200, preco_unitario: 39, quantidade: 159, unidade: 'm²', usa_subitens: true, concluida: true },
-    { id: demoId(), categoria_id: c1[0], codigo: '01.03', descricao: 'Caçambas e transporte de entulho', preco_total: 8000, preco_unitario: 800, quantidade: 10, unidade: 'un', usa_subitens: true, concluida: true },
+    { id: demoId(), categoria_id: c1[0], company_id: companyId, codigo: '01.01', descricao: 'Demolição de paredes e forros', preco_total: 7800, preco_unitario: 52, quantidade: 150, unidade: 'm²', usa_subitens: true, concluida: true },
+    { id: demoId(), categoria_id: c1[0], company_id: companyId, codigo: '01.02', descricao: 'Remoção de pisos e revestimentos', preco_total: 6200, preco_unitario: 39, quantidade: 159, unidade: 'm²', usa_subitens: true, concluida: true },
+    { id: demoId(), categoria_id: c1[0], company_id: companyId, codigo: '01.03', descricao: 'Caçambas e transporte de entulho', preco_total: 8000, preco_unitario: 800, quantidade: 10, unidade: 'un', usa_subitens: true, concluida: true },
 
-    { id: demoId(), categoria_id: c1[1], codigo: '02.01', descricao: 'Infraestrutura de eletrodutos e caixas', preco_total: 13500, preco_unitario: 75, quantidade: 180, unidade: 'pt', usa_subitens: true, concluida: true, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c1[1], codigo: '02.02', descricao: 'Cabeamento e quadros elétricos', preco_total: 12800, preco_unitario: 71.11, quantidade: 180, unidade: 'pt', usa_subitens: true, concluida: true, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c1[1], codigo: '02.03', descricao: 'Preparação para automação e sonorização', preco_total: 9700, preco_unitario: 9700, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: true, peso_cronograma: 30 },
+    { id: demoId(), categoria_id: c1[1], company_id: companyId, codigo: '02.01', descricao: 'Infraestrutura de eletrodutos e caixas', preco_total: 13500, preco_unitario: 75, quantidade: 180, unidade: 'pt', usa_subitens: true, concluida: true, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c1[1], company_id: companyId, codigo: '02.02', descricao: 'Cabeamento e quadros elétricos', preco_total: 12800, preco_unitario: 71.11, quantidade: 180, unidade: 'pt', usa_subitens: true, concluida: true, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c1[1], company_id: companyId, codigo: '02.03', descricao: 'Preparação para automação e sonorização', preco_total: 9700, preco_unitario: 9700, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: true, peso_cronograma: 30 },
 
-    { id: demoId(), categoria_id: c1[2], codigo: '03.01', descricao: 'Rede de água fria e quente', preco_total: 15500, preco_unitario: 103.33, quantidade: 150, unidade: 'pt', usa_subitens: true, concluida: true, peso_cronograma: 55 },
-    { id: demoId(), categoria_id: c1[2], codigo: '03.02', descricao: 'Rede de esgoto e ventilação', preco_total: 11500, preco_unitario: 287.5, quantidade: 40, unidade: 'pt', usa_subitens: true, concluida: true, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c1[2], company_id: companyId, codigo: '03.01', descricao: 'Rede de água fria e quente', preco_total: 15500, preco_unitario: 103.33, quantidade: 150, unidade: 'pt', usa_subitens: true, concluida: true, peso_cronograma: 55 },
+    { id: demoId(), categoria_id: c1[2], company_id: companyId, codigo: '03.02', descricao: 'Rede de esgoto e ventilação', preco_total: 11500, preco_unitario: 287.5, quantidade: 40, unidade: 'pt', usa_subitens: true, concluida: true, peso_cronograma: 45 },
 
-    { id: demoId(), categoria_id: c1[3], codigo: '04.01', descricao: 'Forro de gesso acartonado', preco_total: 14500, preco_unitario: 87.88, quantidade: 165, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 65 },
-    { id: demoId(), categoria_id: c1[3], codigo: '04.02', descricao: 'Sancas, cortineiros e tabicas', preco_total: 9500, preco_unitario: 141.79, quantidade: 67, unidade: 'ml', usa_subitens: true, concluida: true, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c1[3], company_id: companyId, codigo: '04.01', descricao: 'Forro de gesso acartonado', preco_total: 14500, preco_unitario: 87.88, quantidade: 165, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 65 },
+    { id: demoId(), categoria_id: c1[3], company_id: companyId, codigo: '04.02', descricao: 'Sancas, cortineiros e tabicas', preco_total: 9500, preco_unitario: 141.79, quantidade: 67, unidade: 'ml', usa_subitens: true, concluida: true, peso_cronograma: 35 },
 
-    { id: demoId(), categoria_id: c1[4], codigo: '05.01', descricao: 'Porcelanato retificado 80x80 salas', preco_total: 29000, preco_unitario: 290, quantidade: 100, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c1[4], codigo: '05.02', descricao: 'Mármore banheiro suíte master', preco_total: 21000, preco_unitario: 700, quantidade: 30, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 25 },
-    { id: demoId(), categoria_id: c1[4], codigo: '05.03', descricao: 'Revestimento cozinha e lavanderia', preco_total: 14000, preco_unitario: 233.33, quantidade: 60, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 20 },
-    { id: demoId(), categoria_id: c1[4], codigo: '05.04', descricao: 'Rodapés e acabamentos finais', preco_total: 8000, preco_unitario: 80, quantidade: 100, unidade: 'ml', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c1[4], company_id: companyId, codigo: '05.01', descricao: 'Porcelanato retificado 80x80 salas', preco_total: 29000, preco_unitario: 290, quantidade: 100, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c1[4], company_id: companyId, codigo: '05.02', descricao: 'Mármore banheiro suíte master', preco_total: 21000, preco_unitario: 700, quantidade: 30, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c1[4], company_id: companyId, codigo: '05.03', descricao: 'Revestimento cozinha e lavanderia', preco_total: 14000, preco_unitario: 233.33, quantidade: 60, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c1[4], company_id: companyId, codigo: '05.04', descricao: 'Rodapés e acabamentos finais', preco_total: 8000, preco_unitario: 80, quantidade: 100, unidade: 'ml', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
-    { id: demoId(), categoria_id: c1[5], codigo: '06.01', descricao: 'Marcenaria cozinha', preco_total: 38000, preco_unitario: 38000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c1[5], codigo: '06.02', descricao: 'Marcenaria dormitórios', preco_total: 34000, preco_unitario: 34000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c1[5], codigo: '06.03', descricao: 'Painéis, nichos e complementos', preco_total: 26000, preco_unitario: 26000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c1[5], company_id: companyId, codigo: '06.01', descricao: 'Marcenaria cozinha', preco_total: 38000, preco_unitario: 38000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c1[5], company_id: companyId, codigo: '06.02', descricao: 'Marcenaria dormitórios', preco_total: 34000, preco_unitario: 34000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c1[5], company_id: companyId, codigo: '06.03', descricao: 'Painéis, nichos e complementos', preco_total: 26000, preco_unitario: 26000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
 
-    { id: demoId(), categoria_id: c1[6], codigo: '07.01', descricao: 'Massa corrida e preparação', preco_total: 7000, preco_unitario: 35, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c1[6], codigo: '07.02', descricao: 'Pintura interna premium', preco_total: 9000, preco_unitario: 45, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c1[6], codigo: '07.03', descricao: 'Portas e detalhes em esmalte', preco_total: 5000, preco_unitario: 1000, quantidade: 5, unidade: 'un', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c1[6], company_id: companyId, codigo: '07.01', descricao: 'Massa corrida e preparação', preco_total: 7000, preco_unitario: 35, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c1[6], company_id: companyId, codigo: '07.02', descricao: 'Pintura interna premium', preco_total: 9000, preco_unitario: 45, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c1[6], company_id: companyId, codigo: '07.03', descricao: 'Portas e detalhes em esmalte', preco_total: 5000, preco_unitario: 1000, quantidade: 5, unidade: 'un', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
-    { id: demoId(), categoria_id: c1[7], codigo: '08.01', descricao: 'Louças sanitárias premium', preco_total: 12000, preco_unitario: 3000, quantidade: 4, unidade: 'un', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c1[7], codigo: '08.02', descricao: 'Metais sanitários e cozinha', preco_total: 14000, preco_unitario: 2000, quantidade: 7, unidade: 'un', usa_subitens: true, concluida: false, peso_cronograma: 55 },
+    { id: demoId(), categoria_id: c1[7], company_id: companyId, codigo: '08.01', descricao: 'Louças sanitárias premium', preco_total: 12000, preco_unitario: 3000, quantidade: 4, unidade: 'un', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c1[7], company_id: companyId, codigo: '08.02', descricao: 'Metais sanitários e cozinha', preco_total: 14000, preco_unitario: 2000, quantidade: 7, unidade: 'un', usa_subitens: true, concluida: false, peso_cronograma: 55 },
 
-    { id: demoId(), categoria_id: c1[8], codigo: '09.01', descricao: 'Luminárias decorativas', preco_total: 11000, preco_unitario: 11000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c1[8], codigo: '09.02', descricao: 'Configuração da automação', preco_total: 21000, preco_unitario: 21000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 60 },
+    { id: demoId(), categoria_id: c1[8], company_id: companyId, codigo: '09.01', descricao: 'Luminárias decorativas', preco_total: 11000, preco_unitario: 11000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c1[8], company_id: companyId, codigo: '09.02', descricao: 'Configuração da automação', preco_total: 21000, preco_unitario: 21000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 60 },
 
     // ───────────────── OBRA 2 — RESIDÊNCIA FAMÍLIA MARTINS ─────────────────
-    { id: demoId(), categoria_id: c2[0], codigo: '01.01', descricao: 'Limpeza e preparo do terreno', preco_total: 13000, preco_unitario: 19.49, quantidade: 667, unidade: 'm²', usa_subitens: true, concluida: true },
-    { id: demoId(), categoria_id: c2[0], codigo: '01.02', descricao: 'Tapume, barracão e instalações provisórias', preco_total: 19000, preco_unitario: 190, quantidade: 100, unidade: 'm', usa_subitens: true, concluida: true },
-    { id: demoId(), categoria_id: c2[0], codigo: '01.03', descricao: 'Locação e gabarito da obra', preco_total: 6000, preco_unitario: 6000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: true },
+    { id: demoId(), categoria_id: c2[0], company_id: companyId, codigo: '01.01', descricao: 'Limpeza e preparo do terreno', preco_total: 13000, preco_unitario: 19.49, quantidade: 667, unidade: 'm²', usa_subitens: true, concluida: true },
+    { id: demoId(), categoria_id: c2[0], company_id: companyId, codigo: '01.02', descricao: 'Tapume, barracão e instalações provisórias', preco_total: 19000, preco_unitario: 190, quantidade: 100, unidade: 'm', usa_subitens: true, concluida: true },
+    { id: demoId(), categoria_id: c2[0], company_id: companyId, codigo: '01.03', descricao: 'Locação e gabarito da obra', preco_total: 6000, preco_unitario: 6000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: true },
 
-    { id: demoId(), categoria_id: c2[1], codigo: '02.01', descricao: 'Escavação mecânica', preco_total: 32000, preco_unitario: 54.89, quantidade: 583, unidade: 'm³', usa_subitens: true, concluida: true, peso_cronograma: 30 },
-    { id: demoId(), categoria_id: c2[1], codigo: '02.02', descricao: 'Sapatas, blocos e baldrame', preco_total: 61000, preco_unitario: 564.81, quantidade: 108, unidade: 'm³', usa_subitens: true, concluida: true, peso_cronograma: 50 },
-    { id: demoId(), categoria_id: c2[1], codigo: '02.03', descricao: 'Impermeabilização da fundação', preco_total: 17000, preco_unitario: 85, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c2[1], company_id: companyId, codigo: '02.01', descricao: 'Escavação mecânica', preco_total: 32000, preco_unitario: 54.89, quantidade: 583, unidade: 'm³', usa_subitens: true, concluida: true, peso_cronograma: 30 },
+    { id: demoId(), categoria_id: c2[1], company_id: companyId, codigo: '02.02', descricao: 'Sapatas, blocos e baldrame', preco_total: 61000, preco_unitario: 564.81, quantidade: 108, unidade: 'm³', usa_subitens: true, concluida: true, peso_cronograma: 50 },
+    { id: demoId(), categoria_id: c2[1], company_id: companyId, codigo: '02.03', descricao: 'Impermeabilização da fundação', preco_total: 17000, preco_unitario: 85, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 20 },
 
-    { id: demoId(), categoria_id: c2[2], codigo: '03.01', descricao: 'Pilares em concreto armado', preco_total: 68000, preco_unitario: 571.43, quantidade: 119, unidade: 'un', usa_subitens: true, concluida: true, peso_cronograma: 25 },
-    { id: demoId(), categoria_id: c2[2], codigo: '03.02', descricao: 'Vigas e laje do térreo', preco_total: 60000, preco_unitario: 300, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 25 },
-    { id: demoId(), categoria_id: c2[2], codigo: '03.03', descricao: 'Vigas e laje do pavimento superior', preco_total: 54000, preco_unitario: 337.5, quantidade: 160, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 25 },
-    { id: demoId(), categoria_id: c2[2], codigo: '03.04', descricao: 'Escada em concreto armado', preco_total: 3000, preco_unitario: 3000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 10 },
+    { id: demoId(), categoria_id: c2[2], company_id: companyId, codigo: '03.01', descricao: 'Pilares em concreto armado', preco_total: 68000, preco_unitario: 571.43, quantidade: 119, unidade: 'un', usa_subitens: true, concluida: true, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c2[2], company_id: companyId, codigo: '03.02', descricao: 'Vigas e laje do térreo', preco_total: 60000, preco_unitario: 300, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c2[2], company_id: companyId, codigo: '03.03', descricao: 'Vigas e laje do pavimento superior', preco_total: 54000, preco_unitario: 337.5, quantidade: 160, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c2[2], company_id: companyId, codigo: '03.04', descricao: 'Escada em concreto armado', preco_total: 3000, preco_unitario: 3000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 10 },
 
-    { id: demoId(), categoria_id: c2[3], codigo: '04.01', descricao: 'Alvenaria térreo', preco_total: 28000, preco_unitario: 140, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c2[3], codigo: '04.02', descricao: 'Alvenaria pavimento superior', preco_total: 26000, preco_unitario: 130, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c2[3], codigo: '04.03', descricao: 'Vergas, contravergas e reforços', preco_total: 14000, preco_unitario: 70, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c2[3], company_id: companyId, codigo: '04.01', descricao: 'Alvenaria térreo', preco_total: 28000, preco_unitario: 140, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c2[3], company_id: companyId, codigo: '04.02', descricao: 'Alvenaria pavimento superior', preco_total: 26000, preco_unitario: 130, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c2[3], company_id: companyId, codigo: '04.03', descricao: 'Vergas, contravergas e reforços', preco_total: 14000, preco_unitario: 70, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 25 },
 
-    { id: demoId(), categoria_id: c2[4], codigo: '05.01', descricao: 'Estrutura do telhado', preco_total: 22000, preco_unitario: 22000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c2[4], codigo: '05.02', descricao: 'Telhas e cumeeiras', preco_total: 18000, preco_unitario: 120, quantidade: 150, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c2[4], codigo: '05.03', descricao: 'Calhas e rufos', preco_total: 8000, preco_unitario: 80, quantidade: 100, unidade: 'ml', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c2[4], company_id: companyId, codigo: '05.01', descricao: 'Estrutura do telhado', preco_total: 22000, preco_unitario: 22000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c2[4], company_id: companyId, codigo: '05.02', descricao: 'Telhas e cumeeiras', preco_total: 18000, preco_unitario: 120, quantidade: 150, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c2[4], company_id: companyId, codigo: '05.03', descricao: 'Calhas e rufos', preco_total: 8000, preco_unitario: 80, quantidade: 100, unidade: 'ml', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
-    { id: demoId(), categoria_id: c2[5], codigo: '06.01', descricao: 'Infraestrutura elétrica', preco_total: 20000, preco_unitario: 100, quantidade: 200, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c2[5], codigo: '06.02', descricao: 'Cabeamento e quadros', preco_total: 24000, preco_unitario: 120, quantidade: 200, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c2[5], codigo: '06.03', descricao: 'Tomadas, interruptores e luminárias', preco_total: 18000, preco_unitario: 90, quantidade: 200, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c2[5], company_id: companyId, codigo: '06.01', descricao: 'Infraestrutura elétrica', preco_total: 20000, preco_unitario: 100, quantidade: 200, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c2[5], company_id: companyId, codigo: '06.02', descricao: 'Cabeamento e quadros', preco_total: 24000, preco_unitario: 120, quantidade: 200, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c2[5], company_id: companyId, codigo: '06.03', descricao: 'Tomadas, interruptores e luminárias', preco_total: 18000, preco_unitario: 90, quantidade: 200, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 25 },
 
-    { id: demoId(), categoria_id: c2[6], codigo: '07.01', descricao: 'Rede de água fria/quente', preco_total: 19000, preco_unitario: 105.56, quantidade: 180, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c2[6], codigo: '07.02', descricao: 'Rede de esgoto e ventilação', preco_total: 15000, preco_unitario: 125, quantidade: 120, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c2[6], codigo: '07.03', descricao: 'Reservatórios e pressurização', preco_total: 13000, preco_unitario: 13000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c2[6], company_id: companyId, codigo: '07.01', descricao: 'Rede de água fria/quente', preco_total: 19000, preco_unitario: 105.56, quantidade: 180, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c2[6], company_id: companyId, codigo: '07.02', descricao: 'Rede de esgoto e ventilação', preco_total: 15000, preco_unitario: 125, quantidade: 120, unidade: 'pt', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c2[6], company_id: companyId, codigo: '07.03', descricao: 'Reservatórios e pressurização', preco_total: 13000, preco_unitario: 13000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
-    { id: demoId(), categoria_id: c2[7], codigo: '08.01', descricao: 'Esquadrias de alumínio', preco_total: 26000, preco_unitario: 26000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 60 },
-    { id: demoId(), categoria_id: c2[7], codigo: '08.02', descricao: 'Portas internas e ferragens', preco_total: 18000, preco_unitario: 18000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c2[7], company_id: companyId, codigo: '08.01', descricao: 'Esquadrias de alumínio', preco_total: 26000, preco_unitario: 26000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 60 },
+    { id: demoId(), categoria_id: c2[7], company_id: companyId, codigo: '08.02', descricao: 'Portas internas e ferragens', preco_total: 18000, preco_unitario: 18000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
 
-    { id: demoId(), categoria_id: c2[8], codigo: '09.01', descricao: 'Pisos internos', preco_total: 24000, preco_unitario: 120, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c2[8], codigo: '09.02', descricao: 'Revestimentos banheiros e cozinha', preco_total: 22000, preco_unitario: 110, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c2[8], codigo: '09.03', descricao: 'Bancadas e soleiras', preco_total: 26000, preco_unitario: 26000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c2[8], company_id: companyId, codigo: '09.01', descricao: 'Pisos internos', preco_total: 24000, preco_unitario: 120, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c2[8], company_id: companyId, codigo: '09.02', descricao: 'Revestimentos banheiros e cozinha', preco_total: 22000, preco_unitario: 110, quantidade: 200, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c2[8], company_id: companyId, codigo: '09.03', descricao: 'Bancadas e soleiras', preco_total: 26000, preco_unitario: 26000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
 
-    { id: demoId(), categoria_id: c2[9], codigo: '10.01', descricao: 'Preparação e massa corrida', preco_total: 12000, preco_unitario: 40, quantidade: 300, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c2[9], codigo: '10.02', descricao: 'Pintura interna', preco_total: 16000, preco_unitario: 53.33, quantidade: 300, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c2[9], codigo: '10.03', descricao: 'Louças, metais e acessórios', preco_total: 14000, preco_unitario: 14000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c2[9], company_id: companyId, codigo: '10.01', descricao: 'Preparação e massa corrida', preco_total: 12000, preco_unitario: 40, quantidade: 300, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c2[9], company_id: companyId, codigo: '10.02', descricao: 'Pintura interna', preco_total: 16000, preco_unitario: 53.33, quantidade: 300, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c2[9], company_id: companyId, codigo: '10.03', descricao: 'Louças, metais e acessórios', preco_total: 14000, preco_unitario: 14000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
 
-    { id: demoId(), categoria_id: c2[10], codigo: '11.01', descricao: 'Piscina em concreto', preco_total: 50000, preco_unitario: 50000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 55 },
-    { id: demoId(), categoria_id: c2[10], codigo: '11.02', descricao: 'Área gourmet e churrasqueira', preco_total: 25000, preco_unitario: 25000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
-    { id: demoId(), categoria_id: c2[10], codigo: '11.03', descricao: 'Paisagismo e pavimentação externa', preco_total: 20000, preco_unitario: 20000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c2[10], company_id: companyId, codigo: '11.01', descricao: 'Piscina em concreto', preco_total: 50000, preco_unitario: 50000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 55 },
+    { id: demoId(), categoria_id: c2[10], company_id: companyId, codigo: '11.02', descricao: 'Área gourmet e churrasqueira', preco_total: 25000, preco_unitario: 25000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c2[10], company_id: companyId, codigo: '11.03', descricao: 'Paisagismo e pavimentação externa', preco_total: 20000, preco_unitario: 20000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
     // ───────────────── OBRA 3 — GALPÃO COMERCIAL ─────────────────
-    { id: demoId(), categoria_id: c3[0], codigo: '01.01', descricao: 'Corte e aterro mecanizado', preco_total: 90000, preco_unitario: 31.5, quantidade: 2857, unidade: 'm³', usa_subitens: true, concluida: true, peso_cronograma: 65 },
-    { id: demoId(), categoria_id: c3[0], codigo: '01.02', descricao: 'Compactação e nivelamento', preco_total: 45000, preco_unitario: 18, quantidade: 2500, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c3[0], company_id: companyId, codigo: '01.01', descricao: 'Corte e aterro mecanizado', preco_total: 90000, preco_unitario: 31.5, quantidade: 2857, unidade: 'm³', usa_subitens: true, concluida: true, peso_cronograma: 65 },
+    { id: demoId(), categoria_id: c3[0], company_id: companyId, codigo: '01.02', descricao: 'Compactação e nivelamento', preco_total: 45000, preco_unitario: 18, quantidade: 2500, unidade: 'm²', usa_subitens: true, concluida: true, peso_cronograma: 35 },
 
-    { id: demoId(), categoria_id: c3[1], codigo: '02.01', descricao: 'Estacas hélice contínua', preco_total: 210000, preco_unitario: 252.1, quantidade: 833, unidade: 'm', usa_subitens: true, concluida: false, peso_cronograma: 60 },
-    { id: demoId(), categoria_id: c3[1], codigo: '02.02', descricao: 'Blocos de coroamento', preco_total: 85000, preco_unitario: 2361.11, quantidade: 36, unidade: 'un', usa_subitens: true, concluida: false, peso_cronograma: 25 },
-    { id: demoId(), categoria_id: c3[1], codigo: '02.03', descricao: 'Arrasamento e ligações', preco_total: 25000, preco_unitario: 25000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 15 },
+    { id: demoId(), categoria_id: c3[1], company_id: companyId, codigo: '02.01', descricao: 'Estacas hélice contínua', preco_total: 210000, preco_unitario: 252.1, quantidade: 833, unidade: 'm', usa_subitens: true, concluida: false, peso_cronograma: 60 },
+    { id: demoId(), categoria_id: c3[1], company_id: companyId, codigo: '02.02', descricao: 'Blocos de coroamento', preco_total: 85000, preco_unitario: 2361.11, quantidade: 36, unidade: 'un', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c3[1], company_id: companyId, codigo: '02.03', descricao: 'Arrasamento e ligações', preco_total: 25000, preco_unitario: 25000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 15 },
 
-    { id: demoId(), categoria_id: c3[2], codigo: '03.01', descricao: 'Fabricação estrutura metálica', preco_total: 280000, preco_unitario: 280000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c3[2], codigo: '03.02', descricao: 'Montagem de pilares e vigas metálicas', preco_total: 180000, preco_unitario: 180000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c3[2], codigo: '03.03', descricao: 'Tratamento anticorrosivo e pintura', preco_total: 100000, preco_unitario: 100000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c3[2], company_id: companyId, codigo: '03.01', descricao: 'Fabricação estrutura metálica', preco_total: 280000, preco_unitario: 280000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c3[2], company_id: companyId, codigo: '03.02', descricao: 'Montagem de pilares e vigas metálicas', preco_total: 180000, preco_unitario: 180000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c3[2], company_id: companyId, codigo: '03.03', descricao: 'Tratamento anticorrosivo e pintura', preco_total: 100000, preco_unitario: 100000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
-    { id: demoId(), categoria_id: c3[3], codigo: '04.01', descricao: 'Telhas termoacústicas', preco_total: 120000, preco_unitario: 120, quantidade: 1000, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 60 },
-    { id: demoId(), categoria_id: c3[3], codigo: '04.02', descricao: 'Calhas, rufos e lanternins', preco_total: 60000, preco_unitario: 60000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c3[3], company_id: companyId, codigo: '04.01', descricao: 'Telhas termoacústicas', preco_total: 120000, preco_unitario: 120, quantidade: 1000, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 60 },
+    { id: demoId(), categoria_id: c3[3], company_id: companyId, codigo: '04.02', descricao: 'Calhas, rufos e lanternins', preco_total: 60000, preco_unitario: 60000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
 
-    { id: demoId(), categoria_id: c3[4], codigo: '05.01', descricao: 'Base e preparação do piso', preco_total: 70000, preco_unitario: 35, quantidade: 2000, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c3[4], codigo: '05.02', descricao: 'Concretagem piso industrial', preco_total: 100000, preco_unitario: 50, quantidade: 2000, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c3[4], codigo: '05.03', descricao: 'Corte, selagem e acabamento', preco_total: 40000, preco_unitario: 20, quantidade: 2000, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c3[4], company_id: companyId, codigo: '05.01', descricao: 'Base e preparação do piso', preco_total: 70000, preco_unitario: 35, quantidade: 2000, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c3[4], company_id: companyId, codigo: '05.02', descricao: 'Concretagem piso industrial', preco_total: 100000, preco_unitario: 50, quantidade: 2000, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c3[4], company_id: companyId, codigo: '05.03', descricao: 'Corte, selagem e acabamento', preco_total: 40000, preco_unitario: 20, quantidade: 2000, unidade: 'm²', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
-    { id: demoId(), categoria_id: c3[5], codigo: '06.01', descricao: 'Infraestrutura eletrocalhas', preco_total: 68000, preco_unitario: 68000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c3[5], codigo: '06.02', descricao: 'Painéis, quadros e alimentação', preco_total: 72000, preco_unitario: 72000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c3[5], codigo: '06.03', descricao: 'Iluminação industrial e emergência', preco_total: 38000, preco_unitario: 38000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c3[5], company_id: companyId, codigo: '06.01', descricao: 'Infraestrutura eletrocalhas', preco_total: 68000, preco_unitario: 68000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c3[5], company_id: companyId, codigo: '06.02', descricao: 'Painéis, quadros e alimentação', preco_total: 72000, preco_unitario: 72000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c3[5], company_id: companyId, codigo: '06.03', descricao: 'Iluminação industrial e emergência', preco_total: 38000, preco_unitario: 38000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
 
-    { id: demoId(), categoria_id: c3[6], codigo: '07.01', descricao: 'Rede de drenagem pluvial', preco_total: 42000, preco_unitario: 42000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c3[6], codigo: '07.02', descricao: 'Rede de água e esgoto', preco_total: 36000, preco_unitario: 36000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c3[6], codigo: '07.03', descricao: 'Bombas e reservatórios', preco_total: 20000, preco_unitario: 20000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c3[6], company_id: companyId, codigo: '07.01', descricao: 'Rede de drenagem pluvial', preco_total: 42000, preco_unitario: 42000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c3[6], company_id: companyId, codigo: '07.02', descricao: 'Rede de água e esgoto', preco_total: 36000, preco_unitario: 36000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c3[6], company_id: companyId, codigo: '07.03', descricao: 'Bombas e reservatórios', preco_total: 20000, preco_unitario: 20000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
-    { id: demoId(), categoria_id: c3[7], codigo: '08.01', descricao: 'Estrutura do mezanino', preco_total: 90000, preco_unitario: 90000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c3[7], codigo: '08.02', descricao: 'Drywall e divisórias escritórios', preco_total: 42000, preco_unitario: 42000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 30 },
-    { id: demoId(), categoria_id: c3[7], codigo: '08.03', descricao: 'Acabamentos área administrativa', preco_total: 30000, preco_unitario: 30000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c3[7], company_id: companyId, codigo: '08.01', descricao: 'Estrutura do mezanino', preco_total: 90000, preco_unitario: 90000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c3[7], company_id: companyId, codigo: '08.02', descricao: 'Drywall e divisórias escritórios', preco_total: 42000, preco_unitario: 42000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 30 },
+    { id: demoId(), categoria_id: c3[7], company_id: companyId, codigo: '08.03', descricao: 'Acabamentos área administrativa', preco_total: 30000, preco_unitario: 30000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
 
-    { id: demoId(), categoria_id: c3[8], codigo: '09.01', descricao: 'Docas niveladoras', preco_total: 55000, preco_unitario: 55000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
-    { id: demoId(), categoria_id: c3[8], codigo: '09.02', descricao: 'Fechamentos laterais', preco_total: 38000, preco_unitario: 38000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c3[8], codigo: '09.03', descricao: 'Portões e complementos finais', preco_total: 25000, preco_unitario: 25000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
+    { id: demoId(), categoria_id: c3[8], company_id: companyId, codigo: '09.01', descricao: 'Docas niveladoras', preco_total: 55000, preco_unitario: 55000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 45 },
+    { id: demoId(), categoria_id: c3[8], company_id: companyId, codigo: '09.02', descricao: 'Fechamentos laterais', preco_total: 38000, preco_unitario: 38000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c3[8], company_id: companyId, codigo: '09.03', descricao: 'Portões e complementos finais', preco_total: 25000, preco_unitario: 25000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 20 },
 
     // ───────────────── OBRA 4 — CASA DE PRAIA ─────────────────
-    { id: demoId(), categoria_id: c4[8], codigo: '09.01', descricao: 'Limpeza fina interna', preco_total: 4000, preco_unitario: 4000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
-    { id: demoId(), categoria_id: c4[8], codigo: '09.02', descricao: 'Checklist técnico e vistoria', preco_total: 5000, preco_unitario: 5000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c4[8], codigo: '09.03', descricao: 'Retoques finais e ajustes', preco_total: 3000, preco_unitario: 3000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
+    { id: demoId(), categoria_id: c4[8], company_id: companyId, codigo: '09.01', descricao: 'Limpeza fina interna', preco_total: 4000, preco_unitario: 4000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 35 },
+    { id: demoId(), categoria_id: c4[8], company_id: companyId, codigo: '09.02', descricao: 'Checklist técnico e vistoria', preco_total: 5000, preco_unitario: 5000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c4[8], company_id: companyId, codigo: '09.03', descricao: 'Retoques finais e ajustes', preco_total: 3000, preco_unitario: 3000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 25 },
 
-    { id: demoId(), categoria_id: c4[9], codigo: '10.01', descricao: 'Entrega técnica ao cliente', preco_total: 4000, preco_unitario: 4000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
-    { id: demoId(), categoria_id: c4[9], codigo: '10.02', descricao: 'Manual do proprietário e garantias', preco_total: 3000, preco_unitario: 3000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 30 },
-    { id: demoId(), categoria_id: c4[9], codigo: '10.03', descricao: 'Assistência inicial pós-entrega', preco_total: 3000, preco_unitario: 3000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 30 },
+    { id: demoId(), categoria_id: c4[9], company_id: companyId, codigo: '10.01', descricao: 'Entrega técnica ao cliente', preco_total: 4000, preco_unitario: 4000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 40 },
+    { id: demoId(), categoria_id: c4[9], company_id: companyId, codigo: '10.02', descricao: 'Manual do proprietário e garantias', preco_total: 3000, preco_unitario: 3000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 30 },
+    { id: demoId(), categoria_id: c4[9], company_id: companyId, codigo: '10.03', descricao: 'Assistência inicial pós-entrega', preco_total: 3000, preco_unitario: 3000, quantidade: 1, unidade: 'vb', usa_subitens: true, concluida: false, peso_cronograma: 30 },
   ];
 
   await checkedInsert('orcamento_composicoes', composicoes);
@@ -821,6 +863,7 @@ export async function seedDemoData(userId: string, companyId: string) {
   const subitens = composicoes.flatMap((comp) => {
     const base = {
       composicao_id: comp.id,
+      categoria_id: (comp as any).categoria_id,
       company_id: companyId,
     };
 
@@ -1253,7 +1296,11 @@ export async function seedDemoData(userId: string, companyId: string) {
     ];
   });
 
-  await checkedInsert('orcamento_subitens', subitens);
+  const subitensComNome = subitens.map((s: any) => ({
+    ...s,
+    nome: s.nome ?? (s.descricao ?? 'Subitem demo').replace(/^\[DEMO\] /, '').substring(0, 100),
+  }));
+  await checkedInsert('orcamento_subitens', subitensComNome);
 
 // ══════════════════════ 5. CUSTO REAL / MATERIAIS / MOVIMENTAÇÕES ══════════════════════
 
@@ -2348,6 +2395,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra1Id,
       company_id: companyId,
       nome: 'Portobello Shop SP',
+      contato: 'Juliana Prado',
+      categoria: 'acabamentos',
       telefone: '(11) 98888-1001',
       email: 'vendas@portobelloshopsp.com.br',
       cidade: 'São Paulo/SP',
@@ -2358,6 +2407,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra1Id,
       company_id: companyId,
       nome: 'Marmoraria Delta',
+      contato: 'Paulo Freitas',
+      categoria: 'marmores',
       telefone: '(11) 98888-1002',
       email: 'comercial@marmorariadelta.com.br',
       cidade: 'São Paulo/SP',
@@ -2368,6 +2419,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra1Id,
       company_id: companyId,
       nome: 'Marcenaria Design',
+      contato: 'Rodrigo Nunes',
+      categoria: 'marcenaria',
       telefone: '(11) 98888-1003',
       email: 'orcamentos@marcenariadesign.com.br',
       cidade: 'São Paulo/SP',
@@ -2380,6 +2433,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra2Id,
       company_id: companyId,
       nome: 'DepMat Barueri',
+      contato: 'Luciana Souza',
+      categoria: 'materiais',
       telefone: '(11) 98888-2001',
       email: 'vendas@depmatbarueri.com.br',
       cidade: 'Barueri/SP',
@@ -2390,6 +2445,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra2Id,
       company_id: companyId,
       nome: 'Cerâmica Barueri',
+      contato: 'Carlos Pires',
+      categoria: 'alvenaria',
       telefone: '(11) 98888-2002',
       email: 'comercial@ceramicabarueri.com.br',
       cidade: 'Barueri/SP',
@@ -2400,6 +2457,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra2Id,
       company_id: companyId,
       nome: 'Gerdau Distribuidor',
+      contato: 'Marina Lopes',
+      categoria: 'aco',
       telefone: '(11) 98888-2003',
       email: 'obras@gerdaudist.com.br',
       cidade: 'Osasco/SP',
@@ -2410,6 +2469,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra2Id,
       company_id: companyId,
       nome: 'Engemix',
+      contato: 'Fabio Lima',
+      categoria: 'concreto',
       telefone: '(11) 98888-2004',
       email: 'atendimento@engemix.com.br',
       cidade: 'Barueri/SP',
@@ -2422,6 +2483,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra3Id,
       company_id: companyId,
       nome: 'MoviTerra Ltda',
+      contato: 'André Teixeira',
+      categoria: 'terraplenagem',
       telefone: '(11) 98888-3001',
       email: 'operacao@moviterra.com.br',
       cidade: 'Jundiaí/SP',
@@ -2432,6 +2495,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra3Id,
       company_id: companyId,
       nome: 'Estacas Brasil',
+      contato: 'Guilherme Moraes',
+      categoria: 'fundacao',
       telefone: '(11) 98888-3002',
       email: 'comercial@estacasbrasil.com.br',
       cidade: 'Jundiaí/SP',
@@ -2442,6 +2507,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra3Id,
       company_id: companyId,
       nome: 'SteelBuild',
+      contato: 'Renato Salles',
+      categoria: 'estrutura_metalica',
       telefone: '(11) 98888-3003',
       email: 'vendas@steelbuild.com.br',
       cidade: 'Campinas/SP',
@@ -2452,6 +2519,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra3Id,
       company_id: companyId,
       nome: 'HeavyLift',
+      contato: 'Daniel Rocha',
+      categoria: 'equipamentos',
       telefone: '(11) 98888-3004',
       email: 'locacao@heavylift.com.br',
       cidade: 'Campinas/SP',
@@ -2464,6 +2533,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra4Id,
       company_id: companyId,
       nome: 'Cerâmica Riviera',
+      contato: 'Patrícia Nogueira',
+      categoria: 'acabamentos',
       telefone: '(13) 98888-4001',
       email: 'vendas@ceramicariviera.com.br',
       cidade: 'Bertioga/SP',
@@ -2474,6 +2545,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra4Id,
       company_id: companyId,
       nome: 'Piscinas Premium',
+      contato: 'Márcio Vidal',
+      categoria: 'piscina',
       telefone: '(13) 98888-4002',
       email: 'obras@piscinaspremium.com.br',
       cidade: 'Santos/SP',
@@ -2484,6 +2557,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra4Id,
       company_id: companyId,
       nome: 'Verde Jardins',
+      contato: 'Bruna Campos',
+      categoria: 'paisagismo',
       telefone: '(13) 98888-4003',
       email: 'paisagismo@verdejardins.com.br',
       cidade: 'Bertioga/SP',
@@ -2494,6 +2569,8 @@ export async function seedDemoData(userId: string, companyId: string) {
       obra_id: obra4Id,
       company_id: companyId,
       nome: 'Clean Obras',
+      contato: 'Sergio Mota',
+      categoria: 'limpeza',
       telefone: '(13) 98888-4004',
       email: 'contato@cleanobras.com.br',
       cidade: 'Bertioga/SP',
