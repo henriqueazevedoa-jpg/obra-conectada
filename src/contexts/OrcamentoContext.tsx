@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from './AuthContext';
+import { useCompany } from './CompanyContext';
 import { catalogoInsumos, categoriasExtras, InsumoTemplate } from '@/data/catalogoInsumos';
 
 // --- Types ---
@@ -214,6 +215,7 @@ function dbToCategoria(row: DbRow, composicoes: OrcamentoComposicao[]): Orcament
 
 export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { company } = useCompany();
   const [orcamentos, setOrcamentos] = useState<OrcamentoObra[]>([]);
   const [catalogoCategorias, setCatalogo] = useState<CategoriaTemplate[]>(defaultCategorias);
   const [loading, setLoading] = useState(true);
@@ -329,6 +331,7 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
       const { error: catError } = await supabase.from('orcamento_categorias').upsert({
         id: cat.id,
         obra_id: obraId,
+        company_id: company?.id ?? null,
         codigo: cat.codigo,
         nome: cat.nome,
         preco_total: cat.precoTotal,
@@ -351,6 +354,7 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
         const { error: compError } = await supabase.from('orcamento_composicoes').upsert({
           id: comp.id,
           categoria_id: cat.id,
+          company_id: company?.id ?? null,
           codigo: comp.codigo,
           descricao: comp.descricao,
           unidade: comp.unidade || null,
@@ -381,6 +385,11 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
           const { error: subError } = await supabase.from('orcamento_subitens').upsert({
             id: sub.id,
             composicao_id: comp.id,
+            // NOT NULL fields required by DB schema and RLS policy
+            categoria_id: cat.id,
+            company_id: company?.id,
+            nome: (sub.descricao || sub.codigo || 'Subitem').replace(/^\[DEMO\] /, '').substring(0, 200),
+            // Regular fields
             codigo: sub.codigo,
             descricao: sub.descricao,
             unidade: sub.unidade || null,
