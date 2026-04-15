@@ -9,12 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Trash2, Plus, ChevronDown, ChevronRight, CalendarIcon } from 'lucide-react';
+import { Trash2, Plus, ChevronDown, CalendarIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ComposicaoRow, { COMPOSICAO_GRID } from './ComposicaoRow';
 import { formatCurrency } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+
 interface Props {
   categoria: OrcamentoCategoria;
   unidades: string[];
@@ -26,18 +27,19 @@ interface Props {
   forceExpanded?: boolean;
 }
 
-export default function CategoriaBlock({ categoria, unidades, onChange, onRemove, getSugestaoInsumos, generateComposicaoCodigo, generateSubitemCodigo, forceExpanded }: Props) {
+export default function CategoriaBlock({
+  categoria, unidades, onChange, onRemove, getSugestaoInsumos,
+  generateComposicaoCodigo, generateSubitemCodigo, forceExpanded,
+}: Props) {
   const [localExpanded, setLocalExpanded] = useState(true);
   const [forceApplied, setForceApplied] = useState<boolean | undefined>(undefined);
 
-  // Sync with forceExpanded from parent, but allow local override after
+  // Sync with forceExpanded from parent, allow local override after
   if (forceExpanded !== undefined && forceExpanded !== forceApplied) {
     setLocalExpanded(forceExpanded);
     setForceApplied(forceExpanded);
   }
 
-  const expanded = localExpanded;
-  const setExpanded = (v: boolean) => setLocalExpanded(v);
   const [addMode, setAddMode] = useState<'manual' | 'sugestao'>('sugestao');
   const [selectedInsumo, setSelectedInsumo] = useState('');
 
@@ -45,13 +47,13 @@ export default function CategoriaBlock({ categoria, unidades, onChange, onRemove
   const existingDescricoes = categoria.composicoes.map(c => c.descricao);
   const availableSugestoes = sugestoes.filter(s => !existingDescricoes.includes(s.descricao));
 
-  const update = (field: string, value: any) => {
+  const update = (field: string, value: unknown) => {
     const next = { ...categoria, [field]: value };
     if (field === 'usaComposicoes' && value && next.composicoes.length === 0) {
       next.composicoes = [makeComposicao()];
     }
     if (!next.usaComposicoes && field === 'precoTotal') {
-      next.precoTotal = parseFloat(value) || 0;
+      next.precoTotal = parseFloat(String(value)) || 0;
     }
     onChange(next);
   };
@@ -71,9 +73,8 @@ export default function CategoriaBlock({ categoria, unidades, onChange, onRemove
     };
   };
 
-  const recalcCategoria = (comps: OrcamentoComposicao[]) => {
-    return comps.reduce((s, c) => s + c.precoTotal, 0);
-  };
+  const recalcCategoria = (comps: OrcamentoComposicao[]) =>
+    comps.reduce((s, c) => s + c.precoTotal, 0);
 
   const updateComposicao = (idx: number, comp: OrcamentoComposicao) => {
     const comps = [...categoria.composicoes];
@@ -100,38 +101,94 @@ export default function CategoriaBlock({ categoria, unidades, onChange, onRemove
     setSelectedInsumo('');
   };
 
+  // Determine message for sugestão mode
+  const getSugestaoMessage = () => {
+    if (sugestoes.length === 0) {
+      return { text: 'Nenhuma sugestão para esta etapa — use "Manual"', variant: 'neutral' as const };
+    }
+    if (availableSugestoes.length === 0) {
+      return { text: '✓ Todas as sugestões foram adicionadas', variant: 'success' as const };
+    }
+    return null;
+  };
+  const sugestaoMsg = getSugestaoMessage();
+
   return (
     <Card className="shadow-card border-l-4 border-l-primary">
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground">
-            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        {/* ── Cabeçalho ── */}
+        <div className="flex items-center gap-2">
+          {/* Chevron animado (único ícone, rotaciona) */}
+          <button
+            onClick={() => setLocalExpanded(v => !v)}
+            className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            aria-label={localExpanded ? 'Recolher etapa' : 'Expandir etapa'}
+          >
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 transition-transform duration-200',
+                localExpanded ? 'rotate-0' : '-rotate-90'
+              )}
+            />
           </button>
-          <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">{categoria.codigo}</span>
-          <span className="text-sm font-semibold text-foreground flex-1">{categoria.nome}</span>
-          <span className="text-sm font-bold text-foreground">{formatCurrency(categoria.precoTotal)}</span>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onRemove}>
+
+          {/* Código */}
+          <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded shrink-0">
+            {categoria.codigo}
+          </span>
+
+          {/* Nome editável inline */}
+          <Input
+            value={categoria.nome}
+            onChange={e => update('nome', e.target.value)}
+            className="h-7 text-sm font-semibold bg-transparent border-transparent hover:border-input focus:border-input px-1 flex-1 min-w-0"
+            placeholder="Nome da etapa…"
+            aria-label="Nome da etapa"
+          />
+
+          {/* Total */}
+          <span className="text-sm font-bold text-foreground shrink-0">
+            {formatCurrency(categoria.precoTotal)}
+          </span>
+
+          {/* Excluir */}
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
+            onClick={onRemove}
+            aria-label="Remover etapa"
+          >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
 
-        {expanded && (
+        {/* ── Conteúdo expandido ── */}
+        {localExpanded && (
           <>
-            {/* Dates */}
+            {/* Datas */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div>
                 <label className="text-[10px] text-muted-foreground">Início Previsto</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("h-7 text-[10px] px-2 justify-start font-normal w-full", !categoria.dataInicioPrevista && "text-muted-foreground")}>
+                    <Button
+                      variant="outline"
+                      className={cn('h-7 text-[10px] px-2 justify-start font-normal w-full', !categoria.dataInicioPrevista && 'text-muted-foreground')}
+                    >
                       <CalendarIcon className="h-3 w-3 mr-1" />
-                      {categoria.dataInicioPrevista ? format(parseISO(categoria.dataInicioPrevista), 'dd/MM/yy') : 'Selecionar'}
+                      {categoria.dataInicioPrevista
+                        ? format(parseISO(categoria.dataInicioPrevista), 'dd/MM/yy')
+                        : 'Selecionar'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={categoria.dataInicioPrevista ? parseISO(categoria.dataInicioPrevista) : undefined}
-                      onSelect={d => update('dataInicioPrevista', d ? format(d, 'yyyy-MM-dd') : undefined)} locale={ptBR}
-                      className={cn("p-3 pointer-events-auto")} />
+                    <Calendar
+                      mode="single"
+                      selected={categoria.dataInicioPrevista ? parseISO(categoria.dataInicioPrevista) : undefined}
+                      onSelect={d => update('dataInicioPrevista', d ? format(d, 'yyyy-MM-dd') : undefined)}
+                      locale={ptBR}
+                      className="p-3 pointer-events-auto"
+                    />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -139,35 +196,58 @@ export default function CategoriaBlock({ categoria, unidades, onChange, onRemove
                 <label className="text-[10px] text-muted-foreground">Fim Previsto</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("h-7 text-[10px] px-2 justify-start font-normal w-full", !categoria.dataFimPrevista && "text-muted-foreground")}>
+                    <Button
+                      variant="outline"
+                      className={cn('h-7 text-[10px] px-2 justify-start font-normal w-full', !categoria.dataFimPrevista && 'text-muted-foreground')}
+                    >
                       <CalendarIcon className="h-3 w-3 mr-1" />
-                      {categoria.dataFimPrevista ? format(parseISO(categoria.dataFimPrevista), 'dd/MM/yy') : 'Selecionar'}
+                      {categoria.dataFimPrevista
+                        ? format(parseISO(categoria.dataFimPrevista), 'dd/MM/yy')
+                        : 'Selecionar'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={categoria.dataFimPrevista ? parseISO(categoria.dataFimPrevista) : undefined}
-                      onSelect={d => update('dataFimPrevista', d ? format(d, 'yyyy-MM-dd') : undefined)} locale={ptBR}
-                      className={cn("p-3 pointer-events-auto")} />
+                    <Calendar
+                      mode="single"
+                      selected={categoria.dataFimPrevista ? parseISO(categoria.dataFimPrevista) : undefined}
+                      onSelect={d => update('dataFimPrevista', d ? format(d, 'yyyy-MM-dd') : undefined)}
+                      locale={ptBR}
+                      className="p-3 pointer-events-auto"
+                    />
                   </PopoverContent>
                 </Popover>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <Switch id={`comp-${categoria.id}`} checked={categoria.usaComposicoes} onCheckedChange={v => update('usaComposicoes', v)} className="scale-75" />
-                <Label htmlFor={`comp-${categoria.id}`} className="text-xs text-muted-foreground cursor-pointer">Detalhar composições</Label>
-              </div>
+            {/* Toggle: detalhar composições */}
+            <div className="flex items-center gap-1.5">
+              <Switch
+                id={`comp-${categoria.id}`}
+                checked={categoria.usaComposicoes}
+                onCheckedChange={v => update('usaComposicoes', v)}
+                className="scale-75"
+              />
+              <Label htmlFor={`comp-${categoria.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                Detalhar composições
+              </Label>
             </div>
 
             {!categoria.usaComposicoes ? (
+              /* Valor direto */
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">Valor total da categoria:</Label>
-                <Input type="number" value={categoria.precoTotal || ''} onChange={e => update('precoTotal', e.target.value)} className="h-8 w-40 text-sm" placeholder="R$ 0,00" />
+                <Label className="text-xs text-muted-foreground shrink-0">Valor total da etapa:</Label>
+                <Input
+                  type="number"
+                  value={categoria.precoTotal || ''}
+                  onChange={e => update('precoTotal', e.target.value)}
+                  className="h-8 w-40 text-sm"
+                  placeholder="R$ 0,00"
+                />
               </div>
             ) : (
+              /* Lista de composições */
               <div className="space-y-2">
-                {/* Cabeçalho das colunas */}
+                {/* Cabeçalho colunas */}
                 <div className={`grid ${COMPOSICAO_GRID} gap-2 items-center text-[10px] font-medium text-muted-foreground px-2 pb-1 border-b`}>
                   <span>Código</span>
                   <span>Descrição</span>
@@ -177,6 +257,7 @@ export default function CategoriaBlock({ categoria, unidades, onChange, onRemove
                   <span className="text-right">P. Total</span>
                   <span />
                 </div>
+
                 {/* Composições */}
                 <div className="space-y-1.5">
                   {categoria.composicoes.map((comp, idx) => (
@@ -190,32 +271,67 @@ export default function CategoriaBlock({ categoria, unidades, onChange, onRemove
                     />
                   ))}
                 </div>
+
+                {/* Estado vazio das composições */}
+                {categoria.composicoes.length === 0 && (
+                  <div className="text-center py-4 border border-dashed border-border/60 rounded-md">
+                    <p className="text-xs text-muted-foreground">
+                      Nenhuma composição adicionada — use as opções abaixo para começar.
+                    </p>
+                  </div>
+                )}
+
+                {/* Barra de adição */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <div className="flex items-center gap-1">
-                    <Button variant={addMode === 'sugestao' ? 'default' : 'outline'} size="sm" className="text-[10px] h-6" onClick={() => setAddMode('sugestao')}>Sugerido</Button>
-                    <Button variant={addMode === 'manual' ? 'default' : 'outline'} size="sm" className="text-[10px] h-6" onClick={() => setAddMode('manual')}>Manual</Button>
+                    <Button
+                      variant={addMode === 'sugestao' ? 'default' : 'outline'}
+                      size="sm" className="text-[10px] h-6"
+                      onClick={() => setAddMode('sugestao')}
+                    >
+                      Sugerido
+                    </Button>
+                    <Button
+                      variant={addMode === 'manual' ? 'default' : 'outline'}
+                      size="sm" className="text-[10px] h-6"
+                      onClick={() => setAddMode('manual')}
+                    >
+                      Manual
+                    </Button>
                   </div>
-                  {addMode === 'sugestao' && availableSugestoes.length > 0 ? (
-                    <>
-                      <Select value={selectedInsumo} onValueChange={setSelectedInsumo}>
-                        <SelectTrigger className="w-64 h-7 text-xs">
-                          <SelectValue placeholder="Selecione um insumo..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableSugestoes.map(s => (
-                            <SelectItem key={s.descricao} value={s.descricao} className="text-xs">
-                              {s.descricao} <span className="text-muted-foreground ml-1">({s.unidade})</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button variant="outline" size="sm" className="text-xs h-7" onClick={addFromSugestao}>
-                        <Plus className="h-3 w-3 mr-1" /> Adicionar
-                      </Button>
-                    </>
-                  ) : addMode === 'sugestao' && availableSugestoes.length === 0 ? (
-                    <span className="text-[10px] text-muted-foreground">Todas as sugestões já foram adicionadas</span>
-                  ) : null}
+
+                  {/* Modo sugestão */}
+                  {addMode === 'sugestao' && (
+                    availableSugestoes.length > 0 ? (
+                      <>
+                        <Select value={selectedInsumo} onValueChange={setSelectedInsumo}>
+                          <SelectTrigger className="w-64 h-7 text-xs">
+                            <SelectValue placeholder="Selecione um insumo…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableSugestoes.map(s => (
+                              <SelectItem key={s.descricao} value={s.descricao} className="text-xs">
+                                {s.descricao}
+                                <span className="text-muted-foreground ml-1">({s.unidade})</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="sm" className="text-xs h-7" onClick={addFromSugestao}>
+                          <Plus className="h-3 w-3 mr-1" /> Adicionar
+                        </Button>
+                      </>
+                    ) : sugestaoMsg ? (
+                      <span className={cn(
+                        'text-[10px]',
+                        sugestaoMsg.variant === 'success' ? 'text-success' : 'text-muted-foreground'
+                      )}>
+                        {sugestaoMsg.text}
+                      </span>
+                    ) : null
+                  )}
+
+                  {/* Modo manual */}
                   {addMode === 'manual' && (
                     <Button variant="outline" size="sm" className="text-xs h-7" onClick={addComposicao}>
                       <Plus className="h-3 w-3 mr-1" /> Composição em branco

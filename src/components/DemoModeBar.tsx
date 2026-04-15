@@ -73,12 +73,9 @@ export default function DemoModeBar() {
         title: hasDemoData ? '🔄 Demo atualizado!' : '🎉 Demo aplicado!',
         description: '4 obras completas com dados variados foram carregadas.',
       });
-      // Refresh sem recarregar a página
-      if (typeof refreshObras === 'function') {
-        await refreshObras();
-      } else {
-        setTimeout(() => window.location.reload(), 800);
-      }
+      // Recarregar a página para garantir que todos os contextos (orçamento,
+      // custo real, cronograma, etc.) re-busquem os dados do banco.
+      setTimeout(() => window.location.reload(), 800);
     } catch (err: any) {
       clearInterval(iv);
       toast({

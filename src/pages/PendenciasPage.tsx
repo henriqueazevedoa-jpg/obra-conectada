@@ -86,11 +86,11 @@ export default function PendenciasPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [filterStatus, setFilterStatus] = usePersistentPageState<string>('pendencias:filterStatus', '', obraId);
-  const [filterPrioridade, setFilterPrioridade] = usePersistentPageState<string>('pendencias:filterPrioridade', '', obraId);
-  const [filterTipo, setFilterTipo] = usePersistentPageState<string>('pendencias:filterTipo', '', obraId);
+  const [filterStatus, setFilterStatus] = usePersistentPageState<string>('pendencias:filterStatus', '', selectedObraId);
+  const [filterPrioridade, setFilterPrioridade] = usePersistentPageState<string>('pendencias:filterPrioridade', '', selectedObraId);
+  const [filterTipo, setFilterTipo] = usePersistentPageState<string>('pendencias:filterTipo', '', selectedObraId);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = usePersistentPageState<ViewMode>('pendencias:viewMode', 'lista', obraId);
+  const [viewMode, setViewMode] = usePersistentPageState<ViewMode>('pendencias:viewMode', 'lista', selectedObraId);
 
   const fetchPendencias = useCallback(async () => {
     if (!obra) { setPendencias([]); setLoading(false); return; }

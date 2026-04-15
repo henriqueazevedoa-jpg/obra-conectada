@@ -14,7 +14,7 @@ interface Props {
   custoItens: CustoRealItem[];
 }
 
-export type CostPieView = 'etapa' | 'tipo' | 'insumo';
+export type CostPieView = 'etapa' | 'categoria' | 'insumo';
 
 const COLORS = [
   'hsl(var(--primary))',
@@ -31,7 +31,7 @@ const COLORS = [
 
 const VIEW_LABELS: Record<CostPieView, string> = {
   etapa: 'Por Etapa',
-  tipo: 'Por Tipo',
+  categoria: 'Por Categoria',
   insumo: 'Por Insumo',
 };
 
@@ -72,11 +72,11 @@ export default function CostPieChart({ categorias, custoItens, view: externalVie
         .filter(c => c.precoTotal > 0)
         .map(c => ({ name: c.nome, value: c.precoTotal }));
     }
-    if (view === 'tipo') {
+    if (view === 'categoria') {
       const byType: Record<string, number> = {};
       custoItens.forEach(i => {
-        const tipo = i.categoria || 'Outros';
-        byType[tipo] = (byType[tipo] || 0) + i.valor;
+        const cat = i.categoria || 'Outro';
+        byType[cat] = (byType[cat] || 0) + i.valor;
       });
       if (Object.keys(byType).length === 0) {
         return categorias.filter(c => c.precoTotal > 0).map(c => ({ name: c.nome, value: c.precoTotal }));
@@ -111,7 +111,7 @@ export default function CostPieChart({ categorias, custoItens, view: externalVie
             <PieChartIcon className="h-4 w-4" /> Distribuição de Custos
           </CardTitle>
           <div className="flex gap-1 print:hidden">
-            {(['etapa', 'tipo', 'insumo'] as CostPieView[]).map(v => (
+            {(['etapa', 'categoria', 'insumo'] as CostPieView[]).map(v => (
               <Button key={v} size="sm" variant={view === v ? 'default' : 'outline'}
                 onClick={() => setView(v)} className="h-7 text-xs">
                 {VIEW_LABELS[v]}

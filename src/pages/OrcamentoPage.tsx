@@ -35,9 +35,12 @@ export default function OrcamentoPage() {
   const { getOrcamento, orcamentos, saveOrcamento } = useOrcamento();
   const { selectedObraId, setSelectedObraId } = useObraSelection();
 
+  const isGestor = user?.role === 'gestor';
+
+  // Gestores abrem diretamente no editor; clientes ficam em visualização
   const [editing, setEditing] = usePersistentPageState<boolean>(
     'orcamento:editing',
-    false,
+    isGestor,
     selectedObraId
   );
 
@@ -48,8 +51,6 @@ export default function OrcamentoPage() {
   const orcamento = selectedObraId ? getOrcamento(selectedObraId) : undefined;
   const totalPrevisto =
     orcamento?.categorias.reduce((s, c) => s + c.precoTotal, 0) ?? 0;
-
-  const isGestor = user?.role === 'gestor';
 
   const obraIds = new Set(obras.map((o) => o.id));
   const obrasComOrcamento = orcamentos.filter(

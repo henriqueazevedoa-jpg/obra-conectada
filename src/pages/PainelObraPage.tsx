@@ -167,6 +167,15 @@ function GestorPainel() {
   const previstoAcumulado = categorias.length === 0 || totalPrevisto === 0 ? 0 :
     categorias.reduce((sum, cat) => sum + cat.precoTotal * (computePercentual(cat) / 100), 0);
 
+  // Índices calculados para SmartCards
+  const produtividade = andamentoPlanejado > 0
+    ? Math.round((andamentoReal / andamentoPlanejado) * 100)
+    : undefined;
+
+  const indiceQualidade = diarioRegistros.length > 0
+    ? Math.round((registrosAprovados.length / diarioRegistros.length) * 100)
+    : undefined;
+
   const handlePrint = () => {
     document.querySelectorAll('[data-print-section]').forEach(el => {
       const section = el.getAttribute('data-print-section') as keyof PrintSections;
@@ -225,6 +234,9 @@ function GestorPainel() {
               andamentoPlanejado={andamentoPlanejado} etapasAtrasadas={atrasadas.length}
               materiaisBaixo={materiaisBaixo.length} registrosPendentes={registrosPendentes.length}
               pagamentosAtrasados={pagamentosAtrasados.count}
+              produtividade={produtividade}
+              indiceQualidade={indiceQualidade}
+              totalDiarios={diarioRegistros.length}
             />
           </div>
         );

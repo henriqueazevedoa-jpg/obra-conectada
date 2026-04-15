@@ -9,7 +9,9 @@ export async function seedDemoData(userId: string, companyId: string) {
     body: { userId, companyId },
   });
 
-  if (error) throw new Error(`apply-demo-data: ${error.message}`);
+  // Log raw response for debugging
+  console.log('[seedDemoData] response:', { data, error });
+  if (error) throw new Error(`apply-demo-data: ${error.message}${data ? ' | ' + JSON.stringify(data) : ''}`);
   if (data && !data.success) throw new Error(data.error ?? 'Erro desconhecido ao popular demo');
 }
 

@@ -16,7 +16,7 @@ interface ABCTableProps {
   onViewChange?: (view: ABCView) => void;
 }
 
-export type ABCView = 'etapas' | 'tipo' | 'insumos';
+export type ABCView = 'etapas' | 'categoria' | 'insumos';
 
 interface ABCRow {
   nome: string;
@@ -28,7 +28,7 @@ interface ABCRow {
 
 const VIEW_LABELS: Record<ABCView, string> = {
   etapas: 'Por Etapa',
-  tipo: 'Por Tipo',
+  categoria: 'Por Categoria',
   insumos: 'Por Insumo',
 };
 
@@ -100,10 +100,10 @@ export default function ABCTable({ categorias, custoItens, view: externalView, o
     return classifyABC(categorias.map(c => ({ nome: c.nome, valor: c.precoTotal })));
   }, [categorias]);
 
-  const tipoRows = useMemo(() => {
+  const categoriaRows = useMemo(() => {
     const byType: Record<string, number> = {};
     custoItens.forEach(i => {
-      byType[i.categoria || 'Outros'] = (byType[i.categoria || 'Outros'] || 0) + i.valor;
+      byType[i.categoria || 'Outro'] = (byType[i.categoria || 'Outro'] || 0) + i.valor;
     });
     return classifyABC(Object.entries(byType).map(([nome, valor]) => ({ nome, valor })));
   }, [custoItens]);
@@ -116,7 +116,7 @@ export default function ABCTable({ categorias, custoItens, view: externalView, o
     return classifyABC(Object.entries(byDesc).map(([nome, valor]) => ({ nome, valor })));
   }, [custoItens]);
 
-  const currentRows = view === 'etapas' ? etapasRows : view === 'tipo' ? tipoRows : insumosRows;
+  const currentRows = view === 'etapas' ? etapasRows : view === 'categoria' ? categoriaRows : insumosRows;
 
   return (
     <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
@@ -126,7 +126,7 @@ export default function ABCTable({ categorias, custoItens, view: externalView, o
             <BarChart3 className="h-4 w-4" /> Curva ABC
           </CardTitle>
           <div className="flex gap-1 print:hidden">
-            {(['etapas', 'tipo', 'insumos'] as ABCView[]).map(v => (
+            {(['etapas', 'categoria', 'insumos'] as ABCView[]).map(v => (
               <Button key={v} size="sm" variant={view === v ? 'default' : 'outline'}
                 onClick={() => setView(v)} className="h-7 text-xs">
                 {VIEW_LABELS[v]}

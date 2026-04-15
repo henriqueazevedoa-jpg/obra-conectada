@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento } from '@/contexts/OrcamentoContext';
-import { useCustoReal } from '@/contexts/CustoRealContext';
+import { useCustoReal, CATEGORIAS_CUSTO } from '@/contexts/CustoRealContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -47,7 +47,7 @@ export default function CustoRealPage() {
             <DollarSign className="h-5 w-5 text-primary" />
             Custo Real
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Acompanhamento dos custos reais por etapa</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Acompanhamento dos custos reais por etapa e categoria</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={selectedObraId} onValueChange={setSelectedObraId}>
@@ -141,7 +141,11 @@ export default function CustoRealPage() {
                     </thead>
                     <tbody>
                       {categorias.map(cat => {
-                        const catItens = custoItens.filter(i => i.categoria === cat.nome);
+                        // match by etapaNome (new) OR fallback to old categoria match
+                        const catItens = custoItens.filter(i =>
+                          i.etapaNome === cat.nome ||
+                          (i.etapaNome === '' && i.categoria === cat.nome)
+                        );
                         const catRealizado = catItens.reduce((s, i) => s + i.valor, 0);
                         const catDesvio = catRealizado - cat.precoTotal;
                         return (
@@ -179,35 +183,29 @@ export default function CustoRealPage() {
             </div>
           )}
 
-          {/* Breakdown by type */}
+          {/* Gastos por Categoria */}
           {custoItens.length > 0 && (
             <Card className="shadow-card">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Custos por Tipo de Insumo</CardTitle>
+                <CardTitle className="text-base">Gastos por Categoria</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {(() => {
-                    const tiposMap = new Map<string, number>();
-                    custoItens.forEach(i => {
-                      tiposMap.set(i.categoria || 'Outros', (tiposMap.get(i.categoria || 'Outros') || 0) + i.valor);
-                    });
-                    return Array.from(tiposMap.entries())
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([tipo, total]) => {
-                        const pct = totalRealizado > 0 ? Math.round((total / totalRealizado) * 100) : 0;
-                        return (
-                          <div key={tipo} className="flex items-center gap-4">
-                            <span className="text-sm text-foreground w-32 shrink-0 truncate">{tipo}</span>
-                            <div className="flex-1">
-                              <Progress value={pct} className="h-2" />
-                            </div>
-                            <span className="text-xs text-muted-foreground w-24 text-right hidden sm:block">{formatCurrency(total)}</span>
-                            <span className="text-xs text-muted-foreground w-10 text-right">{pct}%</span>
-                          </div>
-                        );
-                      });
-                  })()}
+                  {CATEGORIAS_CUSTO.map(cat => {
+                    const catValue = custoItens.reduce((s, i) => i.categoria === cat.value ? s + i.valor : s, 0);
+                    if (catValue === 0) return null;
+                    const pct = totalRealizado > 0 ? Math.round((catValue / totalRealizado) * 100) : 0;
+                    return (
+                      <div key={cat.value} className="flex items-center gap-4">
+                        <span className="text-sm text-foreground w-32 shrink-0">{cat.label}</span>
+                        <div className="flex-1">
+                          <Progress value={pct} className="h-2" />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-24 text-right hidden sm:block">{formatCurrency(catValue)}</span>
+                        <span className="text-xs text-muted-foreground w-10 text-right">{pct}%</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

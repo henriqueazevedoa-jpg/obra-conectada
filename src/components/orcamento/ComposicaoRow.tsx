@@ -11,7 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Trash2, Plus, ChevronDown, ChevronRight, Layers } from 'lucide-react';
+import { Trash2, Plus, ChevronDown, Layers } from 'lucide-react';
 import SubitemRow from './SubitemRow';
 import { formatCurrency } from '@/data/mockData';
 
@@ -97,6 +97,8 @@ export default function ComposicaoRow({
     if (val && next.subitens.length === 0) next.subitens = [makeSubitem()];
     recalcFromSubitens(next);
     onChange(next);
+    // Auto-expand o painel ao ativar
+    if (val) setExpanded(true);
   };
 
   const updateSubitem = (idx: number, si: OrcamentoSubitem) => {
@@ -180,9 +182,18 @@ export default function ComposicaoRow({
 
         {/* P. Unit */}
         {hasSubitens ? (
-          <div className="text-xs text-right pr-2 text-muted-foreground">
-            {composicao.precoUnitario != null ? formatCurrency(composicao.precoUnitario) : '—'}
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-xs text-right pr-2 text-muted-foreground cursor-help select-none">
+                  {composicao.precoUnitario != null ? formatCurrency(composicao.precoUnitario) : '—'}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs max-w-48">
+                Calculado automaticamente (Preço Total ÷ Quantidade)
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : (
           <Input
             value={composicao.precoUnitario ?? ''}
@@ -195,9 +206,18 @@ export default function ComposicaoRow({
 
         {/* P. Total */}
         {hasSubitens ? (
-          <div className="text-xs text-right font-medium pr-2">
-            {formatCurrency(composicao.precoTotal)}
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-xs text-right font-medium pr-2 cursor-help select-none">
+                  {formatCurrency(composicao.precoTotal)}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs max-w-52">
+                Soma dos subitens. Edite as quantidades e preços nos subitens abaixo.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : (
           <Input
             value={composicao.precoTotal || ''}
@@ -242,7 +262,9 @@ export default function ComposicaoRow({
             onClick={() => setExpanded(!expanded)}
             className="flex items-center gap-1 text-[10px] text-primary hover:underline"
           >
-            {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            <ChevronDown
+              className={`h-3 w-3 transition-transform duration-200 ${expanded ? 'rotate-0' : '-rotate-90'}`}
+            />
             <Layers className="h-3 w-3" />
             {composicao.subitens.length} subitem{composicao.subitens.length !== 1 ? 'ns' : ''}
           </button>

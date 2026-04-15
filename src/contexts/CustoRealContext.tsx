@@ -2,11 +2,25 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from './AuthContext';
 
+/** Tipos padronizados de custo (mesmos valores usados em pagamentos) */
+export const CATEGORIAS_CUSTO = [
+  { value: 'Mão de Obra', label: 'Mão de Obra' },
+  { value: 'Material',   label: 'Material'     },
+  { value: 'Serviço',    label: 'Serviço'      },
+  { value: 'Aluguel',    label: 'Aluguel'      },
+  { value: 'Outro',      label: 'Outro'        },
+] as const;
+
+export type CategoriaCusto = typeof CATEGORIAS_CUSTO[number]['value'];
+
 export interface CustoRealItem {
   id: string;
   obraId: string;
   companyId: string;
+  /** Tipo padronizado: Mão de Obra | Material | Serviço | Aluguel | Outro */
   categoria: string;
+  /** Nome da etapa do orçamento à qual o custo está vinculado */
+  etapaNome: string;
   descricao: string;
   fornecedor: string;
   valor: number;
@@ -34,6 +48,7 @@ function dbToItem(row: any): CustoRealItem {
     obraId: row.obra_id,
     companyId: row.company_id,
     categoria: row.categoria || '',
+    etapaNome: row.etapa_nome || '',
     descricao: row.descricao || '',
     fornecedor: row.fornecedor || '',
     valor: Number(row.valor) || 0,
@@ -65,6 +80,7 @@ export function CustoRealProvider({ children }: { children: React.ReactNode }) {
       obra_id: item.obraId,
       company_id: item.companyId,
       categoria: item.categoria,
+      etapa_nome: item.etapaNome || null,
       descricao: item.descricao,
       fornecedor: item.fornecedor || null,
       valor: item.valor,
@@ -82,6 +98,7 @@ export function CustoRealProvider({ children }: { children: React.ReactNode }) {
         obra_id: item.obraId,
         company_id: item.companyId,
         categoria: item.categoria,
+        etapa_nome: item.etapaNome || null,
         descricao: item.descricao,
         fornecedor: item.fornecedor || null,
         valor: item.valor,
