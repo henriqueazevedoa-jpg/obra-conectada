@@ -30,6 +30,7 @@ const FAB_HIDDEN_ROUTES = [
   '/cronograma',
   '/financeiro',
   '/execucao',
+  '/compras',
   '/contatos',
   '/documentos',
 ];
