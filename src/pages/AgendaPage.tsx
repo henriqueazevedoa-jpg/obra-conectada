@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, parseISO, isBefore, startOfDay, addDays, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useObras } from '@/contexts/ObrasContext';
@@ -27,6 +28,9 @@ import {
 import ObraCalendarView from '@/components/painel/ObraCalendarView';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
+import PageShell from '@/components/layout/PageShell';
+import { PageFAB } from '@/components/ui/page-fab';
+import type { PageKPI } from '@/components/layout/PageShell';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -106,6 +110,16 @@ const KANBAN_COLS: { status: AgendaStatus; label: string; color: string }[] = [
   { status: 'concluido',    label: 'Concluído',    color: 'border-emerald-500/30 bg-emerald-500/5' },
   { status: 'atrasado',     label: 'Atrasado',     color: 'border-red-500/30 bg-red-500/5' },
 ];
+
+// ── Tabs config ────────────────────────────────────────────────────────────────
+
+type Tab = 'lista' | 'kanban' | 'calendario';
+const TABS_CONFIG = [
+  { id: 'lista'      as Tab, label: 'Lista'      },
+  { id: 'kanban'     as Tab, label: 'Kanban'     },
+  { id: 'calendario' as Tab, label: 'Calendário' },
+];
+const VALID_TABS: Tab[] = ['lista', 'kanban', 'calendario'];
 
 // ── ItemCard ───────────────────────────────────────────────────────────────────
 
@@ -234,17 +248,71 @@ function KanbanView({
   );
 }
 
+// ── FilterBar ──────────────────────────────────────────────────────────────────
+
+function FilterBar({
+  search, onSearch, filterStatus, onFilterStatus, filterTipo, onFilterTipo,
+}: {
+  search: string; onSearch: (v: string) => void;
+  filterStatus: string; onFilterStatus: (v: string) => void;
+  filterTipo: string; onFilterTipo: (v: string) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Filter style={{ width: 14, height: 14, color: 'var(--color-text-secondary)' }} />
+        <Input
+          placeholder="Buscar..."
+          value={search}
+          onChange={e => onSearch(e.target.value)}
+          style={{ height: 32, fontSize: 12, width: 140 }}
+        />
+      </div>
+      <Select value={filterStatus} onValueChange={v => onFilterStatus(v === 'all' ? '' : v)}>
+        <SelectTrigger style={{ width: 130, height: 32, fontSize: 12 }}><SelectValue placeholder="Status" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos status</SelectItem>
+          {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={filterTipo} onValueChange={v => onFilterTipo(v === 'all' ? '' : v)}>
+        <SelectTrigger style={{ width: 140, height: 32, fontSize: 12 }}><SelectValue placeholder="Tipo" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos tipos</SelectItem>
+          {Object.entries(tipoLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// ── AgendaIcon ─────────────────────────────────────────────────────────────────
+
+const AgendaIcon = (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="1" y="3" width="14" height="12" rx="2" fill="#AFA9EC" />
+    <rect x="4" y="1" width="2" height="4" rx="1" fill="#534AB7" />
+    <rect x="10" y="1" width="2" height="4" rx="1" fill="#534AB7" />
+    <rect x="1" y="7" width="14" height="1" fill="#534AB7" opacity="0.4" />
+  </svg>
+);
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function AgendaPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { selectedObraId } = useObraSelection();
   const { obras } = useObras();
   const { user } = useAuth();
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
+  // Tab via URL (igual ao Financeiro)
+  const rawTab = searchParams.get('tab') as Tab | null;
+  const activeTab: Tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : 'lista';
+  const setTab = (tab: Tab) => setSearchParams({ tab }, { replace: true });
+
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('lista');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
@@ -261,21 +329,18 @@ export default function AgendaPage() {
     if (!obra) return;
     setLoading(true);
 
-    // Buscar eventos manuais da agenda
     const { data: agendaData } = await (supabase as any)
       .from('obra_agenda')
       .select('*')
       .eq('obra_id', obra.id)
       .order('data_programada', { ascending: true });
 
-    // Buscar marcos do cronograma (read-only)
     const { data: marcosData } = await (supabase as any)
       .from('cronograma_tarefas')
       .select('id, nome, data_inicio, data_fim')
       .eq('obra_id', obra.id)
       .eq('tipo_tarefa', 'MARCO');
 
-    // Buscar vencimentos de pagamentos (read-only)
     const { data: pagamentosData } = await (supabase as any)
       .from('pagamentos')
       .select('id, descricao, data_vencimento, valor')
@@ -325,11 +390,32 @@ export default function AgendaPage() {
     .filter(i => !filterStatus || i._effectiveStatus === filterStatus)
     .filter(i => !filterTipo || i.tipo === filterTipo);
 
-  // KPI
+  // KPIs (mesmo padrão do Financeiro → lift-state via PageShell kpis prop)
   const hojeCount      = itemsWithStatus.filter(i => isToday(parseISO(i.data_programada)) && !['concluido', 'cancelado'].includes(i._effectiveStatus)).length;
   const prox7Count     = itemsWithStatus.filter(i => { const d = parseISO(i.data_programada); return d >= today && d <= in7Days && !['concluido', 'cancelado'].includes(i._effectiveStatus); }).length;
   const atrasadosCount = itemsWithStatus.filter(i => i._effectiveStatus === 'atrasado').length;
   const pendenciasCount = itemsWithStatus.filter(i => i.tipo === 'pendencia' && !['concluido', 'cancelado'].includes(i._effectiveStatus)).length;
+
+  const kpis: PageKPI[] = [
+    {
+      id: 'hoje', label: 'Hoje', value: String(hojeCount),
+      tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7',
+    },
+    {
+      id: 'prox7', label: 'Próx. 7 dias', value: String(prox7Count),
+      tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7',
+    },
+    {
+      id: 'atrasados', label: 'Atrasados', value: String(atrasadosCount),
+      tint: atrasadosCount > 0 ? '#FEF2F2' : undefined,
+      valueColor: atrasadosCount > 0 ? '#A32D2D' : undefined,
+    },
+    {
+      id: 'pendencias', label: 'Pendências', value: String(pendenciasCount),
+      tint: pendenciasCount > 0 ? '#FFFBEB' : undefined,
+      valueColor: pendenciasCount > 0 ? '#92400E' : undefined,
+    },
+  ];
 
   const openCreate = (tipo?: AgendaTipo) => {
     setEditingId(null);
@@ -411,133 +497,100 @@ export default function AgendaPage() {
     );
   }
 
+  // ── Toolbar (igual ao Financeiro — passada para PageShell) ──────────────────
+  const toolbar = activeTab !== 'calendario' ? (
+    <FilterBar
+      search={search} onSearch={setSearch}
+      filterStatus={filterStatus} onFilterStatus={setFilterStatus}
+      filterTipo={filterTipo} onFilterTipo={setFilterTipo}
+    />
+  ) : undefined;
+
   return (
-    <div className="flex flex-col gap-4 animate-fade-in min-h-full">
+    <>
+      <PageShell
+        icon={AgendaIcon}
+        title="Agenda"
+        tabs={TABS_CONFIG}
+        activeTab={activeTab}
+        onTabChange={id => setTab(id as Tab)}
+        kpis={kpis}
+        toolbar={toolbar}
+      >
+        <div style={{ height: '100%', position: 'relative', background: 'var(--color-background-primary)' }}>
 
-      {/* ── Header ─────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary/80" />
-            Agenda
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })} · {obra.nome}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs"
-            onClick={() => openCreate('pendencia')}>
-            <ListChecks className="h-3.5 w-3.5" /> Nova Pendência
-          </Button>
-          <Button size="sm" className="gap-1.5 h-8 text-xs" onClick={() => openCreate()}>
-            <Plus className="h-3.5 w-3.5" /> Novo Evento
-          </Button>
-        </div>
-      </div>
-
-      {/* ── KPI chips ──────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {[
-          { label: 'Hoje', value: hojeCount, color: 'text-primary' },
-          { label: 'Próx. 7d', value: prox7Count, color: 'text-foreground' },
-          { label: 'Atrasados', value: atrasadosCount, color: 'text-red-600' },
-          { label: 'Pendências', value: pendenciasCount, color: 'text-amber-600' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="text-center p-2.5 rounded-xl border border-border bg-card">
-            <p className={cn('text-xl font-bold', color)}>{value}</p>
-            <p className="text-[10px] text-muted-foreground">{label}</p>
+          {/* ── Lista ─── */}
+          <div style={{ height: '100%', display: activeTab === 'lista' ? 'block' : 'none' }}>
+            {loading ? (
+              <div className="space-y-2 p-4">
+                {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl animate-pulse bg-muted/40" />)}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                <CalendarDays className="h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Nenhum evento encontrado.</p>
+                <Button size="sm" onClick={() => openCreate()} className="gap-1.5">
+                  <Plus className="h-4 w-4" /> Criar Primeiro Evento
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2 p-4">
+                {(filtered as (AgendaItem & { _effectiveStatus: AgendaStatus })[]).map(item => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    onEdit={() => openEdit(item)}
+                    onDelete={() => setDeleteConfirmId(item.id)}
+                    onConcluir={() => handleConcluir(item)}
+                    onCycle={() => cycleStatus(item)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
 
-      {/* ── Toolbar ────────────────────────────────── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* View switcher */}
-        <div className="flex rounded-lg border border-border overflow-hidden text-xs">
-          {([
-            { mode: 'lista' as ViewMode, icon: List, label: 'Lista' },
-            { mode: 'kanban' as ViewMode, icon: Kanban, label: 'Kanban' },
-            { mode: 'calendario' as ViewMode, icon: Calendar, label: 'Calendário' },
-          ]).map(({ mode, icon: Icon, label }) => (
-            <button key={mode} onClick={() => setViewMode(mode)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 transition-colors',
-                viewMode === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
-              )}>
-              <Icon className="h-3 w-3" />{label}
-            </button>
-          ))}
-        </div>
+          {/* ── Kanban ─── */}
+          <div style={{ height: '100%', display: activeTab === 'kanban' ? 'block' : 'none' }}>
+            {loading ? (
+              <div className="grid grid-cols-4 gap-3 p-4">
+                {[1, 2, 3, 4].map(i => <div key={i} className="h-48 rounded-xl animate-pulse bg-muted/40" />)}
+              </div>
+            ) : (
+              <div className="p-4">
+                <KanbanView
+                  items={filtered as (AgendaItem & { _effectiveStatus: AgendaStatus })[]}
+                  onEdit={openEdit}
+                  onDelete={item => setDeleteConfirmId(item.id)}
+                  onConcluir={handleConcluir}
+                  onCycle={cycleStatus}
+                />
+              </div>
+            )}
+          </div>
 
-        {viewMode !== 'calendario' && (
-          <>
-            <div className="flex items-center gap-1.5">
-              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="h-8 text-xs w-[140px]"
-              />
+          {/* ── Calendário ─── */}
+          <div style={{ height: '100%', display: activeTab === 'calendario' ? 'block' : 'none' }}>
+            <div className="p-4">
+              <ObraCalendarView obraId={obra.id} sources={['agenda']} fetchFromDb={true} />
             </div>
-            <Select value={filterStatus} onValueChange={v => setFilterStatus(v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos status</SelectItem>
-                {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filterTipo} onValueChange={v => setFilterTipo(v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos tipos</SelectItem>
-                {Object.entries(tipoLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* ── Content ────────────────────────────────── */}
-      {viewMode === 'calendario' ? (
-        <ObraCalendarView obraId={obra.id} sources={['agenda']} fetchFromDb={true} />
-      ) : loading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl animate-pulse bg-muted/40" />)}
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-          <CalendarDays className="h-10 w-10 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">Nenhum evento encontrado.</p>
-          <Button size="sm" onClick={() => openCreate()} className="gap-1.5">
-            <Plus className="h-4 w-4" /> Criar Primeiro Evento
-          </Button>
-        </div>
-      ) : viewMode === 'kanban' ? (
-        <KanbanView
-          items={filtered as (AgendaItem & { _effectiveStatus: AgendaStatus })[]}
-          onEdit={openEdit}
-          onDelete={item => setDeleteConfirmId(item.id)}
-          onConcluir={handleConcluir}
-          onCycle={cycleStatus}
-        />
-      ) : (
-        <div className="space-y-2">
-          {(filtered as (AgendaItem & { _effectiveStatus: AgendaStatus })[]).map(item => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              onEdit={() => openEdit(item)}
-              onDelete={() => setDeleteConfirmId(item.id)}
-              onConcluir={() => handleConcluir(item)}
-              onCycle={() => cycleStatus(item)}
-            />
-          ))}
-        </div>
-      )}
+      </PageShell>
 
-      {/* ── Dialog Criar/Editar ─────────────────────── */}
+      {/* FAB mobile */}
+      <PageFAB
+        label="+ Novo Evento"
+        onClick={() => openCreate()}
+        items={[{
+          label: '+ Nova Pendência',
+          description: 'Tarefa com prazo e prioridade',
+          onClick: () => openCreate('pendencia'),
+          icon: <ListChecks style={{ width: 14, height: 14, color: '#534AB7' }} />,
+        }]}
+      />
+
+      {/* ── Dialog Criar/Editar ─── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -585,7 +638,6 @@ export default function AgendaPage() {
               </div>
             </div>
 
-            {/* Campos extras para Pendência */}
             {form.tipo === 'pendencia' && (
               <div className="space-y-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
                 <Label className="text-amber-600 flex items-center gap-1.5">
@@ -631,7 +683,7 @@ export default function AgendaPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Dialog Excluir ─────────────────────────── */}
+      {/* ── Dialog Excluir ─── */}
       <Dialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -644,6 +696,6 @@ export default function AgendaPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
