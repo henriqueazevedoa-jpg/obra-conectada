@@ -46,7 +46,6 @@ interface Props {
   companyId: string;
   isActive?: boolean;
   onKpiChange?: () => void;
-  onGerarPedido?: (inicial: any) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -67,7 +66,7 @@ function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 }
 
-export default function ListaCompraTab({ obraId, companyId, isActive = true, onKpiChange, onGerarPedido }: Props) {
+export default function ListaCompraTab({ obraId, companyId, isActive = true, onKpiChange }: Props) {
   const navigate = useNavigate();
 
   const [listas, setListas] = useState<ListaCompra[]>([]);
@@ -316,25 +315,6 @@ export default function ListaCompraTab({ obraId, companyId, isActive = true, onK
     navigate(`/cotacao?origem=compra&listaId=${listaAtiva}`);
   };
 
-  const handleGerarPedido = () => {
-    if (!listaAtiva || !onGerarPedido) return;
-    const validItens = itens.filter(i => i.nome.trim());
-    
-    const pedidoInicial = {
-      itens: validItens.map(i => ({
-        tempId: crypto.randomUUID(),
-        nome: i.nome,
-        quantidade: String(i.quantidade ?? 1),
-        unidade: i.unidade ?? 'un',
-        preco_unitario: String(i.preco_unitario ?? ''),
-      })),
-      fornecedor: validItens[0]?.fornecedor_sugerido ?? '',
-      lista_compra_id: listaAtiva,
-    };
-    
-    onGerarPedido(pedidoInicial);
-  };
-
   if (loading && listas.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -571,23 +551,13 @@ export default function ListaCompraTab({ obraId, companyId, isActive = true, onK
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
                   size="sm"
-                  className="gap-1.5 text-xs text-primary border-primary/20 hover:bg-primary/5 hover:border-primary/40 focus:ring-primary/20"
+                  className="gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm focus:ring-primary/20"
                   onClick={() => handleIrParaCotacao()}
                   disabled={itens.filter(i => i.nome.trim()).length === 0}
                 >
                   <Tags className="h-3.5 w-3.5" />
                   Ir para cotação
-                </Button>
-                <Button
-                  size="sm"
-                  className="gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm focus:ring-primary/20"
-                  onClick={() => handleGerarPedido()}
-                  disabled={itens.filter(i => i.nome.trim()).length === 0}
-                >
-                  <ShoppingCart className="h-3.5 w-3.5" />
-                  Gerar pedido
                 </Button>
               </div>
             </div>

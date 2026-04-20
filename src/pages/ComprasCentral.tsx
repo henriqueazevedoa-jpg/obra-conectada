@@ -6,7 +6,6 @@ import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import NoObraState from '@/components/obras/NoObraState';
 import PageShell from '@/components/layout/PageShell';
-import { PageFAB } from '@/components/ui/page-fab';
 import type { PageKPI } from '@/components/layout/PageShell';
 import ListaCompraTab from '@/components/compras/ListaCompraTab';
 import PedidosTab from '@/components/execucao/PedidosTab';
@@ -51,18 +50,6 @@ export default function ComprasCentral() {
   const setTab = (tab: Tab) => setSearchParams({ tab }, { replace: true });
 
   const { company } = useCompany();
-
-  // Estado para gerar pedido a partir da lista
-  const [pedidoInicial, setPedidoInicial] = useState<{
-    itens: any[];
-    fornecedor?: string;
-    lista_compra_id?: string;
-  } | null>(null);
-
-  const handlePedidoCriado = (pedidoId: string) => {
-    setPedidoInicial(null);
-    setTab('pedidos');
-  };
 
   // KPI state
   const [kpiLoading, setKpiLoading] = useState(true);
@@ -131,10 +118,6 @@ export default function ComprasCentral() {
               companyId={company?.id ?? ''}
               isActive={activeTab === 'lista'}
               onKpiChange={fetchKpi}
-              onGerarPedido={(inicial) => {
-                setPedidoInicial(inicial);
-                setTab('pedidos');
-              }}
             />
           </div>
 
@@ -143,8 +126,6 @@ export default function ComprasCentral() {
               obraId={obra.id} 
               isActive={activeTab === 'pedidos'} 
               onKpiChange={fetchKpi}
-              pedidoInicial={pedidoInicial}
-              onPedidoCriado={handlePedidoCriado}
             />
           </div>
 
@@ -154,23 +135,6 @@ export default function ComprasCentral() {
 
         </div>
       </PageShell>
-
-      {/* FAB mobile contextual */}
-      {activeTab === 'lista' && (
-        <PageFAB label="+ Nova Lista" onClick={() => {
-          setSearchParams({ tab: 'lista', novo: '1' });
-        }} />
-      )}
-      {activeTab === 'pedidos' && (
-        <PageFAB label="+ Novo Pedido" onClick={() => {
-          setSearchParams({ tab: 'pedidos', novo: '1' });
-        }} />
-      )}
-      {activeTab === 'recebimentos' && (
-        <PageFAB label="+ Registrar Recebimento" onClick={() => {
-          setSearchParams({ tab: 'recebimentos', novo: '1' });
-        }} />
-      )}
     </>
   );
 }
