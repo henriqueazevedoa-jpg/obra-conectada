@@ -1219,7 +1219,68 @@ ${fornBlocks}
            ────────────────────────────────────────────────── */}
         <div className="flex items-center gap-1.5">
 
-          {/* + Fornecedor */}
+          {/* Botão primário: Inserir Preços */}
+          <Button
+            onClick={() => { setCotacaoDrawerMode('precos'); setCotacaoDrawerOpen(true); }}
+            size="sm"
+            className="h-7 text-xs gap-1.5"
+          >
+            <PenLine className="h-3.5 w-3.5" />
+            Inserir Preços
+          </Button>
+
+          {/* Dropdown secundário: demais ações */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-7 w-7">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuItem
+                className="text-xs gap-2"
+                onClick={() => { setCotacaoDrawerMode('enviar'); setCotacaoDrawerOpen(true); }}
+              >
+                <Send className="h-3.5 w-3.5 mr-1" />
+                Enviar cotação por link
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs gap-2"
+                onClick={() => { setPastePrecoFornNome(''); setPastePrecoText(''); setPastePrecoOpen(true); }}
+              >
+                <ClipboardPaste className="h-3.5 w-3.5 mr-1" />
+                Colar preços do Excel
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {contexto === 'orcamento' && (
+                <DropdownMenuItem
+                  className="text-xs gap-2"
+                  onClick={() => { if (!sinapiAssistente.running && itens.length > 0) handleRunSinapiAssistente(); }}
+                  disabled={sinapiAssistente.running || itens.length === 0}
+                >
+                  <Brain className="h-3.5 w-3.5 mr-1 text-violet-600" />
+                  Assistente SINAPI
+                  {sinapiAssistente.running && (
+                    <span className="ml-auto text-[10px] text-violet-600 tabular-nums">{sinapiAssistente.progress}%</span>
+                  )}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                className="text-xs gap-2"
+                onClick={() => setView('links')}
+              >
+                <Link2 className="h-3.5 w-3.5 mr-1" />
+                Histórico de links
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs gap-2" onClick={exportCSV}>
+                <Download className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                {selectedMapaKeys.size > 0 ? `Exportar seleção (${selectedMapaKeys.size})` : 'Exportar CSV'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* + Fornecedor — mantido como terceiro elemento separado */}
           <div className="relative">
             <Button
               variant="outline"
@@ -1291,27 +1352,6 @@ ${fornBlocks}
               </div>
             )}
           </div>
-
-          {/* Inserir Preços — abre drawer no modo 'precos' */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1.5 text-primary border-primary/25 hover:bg-primary/8 dark:text-primary/80 dark:border-indigo-800 dark:hover:bg-indigo-950/30"
-            onClick={() => { setCotacaoDrawerMode('precos'); setCotacaoDrawerOpen(true); }}
-          >
-            <PenLine className="h-3.5 w-3.5" />
-            Inserir Preços
-          </Button>
-
-          {/* Enviar Cotação — abre drawer no modo 'enviar' (ação principal, destaque verde) */}
-          <Button
-            size="sm"
-            className="h-7 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-            onClick={() => { setCotacaoDrawerMode('enviar'); setCotacaoDrawerOpen(true); }}
-          >
-            <Send className="h-3.5 w-3.5" />
-            Enviar Cotação
-          </Button>
         </div>
 
         {/* ──────────────────────────────────────────────────
@@ -1362,7 +1402,7 @@ ${fornBlocks}
           {/* Divisor vertical */}
           <div className="w-px h-5 bg-border shrink-0" />
 
-          {/* Dropdown ··· — apenas 3 itens */}
+          {/* Dropdown ··· — Hist e SINAPI ficam aqui, ação de colar e exportar também */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
@@ -1370,36 +1410,22 @@ ${fornBlocks}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              {/* Vincular SINAPI — assistente IA */}
               <DropdownMenuItem
                 className="text-xs gap-2"
-                onClick={() => {
-                  if (!sinapiAssistente.running && itens.length > 0) handleRunSinapiAssistente();
-                }}
-                disabled={sinapiAssistente.running || itens.length === 0}
+                onClick={() => setShowSinapiCol(v => !v)}
               >
-                {sinapiAssistente.running
-                  ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-violet-600" />
-                  : <Brain className="h-3.5 w-3.5 text-violet-600" />}
-                <span>Vincular SINAPI (IA)</span>
-                {sinapiAssistente.running && (
-                  <span className="ml-auto text-[10px] text-violet-600 tabular-nums">{sinapiAssistente.progress}%</span>
-                )}
+                <TrendingUp className="h-3.5 w-3.5 text-amber-600" />
+                {showSinapiCol ? 'Ocultar' : 'Mostrar'} ref. SINAPI
+                {itensSinapi.length > 0 && <span className="ml-auto text-[10px] text-muted-foreground">{itensSinapi.length}</span>}
               </DropdownMenuItem>
-
               <DropdownMenuItem
                 className="text-xs gap-2"
-                onClick={() => { setPastePrecoFornNome(''); setPastePrecoText(''); setPastePrecoOpen(true); }}
+                onClick={() => setShowHistoricoCol(v => !v)}
               >
-                <ClipboardPaste className="h-3.5 w-3.5 text-violet-600" />
-                Colar Preços de Planilha
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-
-              <DropdownMenuItem className="text-xs gap-2" onClick={exportCSV}>
-                <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                {selectedMapaKeys.size > 0 ? `Exportar seleção (${selectedMapaKeys.size})` : 'Exportar CSV'}
+                {loadingHistorico
+                  ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  : <TrendingUp className="h-3.5 w-3.5 text-blue-600" />}
+                {showHistoricoCol ? 'Ocultar' : 'Mostrar'} histórico
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1751,13 +1777,14 @@ ${fornBlocks}
                               </div>
                             </th>
                           )}
+                          <th className="w-10"></th>
                         </tr>
                       </thead>
 
                       <tbody>
                         {itensFiltrados.length === 0 ? (
                           <tr>
-                            <td colSpan={totalCols} className="py-12 text-center text-sm text-muted-foreground">
+                            <td colSpan={totalCols + 1} className="py-12 text-center text-sm text-muted-foreground">
                               Nenhum item encontrado com os filtros atuais.
                             </td>
                           </tr>
@@ -1779,7 +1806,7 @@ ${fornBlocks}
                               return [
                                 showEtapa && (
                                   <tr key={`etapa-${item.etapaNome}`} className="bg-slate-50 dark:bg-slate-900/50">
-                                    <td colSpan={totalCols} className="px-3 py-1.5 pl-10">
+                                    <td colSpan={totalCols + 1} className="px-3 py-1.5 pl-10">
                                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                                         {item.etapaNome}
                                       </span>
@@ -1789,7 +1816,7 @@ ${fornBlocks}
                                 <tr
                                   key={item.key}
                                   className={cn(
-                                    'border-t border-border/30 hover:bg-muted/20 transition-colors',
+                                    'group border-t border-border/30 hover:bg-muted/20 transition-colors',
                                     isSelected && 'bg-primary/8 dark:bg-indigo-950/20'
                                   )}
                                 >
@@ -2101,6 +2128,53 @@ ${fornBlocks}
                                       </td>
                                     );
                                   })()}
+
+                                  {/* Menu de ações por linha (hover) */}
+                                  <td className="px-1 py-1.5 w-8">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <button className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted/60 transition-opacity">
+                                          <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-52">
+                                        <DropdownMenuItem
+                                          className="text-xs gap-2"
+                                          onClick={() => {
+                                            setSelectedMapaKeys(new Set([item.key]));
+                                            setCotacaoDrawerMode('precos');
+                                            setCotacaoDrawerOpen(true);
+                                          }}
+                                        >
+                                          <PenLine className="h-3.5 w-3.5 mr-1" />
+                                          Inserir preço
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-xs gap-2"
+                                          onClick={() => {
+                                            setSelectedMapaKeys(new Set([item.key]));
+                                            setCotacaoDrawerMode('enviar');
+                                            setCotacaoDrawerOpen(true);
+                                          }}
+                                        >
+                                          <Send className="h-3.5 w-3.5 mr-1" />
+                                          Enviar cotação por link
+                                        </DropdownMenuItem>
+                                        {item.sinapiPreco && item.sinapiPreco > 0 && (
+                                          <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              className="text-xs gap-2"
+                                              onClick={() => startEdit(item)}
+                                            >
+                                              <Sparkles className="h-3.5 w-3.5 mr-1 text-violet-500" />
+                                              Aplicar SINAPI ({formatCurrency(item.sinapiPreco)})
+                                            </DropdownMenuItem>
+                                          </>
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </td>
                                 </tr>,
                               ];
                             });

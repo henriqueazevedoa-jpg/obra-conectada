@@ -155,6 +155,11 @@ export default function OrcamentoCentral() {
       onTabChange={id => setActiveTab(id as OrcamentoTab)}
       actions={[
         { label: 'Exportar', onClick: () => setExportOpen(true), variant: 'ghost' },
+        ...(activeTab === 'wbs' ? [{
+          label: itensSemPreco > 0 ? `Cotar itens (${itensSemPreco})` : 'Cotar itens',
+          onClick: () => navigate('/cotacao?origem=orcamento'),
+          variant: 'ghost' as const,
+        }] : []),
       ]}
     >
       <div style={{ height: '100%', overflow: 'hidden', position: 'relative' }}>
@@ -164,7 +169,7 @@ export default function OrcamentoCentral() {
             <OrcamentoDashboard
               obra={obra}
               onEditWBS={() => setActiveTab('wbs')}
-              onGoCotacao={() => setActiveTab('cotacao')}
+          onGoCotacao={() => navigate('/cotacao?origem=orcamento')}
             />
           </ErrorBoundary>
         )}
