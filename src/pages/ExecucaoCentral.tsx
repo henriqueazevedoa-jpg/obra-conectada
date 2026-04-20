@@ -12,19 +12,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import NoObraState from '@/components/obras/NoObraState';
 import DiarioTab from '@/components/execucao/DiarioTab';
-import PendenciasPanel from '@/components/execucao/PendenciasPanel';
 import EstoqueQuickView from '@/components/execucao/EstoqueQuickView';
 import EquipeTab from '@/components/execucao/EquipeTab';
-import AgendaTab from '@/components/execucao/AgendaTab';
 import EntradasPendentesPanel from '@/components/execucao/EntradasPendentesPanel';
 import {
-  BookOpen, ListChecks, Package, Users, Hammer, CalendarDays,
-  PackagePlus, AlertTriangle, TrendingUp,
+  BookOpen, Package, Users, Hammer,
+  PackagePlus, AlertTriangle, ListChecks,
 } from 'lucide-react';
 
 // ─── Tipos locais ──────────────────────────────────────────────────────────────
 
-type Tab = 'diario' | 'pendencias' | 'estoque' | 'equipe' | 'agenda' | 'entradas';
+type Tab = 'diario' | 'estoque' | 'equipe' | 'entradas';
 
 interface KpiDia {
   trabalhadores: number;
@@ -168,8 +166,8 @@ export default function ExecucaoCentral() {
 
   // Tab state from URL
   const rawTab = searchParams.get('tab') as Tab | null;
-  const activeTab: Tab = rawTab && ['diario', 'pendencias', 'estoque', 'equipe', 'agenda', 'entradas'].includes(rawTab)
-    ? rawTab
+  const activeTab: Tab = rawTab && ['diario', 'estoque', 'equipe', 'entradas'].includes(rawTab)
+    ? rawTab as Tab
     : 'diario';
 
   const setTab = (tab: Tab) => {
@@ -185,7 +183,6 @@ export default function ExecucaoCentral() {
     materiaisCriticos: 0,
   });
   const [kpiLoading, setKpiLoading] = useState(true);
-  const [pendenciasCount, setPendenciasCount] = useState(0);
   const [entradasCount, setEntradasCount] = useState(0);
   const [faltaMaterialCount, setFaltaMaterialCount] = useState(0);
 
@@ -201,10 +198,11 @@ export default function ExecucaoCentral() {
         .select('id, data, trabalhadores, problemas')
         .eq('obra_id', obra.id),
       (supabase as any)
-        .from('pendencias')
+        .from('obra_agenda')
         .select('id, status')
         .eq('obra_id', obra.id)
-        .neq('status', 'resolvida'),
+        .eq('tipo', 'pendencia')
+        .not('status', 'in', '("concluido","cancelado")'),
     ]);
 
     const registrosHoje = (registros || []).filter((r: any) => r.data === hoje);
@@ -225,7 +223,6 @@ export default function ExecucaoCentral() {
     };
 
     setKpi(newKpi);
-    setPendenciasCount(pendenciasAbertas);
     setKpiLoading(false);
   }, [obra?.id]);
 
@@ -272,14 +269,6 @@ export default function ExecucaoCentral() {
             onClick={() => setTab('diario')}
           />
           <TabButton
-            id="pendencias"
-            active={activeTab === 'pendencias'}
-            icon={ListChecks}
-            label="Pendências"
-            badge={pendenciasCount}
-            onClick={() => setTab('pendencias')}
-          />
-          <TabButton
             id="estoque"
             active={activeTab === 'estoque'}
             icon={Package}
@@ -292,13 +281,6 @@ export default function ExecucaoCentral() {
             icon={Users}
             label="Equipe"
             onClick={() => setTab('equipe')}
-          />
-          <TabButton
-            id="agenda"
-            active={activeTab === 'agenda'}
-            icon={CalendarDays}
-            label="Agenda"
-            onClick={() => setTab('agenda')}
           />
           <TabButton
             id="entradas"
@@ -316,17 +298,11 @@ export default function ExecucaoCentral() {
           {activeTab === 'diario' && (
             <DiarioTab obraId={obra.id} onKpiChange={fetchKpi} />
           )}
-          {activeTab === 'pendencias' && (
-            <PendenciasPanel obraId={obra.id} onCountChange={setPendenciasCount} />
-          )}
           {activeTab === 'estoque' && (
             <EstoqueQuickView obraId={obra.id} />
           )}
           {activeTab === 'equipe' && (
             <EquipeTab obraId={obra.id} />
-          )}
-          {activeTab === 'agenda' && (
-            <AgendaTab obraId={obra.id} />
           )}
           {activeTab === 'entradas' && (
             <EntradasPendentesPanel

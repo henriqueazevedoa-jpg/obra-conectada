@@ -51,6 +51,7 @@ const financeiroSection: NavItem[] = [
 
 const canteiroSection: NavItem[] = [
   { to: "/execucao",   label: "Execução & Diário", icon: Hammer },
+  { to: "/agenda",     label: "Agenda",            icon: CalendarCheck },
   { to: "/documentos", label: "Documentos",        icon: FolderOpen },
 ];
 
@@ -71,6 +72,7 @@ const funcionarioLinks: NavItem[] = [
   { to: "/painel",     label: "Painel da Obra",    icon: LayoutDashboard },
   { to: "/cronograma", label: "Cronograma",        icon: CalendarDays },
   { to: "/execucao",   label: "Execução & Diário", icon: Hammer },
+  { to: "/agenda",     label: "Agenda",            icon: CalendarCheck },
 ];
 
 const clienteLinks: NavItem[] = [

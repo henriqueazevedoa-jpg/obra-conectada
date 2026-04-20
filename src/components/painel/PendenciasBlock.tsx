@@ -5,58 +5,47 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ListChecks, ArrowRight } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
-interface Pendencia {
+interface PendenciaAgenda {
   id: string;
   titulo: string;
   status: string;
   prioridade: string;
-  tipo: string;
   data_limite: string | null;
+  data_programada: string;
 }
 
 interface Props {
   obraId: string;
 }
 
-const statusColors: Record<string, string> = {
-  pendente: 'bg-warning/10 text-warning border-0',
-  resolvida: 'bg-success/10 text-success border-0',
-  rejeitada: 'bg-destructive/10 text-destructive border-0',
-};
-
-const statusLabels: Record<string, string> = {
-  pendente: 'Pendente',
-  resolvida: 'Resolvida',
-  rejeitada: 'Rejeitada',
-};
-
-const tipoLabels: Record<string, string> = {
-  financeiro: '💰 Financeiro',
-  execucao: '🔧 Execução',
-  administrativo: '📋 Administrativo',
+const prioridadeColors: Record<string, string> = {
+  alta:  'bg-destructive/10 text-destructive border-0',
+  media: 'bg-amber-500/10 text-amber-600 border-0',
+  baixa: 'bg-muted text-muted-foreground border-0',
 };
 
 export default function PendenciasBlock({ obraId }: Props) {
-  const [pendencias, setPendencias] = useState<Pendencia[]>([]);
+  const [pendencias, setPendencias] = useState<PendenciaAgenda[]>([]);
 
   useEffect(() => {
     if (!obraId) return;
-    supabase.from('pendencias').select('id, titulo, status, prioridade, tipo, data_limite')
+    (supabase as any)
+      .from('obra_agenda')
+      .select('id, titulo, status, prioridade, data_limite, data_programada')
       .eq('obra_id', obraId)
-      .order('created_at', { ascending: false })
+      .eq('tipo', 'pendencia')
+      .not('status', 'in', '("concluido","cancelado")')
+      .order('data_programada', { ascending: true })
       .limit(20)
-      .then(({ data }) => { if (data) setPendencias(data as Pendencia[]); });
+      .then(({ data }: { data: PendenciaAgenda[] | null }) => {
+        if (data) setPendencias(data);
+      });
   }, [obraId]);
 
-  const abertas = pendencias.filter(p => p.status === 'pendente');
-  const resolvidas = pendencias.filter(p => p.status === 'resolvida');
-
-  const byTipo = abertas.reduce((acc, p) => {
-    const tipo = p.tipo || 'administrativo';
-    acc[tipo] = (acc[tipo] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const abertas    = pendencias.filter(p => p.status !== 'concluido' && p.status !== 'cancelado');
+  const concluidas = pendencias.filter(p => p.status === 'concluido');
 
   return (
     <Card className="shadow-card print:shadow-none print:border" data-print-section="pendencias">
@@ -65,7 +54,7 @@ export default function PendenciasBlock({ obraId }: Props) {
           <CardTitle className="text-base flex items-center gap-2">
             <ListChecks className="h-4 w-4" /> Pendências da Obra
           </CardTitle>
-          <Link to="/pendencias" className="print:hidden">
+          <Link to="/agenda?tipo=pendencia" className="print:hidden">
             <Button variant="ghost" size="sm" className="text-xs text-primary h-7 gap-1">
               Ver todas <ArrowRight className="h-3 w-3" />
             </Button>
@@ -80,35 +69,26 @@ export default function PendenciasBlock({ obraId }: Props) {
             <span className="text-xs text-muted-foreground">abertas</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-lg font-bold text-success">{resolvidas.length}</span>
-            <span className="text-xs text-muted-foreground">resolvidas</span>
+            <span className="text-lg font-bold text-emerald-600">{concluidas.length}</span>
+            <span className="text-xs text-muted-foreground">concluídas</span>
           </div>
         </div>
-
-        {/* Por tipo */}
-        {Object.keys(byTipo).length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            {Object.entries(byTipo).map(([tipo, count]) => (
-              <Badge key={tipo} variant="secondary" className="bg-muted text-muted-foreground border-0 text-xs">
-                {tipoLabels[tipo] || tipo}: {count}
-              </Badge>
-            ))}
-          </div>
-        )}
 
         {/* Itens recentes */}
         <div className="space-y-1.5">
           {abertas.slice(0, 5).map(p => (
             <div key={p.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors">
               <div className="flex items-center gap-2 min-w-0">
-                <Badge variant="secondary" className={`${p.prioridade === 'alta' ? 'bg-destructive/10 text-destructive' : p.prioridade === 'media' ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground'} border-0 text-[10px]`}>
+                <Badge variant="secondary" className={`${prioridadeColors[p.prioridade] || 'bg-muted text-muted-foreground border-0'} text-[10px]`}>
                   {p.prioridade}
                 </Badge>
                 <span className="text-sm text-foreground truncate">{p.titulo}</span>
               </div>
-              <Badge variant="secondary" className={`${statusColors[p.status] || 'bg-muted text-muted-foreground border-0'} text-[10px]`}>
-                {statusLabels[p.status] || p.status}
-              </Badge>
+              {p.data_limite && (
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {format(parseISO(p.data_limite), 'dd/MM')}
+                </span>
+              )}
             </div>
           ))}
           {abertas.length === 0 && (

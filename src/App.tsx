@@ -32,8 +32,7 @@ import PagamentosPage from "@/pages/PagamentosPage";
 import PainelObraPage from "@/pages/PainelObraPage";
 import EquipePage from "@/pages/EquipePage";
 import PerfilPage from "@/pages/PerfilPage";
-import PendenciasPage from "@/pages/PendenciasPage";
-import AgendaObraPage from "@/pages/AgendaObraPage";
+import AgendaPage from "@/pages/AgendaPage";
 import FornecedoresPage from "@/pages/FornecedoresPage";
 import InsumosPage from "@/pages/InsumosPage";
 import DocumentosPage from "@/pages/DocumentosPage";
@@ -169,8 +168,8 @@ function AppRoutes() {
         <Route path="execucao" element={<ExecucaoCentral />} />
         {/* Redirects para compatibilidade com links antigos */}
         <Route path="diario" element={<Navigate to="/execucao?tab=diario" replace />} />
-        <Route path="pendencias" element={<Navigate to="/execucao?tab=pendencias" replace />} />
-        <Route path="agenda" element={<Navigate to="/execucao?tab=agenda" replace />} />
+        <Route path="pendencias" element={<Navigate to="/agenda" replace />} />
+        <Route path="agenda" element={<AgendaPage />} />
         <Route path="estoque" element={<Navigate to="/execucao?tab=estoque" replace />} />
         {/* Central Financeira */}
         <Route path="financeiro" element={<FinanceiroCentral />} />

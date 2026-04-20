@@ -120,11 +120,13 @@ function GestorPainel() {
         });
       });
 
-    supabase.from('pendencias').select('id, prioridade, status')
+    (supabase as any).from('obra_agenda').select('id, prioridade, status')
       .eq('obra_id', obra.id)
-      .then(({ data }) => {
-        const pends = (data || []) as any[];
-        setPendenciasAlta(pends.filter(p => p.prioridade === 'alta' && p.status !== 'resolvida').length);
+      .eq('tipo', 'pendencia')
+      .not('status', 'in', '("concluido","cancelado")')
+      .then(({ data }: { data: any[] | null }) => {
+        const pends = data || [];
+        setPendenciasAlta(pends.filter((p: any) => p.prioridade === 'alta').length);
       });
   }, [obra?.id]);
 
