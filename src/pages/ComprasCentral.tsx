@@ -8,16 +8,19 @@ import NoObraState from '@/components/obras/NoObraState';
 import PageShell from '@/components/layout/PageShell';
 import { PageFAB } from '@/components/ui/page-fab';
 import type { PageKPI } from '@/components/layout/PageShell';
+import ListaCompraTab from '@/components/compras/ListaCompraTab';
 import PedidosTab from '@/components/execucao/PedidosTab';
 import RecebimentosTab from '@/components/execucao/RecebimentosTab';
-import { ShoppingCart, PackagePlus } from 'lucide-react';
+import { ShoppingCart, PackagePlus, ClipboardList } from 'lucide-react';
+import { useCompany } from '@/contexts/CompanyContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'pedidos' | 'recebimentos';
-const VALID_TABS: Tab[] = ['pedidos', 'recebimentos'];
+type Tab = 'lista' | 'pedidos' | 'recebimentos';
+const VALID_TABS: Tab[] = ['lista', 'pedidos', 'recebimentos'];
 
 const TABS_CONFIG = [
+  { id: 'lista'        as Tab, label: 'Lista de compra', icon: <ClipboardList className="h-3.5 w-3.5" /> },
   { id: 'pedidos'      as Tab, label: 'Pedidos',      icon: <ShoppingCart className="h-3.5 w-3.5" /> },
   { id: 'recebimentos' as Tab, label: 'Recebimentos', icon: <PackagePlus className="h-3.5 w-3.5" /> },
 ];
@@ -44,8 +47,22 @@ export default function ComprasCentral() {
 
   // Tab via URL (padrão PageShell)
   const rawTab = searchParams.get('tab') as Tab | null;
-  const activeTab: Tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : 'pedidos';
+  const activeTab: Tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : 'lista';
   const setTab = (tab: Tab) => setSearchParams({ tab }, { replace: true });
+
+  const { company } = useCompany();
+
+  // Estado para gerar pedido a partir da lista
+  const [pedidoInicial, setPedidoInicial] = useState<{
+    itens: any[];
+    fornecedor?: string;
+    lista_compra_id?: string;
+  } | null>(null);
+
+  const handlePedidoCriado = (pedidoId: string) => {
+    setPedidoInicial(null);
+    setTab('pedidos');
+  };
 
   // KPI state
   const [kpiLoading, setKpiLoading] = useState(true);
@@ -108,8 +125,27 @@ export default function ComprasCentral() {
       >
         <div style={{ height: '100%', position: 'relative', background: 'var(--color-background-primary)' }}>
 
+          <div style={{ height: '100%', display: activeTab === 'lista' ? 'block' : 'none' }}>
+            <ListaCompraTab
+              obraId={obra.id}
+              companyId={company?.id ?? ''}
+              isActive={activeTab === 'lista'}
+              onKpiChange={fetchKpi}
+              onGerarPedido={(inicial) => {
+                setPedidoInicial(inicial);
+                setTab('pedidos');
+              }}
+            />
+          </div>
+
           <div style={{ height: '100%', display: activeTab === 'pedidos' ? 'block' : 'none' }}>
-            <PedidosTab obraId={obra.id} isActive={activeTab === 'pedidos'} onKpiChange={fetchKpi} />
+            <PedidosTab 
+              obraId={obra.id} 
+              isActive={activeTab === 'pedidos'} 
+              onKpiChange={fetchKpi}
+              pedidoInicial={pedidoInicial}
+              onPedidoCriado={handlePedidoCriado}
+            />
           </div>
 
           <div style={{ height: '100%', display: activeTab === 'recebimentos' ? 'block' : 'none' }}>
@@ -120,6 +156,11 @@ export default function ComprasCentral() {
       </PageShell>
 
       {/* FAB mobile contextual */}
+      {activeTab === 'lista' && (
+        <PageFAB label="+ Nova Lista" onClick={() => {
+          setSearchParams({ tab: 'lista', novo: '1' });
+        }} />
+      )}
       {activeTab === 'pedidos' && (
         <PageFAB label="+ Novo Pedido" onClick={() => {
           setSearchParams({ tab: 'pedidos', novo: '1' });

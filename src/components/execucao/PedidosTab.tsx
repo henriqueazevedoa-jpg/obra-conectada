@@ -96,11 +96,17 @@ interface Props {
   obraId: string;
   isActive?: boolean;
   onKpiChange?: () => void;
+  pedidoInicial?: {
+    itens: ItemPedido[];
+    fornecedor?: string;
+    lista_compra_id?: string;
+  } | null;
+  onPedidoCriado?: (pedidoId: string) => void;
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 
-export default function PedidosTab({ obraId, isActive = true, onKpiChange }: Props) {
+export default function PedidosTab({ obraId, isActive = true, onKpiChange, pedidoInicial, onPedidoCriado }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { obras } = useObras();
   const { getOrcamento } = useOrcamento();
@@ -166,13 +172,23 @@ export default function PedidosTab({ obraId, isActive = true, onKpiChange }: Pro
 
   useEffect(() => { if (isActive) fetchPedidos(); }, [fetchPedidos, isActive]);
 
-  // Abrir form via URL ?novo=1
+  // Abrir form via URL ?novo=1 ou por pedidoInicial
   useEffect(() => {
     if (searchParams.get('novo') === '1' && isActive) {
       resetForm(); setDialogOpen(true);
       setSearchParams(prev => { prev.delete('novo'); return prev; }, { replace: true });
     }
   }, [searchParams, isActive]);
+
+  useEffect(() => {
+    if (pedidoInicial && isActive) {
+      setItens(pedidoInicial.itens.length > 0 ? pedidoInicial.itens : [makeItem()]);
+      if (pedidoInicial.fornecedor) {
+        setForm(f => ({ ...f, fornecedor: pedidoInicial.fornecedor! }));
+      }
+      setDialogOpen(true);
+    }
+  }, [pedidoInicial, isActive]);
 
   // Fetch recebimentos para vínculo
   const fetchRecebimentosDisponiveis = useCallback(async () => {
@@ -268,6 +284,22 @@ export default function PedidosTab({ obraId, isActive = true, onKpiChange }: Pro
         const { data: np } = await (supabase as any).from('material_pedidos').insert({ ...payload, status: 'rascunho' }).select('id').single();
         pedidoId = np?.id;
         toast({ title: 'Pedido criado!' });
+        
+        // Atualiza a lista_compra se o pedido veio dela
+        if (pedidoInicial?.lista_compra_id && pedidoId) {
+            await (supabase as any)
+              .from('lista_compra')
+              .update({
+                status: 'pedido_gerado',
+                pedido_id: pedidoId,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', pedidoInicial.lista_compra_id);
+        }
+        
+        if (onPedidoCriado && pedidoId) {
+            onPedidoCriado(pedidoId);
+        }
       }
 
       // Gerar pagamentos parcelados
