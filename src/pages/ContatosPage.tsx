@@ -370,6 +370,110 @@ function ContatoCard({
   );
 }
 
+// ── Obras Relacionadas (busca dinâmica) ───────────────────────────────────────
+
+const FONTE_BADGE: Record<string, string> = {
+  Pagamento: 'bg-blue-500/10 text-blue-700 border-blue-500/20',
+  Pedido:    'bg-amber-500/10 text-amber-700 border-amber-500/20',
+  Cadastro:  'bg-muted text-muted-foreground border-border',
+};
+
+function ContatoObrasRelacionadas({
+  contato,
+  obras,
+}: {
+  contato: Contato;
+  obras: { id: string; nome: string }[];
+}) {
+  const [obrasMap, setObrasMap] = useState<{ id: string; nome: string; fontes: string[] }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!contato?.id) return;
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      try {
+        const [pgRes, pedRes] = await Promise.all([
+          (supabase as any)
+            .from('pagamentos')
+            .select('obra_id')
+            .eq('fornecedor_id', contato.id),
+          (supabase as any)
+            .from('material_pedidos')
+            .select('obra_id')
+            .eq('fornecedor_id', contato.id),
+        ]);
+
+        if (cancelled) return;
+
+        // Build obra_id → fontes map
+        const fonteMap: Record<string, Set<string>> = {};
+
+        for (const obraId of contato.obra_ids || []) {
+          if (!fonteMap[obraId]) fonteMap[obraId] = new Set();
+          fonteMap[obraId].add('Cadastro');
+        }
+        for (const row of pgRes.data || []) {
+          if (!row.obra_id) continue;
+          if (!fonteMap[row.obra_id]) fonteMap[row.obra_id] = new Set();
+          fonteMap[row.obra_id].add('Pagamento');
+        }
+        for (const row of pedRes.data || []) {
+          if (!row.obra_id) continue;
+          if (!fonteMap[row.obra_id]) fonteMap[row.obra_id] = new Set();
+          fonteMap[row.obra_id].add('Pedido');
+        }
+
+        const result = Object.entries(fonteMap)
+          .map(([id, fontes]) => {
+            const obra = obras.find(o => o.id === id);
+            return obra ? { id, nome: obra.nome, fontes: Array.from(fontes) } : null;
+          })
+          .filter(Boolean) as { id: string; nome: string; fontes: string[] }[];
+
+        setObrasMap(result);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [contato.id, obras]);
+
+  return (
+    <section className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+        <Briefcase className="h-3.5 w-3.5" /> Obras relacionadas
+      </p>
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando...
+        </div>
+      ) : obrasMap.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">Nenhuma obra associada a este contato.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {obrasMap.map(o => (
+            <div key={o.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-muted/40">
+              <HardDriveIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="flex-1 truncate">{o.nome}</span>
+              <div className="flex gap-1">
+                {o.fontes.map(f => (
+                  <Badge key={f} variant="outline" className={`text-[9px] px-1.5 py-0 ${FONTE_BADGE[f] ?? FONTE_BADGE.Cadastro}`}>
+                    {f}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ── Drawer de Detalhes ─────────────────────────────────────────────────────────
 
 function ContatoDetailSheet({
@@ -394,8 +498,6 @@ function ContatoDetailSheet({
   const telHref = toTelHref(contato.telefone);
   const waHref = toWaHref(contato.whatsapp || contato.telefone);
   const espCats = categorias.filter(c => (contato.especialidade_ids || []).includes(c.id));
-  const obrasRelacionadas = obras.filter(o => (contato.obra_ids || []).includes(o.id));
-
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto flex flex-col gap-0 p-0">
@@ -491,24 +593,8 @@ function ContatoDetailSheet({
             </section>
           )}
 
-          {/* Obras relacionadas */}
-          <section className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Briefcase className="h-3.5 w-3.5" /> Obras relacionadas
-            </p>
-            {obrasRelacionadas.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">Nenhuma obra associada a este contato.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {obrasRelacionadas.map(o => (
-                  <div key={o.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-muted/40">
-                    <HardDriveIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="flex-1 truncate">{o.nome}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          {/* Obras relacionadas — busca dinâmica (pagamentos + pedidos + cadastro) */}
+          <ContatoObrasRelacionadas contato={contato} obras={obras} />
 
           {/* Observações */}
           {contato.observacoes && (
