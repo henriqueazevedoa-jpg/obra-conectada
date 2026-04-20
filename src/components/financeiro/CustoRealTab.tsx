@@ -207,7 +207,10 @@ function RegistrarCustoModal({ open, onClose, obraId, companyId, etapas, onSaved
   useEffect(() => {
     const q = parseFloat(form.quantidade);
     const u = parseFloat(form.valor_unitario);
-    if (!isNaN(q) && !isNaN(u)) set('valor', (q * u).toFixed(2));
+    if (!isNaN(q) && !isNaN(u)) {
+      setForm(prev => ({ ...prev, valor: (q * u).toFixed(2) }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.quantidade, form.valor_unitario]);
 
   const handleSave = async () => {
@@ -368,30 +371,36 @@ export default function CustoRealTab({ obraId, isActive = true, onKpisReady }: P
     ]);
 
     const normalized: Lancamento[] = [
-      ...((pags || []) as any[]).map((p: any) => ({
-        id: p.id,
-        tipo: 'pagamento' as TipoLancamento,
-        descricao: p.descricao,
-        valor: Number(p.valor_pago ?? p.valor_previsto ?? 0),
-        data: p.data_vencimento,
-        fornecedor: p.fornecedor ?? null,
-        categoria: null,
-        etapa_id: p.etapa_id ?? null,
-        etapa_nome: p.etapa_orcamento ?? null,
-        origem: null,
-      })),
-      ...((itens || []) as any[]).map((i: any) => ({
-        id: i.id,
-        tipo: 'lancamento' as TipoLancamento,
-        descricao: i.descricao,
-        valor: Number(i.valor ?? 0),
-        data: i.data,
-        fornecedor: i.fornecedor ?? null,
-        categoria: i.categoria ?? null,
-        etapa_id: i.etapa_id ?? null,
-        etapa_nome: i.etapa_nome ?? null,
-        origem: i.origem,
-      })),
+      ...((pags || []) as unknown[]).map((p) => {
+        const row = p as { id: string; descricao: string; valor_pago?: number; valor_previsto?: number; data_vencimento?: string; etapa_id?: string; etapa_orcamento?: string; fornecedor?: string };
+        return {
+          id: row.id,
+          tipo: 'pagamento' as TipoLancamento,
+          descricao: row.descricao,
+          valor: Number(row.valor_pago ?? row.valor_previsto ?? 0),
+          data: row.data_vencimento,
+          fornecedor: row.fornecedor ?? null,
+          categoria: null,
+          etapa_id: row.etapa_id ?? null,
+          etapa_nome: row.etapa_orcamento ?? null,
+          origem: null,
+        };
+      }),
+      ...((itens || []) as unknown[]).map((i) => {
+        const row = i as { id: string; descricao: string; valor?: number; data?: string; fornecedor?: string; categoria?: string; etapa_id?: string; etapa_nome?: string; origem?: string };
+        return {
+          id: row.id,
+          tipo: 'lancamento' as TipoLancamento,
+          descricao: row.descricao,
+          valor: Number(row.valor ?? 0),
+          data: row.data,
+          fornecedor: row.fornecedor ?? null,
+          categoria: row.categoria ?? null,
+          etapa_id: row.etapa_id ?? null,
+          etapa_nome: row.etapa_nome ?? null,
+          origem: row.origem ?? null,
+        };
+      }),
     ];
 
     setLancamentos(normalized);
@@ -425,7 +434,7 @@ export default function CustoRealTab({ obraId, isActive = true, onKpisReady }: P
     for (const cat of categoriasOrc) {
       const pags = porEtapa.get(cat.id) || [];
       const realizado = pags.reduce((s, l) => s + l.valor, 0);
-      const orcado = (cat as any).precoTotal || 0;
+      const orcado = (cat as { precoTotal?: number }).precoTotal ?? 0;
       const desvio = realizado - orcado;
       const desvioPercent = orcado > 0 ? Math.round((desvio / orcado) * 100) : 0;
       resultado.push({ id: cat.id, nome: cat.nome, orcado, realizado, desvio, desvioPercent, lancamentos: pags });

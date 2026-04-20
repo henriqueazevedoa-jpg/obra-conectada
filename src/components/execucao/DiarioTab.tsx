@@ -26,7 +26,7 @@ import {
 import {
   Plus, Trash2, Link2, CalendarIcon, Camera, CheckCircle2,
   XCircle, Pencil, Filter, Square, CheckSquare,
-  BookOpen, Sun, CloudRain, Cloud, Loader2, GitBranch, Wrench, ChevronDown,
+  BookOpen, Sun, CloudRain, Cloud, Loader2, GitBranch, Wrench, ChevronDown, Users,
 } from 'lucide-react';
 import DiarioFotoUpload, { FotoPendente } from '@/components/diario/DiarioFotoUpload';
 import { formatDate, climaLabels, statusDiarioLabels, DiarioRegistro, DiarioServico, DiarioMaterialUsado } from '@/data/mockData';
@@ -38,7 +38,10 @@ type DiarioRegistroRow = {
   servicos_executados: string | null; observacoes: string | null;
   problemas: string | null; fotos: string[] | null; status: string;
   link_id: string | null;
+  membros_presentes: string[] | null;
 };
+
+interface MembroEquipe { id: string; nome: string; funcao?: string; }
 type DiarioServicoRow = {
   id: string; registro_id: string; descricao: string;
   tarefa_id: string | null; etapa_id: string | null;
@@ -368,13 +371,27 @@ function RegistroFormDrawer({
   const [materiaisUsados, setMateriaisUsados] = useState<DiarioMaterialUsado[]>([]);
   const [fotosPendentes, setFotosPendentes] = useState<FotoPendente[]>([]);
 
+  // ── Equipe da obra (opcional) ──
+  const [membrosDisponiveis, setMembrosDisponiveis] = useState<MembroEquipe[]>([]);
+  const [membrosPresentes, setMembrosPresentes] = useState<string[]>([]);
+  const [showMembros, setShowMembros] = useState(false);
+
   const reset = () => {
     setDataRegistro(new Date()); setClima('sol'); setTrabalhadores('');
-    setObservacoes(''); setProblemas(''); setServicos([]); setMateriaisUsados([]); setFotosPendentes([]);
+    setObservacoes(''); setProblemas(''); setServicos([]); setMateriaisUsados([]);
+    setFotosPendentes([]); setMembrosPresentes([]); setShowMembros(false);
   };
 
   useEffect(() => {
     if (!open) return;
+    // Buscar equipe da obra (sempre, para o toggle)
+    (supabase.from('equipe_colaboradores') as any)
+      .select('id, nome, funcao')
+      .eq('obra_id', obraId)
+      .eq('status', 'ativo')
+      .order('nome')
+      .then(({ data }: { data: MembroEquipe[] | null }) => setMembrosDisponiveis(data || []));
+
     if (!editingId) { reset(); return; }
     (async () => {
       const { data: reg } = await supabase.from('diario_registros').select('*').eq('id', editingId).single();
@@ -389,6 +406,10 @@ function RegistroFormDrawer({
       setTrabalhadores(String(regRow.trabalhadores || ''));
       setObservacoes(regRow.observacoes || '');
       setProblemas(regRow.problemas || '');
+      // Restaurar membros presentes (se existirem)
+      const mp = regRow.membros_presentes || [];
+      setMembrosPresentes(mp);
+      if (mp.length > 0) setShowMembros(true);
       setServicos(((svcs || []) as DiarioServicoRow[]).map((s) => ({
         id: s.id, descricao: s.descricao,
         tarefaId: s.tarefa_id || undefined,
@@ -401,6 +422,7 @@ function RegistroFormDrawer({
         unidade: m.unidade || '', quantidade: Number(m.quantidade),
       })));
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editingId]);
 
   const handleSave = async () => {
@@ -414,19 +436,26 @@ function RegistroFormDrawer({
     try {
       let registroId = editingId;
 
+      // Derivar contagem: membros selecionados têm prioridade sobre input manual
+      const qtdTrabalhadores = membrosPresentes.length > 0
+        ? membrosPresentes.length
+        : parseInt(trabalhadores) || 0;
+
       if (editingId) {
         await supabase.from('diario_registros').update({
-          data: hoje, clima, trabalhadores: parseInt(trabalhadores) || 0,
+          data: hoje, clima, trabalhadores: qtdTrabalhadores,
           servicos_executados: descGeral, observacoes, problemas,
+          membros_presentes: membrosPresentes.length > 0 ? membrosPresentes : [],
         }).eq('id', editingId);
         await supabase.from('diario_servicos').delete().eq('registro_id', editingId);
         await supabase.from('diario_materiais').delete().eq('registro_id', editingId);
       } else {
         const { data: newReg, error } = await supabase.from('diario_registros').insert({
           obra_id: obraId, user_id: user.id, data: hoje, clima,
-          trabalhadores: parseInt(trabalhadores) || 0,
+          trabalhadores: qtdTrabalhadores,
           servicos_executados: descGeral, observacoes, problemas,
           usuario_nome: user.name, status: 'pendente',
+          membros_presentes: membrosPresentes.length > 0 ? membrosPresentes : [],
         }).select().single();
         if (error || !newReg) throw error;
         registroId = (newReg as DiarioRegistroRow).id;
@@ -566,9 +595,65 @@ function RegistroFormDrawer({
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Trabalhadores</label>
               <Input type="number" min={0} placeholder="0" className="h-10"
-                value={trabalhadores} onChange={e => setTrabalhadores(e.target.value)} />
+                value={membrosPresentes.length > 0 ? String(membrosPresentes.length) : trabalhadores}
+                onChange={e => { setTrabalhadores(e.target.value); setMembrosPresentes([]); }}
+                disabled={membrosPresentes.length > 0}
+              />
             </div>
           </div>
+
+          {/* ── Presença de membros (opcional, colapsável) ─────────────── */}
+          {membrosDisponiveis.length > 0 && (
+            <div className="rounded-xl border border-border/60 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowMembros(v => !v)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-muted/40 transition-colors"
+              >
+                <span className="flex items-center gap-2 font-medium text-foreground/80">
+                  <Users className="h-3.5 w-3.5 text-primary/70" />
+                  Marcar presença de membros
+                  {membrosPresentes.length > 0 && (
+                    <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                      {membrosPresentes.length} selecionado{membrosPresentes.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </span>
+                <ChevronDown className={cn(
+                  'h-3.5 w-3.5 text-muted-foreground transition-transform',
+                  showMembros && 'rotate-180',
+                )} />
+              </button>
+              {showMembros && (
+                <div className="border-t border-border/60 divide-y divide-border/40 max-h-48 overflow-y-auto">
+                  {membrosDisponiveis.map(m => {
+                    const checked = membrosPresentes.includes(m.id);
+                    return (
+                      <label key={m.id}
+                        className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent/40 transition-colors">
+                        <input
+                          type="checkbox"
+                          className="accent-primary h-4 w-4"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked
+                              ? membrosPresentes.filter(id => id !== m.id)
+                              : [...membrosPresentes, m.id];
+                            setMembrosPresentes(next);
+                            if (next.length > 0) setTrabalhadores(String(next.length));
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate">{m.nome}</p>
+                          {m.funcao && <p className="text-xs text-muted-foreground truncate">{m.funcao}</p>}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Serviços */}
           <div className="space-y-3">

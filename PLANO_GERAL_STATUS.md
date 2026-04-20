@@ -40,7 +40,10 @@ STATUS ATUAL — Atualizado em: 18/04/2026 (Sessão 4)
 
 
 ⏳ PRÓXIMO:
-- PROMPT 9 — EXECUÇÃO SPRINT 2: Pendências
+- PROMPT 10 — EXECUÇÃO SPRINT 3: Equipe
+
+❌ PULADO (decisão 20/04/2026):
+- PROMPT 9 — EXECUÇÃO SPRINT 2: Pendências → incorporada à Agenda (Sprint 4)
 
 ✅ CONCLUÍDO (nesta sessão):
 - FINANCEIRO SPRINT 3 (PLANO_GERAL Prompt 7) — Fluxo de Caixa e DRE
@@ -63,7 +66,7 @@ STATUS ATUAL — Atualizado em: 18/04/2026 (Sessão 4)
 - PROMPT 7  — Financeiro Sprint 2: Custo Real
 - PROMPT 8  — Financeiro Sprint 3: Fluxo de Caixa e DRE
 - PROMPT 9  — Execução Sprint 1: Diário
-- PROMPT 9  — Execução Sprint 2: Pendências
+- PROMPT 9  — Execução Sprint 2: Pendências ← PULADO (incorporada à Agenda)
 - PROMPT 10 — Execução Sprint 3: Equipe
 - PROMPT 11 — Execução Sprint 4: Agenda
 - PROMPT 12 — Execução Sprint 5: Entradas NF

@@ -72,7 +72,7 @@ export default function OrcamentoCentral() {
 
   useEffect(() => {
     type SinapiRefRow = { id: string; competencia: string; arquivo_nome: string };
-    (supabase as any)
+    supabase
       .from('sinapi_referencias')
       .select('id, competencia, arquivo_nome')
       .order('competencia', { ascending: false })
