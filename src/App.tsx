@@ -27,6 +27,7 @@ import FinanceiroCentral from "@/pages/FinanceiroCentral";
 import CronogramaPage from "@/pages/CronogramaPage";
 import DiarioPage from "@/pages/DiarioPage";
 import ExecucaoCentral from "@/pages/ExecucaoCentral";
+import ComprasCentral from "@/pages/ComprasCentral";
 import EstoquePage from "@/pages/EstoquePage";
 import PagamentosPage from "@/pages/PagamentosPage";
 import PainelObraPage from "@/pages/PainelObraPage";
@@ -164,13 +165,17 @@ function AppRoutes() {
         <Route path="orcamento" element={<OrcamentoPage />} />
         <Route path="custo-real" element={<Navigate to="/financeiro?tab=custo-real" replace />} />
         <Route path="cronograma" element={<CronogramaPage />} />
-        {/* Central de Execução — substitui diario e pendencias no menu */}
+        {/* Central de Execução — Diário, Estoque, Equipe */}
         <Route path="execucao" element={<ExecucaoCentral />} />
+        {/* Central de Compras — Pedidos e Recebimentos */}
+        <Route path="compras" element={<ComprasCentral />} />
         {/* Redirects para compatibilidade com links antigos */}
         <Route path="diario" element={<Navigate to="/execucao?tab=diario" replace />} />
         <Route path="pendencias" element={<Navigate to="/agenda" replace />} />
         <Route path="agenda" element={<AgendaPage />} />
         <Route path="estoque" element={<Navigate to="/execucao?tab=estoque" replace />} />
+        <Route path="pedidos" element={<Navigate to="/compras?tab=pedidos" replace />} />
+        <Route path="recebimentos" element={<Navigate to="/compras?tab=recebimentos" replace />} />
         {/* Central Financeira */}
         <Route path="financeiro" element={<FinanceiroCentral />} />
         <Route path="pagamentos" element={<Navigate to="/financeiro?tab=pagamentos" replace />} />

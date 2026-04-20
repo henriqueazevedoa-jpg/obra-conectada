@@ -11,7 +11,7 @@ import {
   Package, User, LogOut, Menu, HardHat, Receipt, Shield, Users,
   Wallet, ListChecks, Store, FolderOpen, CalendarCheck, ShoppingBasket,
   Search, ChevronRight, ChevronDown, ChevronsUpDown, Check,
-  BarChart3, Hammer,
+  BarChart3, Hammer, ShoppingCart,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -51,8 +51,9 @@ const financeiroSection: NavItem[] = [
 
 const canteiroSection: NavItem[] = [
   { to: "/execucao",   label: "Execução & Diário", icon: Hammer },
-  { to: "/agenda",     label: "Agenda",            icon: CalendarCheck },
-  { to: "/documentos", label: "Documentos",        icon: FolderOpen },
+  { to: "/compras",    label: "Compras",            icon: ShoppingCart },
+  { to: "/agenda",     label: "Agenda",             icon: CalendarCheck },
+  { to: "/documentos", label: "Documentos",         icon: FolderOpen },
 ];
 
 const redeSection: NavItem[] = [
@@ -125,6 +126,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/pagamentos":   "Financeiro",
   "/cronograma":   "Cronograma",
   "/execucao":     "Execução & Canteiro",
+  "/compras":      "Compras",
   "/agenda":       "Execução & Canteiro",
   "/estoque":      "Execução & Canteiro",
   "/documentos":   "Documentos",
