@@ -14,13 +14,16 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   Link2, Plus, Copy, Check, Trash2, ExternalLink,
-  AlertTriangle, RefreshCw, Download, ChevronRight,
+  AlertTriangle, RefreshCw, Download, ChevronRight, ChevronDown,
   DollarSign, Users, FileSpreadsheet, ArrowLeft,
   Search, X, ArrowUpDown, ArrowUp, ArrowDown,
   Sparkles, CheckSquare, Square, UserPlus, PenLine, Send,
   ClipboardPaste, ShoppingBag, TrendingUp, Package, CircleDot, BarChart2,
-  MoreHorizontal, Brain,
+  MoreHorizontal, Brain, Tags,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -41,6 +44,11 @@ import CotacaoCotarView from '@/components/orcamento/CotacaoCotarView';
 interface CotacaoCentralProps {
   obra: { id: string; nome: string };
   onBack: () => void;
+  /** Contexto da cotação: 'orcamento' (padrão) ou 'compra' */
+  contexto?: 'orcamento' | 'compra';
+  onContextoChange?: (c: 'orcamento' | 'compra') => void;
+  /** Itens externos (ex: lista de compra). Se fornecidos, substituem extrairItens(etapas) */
+  itensExternos?: MapaItem[];
   /** 3C: busca inicial vinda do semáforo da Planilha Orçamentária */
   initialSearch?: string;
   onClearInitialSearch?: () => void;
@@ -183,14 +191,24 @@ function extrairItens(etapas: OrcamentoEtapa[]): MapaItem[] {
 // 'mapa' e 'links' preservados como alias internos para evitar regressões nos branches existentes
 type ActiveView = 'listas' | 'cotar' | 'mapa' | 'links' | 'comparativo';
 
-export default function CotacaoCentral({ obra, onBack, initialSearch = '', onClearInitialSearch }: CotacaoCentralProps) {
+export default function CotacaoCentral({
+  obra, onBack,
+  contexto = 'orcamento',
+  onContextoChange,
+  itensExternos,
+  initialSearch = '',
+  onClearInitialSearch,
+}: CotacaoCentralProps) {
   const { getOrcamento, saveOrcamento } = useOrcamento();
   const { user } = useAuth();
   const { company } = useCompany();
   const etapas = useMemo(() => getOrcamento(obra.id)?.etapas ?? [], [getOrcamento, obra.id]);
-  const itens = useMemo(() => extrairItens(etapas), [etapas]);
+  const itens = useMemo(
+    () => itensExternos && itensExternos.length > 0 ? itensExternos : extrairItens(etapas),
+    [itensExternos, etapas]
+  );
 
-  const [view, setView] = useState<ActiveView>('listas');
+  const [view, setView] = useState<ActiveView>('mapa');
   const [links, setLinks] = useState<CotacaoLink[]>([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
 
@@ -825,13 +843,14 @@ export default function CotacaoCentral({ obra, onBack, initialSearch = '', onCle
       const { error } = await supabase.from('cotacao_links').insert({
         token,
         obra_id: obra.id,
-        company_id: company?.id,        // FIX BUG-1: era ausente
+        company_id: company?.id,
         fornecedor_nome: newFornecedor.trim(),
         fornecedor_email: newEmail.trim() || null,
         itens: itensSelected,
         respostas: {},
         status: 'pendente',
         created_by: user?.id,
+        contexto,
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       });
       if (error) {
@@ -1048,79 +1067,90 @@ ${fornBlocks}
     <>
     <div className="flex flex-col h-full overflow-hidden">
 
+      {/* ════ ZONA 0 — Badge de contexto ═══════════════════════════════════ */}
+      {onContextoChange && (
+        <div className="px-4 md:px-6 pt-3 pb-1 shrink-0 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Contexto:</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors hover:bg-muted/60 border-border text-foreground">
+                {contexto === 'orcamento' ? '📋 Orçamento' : '🛒 Compras'}
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-1" align="start">
+              <button
+                onClick={() => onContextoChange('orcamento')}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted/60',
+                  contexto === 'orcamento' && 'bg-muted font-medium'
+                )}
+              >
+                {contexto === 'orcamento' && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                <span className={contexto !== 'orcamento' ? 'ml-5' : ''}>Orçamento</span>
+              </button>
+              <button
+                onClick={() => onContextoChange('compra')}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted/60',
+                  contexto === 'compra' && 'bg-muted font-medium'
+                )}
+              >
+                {contexto === 'compra' && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                <span className={contexto !== 'orcamento' ? '' : 'ml-5'}>Compras</span>
+              </button>
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
+
+      {/* ════ Empty state — contexto compra sem itens externos ══════════════ */}
+      {contexto === 'compra' && (!itensExternos || itensExternos.length === 0) && (
+        <div className="flex flex-col items-center justify-center h-64 gap-3 text-center px-4">
+          <ShoppingBag className="h-10 w-10 text-muted-foreground/30" />
+          <p className="text-sm font-medium text-foreground">Nenhuma lista de compra ativa</p>
+          <p className="text-xs text-muted-foreground">
+            Crie uma lista de compra na aba Compras para cotar os itens aqui.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/compras?tab=lista'}>
+            Ir para Compras
+          </Button>
+        </div>
+      )}
+
       {/* ════════════════════════════════════════════════════════════════════
-           ZONA 1 — KPIs (topo, peso visual máximo)
+           ZONA 1 — KPIs compactos
           ════════════════════════════════════════════════════════════════════ */}
-      {itens.length > 0 && (
-        <div className="px-4 md:px-6 pt-4 pb-3 shrink-0">
-          <div className="grid grid-cols-3 gap-3">
-            {/* Card 1: Total de itens */}
-            <button
-              onClick={() => setStatusFilter('todos')}
-              title="Ver todos os itens"
-              className="flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all hover:shadow-sm bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800/70"
-            >
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800">
-                <Package className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-slate-700 dark:text-slate-300 tabular-nums leading-none">{itens.length}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-1">Itens no orçamento</div>
-              </div>
-            </button>
-
-            {/* Card 2: % cotados (destaque — clica para filtrar sem preço) */}
-            <button
-              onClick={() => setStatusFilter(f => f === 'sem_preco' ? 'todos' : 'sem_preco')}
-              title="Clique para filtrar itens sem preço"
-              className={cn(
-                'flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all hover:shadow-sm',
-                pctCotado === 100
-                  ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-950/60'
-                  : 'bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-950/60'
-              )}
-            >
-              <div className={cn(
-                'h-9 w-9 rounded-lg flex items-center justify-center shrink-0',
-                pctCotado === 100 ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-amber-100 dark:bg-amber-900/40'
-              )}>
-                <CircleDot className={cn('h-4 w-4', pctCotado === 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400')} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className={cn('text-2xl font-bold tabular-nums leading-none', kpiTextColor)}>{pctCotado}%</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-1">Cotados</div>
-                {/* Pipeline compacto como detalhe secundário */}
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <div className="flex-1 h-1 rounded-full bg-muted/60 overflow-hidden">
-                    <div className={cn('h-full rounded-full transition-all duration-700', kpiBarColor)} style={{ width: `${pctCotado}%` }} />
-                  </div>
-                  {links.length > 0 && (
-                    <span className="text-[9px] text-muted-foreground tabular-nums shrink-0">
-                      {respondidos}/{links.length} respondidos
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-
-            {/* Card 3: Valor total (destaque verde, clica para ordenar por valor) */}
-            <button
-              onClick={() => { setSortField('precoAtual'); setSortDir('desc'); }}
-              title="Ordenar por valor"
-              className="flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all hover:shadow-sm bg-primary/8 border-primary/20 dark:bg-indigo-950/40 dark:border-indigo-800 hover:bg-primary/12 dark:hover:bg-indigo-950/60"
-            >
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 bg-primary/12 dark:bg-indigo-900/40">
-                <TrendingUp className="h-4 w-4 text-primary dark:text-primary/80" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-2xl font-bold text-primary dark:text-primary/80 tabular-nums leading-none">
-                  {totalOrcado > 0
-                    ? totalOrcado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
-                    : '—'}
-                </div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-1">Valor total ↕</div>
-              </div>
-            </button>
+      {itens.length > 0 && !(contexto === 'compra' && (!itensExternos || itensExternos.length === 0)) && (
+        <div className="px-4 md:px-6 pt-3 pb-2 shrink-0">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {/* Sem preço */}
+            <div className={cn(
+              'rounded-lg border px-3 py-2 flex flex-col gap-0.5',
+              itensSemPreco.length > 0 ? 'bg-red-50/60 border-red-200' : 'bg-card border-border'
+            )}>
+              <span className={cn('text-lg font-bold tabular-nums leading-none', itensSemPreco.length > 0 ? 'text-red-600' : 'text-foreground')}>
+                {itensSemPreco.length}
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Sem preço</span>
+            </div>
+            {/* % Cotados */}
+            <div className="rounded-lg border px-3 py-2 flex flex-col gap-0.5 bg-card border-border">
+              <span className={cn('text-lg font-bold tabular-nums leading-none', kpiTextColor)}>{pctCotado}%</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Cotados</span>
+            </div>
+            {/* Fornecedores */}
+            <div className="rounded-lg border px-3 py-2 flex flex-col gap-0.5 bg-card border-border">
+              <span className="text-lg font-bold tabular-nums leading-none text-foreground">{todosFornecedores.length}</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Fornecedores</span>
+            </div>
+            {/* Valor coberto */}
+            <div className="rounded-lg border px-3 py-2 flex flex-col gap-0.5 bg-card border-border">
+              <span className="text-base font-bold tabular-nums leading-none text-foreground truncate">
+                {totalOrcado > 0 ? totalOrcado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—'}
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Valor coberto</span>
+            </div>
           </div>
         </div>
       )}

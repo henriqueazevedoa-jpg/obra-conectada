@@ -11,7 +11,7 @@ import {
   Package, User, LogOut, Menu, HardHat, Receipt, Shield, Users,
   Wallet, ListChecks, Store, FolderOpen, CalendarCheck, ShoppingBasket,
   Search, ChevronRight, ChevronDown, ChevronsUpDown, Check,
-  BarChart3, Hammer, ShoppingCart,
+  BarChart3, Hammer, ShoppingCart, Tags,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ const obraSection: NavItem[] = [
 
 const planejamentoSection: NavItem[] = [
   { to: "/orcamento",  label: "Orçamento",  icon: DollarSign },
+  { to: "/cotacao",    label: "Cotação",    icon: Tags },
   { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { to: "/biblioteca", label: "Biblioteca", icon: BookOpen },
 ];
@@ -121,6 +122,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/obras":        "Obras",
   "/painel":       "Painel da Obra",
   "/orcamento":    "Orçamento",
+  "/cotacao":      "Cotação",
   "/financeiro":   "Financeiro",
   "/custo-real":   "Financeiro",
   "/pagamentos":   "Financeiro",

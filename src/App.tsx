@@ -22,6 +22,7 @@ import OnboardingPage from "@/pages/OnboardingPage";
 import ObrasPage from "@/pages/ObrasPage";
 // ObraDetalhePage removed - clicking obra goes directly to Painel
 import OrcamentoPage from "@/pages/OrcamentoPage";
+import CotacaoPage from "@/pages/CotacaoPage";
 import CustoRealPage from "@/pages/CustoRealPage";
 import FinanceiroCentral from "@/pages/FinanceiroCentral";
 import CronogramaPage from "@/pages/CronogramaPage";
@@ -163,6 +164,7 @@ function AppRoutes() {
         <Route path="obras" element={<ObrasPage />} />
         <Route path="painel" element={<PainelObraPage />} />
         <Route path="orcamento" element={<OrcamentoPage />} />
+        <Route path="cotacao" element={<CotacaoPage />} />
         <Route path="custo-real" element={<Navigate to="/financeiro?tab=custo-real" replace />} />
         <Route path="cronograma" element={<CronogramaPage />} />
         {/* Central de Execução — Diário, Estoque, Equipe */}

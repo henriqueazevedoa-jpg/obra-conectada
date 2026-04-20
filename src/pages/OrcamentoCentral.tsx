@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOrcamento } from '@/contexts/OrcamentoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
@@ -7,7 +8,6 @@ import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 import OrcamentoEditor from '@/components/orcamento/OrcamentoEditor';
 import OrcamentoDashboard from '@/components/orcamento/OrcamentoDashboard';
-import CotacaoCentral from '@/components/orcamento/CotacaoCentral';
 import ExportarOrcamentoDialog from '@/components/orcamento/ExportarOrcamentoDialog';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import NoObraState from '@/components/obras/NoObraState';
@@ -17,7 +17,7 @@ import type { PageTab } from '@/components/layout/PageShell';
 
 // ── Tipos e utilitários ──────────────────────────────────────────────────────
 
-type OrcamentoTab = 'overview' | 'wbs' | 'cotacao';
+type OrcamentoTab = 'overview' | 'wbs';
 
 type SinapiRegime = 'SEM_DESONERACAO' | 'COM_DESONERACAO' | 'SEM_ENCARGOS';
 interface SinapiConfig { uf: string; competencia: string; regime: SinapiRegime; }
@@ -61,8 +61,8 @@ export default function OrcamentoCentral() {
     'orcamento:tab', 'overview', selectedObraId
   );
 
-  const [cotacaoInitialSearch, setCotacaoInitialSearch] = useState('');
   const editing = user?.role === 'gestor' || user?.role === 'admin';
+  const navigate = useNavigate();
 
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -124,11 +124,6 @@ export default function OrcamentoCentral() {
   const tabs: PageTab[] = [
     { id: 'overview', label: 'Visão Geral' },
     { id: 'wbs',      label: 'Planilha' },
-    {
-      id: 'cotacao', label: 'Cotação & Preços',
-      badge: itensSemPreco > 0 ? itensSemPreco : null,
-      badgeDanger: itensSemPreco > 0,
-    },
   ];
 
   // Sem obra
@@ -183,20 +178,8 @@ export default function OrcamentoCentral() {
               onBack={() => setActiveTab('overview')}
               sinapiConfig={sinapiConfig}
               onGoCotacao={(descricao) => {
-                setCotacaoInitialSearch(descricao);
-                setActiveTab('cotacao');
+                navigate(`/cotacao?origem=orcamento&q=${encodeURIComponent(descricao)}`);
               }}
-            />
-          </ErrorBoundary>
-        )}
-
-        {activeTab === 'cotacao' && (
-          <ErrorBoundary context="Cotação & Preços">
-            <CotacaoCentral
-              obra={obra}
-              onBack={() => setActiveTab('overview')}
-              initialSearch={cotacaoInitialSearch}
-              onClearInitialSearch={() => setCotacaoInitialSearch('')}
             />
           </ErrorBoundary>
         )}
