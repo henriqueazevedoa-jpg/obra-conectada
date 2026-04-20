@@ -1,459 +1,544 @@
-import { useState, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useRef, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useObras } from '@/contexts/ObrasContext';
-import GanttEditorChart from '@/components/gantt/GanttEditorChart';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
-import { useOrcamento, OrcamentoCategoria, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
+import { useCronograma, CronogramaTarefa, TipoTarefa } from '@/hooks/useCronograma';
+import { useRecursos } from '@/hooks/useRecursos';
 import { useGanttFinanceiro } from '@/hooks/useGanttFinanceiro';
-import { useGanttDependencies } from '@/hooks/useGanttDependencies';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { parseISO, differenceInDays, isBefore } from 'date-fns';
+import {
+  CalendarDays, AlertTriangle, CheckCircle2, Clock, Plus,
+  Save, ChevronDown, ChevronRight, BarChart3, List, Pencil,
+  Lock, Unlock, MoreHorizontal, Trash2, Link2, Users, TrendingUp, Loader2,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format, parseISO, differenceInDays, isAfter, isBefore } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { CalendarDays, AlertTriangle, CheckCircle2, Clock, Plus, Save, ChevronDown, ChevronRight, BarChart3, List, CalendarIcon } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
-import VoiceInputButton from '@/components/voice/VoiceInputButton';
-import NoObraState from '@/components/obras/NoObraState';
-import { formatDate, statusEtapaLabels } from '@/data/mockData';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import NoObraState from '@/components/obras/NoObraState';
+import TaskDetailDrawer from '@/components/cronograma/TaskDetailDrawer';
+import GanttCanvasPanel, { computeCriticalPath } from '@/components/cronograma/GanttCanvasPanel';
+import CurvaS from '@/components/cronograma/CurvaS';
+import PageShell from '@/components/layout/PageShell';
+import type { PageKPI, PageAction } from '@/components/layout/PageShell';
 
-const statusColors: Record<string, string> = {
-  nao_iniciada: 'bg-muted text-muted-foreground border-0',
-  em_andamento: 'bg-primary/10 text-primary border-0',
-  concluida: 'bg-success/10 text-success border-0',
-  atrasada: 'bg-destructive/10 text-destructive border-0',
+// ─── Status Config ───────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode; bar: string }> = {
+  nao_iniciada: { label: 'Não Iniciada', color: 'text-[#888780]', icon: <Clock className="h-3.5 w-3.5" style={{ color: '#888780' }} />,        bar: 'bg-[#888780]' },
+  em_andamento: { label: 'Em Andamento', color: 'text-[#185FA5]', icon: <CalendarDays className="h-3.5 w-3.5" style={{ color: '#185FA5' }} />, bar: 'bg-[#185FA5]' },
+  concluida:    { label: 'Concluída',    color: 'text-[#3B6D11]', icon: <CheckCircle2 className="h-3.5 w-3.5" style={{ color: '#3B6D11' }} />, bar: 'bg-[#3B6D11]' },
+  atrasada:     { label: 'Atrasada',     color: 'text-[#A32D2D]', icon: <AlertTriangle className="h-3.5 w-3.5" style={{ color: '#A32D2D' }} />, bar: 'bg-[#A32D2D]' },
 };
 
-const statusIcons: Record<string, React.ReactNode> = {
-  nao_iniciada: <Clock className="h-4 w-4 text-muted-foreground" />,
-  em_andamento: <CalendarDays className="h-4 w-4 text-primary" />,
-  concluida: <CheckCircle2 className="h-4 w-4 text-success" />,
-  atrasada: <AlertTriangle className="h-4 w-4 text-destructive" />,
-};
-
-function computeStatus(cat: OrcamentoCategoria): string {
-  if (cat.statusCronograma) return cat.statusCronograma;
-  if ((cat.percentualCronograma ?? 0) >= 100) return 'concluida';
-  if (cat.dataInicioReal) {
-    if (cat.dataFimPrevista && !cat.dataFimReal && isAfter(new Date(), parseISO(cat.dataFimPrevista))) return 'atrasada';
-    return 'em_andamento';
-  }
-  if (cat.dataFimPrevista && isAfter(new Date(), parseISO(cat.dataFimPrevista))) return 'atrasada';
+function computeStatusTarefa(t: CronogramaTarefa): string {
+  if (t.percentual_concluido >= 100) return 'concluida';
+  const hoje = new Date();
+  if (t.data_fim && isBefore(parseISO(t.data_fim), hoje)) return 'atrasada';
+  if (t.data_inicio && isBefore(parseISO(t.data_inicio), hoje)) return 'em_andamento';
   return 'nao_iniciada';
 }
 
-function computePercentual(cat: OrcamentoCategoria): number {
-  if (cat.percentualCronograma != null) return cat.percentualCronograma;
-  if (!cat.usaComposicoes || cat.composicoes.length === 0) return 0;
-  const totalPeso = cat.composicoes.reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
-  if (totalPeso === 0) {
-    const concluidas = cat.composicoes.filter(c => c.concluida).length;
-    return Math.round((concluidas / cat.composicoes.length) * 100);
-  }
-  const done = cat.composicoes.filter(c => c.concluida).reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
-  return Math.round((done / totalPeso) * 100);
+// ─── WBS Row ─────────────────────────────────────────────────────────────────
+
+interface WBSRowProps {
+  tarefa: CronogramaTarefa;
+  children?: CronogramaTarefa[];
+  isExpanded: boolean; isSelected: boolean; isCritico?: boolean;
+  isDragging?: boolean; isDragOver?: boolean;
+  onToggle: () => void; onSelect: () => void;
+  onUpdate: (id: string, changes: Partial<CronogramaTarefa>) => void;
+  onDelete: (id: string) => void;
+  onOpenDrawer: (tarefa: CronogramaTarefa) => void;
+  onDragStart?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: () => void;
+  financeiroTotal?: number;
 }
 
-function DatePicker({ value, onChange, placeholder }: { value?: string; onChange: (v: string | undefined) => void; placeholder: string }) {
-  const date = value ? parseISO(value) : undefined;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className={cn("h-7 text-[10px] px-2 justify-start font-normal w-full", !date && "text-muted-foreground")}>
-          <CalendarIcon className="h-3 w-3 mr-1" />
-          {date ? format(date, 'dd/MM/yy') : placeholder}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={(d) => onChange(d ? format(d, 'yyyy-MM-dd') : undefined)}
-          locale={ptBR}
-          className={cn("p-3 pointer-events-auto")}
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
+function WBSRow({ tarefa, children, isExpanded, isSelected, isCritico, isDragging, isDragOver, onToggle, onSelect, onUpdate, onDelete, onOpenDrawer, onDragStart, onDragOver, onDrop }: WBSRowProps) {
+  const status = computeStatusTarefa(tarefa);
+  const cfg = STATUS_CONFIG[status];
+  const hasChildren = children && children.length > 0;
+  const indent = tarefa.nivel === 1 ? '' : 'pl-6';
+  const isSummary = tarefa.tipo_tarefa === 'RESUMO' || hasChildren;
+  const isMilestone = tarefa.tipo_tarefa === 'MARCO';
 
-// --- Composição row in cronograma ---
-function CompCronRow({ comp, onChange }: { comp: OrcamentoComposicao; onChange: (c: OrcamentoComposicao) => void }) {
   return (
-    <div className="grid grid-cols-[1fr_90px_90px_90px_90px_60px_40px] gap-1 items-center text-[10px] pl-10 py-1 border-b border-border/50 last:border-0">
-      <span className="text-foreground truncate" title={comp.descricao}>{comp.descricao || comp.codigo}</span>
-      <DatePicker value={comp.dataInicioPrevista} onChange={v => onChange({ ...comp, dataInicioPrevista: v })} placeholder="Início P." />
-      <DatePicker value={comp.dataFimPrevista} onChange={v => onChange({ ...comp, dataFimPrevista: v })} placeholder="Fim P." />
-      <DatePicker value={comp.dataInicioReal} onChange={v => onChange({ ...comp, dataInicioReal: v })} placeholder="Início R." />
-      <DatePicker value={comp.dataFimReal} onChange={v => onChange({ ...comp, dataFimReal: v, concluida: !!v })} placeholder="Fim R." />
-      <Input
-        type="number"
-        value={comp.pesoCronograma ?? ''}
-        onChange={e => onChange({ ...comp, pesoCronograma: e.target.value ? parseFloat(e.target.value) : undefined })}
-        className="h-6 text-[10px] px-1 w-14"
-        placeholder="Peso%"
-        min={0}
-        max={100}
-      />
-      <div className="flex items-center justify-center">
-        <input
-          type="checkbox"
-          checked={comp.concluida ?? false}
-          onChange={e => onChange({ ...comp, concluida: e.target.checked })}
-          className="h-3.5 w-3.5 rounded border-input accent-primary"
-        />
+    <div
+      draggable={!!onDragStart}
+      onDragStart={e => { e.stopPropagation(); onDragStart?.(); }}
+      onDragOver={e => { e.preventDefault(); onDragOver?.(e); }}
+      onDrop={e => { e.preventDefault(); onDrop?.(); }}
+      className={cn(
+        'group flex items-center gap-1 px-2 py-1.5 border-b border-border/50 cursor-pointer transition-colors relative',
+        isSelected ? 'bg-primary/8 border-l-2 border-l-primary' : 'hover:bg-muted/40',
+        isSummary && 'bg-muted/20',
+        isDragging && 'opacity-40',
+        isDragOver && 'border-t-2 border-t-primary bg-primary/5',
+      )}
+      onClick={onSelect}
+    >
+      <div className="shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing" onClick={e => e.stopPropagation()}>
+        <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor">
+          <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
+          <circle cx="2" cy="6" r="1.2"/><circle cx="6" cy="6" r="1.2"/>
+          <circle cx="2" cy="10" r="1.2"/><circle cx="6" cy="10" r="1.2"/>
+        </svg>
       </div>
+      <button className={cn('h-4 w-4 shrink-0 text-muted-foreground', !hasChildren && 'opacity-0 pointer-events-none')} onClick={e => { e.stopPropagation(); onToggle(); }}>
+        {isExpanded ? <ChevronDown className="h-3.5 w-3.5"/> : <ChevronRight className="h-3.5 w-3.5"/>}
+      </button>
+      <div className={cn('h-2 w-2 rounded-full shrink-0', cfg.bar, isMilestone && 'rotate-45 rounded-none h-2.5 w-2.5')}/>
+      <span
+        className={cn('flex-1 text-xs truncate min-w-0', indent, isSummary ? 'font-semibold text-foreground' : 'text-foreground/90', isMilestone && 'italic')}
+        title={tarefa.nome}
+        onDoubleClick={e => { e.stopPropagation(); onOpenDrawer(tarefa); }}
+      >
+        {tarefa.nome}
+      </span>
+      <span className="text-[10px] text-muted-foreground w-8 text-right shrink-0">{tarefa.duracao_dias}d</span>
+      <div className="w-14 shrink-0">
+        <div className="flex items-center gap-1">
+          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+            <div className={cn('h-full rounded-full', isCritico ? 'bg-orange-500' : cfg.bar)} style={{ width: `${tarefa.percentual_concluido}%` }}/>
+          </div>
+          <span className="text-[10px] text-muted-foreground w-6">{tarefa.percentual_concluido}%</span>
+        </div>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded hover:bg-muted transition-opacity" onClick={e => e.stopPropagation()}>
+            <MoreHorizontal className="h-3 w-3 mx-auto text-muted-foreground"/>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => onOpenDrawer(tarefa)}><Pencil className="h-3 w-3 mr-2"/>Editar Detalhes</DropdownMenuItem>
+          <DropdownMenuItem><Link2 className="h-3 w-3 mr-2"/>Vincular ao Orçamento</DropdownMenuItem>
+          <DropdownMenuSeparator/>
+          <DropdownMenuItem className="text-destructive" onClick={() => onDelete(tarefa.id)}><Trash2 className="h-3 w-3 mr-2"/>Remover</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
+
+// ─── AddTaskInline ────────────────────────────────────────────────────────────
+
+export interface AddTaskInlineHandle { activate: (tipo?: TipoTarefa) => void; }
+
+const AddTaskInline = forwardRef<AddTaskInlineHandle, { onAdd: (nome: string, tipo: TipoTarefa) => void; loading: boolean }>(
+  function AddTaskInlineInner({ onAdd, loading }, ref) {
+    const [active, setActive] = useState(false);
+    const [nome, setNome] = useState('');
+    const [tipo, setTipo] = useState<TipoTarefa>('PADRAO');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const handle = () => {
+      if (nome.trim()) { onAdd(nome.trim(), tipo); setNome(''); setTipo('PADRAO'); setTimeout(() => inputRef.current?.focus(), 50); }
+      else setActive(false);
+    };
+    const activate = (t: TipoTarefa = 'PADRAO') => { setTipo(t); setActive(true); setTimeout(() => inputRef.current?.focus(), 50); };
+    useImperativeHandle(ref, () => ({ activate }), []);
+
+    if (!active) return (
+      <div className="flex items-center border-t border-border/50">
+        <button onClick={() => activate('PADRAO')} className="flex-1 flex items-center gap-1.5 px-3 py-2 text-[11px] text-muted-foreground/60 hover:text-primary hover:bg-primary/5 transition-colors text-left group">
+          <Plus className="h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100 group-hover:text-primary"/>
+          <span className="font-medium">Adicionar tarefa</span>
+        </button>
+        <div className="w-px h-5 bg-border/60 shrink-0"/>
+        <div className="flex items-center shrink-0">
+          <button onClick={() => activate('MARCO')} className="flex items-center gap-1 px-2.5 py-2 text-[10px] text-muted-foreground/40 hover:text-amber-600 hover:bg-amber-50 transition-colors font-medium">
+            <span className="text-amber-500/60">◆</span> Marco
+          </button>
+          <div className="w-px h-3.5 bg-border/40 shrink-0"/>
+          <button onClick={() => activate('RESUMO')} className="flex items-center gap-1 px-2.5 py-2 text-[10px] text-muted-foreground/40 hover:text-[var(--color-text-primary)] hover:bg-muted/50 transition-colors font-medium">
+            <span className="opacity-60">≡</span> Grupo
+          </button>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="flex items-center gap-1 border-t border-primary/30 bg-primary/5">
+        <span className="pl-3 text-[10px] text-muted-foreground shrink-0 w-14">
+          {tipo === 'MARCO' ? '◆ Marco' : tipo === 'RESUMO' ? '≡ Grupo' : '▬ Tarefa'}
+        </span>
+        <input
+          ref={inputRef} value={nome} onChange={e => setNome(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handle(); if (e.key === 'Escape') { setActive(false); setNome(''); setTipo('PADRAO'); } }}
+          onBlur={() => { if (!nome.trim()) { setActive(false); setTipo('PADRAO'); } }}
+          placeholder={tipo === 'PADRAO' ? 'Nome da tarefa…' : tipo === 'MARCO' ? 'Nome do marco…' : 'Nome do agrupador…'}
+          className="flex-1 text-[11px] bg-transparent border-none outline-none py-2 text-foreground placeholder:text-muted-foreground/50"
+          disabled={loading}
+        />
+        <span className="pr-3 text-[9px] text-muted-foreground/40 shrink-0">Enter ↵</span>
+      </div>
+    );
+  }
+);
+
+// ─── Ícone ────────────────────────────────────────────────────────────────────
+
+const CronogramaIcon = (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="2" y="2" width="5" height="5" rx="1" fill="#AFA9EC"/>
+    <rect x="9" y="2" width="5" height="5" rx="1" fill="#AFA9EC"/>
+    <rect x="2" y="9" width="5" height="5" rx="1" fill="#AFA9EC"/>
+    <rect x="9" y="9" width="5" height="5" rx="1" fill="#534AB7"/>
+  </svg>
+);
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CronogramaPage() {
-  const { user } = useAuth();
   const { obras } = useObras();
-  const { getOrcamento, saveOrcamento, catalogoCategorias, generateCategoriaCodigo } = useOrcamento();
-
-  const { selectedObraId, setSelectedObraId } = useObraSelection();
+  const { selectedObraId } = useObraSelection();
+  const { tarefas, dependencias, loading, saving, addTarefa, updateTarefa, deleteTarefa, addDependencia, removeDependencia, applyDateCascade, saveBaseline, unlockBaseline, stats } = useCronograma(selectedObraId);
+  const { recursos, alocacoes, addAlocacao, removeAlocacao, getAlocacoesDaTarefa, recursosSupelalocados } = useRecursos(selectedObraId);
   const { byEtapa: financeiroByEtapa } = useGanttFinanceiro(selectedObraId);
-  const { deps: ganttDeps, addDep, removeDep, calculateCascade } = useGanttDependencies(selectedObraId);
-  const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
-  const [newCatName, setNewCatName] = useState('');
 
   const obra = obras.find(o => o.id === selectedObraId);
-  const orcamento = selectedObraId ? getOrcamento(selectedObraId) : undefined;
-  const categorias = orcamento?.categorias ?? [];
+  const [viewMode, setViewMode] = useState<'split' | 'gantt' | 'list' | 'curvs' | 'recursos'>('split');
+  const [selectedTarefaId, setSelectedTarefaId] = useState<string | null>(null);
+  const [drawerTarefa, setDrawerTarefa] = useState<CronogramaTarefa | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const addTaskRef = useRef<AddTaskInlineHandle>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
 
-  const isGestor = user?.role === 'gestor';
-
-  const toggleExpand = (id: string) => {
-    setExpandedCats(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
+  const triggerAddTask = useCallback((tipo: TipoTarefa = 'PADRAO') => {
+    if (viewMode !== 'list') setViewMode('list');
+    requestAnimationFrame(() => {
+      listScrollRef.current?.scrollTo({ top: listScrollRef.current.scrollHeight, behavior: 'smooth' });
+      setTimeout(() => addTaskRef.current?.activate(tipo), 80);
     });
-  };
+  }, [viewMode]);
 
-  const updateCategoria = (idx: number, cat: OrcamentoCategoria) => {
-    if (!orcamento) return;
-    const cats = [...categorias];
-    cats[idx] = cat;
-    saveOrcamento({ obraId: selectedObraId, categorias: cats });
-  };
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  }, []);
 
-  const updateComposicao = (catIdx: number, compIdx: number, comp: OrcamentoComposicao) => {
-    const cat = { ...categorias[catIdx] };
-    const comps = [...cat.composicoes];
-    comps[compIdx] = comp;
-    cat.composicoes = comps;
-    cat.percentualCronograma = undefined; // will recompute
-    updateCategoria(catIdx, cat);
-  };
+  const rootTarefas = useMemo(() => tarefas.filter(t => !t.parent_tarefa_id).sort((a, b) => a.ordem - b.ordem), [tarefas]);
+  const childrenOf = useCallback((parentId: string) => tarefas.filter(t => t.parent_tarefa_id === parentId).sort((a, b) => a.ordem - b.ordem), [tarefas]);
 
-  const addEtapa = () => {
-    if (!newCatName.trim() || !selectedObraId) return;
-    const existing = categorias.find(c => c.nome === newCatName.trim());
-    if (existing) {
-      toast({ title: 'Etapa já existe', variant: 'destructive' });
-      return;
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const reorderRootTarefas = useCallback(async (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const roots = [...rootTarefas];
+    const fromIdx = roots.findIndex(t => t.id === sourceId);
+    const toIdx = roots.findIndex(t => t.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const reordered = [...roots];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    await Promise.all(reordered.map((t, idx) => updateTarefa(t.id, { ordem: idx + 1 })));
+  }, [rootTarefas, updateTarefa]);
+
+  const criticalIds = useMemo(() => computeCriticalPath(tarefas, dependencias), [tarefas, dependencias]);
+
+  const spi = useMemo(() => {
+    if (!stats.hasBaseline || tarefas.length === 0) return null;
+    const hoje = new Date();
+    const todasComPeso = tarefas.every(t => t.peso_orcamento != null && t.peso_orcamento > 0);
+    if (todasComPeso) {
+      const bcwp = tarefas.reduce((sum, t) => (!t.baseline_inicio || !isBefore(parseISO(t.baseline_inicio), hoje)) ? sum : sum + (t.peso_orcamento * (t.percentual_concluido / 100)), 0);
+      const bcws = tarefas.reduce((sum, t) => (!t.baseline_inicio || !isBefore(parseISO(t.baseline_inicio), hoje)) ? sum : sum + t.peso_orcamento, 0);
+      if (bcws === 0) return null;
+      return bcwp / bcws;
     }
-    const cat: OrcamentoCategoria = {
-      id: crypto.randomUUID(),
-      codigo: generateCategoriaCodigo(),
-      nome: newCatName.trim(),
-      precoTotal: 0,
-      usaComposicoes: false,
-      composicoes: [],
-    };
-    saveOrcamento({ obraId: selectedObraId, categorias: [...categorias, cat] });
-    setNewCatName('');
-    toast({ title: `Etapa "${cat.nome}" adicionada. Preencha o orçamento na aba Orçamento.` });
-  };
+    const planned = tarefas.filter(t => t.baseline_inicio && isBefore(parseISO(t.baseline_inicio), hoje)).length;
+    if (planned === 0) return null;
+    return (stats.progressoGeral / 100 * tarefas.length) / planned;
+  }, [tarefas, stats]);
 
-  // Summary stats
-  const concluidas = categorias.filter(c => computeStatus(c) === 'concluida').length;
-  const atrasadas = categorias.filter(c => computeStatus(c) === 'atrasada').length;
-  const progressoGeral = categorias.length > 0
-    ? Math.round(categorias.reduce((s, c) => s + computePercentual(c), 0) / categorias.length)
-    : 0;
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+  const kpis: PageKPI[] = obra ? [
+    {
+      id: 'atrasadas',
+      label: 'Tarefas atrasadas',
+      value: String(stats.tasksAtrasadas),
+      icon: <AlertTriangle style={{ width: 16, height: 16, color: stats.tasksAtrasadas > 0 ? '#A32D2D' : '#3B6D11' }}/>,
+      tint: stats.tasksAtrasadas > 0 ? '#FCEBEB' : '#EAF3DE',
+      valueColor: stats.tasksAtrasadas > 0 ? '#A32D2D' : '#3B6D11',
+      labelColor: stats.tasksAtrasadas > 0 ? '#A32D2D' : '#3B6D11',
+    },
+    {
+      id: 'progresso',
+      label: 'Progresso geral',
+      value: `${stats.progressoGeral}%`,
+      icon: <TrendingUp style={{ width: 16, height: 16, color: '#534AB7' }}/>,
+      tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7',
+      main: true, progress: stats.progressoGeral, progressColor: '#534AB7',
+    },
+    {
+      id: 'concluidas',
+      label: 'Tarefas concluídas',
+      value: `${stats.tasksConcluidas} / ${tarefas.length}`,
+      icon: <CheckCircle2 style={{ width: 16, height: 16, color: stats.tasksConcluidas === tarefas.length && tarefas.length > 0 ? '#3B6D11' : 'var(--color-text-secondary)' }}/>,
+      tint: stats.tasksConcluidas === tarefas.length && tarefas.length > 0 ? '#EAF3DE' : 'var(--color-background-secondary)',
+      valueColor: stats.tasksConcluidas === tarefas.length && tarefas.length > 0 ? '#3B6D11' : 'var(--color-text-primary)',
+      labelColor: stats.tasksConcluidas === tarefas.length && tarefas.length > 0 ? '#3B6D11' : 'var(--color-text-secondary)',
+      sublabel: `${tarefas.length - stats.tasksConcluidas} em andamento`,
+    },
+    ...(spi !== null ? [{
+      id: 'spi',
+      label: `SPI — ${spi >= 1 ? 'No prazo' : spi >= 0.8 ? 'Atenção' : 'Atrasado'}`,
+      value: `${spi.toFixed(2)} ${spi >= 1 ? '↑' : spi >= 0.8 ? '~' : '↓'}`,
+      icon: <BarChart3 style={{ width: 16, height: 16, color: spi >= 1 ? '#3B6D11' : spi >= 0.8 ? '#854F0B' : '#A32D2D' }}/>,
+      tint: spi >= 1 ? '#EAF3DE' : spi >= 0.8 ? '#FAEEDA' : '#FCEBEB',
+      valueColor: spi >= 1 ? '#3B6D11' : spi >= 0.8 ? '#854F0B' : '#A32D2D',
+      labelColor: spi >= 1 ? '#3B6D11' : spi >= 0.8 ? '#854F0B' : '#A32D2D',
+    }] : []),
+  ] : [];
 
-  return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" />
-            Cronograma
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Acompanhamento das etapas da obra</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <VoiceInputButton
-            module="cronograma"
-            obraId={selectedObraId}
-            onResult={(parsed) => {
-              toast({ title: 'Dados de voz recebidos', description: `Etapa: ${parsed.etapa || '?'}, Progresso: ${parsed.progresso || '?'}%` });
-            }}
-          />
-          <Select value={selectedObraId} onValueChange={setSelectedObraId}>
-            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
-              <SelectValue placeholder="Selecione a obra" />
-            </SelectTrigger>
-            <SelectContent>
-              {obras.map(o => <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <div className="flex border border-border rounded-md">
-            <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" className="h-8 rounded-r-none" onClick={() => setViewMode('list')}>
-              <List className="h-4 w-4" />
-            </Button>
-            <Button variant={viewMode === 'gantt' ? 'default' : 'ghost'} size="sm" className="h-8 rounded-l-none" onClick={() => setViewMode('gantt')}>
-              <BarChart3 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+  // ── Ações header: apenas Exportar (ghost) ─────────────────────────────────
+  const headerActions: PageAction[] = [
+    { label: 'Exportar', variant: 'ghost', onClick: () => {} },
+  ];
+
+  // ── L3a — Toolbar de página (+ Tarefa + ⋯ Baseline) ──────────────────────
+  const pageToolbar = obra ? (
+    <>
+      {/* Split button Tarefa */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <button
+          onClick={() => triggerAddTask('PADRAO')}
+          disabled={saving}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            height: 30, padding: '0 12px',
+            background: '#534AB7', color: '#fff',
+            border: 'none', borderRadius: '6px 0 0 6px',
+            fontSize: 12, fontWeight: 500,
+            cursor: saving ? 'not-allowed' : 'pointer',
+            opacity: saving ? 0.5 : 1, whiteSpace: 'nowrap',
+          }}
+        >
+          <Plus style={{ width: 12, height: 12 }}/>
+          Tarefa
+        </button>
+        <div style={{ width: 1, height: 30, background: 'rgba(255,255,255,.2)', flexShrink: 0 }}/>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              disabled={saving}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                height: 30, width: 28,
+                background: '#534AB7', color: '#fff',
+                border: 'none', borderRadius: '0 6px 6px 0',
+                cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.5 : 1,
+              }}
+            >
+              <ChevronDown style={{ width: 12, height: 12 }}/>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem onClick={() => triggerAddTask('RESUMO')}>
+              <span className="mr-2 text-[var(--color-text-secondary)]">≡</span>Grupo
+            </DropdownMenuItem>
+            <DropdownMenuSeparator/>
+            <DropdownMenuItem onClick={() => triggerAddTask('MARCO')}>
+              <span className="mr-2" style={{ color: '#854F0B' }}>◆</span>Marco
+              <span className="ml-auto text-[10px] text-[var(--color-text-secondary)]">milestone</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {!obra && (
-        <NoObraState
-          title="Nenhuma obra cadastrada"
-          description="Cadastre uma obra para começar a acompanhar o cronograma das etapas."
+      <div style={{ flex: 1 }}/>
+
+      {/* Baseline */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button style={{
+            display: 'flex', alignItems: 'center',
+            height: 30, padding: '0 10px',
+            border: '0.5px solid var(--color-border-secondary)',
+            background: 'transparent', color: 'var(--color-text-secondary)',
+            borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: 'pointer', gap: 5,
+          }}>
+            <Save style={{ width: 12, height: 12 }}/>
+            Baseline
+            <ChevronDown style={{ width: 10, height: 10 }}/>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem onClick={saveBaseline} disabled={saving}>
+            <Save className="h-3.5 w-3.5 mr-2 text-amber-600"/>Salvar Baseline
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => unlockBaseline()}>
+            <Unlock className="h-3.5 w-3.5 mr-2"/>Editar Baseline
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  ) : undefined;
+
+  // ── Abas ──────────────────────────────────────────────────────────────────
+  const tabs = [
+    { id: 'split',    label: 'Gantt',    icon: <BarChart3 style={{ width: 13, height: 13 }}/> },
+    { id: 'list',     label: 'Lista',    icon: <List style={{ width: 13, height: 13 }}/> },
+    { id: 'curvs',    label: 'Curva S',  icon: <TrendingUp style={{ width: 13, height: 13 }}/> },
+    { id: 'recursos', label: 'Recursos', icon: <Users style={{ width: 13, height: 13 }}/> },
+  ];
+
+  return (
+    <TooltipProvider>
+    <PageShell
+      icon={CronogramaIcon}
+      title="Cronograma"
+      tabs={tabs}
+      activeTab={viewMode}
+      onTabChange={id => setViewMode(id as typeof viewMode)}
+      actions={headerActions}
+      kpis={kpis}
+      toolbar={pageToolbar}
+    >
+      {!obra ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <NoObraState title="Nenhuma obra selecionada" description="Selecione ou cadastre uma obra para gerenciar o cronograma."/>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+
+          {/* L3b — Toolbar do Gantt (só na view Gantt) */}
+          {(viewMode === 'split' || viewMode === 'gantt') && (
+            <div id="gantt-toolbar-portal" style={{
+              flexShrink: 0,
+              background: 'var(--color-background-secondary)',
+              borderBottom: '0.5px solid var(--color-border-secondary)',
+            }}/>
+          )}
+
+          {/* Conteúdo — views sempre montadas */}
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+
+            {/* Lista */}
+            <div ref={listScrollRef} className="absolute inset-0 flex flex-col overflow-y-auto" style={{ display: viewMode === 'list' ? 'flex' : 'none' }}>
+              <div className="grid grid-cols-[16px_16px_8px_1fr_36px_70px] gap-1 px-2 py-1.5 border-b border-border bg-muted/50 shrink-0">
+                <span/><span/><span/>
+                <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Tarefa</span>
+                <span className="text-[9px] font-semibold text-muted-foreground text-right">Dur.</span>
+                <span className="text-[9px] font-semibold text-muted-foreground">Progresso</span>
+              </div>
+              {loading && <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground"/></div>}
+              {!loading && tarefas.length === 0 && (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center px-6">
+                  <BarChart3 className="h-10 w-10 text-muted-foreground/30"/>
+                  <p className="text-sm text-muted-foreground">Nenhuma tarefa cadastrada.</p>
+                  <p className="text-xs text-muted-foreground/70">Use o botão "+ Tarefa" para começar.</p>
+                </div>
+              )}
+              {rootTarefas.map(tarefa => (
+                <div key={tarefa.id}>
+                  <WBSRow
+                    tarefa={tarefa} children={childrenOf(tarefa.id)}
+                    isExpanded={expandedIds.has(tarefa.id)} isSelected={selectedTarefaId === tarefa.id}
+                    isCritico={criticalIds.has(tarefa.id)} isDragging={dragId === tarefa.id} isDragOver={dragOverId === tarefa.id}
+                    onToggle={() => toggleExpand(tarefa.id)} onSelect={() => setSelectedTarefaId(tarefa.id)}
+                    onUpdate={updateTarefa} onDelete={deleteTarefa} onOpenDrawer={setDrawerTarefa}
+                    onDragStart={() => setDragId(tarefa.id)} onDragOver={() => setDragOverId(tarefa.id)}
+                    onDrop={() => { if (dragId) reorderRootTarefas(dragId, tarefa.id); setDragId(null); setDragOverId(null); }}
+                    financeiroTotal={financeiroByEtapa?.[tarefa.id]?.totalPrevisto}
+                  />
+                  {expandedIds.has(tarefa.id) && childrenOf(tarefa.id).map(child => (
+                    <WBSRow
+                      key={child.id} tarefa={child} isExpanded={false}
+                      isSelected={selectedTarefaId === child.id} isCritico={criticalIds.has(child.id)}
+                      onToggle={() => {}} onSelect={() => setSelectedTarefaId(child.id)}
+                      onUpdate={updateTarefa} onDelete={deleteTarefa} onOpenDrawer={setDrawerTarefa}
+                    />
+                  ))}
+                </div>
+              ))}
+              {!loading && <AddTaskInline ref={addTaskRef} onAdd={(nome, tipo) => addTarefa({ nome, nivel: 1, tipo_tarefa: tipo })} loading={saving}/>}
+            </div>
+
+            {/* Gantt */}
+            <div className="absolute inset-0 overflow-hidden" style={{ display: (viewMode === 'split' || viewMode === 'gantt') ? 'block' : 'none' }}>
+              <GanttCanvasPanel
+                tarefas={tarefas} dependencias={dependencias}
+                selectedId={selectedTarefaId} onSelectTarefa={setSelectedTarefaId}
+                onOpenDrawer={setDrawerTarefa} childrenOf={childrenOf}
+                onUpdateDates={(id, start, end) => {
+                  updateTarefa(id, { data_inicio: start, data_fim: end, duracao_dias: differenceInDays(parseISO(end), parseISO(start)) + 1 });
+                  applyDateCascade(id, start, end);
+                }}
+                onAddDependencia={addDependencia}
+                toolbarPortalId="gantt-toolbar-portal"
+              />
+            </div>
+
+            {/* Curva S */}
+            <div className="absolute inset-0 overflow-auto px-5 py-5" style={{ display: viewMode === 'curvs' ? 'block' : 'none' }}>
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="h-4 w-4 text-primary"/>
+                <span className="text-sm font-semibold text-foreground">Curva S — Avanço Planejado vs. Realizado</span>
+              </div>
+              <CurvaS tarefas={tarefas}/>
+            </div>
+
+            {/* Recursos */}
+            <div className="absolute inset-0 overflow-auto px-5 py-5" style={{ display: viewMode === 'recursos' ? 'block' : 'none' }}>
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="h-4 w-4 text-primary"/>
+                <span className="text-sm font-semibold text-foreground">Alocação de Recursos</span>
+                <Badge variant="secondary" className="text-[10px]">{recursos.length} recursos</Badge>
+              </div>
+              {recursos.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+                  <Users className="h-10 w-10 text-muted-foreground/30"/>
+                  <p className="text-sm text-muted-foreground">Nenhum recurso cadastrado.</p>
+                  <p className="text-xs text-muted-foreground/70">Cadastre equipes e equipamentos nas tarefas via painel de detalhes.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recursos.map(rec => {
+                    const overloaded = recursosSupelalocados().has(rec.id);
+                    const myAlocacoes = alocacoes.filter(a => a.recurso_id === rec.id);
+                    const totalUso = myAlocacoes.reduce((s, a) => s + a.quantidade, 0);
+                    const pct = Math.round((totalUso / rec.capacidade_diaria) * 100);
+                    return (
+                      <div key={rec.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: rec.cor }}/>
+                        <span className="text-sm text-foreground w-48 truncate">{rec.nome}</span>
+                        <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
+                          <div className={cn('h-full rounded-full transition-all', overloaded ? 'bg-[#A32D2D]' : 'bg-[#534AB7]')} style={{ width: `${Math.min(pct, 100)}%` }}/>
+                        </div>
+                        <span className={cn('text-xs w-14 text-right font-medium', overloaded ? 'text-[#A32D2D]' : 'text-muted-foreground')}>
+                          {pct}%{overloaded ? ' ⚠' : ''}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {drawerTarefa && (
+        <TaskDetailDrawer
+          tarefa={drawerTarefa} obraId={selectedObraId}
+          dependencias={dependencias} todasTarefas={tarefas}
+          alocacoes={getAlocacoesDaTarefa(drawerTarefa.id)} recursos={recursos}
+          recursosSupelalocados={recursosSupelalocados()}
+          onClose={() => setDrawerTarefa(null)}
+          onUpdate={(id, changes) => { updateTarefa(id, changes); setDrawerTarefa(prev => prev ? { ...prev, ...changes } : null); }}
+          onAddDependencia={addDependencia} onRemoveDependencia={removeDependencia}
+          onAddAlocacao={addAlocacao} onRemoveAlocacao={removeAlocacao}
         />
       )}
-
-      {obra && (
-        <>
-          {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="shadow-card">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">Progresso Geral</p>
-                <p className="text-2xl font-bold text-foreground">{progressoGeral}%</p>
-                <Progress value={progressoGeral} className="h-1.5 mt-2" />
-              </CardContent>
-            </Card>
-            <Card className="shadow-card">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">Concluídas</p>
-                <p className="text-2xl font-bold text-success">{concluidas}/{categorias.length}</p>
-              </CardContent>
-            </Card>
-            <Card className="shadow-card">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">Atrasadas</p>
-                <p className={`text-2xl font-bold ${atrasadas > 0 ? 'text-destructive' : 'text-foreground'}`}>{atrasadas}</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Expand/Collapse all */}
-          {viewMode === 'list' && categorias.some(c => c.usaComposicoes && c.composicoes.length > 0) && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setExpandedCats(new Set(categorias.filter(c => c.usaComposicoes && c.composicoes.length > 0).map(c => c.id)))}>
-                <ChevronDown className="h-3 w-3 mr-1" /> Abrir Todas
-              </Button>
-              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setExpandedCats(new Set())}>
-                <ChevronRight className="h-3 w-3 mr-1" /> Fechar Todas
-              </Button>
-            </div>
-          )}
-
-          {/* Add etapa */}
-          {isGestor && (
-            <Card className="shadow-card">
-              <CardContent className="p-3 flex items-center gap-2">
-                <Input
-                  value={newCatName}
-                  onChange={e => setNewCatName(e.target.value)}
-                  placeholder="Nova etapa (será adicionada ao orçamento)"
-                  className="h-8 text-sm flex-1"
-                  list="cat-suggestions"
-                />
-                <datalist id="cat-suggestions">
-                  {catalogoCategorias.filter(c => !categorias.some(cat => cat.nome === c.nome)).map(c => (
-                    <option key={c.codigo} value={c.nome} />
-                  ))}
-                </datalist>
-                <Button size="sm" className="h-8 gap-1" onClick={addEtapa}>
-                  <Plus className="h-3 w-3" /> Adicionar Etapa
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Gantt view */}
-          {viewMode === 'gantt' && (
-            <Card className="shadow-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Gráfico de Gantt</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <GanttEditorChart
-                  categorias={categorias}
-                  financeiroByEtapa={financeiroByEtapa}
-                  dependencies={ganttDeps}
-                  onAddDependency={addDep}
-                  onRemoveDependency={removeDep}
-                  onCalculateCascade={(catId, newStart, newEnd) =>
-                    calculateCascade(catId, newStart, newEnd, categorias.map(c => ({
-                      id: c.id,
-                      nome: c.nome,
-                      startDate: c.dataInicioPrevista,
-                      endDate: c.dataFimPrevista,
-                    })))
-                  }
-                  onUpdateDates={(catId, start, end) => {
-                    const idx = categorias.findIndex(c => c.id === catId);
-                    if (idx === -1) return;
-                    const cat = { ...categorias[idx] };
-                    cat.dataInicioPrevista = start;
-                    cat.dataFimPrevista = end;
-                    updateCategoria(idx, cat);
-                  }}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* List view */}
-          {viewMode === 'list' && (
-            <Card className="shadow-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Etapas da Obra</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <div className="relative min-w-[760px]">
-                    {categorias.map((cat, catIdx) => {
-                      const status = computeStatus(cat);
-                      const percentual = computePercentual(cat);
-                      const isExpanded = expandedCats.has(cat.id);
-                      const hasComps = cat.usaComposicoes && cat.composicoes.length > 0;
-
-                      return (
-                        <div key={cat.id} className="flex gap-4 pb-4 last:pb-0">
-                        {/* Timeline */}
-                        <div className="flex flex-col items-center">
-                          <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                            status === 'concluida' ? 'bg-success/10' :
-                            status === 'atrasada' ? 'bg-destructive/10' :
-                            status === 'em_andamento' ? 'bg-primary/10' : 'bg-muted'
-                          )}>
-                            {statusIcons[status]}
-                          </div>
-                          {catIdx < categorias.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              {hasComps && (
-                                <button onClick={() => toggleExpand(cat.id)} className="text-muted-foreground hover:text-foreground">
-                                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                </button>
-                              )}
-                              <h3 className="text-sm font-semibold text-foreground">{cat.nome}</h3>
-                              <span className="text-[10px] font-mono text-muted-foreground">{cat.codigo}</span>
-                            </div>
-                            <Badge variant="secondary" className={statusColors[status]}>{statusEtapaLabels[status]}</Badge>
-                          </div>
-
-                          {/* Date inputs */}
-                          {isGestor ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                              <div>
-                                <label className="text-[10px] text-muted-foreground">Início Previsto</label>
-                                <DatePicker value={cat.dataInicioPrevista} onChange={v => updateCategoria(catIdx, { ...cat, dataInicioPrevista: v })} placeholder="Selecionar" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-muted-foreground">Fim Previsto</label>
-                                <DatePicker value={cat.dataFimPrevista} onChange={v => updateCategoria(catIdx, { ...cat, dataFimPrevista: v })} placeholder="Selecionar" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-muted-foreground">Início Real</label>
-                                <DatePicker value={cat.dataInicioReal} onChange={v => updateCategoria(catIdx, { ...cat, dataInicioReal: v })} placeholder="Selecionar" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-muted-foreground">Fim Real</label>
-                                <DatePicker value={cat.dataFimReal} onChange={v => updateCategoria(catIdx, { ...cat, dataFimReal: v })} placeholder="Selecionar" />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
-                              {cat.dataInicioPrevista && <span>Previsto: {formatDate(cat.dataInicioPrevista)} → {cat.dataFimPrevista ? formatDate(cat.dataFimPrevista) : '...'}</span>}
-                              {cat.dataInicioReal && <span>Real: {formatDate(cat.dataInicioReal)}{cat.dataFimReal ? ` → ${formatDate(cat.dataFimReal)}` : ' → ...'}</span>}
-                            </div>
-                          )}
-
-                          {/* Percentual / Responsavel */}
-                          <div className="flex items-center gap-4 mt-2">
-                            {isGestor && !hasComps ? (
-                              <div className="flex items-center gap-2">
-                                <label className="text-[10px] text-muted-foreground">Progresso %</label>
-                                <Input
-                                  type="number"
-                                  min={0} max={100}
-                                  value={cat.percentualCronograma ?? ''}
-                                  onChange={e => updateCategoria(catIdx, { ...cat, percentualCronograma: e.target.value ? parseInt(e.target.value) : undefined })}
-                                  className="h-7 w-16 text-xs"
-                                />
-                              </div>
-                            ) : null}
-                            <div className="flex-1">
-                              <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Progresso</span>
-                                <span className="font-medium text-foreground">{percentual}%</span>
-                              </div>
-                              <Progress value={percentual} className="h-1.5" />
-                            </div>
-                          </div>
-
-                          {/* Expanded composições */}
-                          {isExpanded && hasComps && (
-                            <div className="mt-2 border border-border rounded-md bg-muted/20">
-                              <div className="grid grid-cols-[1fr_90px_90px_90px_90px_60px_40px] gap-1 text-[9px] text-muted-foreground font-medium px-2 py-1 border-b border-border pl-10">
-                                <span>Composição</span>
-                                <span>Início P.</span>
-                                <span>Fim P.</span>
-                                <span>Início R.</span>
-                                <span>Fim R.</span>
-                                <span>Peso%</span>
-                                <span>✓</span>
-                              </div>
-                              {cat.composicoes.map((comp, compIdx) => (
-                                <CompCronRow
-                                  key={comp.id}
-                                  comp={comp}
-                                  onChange={c => updateComposicao(catIdx, compIdx, c)}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        </div>
-                      );
-                    })}
-
-                    {categorias.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
-                        Nenhuma etapa cadastrada. Crie etapas aqui ou na aba Orçamento.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
-    </div>
+    </PageShell>
+    </TooltipProvider>
   );
 }

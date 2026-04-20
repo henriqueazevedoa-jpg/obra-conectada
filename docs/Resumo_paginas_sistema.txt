@@ -1,0 +1,51 @@
+1. Página Orçamento & Cotações
+
+Esta será a porta de entrada para o planejamento financeiro.
+
+Funções principais (prioridade alta):
+Inserção e edição de categorias, composições e subitens com suporte a bancos de referência (SINAPI) e composições próprias.
+Mapeamento de preços locais: ferramenta de cotação por fornecedor/região para obter valores reais dos insumos e atualizar o orçamento.
+Importação de composições de bancos externos e integração com cotações para calcular automaticamente os custos.
+Funções adicionais (prioridade média):
+Comparação entre preços orçados e cotações reais, com alertas de variação.
+Links para gerar pedidos de compra a partir de itens orçados, evitando navegação extra.
+Rationale: Centraliza a elaboração do orçamento inicial e as consultas de preços, permitindo ajustar valores de acordo com a realidade local. O artigo da Bluebeam ressalta que “orçamentação e controle de custos” é um núcleo dos softwares de gestão de obras.
+2. Página Planejamento & Cronograma
+
+Unifica a estrutura do plano de trabalho.
+
+Funções principais (prioridade alta):
+Gantt ou cronograma interativo para definir etapas/categorias, prazos, dependências e recursos.
+Integração com o orçamento: cada tarefa ou categoria pode referenciar composições e custos planejados, mantendo consistência.
+Funções adicionais (prioridade média):
+Alocação de equipes e recursos (máquinas, equipamentos) nas tarefas.
+Indicadores de avanço planejado vs. real para apoiar a tomada de decisão.
+Rationale: A gestão de cronograma e alocação de recursos faz parte dos “recursos essenciais” citados como necessários em uma plataforma de gestão de obras.
+3. Página Execução & Diário de Obra
+
+Foco na coleta de dados em campo e acompanhamento do progresso.
+
+Funções principais (prioridade alta):
+Registro de diários de obra, com fotos, anexos, checklist de qualidade e segurança.
+Atualização do progresso físico das etapas/categorias e apontamento de horas de equipes.
+Sistema de aprovação e comentários para responsáveis técnicos e clientes.
+Funções adicionais (prioridade média):
+Integração com checklists de inspeção, punch lists e relatórios de incidentes.
+Histórico de mudanças (variações de escopo) e solicitações de alteração.
+Rationale: O campo de “gestão de campo para diários, listas de pendências e inspeções” também é apontado como funcionalidade central em softwares de obras. Reunir diários, medições e aprovações reduz o tempo gasto alternando entre telas.
+4. Página Financeiro & Relatórios
+
+Reúne o acompanhamento financeiro e analítico.
+
+Funções principais (prioridade alta):
+Acompanhamento de custos orçados vs. realizados e fluxo de caixa (pagamentos e recebimentos).
+Geração de relatórios e dashboards de KPIs (saúde financeira, desvio de custo/prazo, produtividade).
+Funções adicionais (prioridade média):
+Emissão e controle de notas fiscais ou faturas (se aplicável), integração com ferramentas contábeis.
+Relatórios customizáveis por período, categoria ou fornecedor.
+Rationale: Ferramentas de “reporting e analytics dashboards” são listadas entre os recursos indispensáveis para tomada de decisão em tempo real.
+5. Página Documentos & Comunicação (opcional, pode ser integrada a outras páginas)
+Funções principais (prioridade média):
+Centralizar contratos, plantas, fotos e documentos com versionamento.
+Permitir comentários e anotações diretamente sobre documentos (por exemplo, marcar uma planta).
+Rationale: A gestão de documentos e comunicação é uma das capacidades centrais de um sistema de construção eficaz. Dependendo de como o seu SaaS já lida com anexos e mensagens, essas funções podem ser embutidas nas demais páginas (orçamento, planejamento, execução).

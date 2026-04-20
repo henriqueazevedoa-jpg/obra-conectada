@@ -25,11 +25,24 @@ export default function LoginPage() {
     const success = await login(loginEmail, loginPassword);
     setSubmitting(false);
     if (success) {
-      navigate('/painel');
+      navigate('/obras');
     } else {
       setError('E-mail ou senha inválidos.');
     }
   };
+
+  const handleDevLogin = async () => {
+    setError('');
+    setSubmitting(true);
+    const success = await login('admin@obrafacil.dev', 'admin123');
+    setSubmitting(false);
+    if (success) {
+      navigate('/obras');
+    } else {
+      setError('Erro no login dev. Verifique se a conta admin foi criada no banco.');
+    }
+  };
+
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,6 +197,35 @@ export default function LoginPage() {
               </form>
             </TabsContent>
           </Tabs>
+
+          {/* ── DEV MODE: Acesso Rápido ──────────────────────────────── */}
+          {import.meta.env.DEV && (
+            <div className="mt-6 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+                  Modo Desenvolvimento — Acesso Rápido
+                </p>
+              </div>
+              <div className="text-[11px] text-amber-700 dark:text-amber-400 space-y-0.5 font-mono bg-amber-100 dark:bg-amber-900/30 rounded-lg p-2">
+                <p>📧 admin@obrafacil.dev</p>
+                <p>🔑 admin123</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-900/30 text-sm font-semibold"
+                onClick={handleDevLogin}
+                disabled={submitting}
+              >
+                {submitting
+                  ? <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  : <span className="mr-1">⚡</span>}
+                Entrar como Admin (DEV)
+              </Button>
+            </div>
+          )}
+          {/* ──────────────────────────────────────────────────────────── */}
         </div>
       </div>
     </div>

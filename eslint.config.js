@@ -21,6 +21,11 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Supabase untyped client requires `any` in many integration points.
+      // Downgrade to warn so issues remain visible but don't block builds.
+      "@typescript-eslint/no-explicit-any": "warn",
+      // Empty interface extensions are valid for declaration merging / future extensibility.
+      "@typescript-eslint/no-empty-object-type": "off",
     },
   },
 );

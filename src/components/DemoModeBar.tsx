@@ -36,17 +36,6 @@ export default function DemoModeBar() {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [open, setOpen] = useState(false);
 
-  if (!user || !company) return null;
-
-  // Demo está ativo quando existem obras marcadas com is_demo=true ou com prefixo [DEMO]
-  const hasDemoData = obras.some(
-    (o: any) => o.is_demo === true || o.nome?.startsWith('[DEMO]')
-  );
-
-  const demoObras = obras.filter(
-    (o: any) => o.is_demo === true || o.nome?.startsWith('[DEMO]')
-  );
-
   // ── Avança o step de progresso periodicamente ────────────────────────────
   const startProgressCycle = useCallback(() => {
     setStep(0);
@@ -61,6 +50,17 @@ export default function DemoModeBar() {
     }, 1400);
     return iv;
   }, []);
+
+  if (!user || !company) return null;
+
+  // Demo está ativo quando existem obras marcadas com is_demo=true ou com prefixo [DEMO]
+  const hasDemoData = obras.some(
+    (o: any) => o.is_demo === true || o.nome?.startsWith('[DEMO]')
+  );
+
+  const demoObras = obras.filter(
+    (o: any) => o.is_demo === true || o.nome?.startsWith('[DEMO]')
+  );
 
   // ── Aplicar / Reaplicar demo ──────────────────────────────────────────────
   const handleSeed = async () => {

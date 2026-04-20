@@ -8,8 +8,7 @@
  *   - Coluna "Indiretos" na tabela quando toggle ativo
  */
 import { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { usePortalTarget } from '@/hooks/usePortalTarget';
+import type { PageKPI } from '@/components/layout/PageShell';
 import {
   format, parseISO, startOfMonth, eachMonthOfInterval,
   addMonths, subMonths, isBefore, addDays, startOfDay
@@ -26,7 +25,7 @@ import {
 } from 'recharts';
 import {
   DollarSign, TrendingUp, TrendingDown, AlertTriangle,
-  ChevronLeft, ChevronRight, BarChart3,
+  ChevronLeft, ChevronRight, BarChart3, Clock, CalendarDays, CheckCircle2,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -43,6 +42,11 @@ interface IndiretoFluxo {
   valor: number;
   data: string | null;
 }
+
+// ── Module-level cache (sobrevive ao unmount/remount) ──────────────────────────
+type FluxoCache = { pagamentos: PagamentoFluxo[]; indiretos: IndiretoFluxo[] };
+const fluxoCache = new Map<string, FluxoCache>();
+
 
 interface MesFluxo {
   mes: string;
@@ -121,9 +125,9 @@ function KpiChip({ label, value, sub, color, icon: Icon }: {
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 
-interface Props { obraId: string; }
+interface Props { obraId: string; isActive?: boolean; onKpisReady?: (kpis: PageKPI[]) => void; }
 
-export default function FluxoCaixaTab({ obraId }: Props) {
+export default function FluxoCaixaTab({ obraId, isActive = true, onKpisReady }: Props) {
   const [pagamentos, setPagamentos] = useState<PagamentoFluxo[]>([]);
   const [indiretos, setIndiretos] = useState<IndiretoFluxo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,10 +139,16 @@ export default function FluxoCaixaTab({ obraId }: Props) {
   const hoje = new Date();
   const [windowStart, setWindowStart] = useState(() => subMonths(startOfMonth(hoje), 5));
 
-  // ── Portal target (must be before any early return — Rules of Hooks) ─────────
-  const kpiPortalTarget = usePortalTarget('financeiro-kpi-portal');
+  // ── Portal target removed — lift-state-up via onKpisReady ─────────────────
 
   useEffect(() => {
+    const cached = fluxoCache.get(obraId);
+    if (cached) {
+      setPagamentos(cached.pagamentos);
+      setIndiretos(cached.indiretos);
+      setLoading(false);
+      return;
+    }
     let active = true;
     setLoading(true);
     Promise.all([
@@ -149,12 +159,15 @@ export default function FluxoCaixaTab({ obraId }: Props) {
       (supabase.from('custo_real_itens') as any)
         .select('valor, data')
         .eq('obra_id', obraId)
-        .is('etapa_id', null)     // sem etapa = indireto
+        .is('etapa_id', null)
         .neq('origem', 'pagamento_vinculado'),
     ]).then(([{ data: pags }, { data: itens }]) => {
       if (active) {
-        setPagamentos((pags || []) as PagamentoFluxo[]);
-        setIndiretos((itens || []) as IndiretoFluxo[]);
+        const p = (pags || []) as PagamentoFluxo[];
+        const i = (itens || []) as IndiretoFluxo[];
+        fluxoCache.set(obraId, { pagamentos: p, indiretos: i });
+        setPagamentos(p);
+        setIndiretos(i);
         setLoading(false);
       }
     });
@@ -173,6 +186,7 @@ export default function FluxoCaixaTab({ obraId }: Props) {
     const prevMap = new Map<string, number>();
     const realMap = new Map<string, number>();
     for (const p of pagamentos) {
+      if (!p.data_vencimento) continue;
       const val = Number(p.valor_previsto) || 0;
       const mesPrev = format(parseISO(p.data_vencimento), 'yyyy-MM');
       prevMap.set(mesPrev, (prevMap.get(mesPrev) || 0) + val);
@@ -252,6 +266,7 @@ export default function FluxoCaixaTab({ obraId }: Props) {
     const nextMonthStr = format(addMonths(hojeStart, 1), 'yyyy-MM');
 
     for (const p of pagamentos) {
+      if (!p.data_vencimento) continue;
       const vDate = parseISO(p.data_vencimento);
       const vMonth = format(vDate, 'yyyy-MM');
       const valPrev = Number(p.valor_previsto) || 0;
@@ -280,6 +295,29 @@ export default function FluxoCaixaTab({ obraId }: Props) {
     };
   }, [pagamentos, hoje]);
 
+  // ── KPI lift-state-up — DEVE ficar ANTES de qualquer early return (Rules of Hooks) ──
+  useEffect(() => {
+    if (!isActive || !onKpisReady || loading || pagamentos.length === 0) return;
+    onKpisReady([
+      { id: 'apagar30', label: 'A pagar (30d)', value: fmt(kpiAPagar30),
+        icon: <Clock style={{ width: 14, height: 14, color: '#854F0B' }} />,
+        tint: '#FAEEDA', valueColor: '#633806', labelColor: '#854F0B', main: true },
+      { id: 'semana', label: 'Esta semana', value: fmt(kpiSemanaVal),
+        icon: <AlertTriangle style={{ width: 14, height: 14, color: kpiSemanaCt > 0 ? '#A32D2D' : '#888' }} />,
+        sublabel: kpiSemanaCt > 0 && kpiSemanaDataPrimeiro ? `${kpiSemanaCt} pgto${kpiSemanaCt > 1 ? 's' : ''} — vence ${format(kpiSemanaDataPrimeiro, 'dd/MM')}` : undefined,
+        tint: kpiSemanaCt > 0 ? '#FCEBEB' : undefined,
+        valueColor: kpiSemanaCt > 0 ? '#A32D2D' : undefined },
+      { id: 'mesSeg', label: 'Mês seguinte', value: fmt(kpiMesSeguinte),
+        icon: <CalendarDays style={{ width: 14, height: 14, color: kpiMesSeguinte > 0 ? '#1E5A8D' : '#888' }} />,
+        tint: kpiMesSeguinte > 0 ? '#E6F1FB' : undefined,
+        valueColor: kpiMesSeguinte > 0 ? '#1E5A8D' : undefined },
+      { id: 'pagoMes', label: 'Pago este mês', value: fmt(kpiPagoMes),
+        icon: <CheckCircle2 style={{ width: 14, height: 14, color: kpiPagoMes > 0 ? '#3B6D11' : '#888' }} />,
+        tint: kpiPagoMes > 0 ? '#EAF3DE' : undefined,
+        valueColor: kpiPagoMes > 0 ? '#3B6D11' : undefined },
+    ]);
+  }, [isActive, loading, kpiAPagar30, kpiSemanaCt, kpiSemanaVal, kpiSemanaDataPrimeiro, kpiMesSeguinte, kpiPagoMes, onKpisReady]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -303,37 +341,9 @@ export default function FluxoCaixaTab({ obraId }: Props) {
     );
   }
 
-  const kpiBar = (
-    <div className="flex w-full overflow-x-auto border-b-[0.5px] border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shrink-0">
-      <div className="px-[20px] py-[14px] min-w-[160px] border-r-[0.5px] border-[var(--color-border-tertiary)] bg-[#FFFBF0] flex flex-col justify-center">
-        <p className="text-[10px] font-medium text-[#854F0B] tracking-wider uppercase">A pagar (30d)</p>
-        <p className="text-[22px] font-medium text-[#633806] tabular-nums leading-tight mt-1">{fmt(kpiAPagar30)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[140px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider flex items-center justify-between">
-           Esta semana
-           {kpiSemanaCt > 0 && <span className="bg-[#FFF0F0] text-[#A32D2D] px-1 py-[2px] rounded text-[8px] font-bold">{kpiSemanaCt} pgtos</span>}
-        </p>
-        <p className={cn("text-[15px] font-medium tabular-nums mt-1", kpiSemanaCt > 0 ? "text-[#A32D2D]" : "text-[var(--color-text-primary)]")}>{fmt(kpiSemanaVal)}</p>
-        {kpiSemanaCt > 0 && kpiSemanaDataPrimeiro && (
-          <p className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-tight">vence {format(kpiSemanaDataPrimeiro, 'dd/MM')}</p>
-        )}
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[130px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Mês seguinte</p>
-        <p className={cn("text-[15px] font-medium tabular-nums mt-1", kpiMesSeguinte > 0 ? "text-[#854F0B]" : "text-[var(--color-text-primary)]")}>{fmt(kpiMesSeguinte)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[130px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Pago este mês</p>
-        <p className={cn("text-[15px] font-medium tabular-nums mt-1", kpiPagoMes > 0 ? "text-[#3B6D11]" : "text-[var(--color-text-primary)]")}>{fmt(kpiPagoMes)}</p>
-      </div>
-    </div>
-  );
-
   return (
     <>
-      {kpiPortalTarget && createPortal(kpiBar, kpiPortalTarget)}
-      <div className="flex flex-col gap-5 p-4 animate-in fade-in duration-300 h-full overflow-auto bg-[var(--color-background-primary)]">
+      <div className="flex flex-col gap-5 p-4 animate-in fade-in duration-300 h-full overflow-auto bg-[var(--color-background-secondary)]">
 
         {/* ── Alerta de saldo negativo projetado ───────────────────────── */}
         {alertaMeses.length > 0 && (
@@ -355,129 +365,157 @@ export default function FluxoCaixaTab({ obraId }: Props) {
           </div>
         )}
 
-        {/* ── Gráfico / Controles ────────────────────────────────────────── */}
-        <div>
-          <div className="flex flex-wrap items-center justify-between gap-4 py-2 border-b border-[var(--color-border-secondary)] mb-4">
-            <h3 className="text-[14px] font-medium text-[var(--color-text-primary)]">Fluxo mensal</h3>
-            
-            <div className="flex items-center gap-2">
+        {/* ── Gráfico / Controles ─────────────────────────────────────────── */}
+        <div style={{
+          background: '#FFFFFF',
+          border: '1px solid var(--color-border-secondary)',
+          borderRadius: 12,
+          padding: '16px 20px 12px',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        }}>
+          {/* Header do card */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 }}>Fluxo mensal</p>
+              <p style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Previsto × Realizado × Saldo acumulado</p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Seletor de período */}
-              <div className="flex items-center rounded overflow-hidden border border-[var(--color-border-tertiary)]">
+              <div style={{ display: 'flex', alignItems: 'center', borderRadius: 6, overflow: 'hidden', border: '0.5px solid var(--color-border-secondary)' }}>
                 {(['7d', '30d', '90d', 'tudo'] as const).map(p => (
                   <button
                     key={p}
                     onClick={() => setPeriod(p)}
-                    className={cn(
-                      'px-2.5 py-1 text-[11px] font-medium transition-colors',
-                      period === p
-                        ? 'bg-[#FFFBF0] border-[#FAC775] text-[#854F0B] border-x border-[#FAC775]'
-                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'
-                    )}
+                    style={{
+                      padding: '4px 10px', fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer',
+                      background: period === p ? '#FFFBF0' : 'transparent',
+                      color: period === p ? '#854F0B' : 'var(--color-text-secondary)',
+                      borderRight: '0.5px solid var(--color-border-tertiary)',
+                    }}
                   >
                     {p === 'tudo' ? 'Tudo' : p.toUpperCase()}
                   </button>
                 ))}
               </div>
 
-              <div className="w-[1px] h-4 bg-[var(--color-border-secondary)]" />
-
               {/* Toggle Gráfico / Tabela */}
-              <div className="flex items-center rounded overflow-hidden border border-[var(--color-border-tertiary)]">
+              <div style={{ display: 'flex', alignItems: 'center', borderRadius: 6, overflow: 'hidden', border: '0.5px solid var(--color-border-secondary)' }}>
                 {(['grafico', 'tabela'] as const).map(v => (
                   <button
                     key={v}
                     onClick={() => setViewMode(v)}
-                    className={cn(
-                      'px-2.5 py-1 text-[11px] font-medium transition-colors capitalize',
-                      viewMode === v
-                        ? 'bg-[#E6F1FB] text-[#185FA5] border-x border-[#B5D4F4]'
-                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'
-                    )}
+                    style={{
+                      padding: '4px 10px', fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer',
+                      background: viewMode === v ? '#E6F1FB' : 'transparent',
+                      color: viewMode === v ? '#185FA5' : 'var(--color-text-secondary)',
+                    }}
                   >
                     {v === 'grafico' ? 'Gráfico' : 'Tabela'}
                   </button>
                 ))}
               </div>
 
-              <div className="w-[1px] h-4 bg-[var(--color-border-secondary)]" />
-              <div className="flex items-center gap-1.5">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Switch id="toggle-indiretos" checked={incluirIndiretos} onCheckedChange={setIncluirIndiretos} className="scale-75 origin-right" />
-                <Label htmlFor="toggle-indiretos" className="text-[12px] text-[var(--color-text-secondary)] whitespace-nowrap cursor-pointer">Indiretos</Label>
+                <Label htmlFor="toggle-indiretos" style={{ fontSize: 12, color: 'var(--color-text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap' }}>Indiretos</Label>
               </div>
             </div>
           </div>
 
           {viewMode === 'grafico' ? (
-            <ResponsiveContainer width="100%" height={130}>
+            <ResponsiveContainer width="100%" height={240}>
               <ComposedChart data={meses} barGap={2} barCategoryGap="28%">
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="mes" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={fmtShort} width={62} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" vertical={false} />
+                <XAxis dataKey="mes" tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }} axisLine={false} tickLine={false} tickFormatter={fmtShort} width={62} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                <ReferenceLine y={0} stroke="hsl(var(--border))" strokeWidth={1} />
-                <Bar dataKey="previsto" name="Previsto" fill="hsl(var(--primary) / 0.25)" stroke="hsl(var(--primary) / 0.5)" strokeWidth={1} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="realizado" name="Realizado" fill="hsl(152 55% 38% / 0.7)" stroke="hsl(152 55% 38%)" strokeWidth={1} radius={[4, 4, 0, 0]} />
+                <ReferenceLine y={0} stroke="var(--color-border-secondary)" strokeWidth={1} />
+                <Bar dataKey="previsto" name="Previsto" fill="#C4B5FD" stroke="#8B5CF6" strokeWidth={1} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="realizado" name="Realizado" fill="#86EFAC" stroke="#22C55E" strokeWidth={1} radius={[4, 4, 0, 0]} />
                 {incluirIndiretos && (
-                  <Bar dataKey="indireto" name="Indiretos" fill="hsl(38 90% 48% / 0.5)" stroke="hsl(38 90% 48%)" strokeWidth={1} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="indireto" name="Indiretos" fill="#FCD34D" stroke="#F59E0B" strokeWidth={1} radius={[4, 4, 0, 0]} />
                 )}
-                <Line dataKey="saldoAcumulado" name="Saldo Acum." type="monotone" stroke="hsl(38 90% 48%)" strokeWidth={2} dot={{ fill: 'hsl(38 90% 48%)', r: 3 }} activeDot={{ r: 5 }} />
-                <Line dataKey="projecao" name="Projeção" type="monotone" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="6 4" dot={false} activeDot={{ r: 4 }} />
+                <Line dataKey="saldoAcumulado" name="Saldo Acum." type="monotone" stroke="#F59E0B" strokeWidth={2} dot={{ fill: '#F59E0B', r: 3 }} activeDot={{ r: 5 }} />
+                <Line dataKey="projecao" name="Projeção" type="monotone" stroke="#534AB7" strokeWidth={2} strokeDasharray="6 4" dot={false} activeDot={{ r: 4 }} />
               </ComposedChart>
             </ResponsiveContainer>
           ) : null}
 
-          <p className="text-[10px] text-[var(--color-text-secondary)] mt-2">
-            * Linha tracejada (Projeção) = estimativa baseada na média mensal, não considera pagamentos específicos.
-          </p>
+          {viewMode === 'grafico' && (
+            <p style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+              * Linha tracejada (Projeção) = estimativa baseada na média mensal, não considera pagamentos específicos.
+            </p>
+          )}
         </div>
 
         {viewMode === 'tabela' && (
-        <div>
-          <h3 className="text-[14px] font-medium text-[var(--color-text-primary)] mb-3">Detalhamento dos meses</h3>
-          <div className="bg-[var(--color-background-secondary)] border border-[var(--color-border-tertiary)] rounded p-4 max-h-[400px] overflow-auto">
-            <div className="grid grid-cols-[90px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)] gap-2 border-b border-[var(--color-border-tertiary)] text-[11px] font-medium text-[var(--color-text-secondary)] tracking-wider uppercase pb-2">
-              <span>Mês</span>
-              <span className="text-right">Previsto</span>
-              <span className="text-right">Realizado {incluirIndiretos && <span className="text-[9px] font-normal leading-none">(Custo + Indir)</span>}</span>
-              <span className="text-right">Saldo (Mês)</span>
-              <span className="text-right">Acumulado</span>
-            </div>
-            
-            <div className="space-y-1 mt-2">
-              {meses.map(m => {
-                const negativ = m.saldo < 0;
-                const acumNegativ = m.saldoAcumulado < 0;
-                const isMesAtual = m.mesKey === format(hoje, 'yyyy-MM');
-                const comDados = m.previsto > 0 || m.realizado > 0 || m.projecao != null;
+        <div style={{
+          background: '#FFFFFF',
+          border: '1px solid var(--color-border-secondary)',
+          borderRadius: 12,
+          overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        }}>
+          {/* Header do card */}
+          <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between">
+            <p className="text-sm font-semibold">Detalhamento mensal</p>
+            <p className="text-[11px] text-muted-foreground">Previsto × Realizado × Saldo</p>
+          </div>
 
-                return (
-                  <div key={m.mesKey} className={cn('grid grid-cols-[90px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)] gap-2 py-2 items-center text-[13px] border-b border-[var(--color-border-tertiary)] hover:bg-[var(--color-background-primary)] transition-colors', m.projecaoNegativa && 'bg-amber-50/40 dark:bg-amber-950/10', !comDados && 'opacity-50')}>
-                    <span className="font-medium text-[var(--color-text-primary)] flex items-center gap-1">
-                      {isMesAtual && <span className="w-1.5 h-1.5 rounded-full bg-[#378ADD] shrink-0" />}
-                      <span className="text-[10px] font-normal mr-0 text-[var(--color-text-secondary)]">{m.isFuturo && '(proj)'}</span>
-                      {m.mes}
-                    </span>
-                    <span className="text-right tabular-nums text-[var(--color-text-secondary)]">{fmt(m.previsto)}</span>
-                    <span className={cn("text-right tabular-nums", m.isFuturo ? "text-[var(--color-text-primary)] opacity-80 italic" : "text-[var(--color-text-primary)]")}>
-                      {m.isFuturo && m.projecao ? <span className="text-[var(--color-text-secondary)] mr-1">~</span> : ''}
-                      {fmt(m.isFuturo ? (m.projecao || 0) : m.realizado + m.indireto)}
-                    </span>
-                    <span className={cn('text-right font-medium tabular-nums', negativ ? 'text-[#A32D2D]' : m.saldo > 0 ? 'text-[#3B6D11]' : 'text-[var(--color-text-secondary)]')}>{m.saldo !== 0 ? (m.saldo > 0 ? '+' : '') + fmt(m.saldo) : '—'}</span>
-                    <span className={cn('text-right font-medium tabular-nums', acumNegativ ? 'text-[#A32D2D]' : 'text-[#3B6D11]')}>{fmt(m.saldoAcumulado)}</span>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="grid grid-cols-[90px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)] gap-2 py-3 mt-2 border-t-2 border-[var(--color-border-primary)] font-bold text-[13px]">
-              <span className="text-[var(--color-text-primary)]">Total</span>
-              <span className="text-right tabular-nums text-[var(--color-text-primary)]">{fmt(totalPrevisto)}</span>
-              <span className="text-right tabular-nums text-[#3B6D11]">{fmt(totalRealizado)}</span>
-              <span className={cn('text-right tabular-nums', saldoGlobal < 0 ? 'text-[#A32D2D]' : 'text-[#3B6D11]')}>{(saldoGlobal > 0 ? '+' : '') + fmt(saldoGlobal)}</span>
-              <span className="text-right text-[var(--color-text-secondary)]">—</span>
-            </div>
-            
+          {/* Cabeçalho da tabela */}
+          <div className="grid grid-cols-[90px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)] gap-2 px-4 py-2 bg-muted/50 border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span>Mês</span>
+            <span className="text-right">Previsto</span>
+            <span className="text-right">Realizado {incluirIndiretos && <span className="text-[9px] font-normal leading-none">(+indir)</span>}</span>
+            <span className="text-right">Saldo (mês)</span>
+            <span className="text-right">Acumulado</span>
+          </div>
+
+          {/* Linhas */}
+          <div className="divide-y divide-border/40">
+            {meses.map(m => {
+              const negativ = m.saldo < 0;
+              const acumNegativ = m.saldoAcumulado < 0;
+              const isMesAtual = m.mesKey === format(hoje, 'yyyy-MM');
+              const comDados = m.previsto > 0 || m.realizado > 0 || m.projecao != null;
+
+              return (
+                <div key={m.mesKey} className={cn(
+                  'grid grid-cols-[90px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)] gap-2 px-4 py-2.5 items-center text-[13px] hover:bg-muted/30 transition-colors',
+                  m.projecaoNegativa && 'bg-amber-50/40',
+                  !comDados && 'opacity-40',
+                  isMesAtual && 'bg-violet-50/30',
+                )}>
+                  <span className="font-medium text-[var(--color-text-primary)] flex items-center gap-1.5 text-xs">
+                    {isMesAtual && <span className="w-1.5 h-1.5 rounded-full bg-[#534AB7] shrink-0" />}
+                    {m.mes}
+                    {m.isFuturo && <span className="text-[9px] text-muted-foreground font-normal">(proj)</span>}
+                  </span>
+                  <span className="text-right tabular-nums text-xs text-muted-foreground">{fmt(m.previsto)}</span>
+                  <span className={cn('text-right tabular-nums text-xs', m.isFuturo ? 'text-muted-foreground italic' : 'text-[var(--color-text-primary)]')}>
+                    {m.isFuturo && m.projecao ? <span className="mr-0.5 text-muted-foreground">~</span> : ''}
+                    {fmt(m.isFuturo ? (m.projecao || 0) : m.realizado + m.indireto)}
+                  </span>
+                  <span className={cn('text-right font-medium tabular-nums text-xs', negativ ? 'text-red-600' : m.saldo > 0 ? 'text-emerald-600' : 'text-muted-foreground')}>
+                    {m.saldo !== 0 ? (m.saldo > 0 ? '+' : '') + fmt(m.saldo) : '—'}
+                  </span>
+                  <span className={cn('text-right font-semibold tabular-nums text-xs', acumNegativ ? 'text-red-600' : 'text-emerald-600')}>
+                    {fmt(m.saldoAcumulado)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Total */}
+          <div className="grid grid-cols-[90px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)] gap-2 px-4 py-2.5 bg-muted/50 border-t-2 border-border font-bold text-[13px]">
+            <span className="text-xs text-[var(--color-text-primary)]">Total</span>
+            <span className="text-right tabular-nums text-xs text-[var(--color-text-primary)]">{fmt(totalPrevisto)}</span>
+            <span className="text-right tabular-nums text-xs text-emerald-700">{fmt(totalRealizado)}</span>
+            <span className={cn('text-right tabular-nums text-xs', saldoGlobal < 0 ? 'text-red-600' : 'text-emerald-600')}>{(saldoGlobal > 0 ? '+' : '') + fmt(saldoGlobal)}</span>
+            <span className="text-right text-xs text-muted-foreground">—</span>
           </div>
         </div>
         )}

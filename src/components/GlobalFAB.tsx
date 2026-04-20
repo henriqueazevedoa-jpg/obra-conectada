@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useObras } from '@/contexts/ObrasContext';
 import {
@@ -23,15 +23,30 @@ const editActions = [
   { label: 'Custo Real', icon: Receipt, route: '/custo-real', query: '', color: 'bg-violet-500' },
 ];
 
+// Rotas onde o FAB não deve aparecer — páginas com ações próprias no header L1
+const FAB_HIDDEN_ROUTES = [
+  '/orcamento',
+  '/cotacao',
+  '/cronograma',
+  '/financeiro',
+  '/execucao',
+  '/contatos',
+  '/documentos',
+];
+
 type OpenFab = null | 'entry' | 'edit';
 
 export default function GlobalFAB() {
   const [openFab, setOpenFab] = useState<OpenFab>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { obras } = useObras();
   const { selectedObraId } = useObraSelection();
 
-  if (!selectedObraId || obras.length === 0) return null;
+  // Esconder em rotas de edição intensiva
+  const isHidden = FAB_HIDDEN_ROUTES.some((r) => location.pathname.startsWith(r));
+  if (!selectedObraId || obras.length === 0 || isHidden) return null;
+
 
   const toggle = (fab: 'entry' | 'edit') => {
     setOpenFab(prev => (prev === fab ? null : fab));

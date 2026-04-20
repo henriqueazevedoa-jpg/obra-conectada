@@ -1,15 +1,15 @@
 import { useMemo } from 'react';
-import { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
+import { OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import { parseISO, differenceInDays, isBefore, isAfter, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface GanttChartProps {
-  categorias: OrcamentoCategoria[];
+  etapas: OrcamentoEtapa[];
 }
 
-function computeStatus(cat: OrcamentoCategoria): string {
+function computeStatus(cat: OrcamentoEtapa): string {
   if (cat.statusCronograma) return cat.statusCronograma;
   if ((cat.percentualCronograma ?? 0) >= 100) return 'concluida';
   if (cat.dataInicioReal) {
@@ -20,7 +20,7 @@ function computeStatus(cat: OrcamentoCategoria): string {
   return 'nao_iniciada';
 }
 
-function computePercentual(cat: OrcamentoCategoria): number {
+function computePercentual(cat: OrcamentoEtapa): number {
   if (cat.percentualCronograma != null) return cat.percentualCronograma;
   if (!cat.usaComposicoes || cat.composicoes.length === 0) return 0;
   const totalPeso = cat.composicoes.reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
@@ -39,9 +39,9 @@ const statusLabels: Record<string, string> = {
   atrasada: 'Atrasada',
 };
 
-export default function GanttChart({ categorias }: GanttChartProps) {
+export default function GanttChart({ etapas }: GanttChartProps) {
   const { minDate, maxDate, totalDays, months } = useMemo(() => {
-    const allDates = categorias.flatMap(c =>
+    const allDates = etapas.flatMap(c =>
       [c.dataInicioPrevista, c.dataFimPrevista, c.dataInicioReal, c.dataFimReal].filter(Boolean) as string[]
     );
     if (allDates.length === 0) return { minDate: null, maxDate: null, totalDays: 0, months: [] };
@@ -65,7 +65,7 @@ export default function GanttChart({ categorias }: GanttChartProps) {
     }
 
     return { minDate: min, maxDate: max, totalDays: days, months: ms };
-  }, [categorias]);
+  }, [etapas]);
 
   if (!minDate || totalDays === 0) {
     return <div className="text-center py-8 text-muted-foreground text-sm">Nenhuma data definida para exibir o Gantt.</div>;
@@ -90,7 +90,7 @@ export default function GanttChart({ categorias }: GanttChartProps) {
           ))}
         </div>
 
-        {categorias.map(cat => {
+        {etapas.map(cat => {
           const prevBar = getBar(cat.dataInicioPrevista, cat.dataFimPrevista);
           const realEnd = cat.dataFimReal || (cat.dataInicioReal ? format(new Date(), 'yyyy-MM-dd') : undefined);
           const realBar = getBar(cat.dataInicioReal, realEnd);

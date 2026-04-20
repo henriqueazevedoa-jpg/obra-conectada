@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/untyped';
 import { addDays, parseISO, differenceInDays, format } from 'date-fns';
 
@@ -29,28 +30,27 @@ interface CatDates {
   endDate?: string;
 }
 
+// ── Fetch function ────────────────────────────────────────────────────────────
+async function fetchGanttDependencies(obraId: string): Promise<GanttDependency[]> {
+  const { data } = await supabase
+    .from('cronograma_dependencias')
+    .select('*')
+    .eq('obra_id', obraId);
+  return (data as GanttDependency[]) || [];
+}
+
 export function useGanttDependencies(obraId: string | undefined) {
-  const [deps, setDeps] = useState<GanttDependency[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchDeps = useCallback(async () => {
-    if (!obraId) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from('cronograma_dependencias')
-      .select('*')
-      .eq('obra_id', obraId);
-    setDeps((data as GanttDependency[]) || []);
-    setLoading(false);
-  }, [obraId]);
-
-  useEffect(() => { fetchDeps(); }, [fetchDeps]);
+  const { data: deps = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['gantt-dependencies', obraId],
+    queryFn: () => fetchGanttDependencies(obraId!),
+    enabled: !!obraId,
+  });
 
   const addDep = useCallback(async (sourceCatId: string, targetCatId: string, tipo: DepType = 'FS', lagDays = 0) => {
     if (!obraId || sourceCatId === targetCatId) return;
-    // Check for duplicate
     if (deps.some(d => d.source_cat_id === sourceCatId && d.target_cat_id === targetCatId)) return;
-    // Check for circular
     if (wouldCreateCycle(deps, sourceCatId, targetCatId)) return false;
 
     const { data, error } = await (supabase.from('cronograma_dependencias') as any)
@@ -58,20 +58,16 @@ export function useGanttDependencies(obraId: string | undefined) {
       .select()
       .single();
     if (!error && data) {
-      setDeps(prev => [...prev, data as GanttDependency]);
+      queryClient.invalidateQueries({ queryKey: ['gantt-dependencies', obraId] });
     }
     return !error;
-  }, [obraId, deps]);
+  }, [obraId, deps, queryClient]);
 
   const removeDep = useCallback(async (depId: string) => {
     await supabase.from('cronograma_dependencias').delete().eq('id', depId);
-    setDeps(prev => prev.filter(d => d.id !== depId));
-  }, []);
+    queryClient.invalidateQueries({ queryKey: ['gantt-dependencies', obraId] });
+  }, [obraId, queryClient]);
 
-  /**
-   * Calculate cascade effects when a task's dates change.
-   * Returns list of tasks that would need to move.
-   */
   const calculateCascade = useCallback((
     changedCatId: string,
     newStart: string,
@@ -81,7 +77,6 @@ export function useGanttDependencies(obraId: string | undefined) {
     const results: CascadeResult[] = [];
     const visited = new Set<string>();
 
-    // Build adjacency
     const successors = new Map<string, { targetId: string; tipo: DepType; lag: number }[]>();
     deps.forEach(d => {
       const arr = successors.get(d.source_cat_id) || [];
@@ -90,7 +85,6 @@ export function useGanttDependencies(obraId: string | undefined) {
     });
 
     const catMap = new Map(allCats.map(c => [c.id, c]));
-    // Override changed cat dates
     const overrides = new Map<string, { start: string; end: string }>();
     overrides.set(changedCatId, { start: newStart, end: newEnd });
 
@@ -117,7 +111,6 @@ export function useGanttDependencies(obraId: string | undefined) {
         if (tipo === 'FS') {
           requiredStart = addDays(parseISO(srcDates.end), 1 + lag);
         } else {
-          // SS
           requiredStart = addDays(parseISO(srcDates.start), lag);
         }
 
@@ -147,11 +140,10 @@ export function useGanttDependencies(obraId: string | undefined) {
     return results;
   }, [deps]);
 
-  return { deps, loading, addDep, removeDep, calculateCascade, refresh: fetchDeps };
+  return { deps, loading, addDep, removeDep, calculateCascade, refresh: refetch };
 }
 
 function wouldCreateCycle(deps: GanttDependency[], newSource: string, newTarget: string): boolean {
-  // BFS from newTarget to see if we can reach newSource
   const successors = new Map<string, string[]>();
   deps.forEach(d => {
     const arr = successors.get(d.source_cat_id) || [];

@@ -62,12 +62,14 @@ export function CustoRealProvider({ children }: { children: React.ReactNode }) {
   const [itens, setItens] = useState<CustoRealItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const userId = user?.id;
+
   const fetchAll = useCallback(async () => {
-    if (!user) { setItens([]); setLoading(false); return; }
+    if (!userId) { setItens([]); setLoading(false); return; }
     const { data } = await supabase.from('custo_real_itens').select('*');
     if (data) setItens(data.map(dbToItem));
     setLoading(false);
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

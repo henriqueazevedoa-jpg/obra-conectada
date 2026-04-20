@@ -1,40 +1,43 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useCompany } from '@/contexts/CompanyContext';
 
+// ── Fetch function ──────────────────────────────────────────────────────────────
+async function fetchAddonAccess(companyId: string, addonCode: string) {
+  const { data, error } = await supabase
+    .from('company_addons')
+    .select('status, trial_end')
+    .eq('company_id', companyId)
+    .eq('addon_code', addonCode)
+    .maybeSingle();
+
+  if (error) return { status: 'inactive', allowed: false };
+  if (!data) return { status: 'inactive', allowed: false };
+
+  const s = (data as any).status;
+  if (s === 'active') return { status: 'active', allowed: true };
+  if (s === 'trial') {
+    const trialEnd = (data as any).trial_end;
+    if (trialEnd && new Date(trialEnd) >= new Date()) {
+      return { status: 'trial', allowed: true };
+    }
+    return { status: 'expired', allowed: false };
+  }
+  return { status: s, allowed: false };
+}
+
 export function useAddonAccess(addonCode: string) {
   const { company } = useCompany();
-  const [status, setStatus] = useState<string>('loading');
-  const [allowed, setAllowed] = useState(false);
 
-  const check = useCallback(async () => {
-    if (!company) { setStatus('no_company'); setAllowed(false); return; }
+  const { data, refetch } = useQuery({
+    queryKey: ['addon-access', addonCode, company?.id],
+    queryFn: () => fetchAddonAccess(company!.id, addonCode),
+    enabled: !!company && !!addonCode,
+  });
 
-    const { data, error } = await supabase
-      .from('company_addons')
-      .select('status, trial_end')
-      .eq('company_id', company.id)
-      .eq('addon_code', addonCode)
-      .maybeSingle();
-
-    if (error) { setStatus('inactive'); setAllowed(false); return; }
-    if (!data) { setStatus('inactive'); setAllowed(false); return; }
-
-    const s = (data as any).status;
-    if (s === 'active') { setStatus('active'); setAllowed(true); return; }
-    if (s === 'trial') {
-      const trialEnd = (data as any).trial_end;
-      if (trialEnd && new Date(trialEnd) >= new Date()) {
-        setStatus('trial'); setAllowed(true);
-      } else {
-        setStatus('expired'); setAllowed(false);
-      }
-      return;
-    }
-    setStatus(s); setAllowed(false);
-  }, [company, addonCode]);
-
-  useEffect(() => { check(); }, [check]);
-
-  return { allowed, status, refresh: check };
+  return {
+    allowed: data?.allowed ?? false,
+    status: data?.status ?? (company ? 'inactive' : 'no_company'),
+    refresh: refetch,
+  };
 }

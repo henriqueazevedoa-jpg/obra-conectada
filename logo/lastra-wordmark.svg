@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 52" fill="none">
+  <defs>
+    <mask id="cut">
+      <rect width="48" height="52" fill="white"/>
+      <path d="M 0 30 C 12 8, 24 40, 48 18" stroke="black" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <g mask="url(#cut)">
+    <rect x="4"  y="4"  width="8" height="36" rx="2" fill="#534AB7"/>
+    <rect x="15" y="4"  width="8" height="36" rx="2" fill="#534AB7" opacity=".8"/>
+    <rect x="26" y="18" width="8" height="22" rx="2" fill="#534AB7" opacity=".55"/>
+    <rect x="37" y="26" width="8" height="14" rx="2" fill="#534AB7" opacity=".35"/>
+    <rect x="4"  y="43" width="41" height="3"  rx="1.5" fill="#534AB7"/>
+  </g>
+  <text x="58" y="40" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="500" letter-spacing="-0.5" fill="#1C1A2E">Lastra</text>
+</svg>

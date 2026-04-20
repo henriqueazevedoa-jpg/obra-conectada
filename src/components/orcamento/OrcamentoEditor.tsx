@@ -1,8 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   useOrcamento,
   OrcamentoObra,
-  OrcamentoCategoria,
+  OrcamentoEtapa,
 } from '@/contexts/OrcamentoContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { Button } from '@/components/ui/button';
@@ -14,23 +32,51 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Plus,
   Save,
-  ArrowLeft,
   Copy,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   DatabaseZap,
-  Lock,
   LayoutTemplate,
+  MoreHorizontal,
+  Settings2,
+  AlertTriangle,
+  RefreshCw,
+  Check,
+  XCircle,
+  Rows3,
+  ClipboardPaste,
+  Zap,
+  LayoutGrid,
+  AlignJustify,
+  Minimize2,
+  Sparkles,
+  X,
 } from 'lucide-react';
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/data/mockData';
-import CategoriaBlock from './CategoriaBlock';
+import EtapaBlock from './EtapaBlock';
 import {
   Dialog,
   DialogContent,
@@ -40,17 +86,99 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import ImportarSinapiDialog from './ImportarSinapiDialog';
+import CatalogDrawer, { CarrinhoItem } from './CatalogDrawer';
+import QuickStartModal from './QuickStartModal';
+import PasteImportDialog, { PastedComposicao } from './PasteImportDialog';
+import VersaoSeletor from './VersaoSeletor';
+
 import {
   expandirComposicaoSinapi,
   type SinapiRegime,
   type SinapiComposicaoExpandida,
 } from '@/lib/sinapi/expandComposicao';
 import { sinapiExpandidaParaOrcamentoComposicao } from '@/lib/sinapi/toOrcamento';
+import { useOrcamentoUndo } from '@/hooks/useOrcamentoUndo';
+import { supabase } from '@/integrations/supabase/untyped';
+import { cn } from '@/lib/utils';
+import { OrcamentoVersao } from '@/contexts/OrcamentoContext';
+
+// UFs do Brasil
+const UFS_BRASIL = [
+  'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA',
+  'MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN',
+  'RS','RO','RR','SC','SP','SE','TO',
+];
+
+function formatCompetencia(c: string) {
+  const [ano, mes] = c.split('-');
+  const nomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${nomes[parseInt(mes) - 1]}/${ano.slice(2)}`;
+}
+
+// ── Configurações SINAPI (localStorage) ──────────────────────────────────────
+
+const SINAPI_CONFIG_KEY = 'obraconectada:sinapi_config';
+
+interface SinapiConfig {
+  uf: string;
+  competencia: string;
+  regime: SinapiRegime;
+}
+
+function loadSinapiConfig(): SinapiConfig {
+  try {
+    const raw = localStorage.getItem(SINAPI_CONFIG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migrar valores legados para os corretos do banco
+      if (parsed.regime === 'normal') parsed.regime = 'SEM_DESONERACAO';
+      if (parsed.regime === 'desonerado') parsed.regime = 'COM_DESONERACAO';
+      return parsed;
+    }
+  } catch {
+    // ignore invalid localStorage data
+  }
+  return { uf: 'SP', competencia: '2026-02', regime: 'SEM_DESONERACAO' };
+}
+
+function saveSinapiConfig(cfg: SinapiConfig) {
+  localStorage.setItem(SINAPI_CONFIG_KEY, JSON.stringify(cfg));
+}
+
+// ── Wrapper sortable para DnD — passa listeners para o filho via render prop ───────
+// O EtapaBlock recebe `dragListeners` e os aplica ao seu drag handle
+function SortableEtapaWrapper({
+  id, children,
+}: {
+  id: string;
+  children: (props: { dragListeners: React.HTMLAttributes<HTMLElement> }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      className="relative"
+      {...attributes}
+    >
+      {children({ dragListeners: listeners ?? {} })}
+    </div>
+  );
+}
 
 interface Props {
   obraId: string;
   obraNome: string;
+  readOnly?: boolean;
   onBack: () => void;
+  /** Config SINAPI compartilhada do OrcamentoCentral */
+  sinapiConfig?: SinapiConfig;
+  /** 3C: Navegar à aba Cotação com item pré-filtrado */
+  onGoCotacao?: (descricao: string) => void;
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -58,38 +186,241 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export default function OrcamentoEditor({
   obraId,
   obraNome,
+  readOnly,
   onBack,
+  sinapiConfig: sinapiConfigProp,
+  onGoCotacao,
 }: Props) {
   const {
     getOrcamento,
     saveOrcamento,
     orcamentos,
-    catalogoCategorias,
-    generateCategoriaCodigo,
+    catalogoEtapas,
+    generateEtapaCodigo,
     getUnidadesUsadas,
-    getSugestaoInsumos,
     generateComposicaoCodigo,
-    generateSubitemCodigo,
+    generateInsumoCodigo,
+    getVersaoAtiva,
+    getVersoes,
+    getEtapasDaVersao,
+    salvarVersao,
   } = useOrcamento();
+
+  // Sprint 4: versão ativa
+  const [versaoAtiva, setVersaoAtiva] = useState<OrcamentoVersao | null>(null);
+  useEffect(() => {
+    const v = getVersaoAtiva(obraId);
+    if (v) setVersaoAtiva(v);
+  }, [obraId, getVersaoAtiva]);
 
   const { obras } = useObras();
 
-  const [categorias, setCategorias] = useState<OrcamentoCategoria[]>([]);
+  const [etapas, setEtapas] = useState<OrcamentoEtapa[]>([]);
+  const undoManager = useOrcamentoUndo();
 
-  // Import from other obra
+  const setEtapasWithUndo = useCallback(
+    (updater: OrcamentoEtapa[] | ((prev: OrcamentoEtapa[]) => OrcamentoEtapa[])) => {
+      setEtapas((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        undoManager.pushSnapshot(prev);
+        return next;
+      });
+    },
+    [undoManager]
+  );
+
+  // Ctrl+Z / Ctrl+Shift+Z
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        const tagName = (e.target as HTMLElement)?.tagName;
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        if (e.shiftKey) {
+          const redone = undoManager.redo(etapas);
+          if (redone) setEtapas(redone);
+        } else {
+          const undone = undoManager.undo(etapas);
+          if (undone) setEtapas(undone);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [etapas, undoManager]);
+
+  // ── Importar de outra obra ──────────────────────────────────────────────────
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importObraId, setImportObraId] = useState('');
+  const [importMode, setImportMode] = useState<'mesclar' | 'substituir'>('mesclar');
 
-  // SINAPI import
+  // ── SINAPI: usa config do OrcamentoCentral se disponível, senão local ────────
   const [importSinapiOpen, setImportSinapiOpen] = useState(false);
-  const [expandedCategoriaId, setExpandedCategoriaId] = useState<string | null>(null);
+  const [expandedEtapaId, setExpandedEtapaId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  /** null = indeterminate (estado individual por etapa), true/false = expandir/colapsar todas */
+  const [allExpanded, setAllExpanded] = useState<boolean | undefined>(undefined);
+  const [sinapiConfig, setSinapiConfig] = useState<SinapiConfig>(() => sinapiConfigProp ?? loadSinapiConfig());
+  const [sinapiConfigOpen, setSinapiConfigOpen] = useState(false);
 
-  // Template (catalog) selector dialog
+  // Sincronizar config SINAPI vinda do OrcamentoCentral
+  useEffect(() => {
+    if (sinapiConfigProp) setSinapiConfig(sinapiConfigProp);
+  }, [sinapiConfigProp]);
+  // Competências realmente carregadas no banco (sinapi_referencias)
+  const [sinapiReferencias, setSinapiReferencias] = useState<{ id: string; competencia: string; arquivo_nome: string }[]>([]);
+
+  useEffect(() => {
+    type SinapiReferenciaRow = { id: string; competencia: string; arquivo_nome: string };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('sinapi_referencias')
+      .select('id, competencia, arquivo_nome')
+      .order('competencia', { ascending: false })
+      .then(({ data }: { data: SinapiReferenciaRow[] | null }) => {
+        if (data && data.length > 0) {
+          setSinapiReferencias(data);
+          setSinapiConfig(prev => {
+            const existe = data.some((r: SinapiReferenciaRow) => r.competencia === prev.competencia);
+            if (!existe) {
+              const next = { ...prev, competencia: data[0].competencia };
+              saveSinapiConfig(next);
+              return next;
+            }
+            return prev;
+          });
+        }
+      });
+  }, []);
+
+  // ── Catálogo Global Drawer (substitui painel 50/50) ────────────────────────
+  const [catalogDrawerOpen, setCatalogDrawerOpen] = useState(false);
+  const [catalogDrawerDefaultEtapaId, setCatalogDrawerDefaultEtapaId] = useState<string | undefined>(undefined);
+
+  const handleOpenCatalogo = useCallback((etapa?: OrcamentoEtapa) => {
+    setCatalogDrawerDefaultEtapaId(etapa?.id);
+    setCatalogDrawerOpen(true);
+  }, []);
+
+  const handleCatalogApply = useCallback(async (items: CarrinhoItem[]) => {
+    setEtapasWithUndo(prev => {
+      const next = [...prev];
+      for (const item of items) {
+        const idx = next.findIndex(e => e.id === item.etapaId);
+        if (idx === -1) continue;
+        const etapa = next[idx];
+        const nova = {
+          id: crypto.randomUUID(),
+          codigo: generateComposicaoCodigo(etapa.codigo, etapa.composicoes.map(c => c.codigo)),
+          descricao: item.descricao,
+          unidade: item.unidade,
+          quantidade: null,
+          precoUnitario: item.precoMedio ?? null,
+          precoTotal: 0,
+          insumos: [],
+          usaInsumos: false,
+          fonteReferencia: item.codigoSinapi ? 'SINAPI' : undefined,
+          codigoReferenciaExterna: item.codigoSinapi,
+        };
+        next[idx] = { ...etapa, usaComposicoes: true, composicoes: [...etapa.composicoes, nova] };
+      }
+      return next;
+    });
+  }, [setEtapasWithUndo, generateComposicaoCodigo]);
+
+
+  // ── DnD sensors ──────────────────────────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  const [activeEtapaId, setActiveEtapaId] = useState<string | null>(null);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveEtapaId(null);
+    if (!over || active.id === over.id) return;
+    setEtapasWithUndo(prev => {
+      const oldIdx = prev.findIndex(e => e.id === active.id);
+      const newIdx = prev.findIndex(e => e.id === over.id);
+      return arrayMove(prev, oldIdx, newIdx);
+    });
+  }, [setEtapasWithUndo]);
+
+  // ── Seleção de modelo de etapa ────────�
+  // compactMode — densidade controlada pelo toggle (padrão: 'padrao')
+  type DensityMode = 'detalhado' | 'padrao' | 'compacto';
+  const [densityMode, setDensityMode] = useState<DensityMode>(() => {
+    try { return (localStorage.getItem('obraconectada:density_mode') as DensityMode) || 'padrao'; }
+    catch { return 'padrao'; }
+  });
+  const handleSetDensity = (m: DensityMode) => {
+    setDensityMode(m);
+    try { localStorage.setItem('obraconectada:density_mode', m); } catch (_) { /* ignore */ }
+  };
+  const compactMode = densityMode === 'compacto';
+
+  // ── Sprint 3.2: Toggle sugestão de preços ────────────────────────────────────
+  const [priceSuggestionEnabled, setPriceSuggestionEnabled] = useState(() => {
+    try { return localStorage.getItem('obraconectada:price_suggestion') === 'true'; }
+    catch { return false; }
+  });
+  const handleTogglePriceSuggestion = () => {
+    const next = !priceSuggestionEnabled;
+    setPriceSuggestionEnabled(next);
+    try { localStorage.setItem('obraconectada:price_suggestion', String(next)); } catch (_) { /* ignore */ }
+  };
+
+  // ── Sprint 3.4: Badges SINAPI ? por composição (para o banner) ──────────────
+  const [priceBadges, setPriceBadges] = useState<Map<string, string>>(new Map());
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const handlePriceBadge = (composicaoId: string, badge: string | null) => {
+    setPriceBadges(prev => {
+      const next = new Map(prev);
+      if (badge === null) next.delete(composicaoId);
+      else next.set(composicaoId, badge);
+      return next;
+    });
+    setBannerDismissed(false); // reset dismiss quando novos badges chegam
+  };
+  const uncertainCount = Array.from(priceBadges.values()).filter(b => b === 'sinapi_uncertain').length;
+
+  // Templates de etapa (mantido para compatibilidade com JSX legado)
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [selectedTemplateCodes, setSelectedTemplateCodes] = useState<Set<string>>(new Set());
 
-  const [allExpanded, setAllExpanded] = useState<boolean | undefined>(undefined);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  // ── Paste Import Dialog ─────────────────────────────────────────────────────
+  const [pasteDialogOpen, setPasteDialogOpen] = useState(false);
+
+  // ── Ctrl+S: salvar manual com atalho ─────────────────────────────────────────
+  useEffect(() => {
+    const handleSaveKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleSaveKey);
+    return () => window.removeEventListener('keydown', handleSaveKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etapas, obraId]);
+
+  // ── N: nova etapa com atalho ─────────────────────────────────────────────────
+  useEffect(() => {
+    const handleN = (e: KeyboardEvent) => {
+      if (readOnly) return;
+      if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        addEmptyEtapa();
+      }
+    };
+    window.addEventListener('keydown', handleN);
+    return () => window.removeEventListener('keydown', handleN);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, etapas]);
 
   const unidades = getUnidadesUsadas();
 
@@ -99,17 +430,17 @@ export default function OrcamentoEditor({
 
   useEffect(() => {
     const existing = getOrcamento(obraId);
-    const categoriasIniciais = existing ? existing.categorias : [];
-    setCategorias(categoriasIniciais);
-    lastSavedSnapshotRef.current = JSON.stringify(categoriasIniciais);
+    const etapasIniciais = existing ? existing.etapas : [];
+    setEtapas(etapasIniciais);
+    lastSavedSnapshotRef.current = JSON.stringify(etapasIniciais);
     hasLoadedInitialDataRef.current = true;
     setSaveStatus('idle');
   }, [obraId, getOrcamento]);
 
-  // Auto-save on change
+  // Auto-save
   useEffect(() => {
     if (!hasLoadedInitialDataRef.current) return;
-    const currentSnapshot = JSON.stringify(categorias);
+    const currentSnapshot = JSON.stringify(etapas);
     if (currentSnapshot === lastSavedSnapshotRef.current) return;
 
     if (autosaveTimeoutRef.current) window.clearTimeout(autosaveTimeoutRef.current);
@@ -117,8 +448,8 @@ export default function OrcamentoEditor({
 
     autosaveTimeoutRef.current = window.setTimeout(async () => {
       try {
-        await saveOrcamento({ obraId, categorias });
-        lastSavedSnapshotRef.current = JSON.stringify(categorias);
+        await saveOrcamento({ obraId, etapas });
+        lastSavedSnapshotRef.current = JSON.stringify(etapas);
         setSaveStatus('saved');
         window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
       } catch (error) {
@@ -128,35 +459,32 @@ export default function OrcamentoEditor({
     }, 1000);
 
     return () => { if (autosaveTimeoutRef.current) window.clearTimeout(autosaveTimeoutRef.current); };
-  }, [categorias, obraId, saveOrcamento]);
+  }, [etapas, obraId, saveOrcamento]);
 
-  const totalGeral = categorias.reduce(
-    (sum: number, cat: OrcamentoCategoria) => sum + (cat.precoTotal || 0),
-    0
-  );
+  const totalGeral = etapas.reduce((sum, e) => sum + (e.precoTotal || 0), 0);
 
-  // ── Adicionar etapa em branco (nome vazio — editável inline no CategoriaBlock) ──
-  const addEmptyCategoria = () => {
-    const novaCategoria: OrcamentoCategoria = {
+  // ── Ações de etapas ─────────────────────────────────────────────────────────
+
+  const addEmptyEtapa = () => {
+    const novaEtapa: OrcamentoEtapa = {
       id: crypto.randomUUID(),
-      codigo: generateCategoriaCodigo(),
+      codigo: generateEtapaCodigo(etapas),
       nome: '',
       precoTotal: 0,
       usaComposicoes: false,
       composicoes: [],
     };
-    setCategorias(prev => [...prev, novaCategoria]);
-    setExpandedCategoriaId(novaCategoria.id);
+    setEtapasWithUndo(prev => [...prev, novaEtapa]);
+    setExpandedEtapaId(novaEtapa.id);
     setAllExpanded(undefined);
   };
 
-  // ── Adicionar a partir de modelos do catálogo (multi-seleção) ──
   const addFromTemplates = () => {
-    const toAdd: OrcamentoCategoria[] = [];
+    const toAdd: OrcamentoEtapa[] = [];
     for (const code of selectedTemplateCodes) {
-      const template = catalogoCategorias.find(c => c.codigo === code);
+      const template = catalogoEtapas.find(c => c.codigo === code);
       if (!template) continue;
-      if (categorias.some(c => c.nome === template.nome)) continue;
+      if (etapas.some(c => c.nome === template.nome)) continue;
       toAdd.push({
         id: crypto.randomUUID(),
         codigo: template.codigo,
@@ -167,12 +495,38 @@ export default function OrcamentoEditor({
       });
     }
     if (toAdd.length > 0) {
-      setCategorias(prev => [...prev, ...toAdd]);
+      setEtapasWithUndo(prev => [...prev, ...toAdd]);
       toast({ title: `${toAdd.length} etapa${toAdd.length !== 1 ? 's' : ''} adicionada${toAdd.length !== 1 ? 's' : ''}!` });
     }
     setSelectedTemplateCodes(new Set());
     setTemplateDialogOpen(false);
   };
+
+  /** Adiciona composições coladas do Excel a uma etapa existente */
+  const handleApplyPastedComposicoes = useCallback((etapaId: string, composicoes: PastedComposicao[]) => {
+    setEtapasWithUndo(prev => prev.map(e => {
+      if (e.id !== etapaId) return e;
+      const novas = composicoes.map(c => ({
+        id: crypto.randomUUID(),
+        codigo: generateComposicaoCodigo(e.codigo, [...e.composicoes.map(x => x.codigo)]),
+        descricao: c.descricao,
+        unidade: c.unidade ?? 'un',
+        quantidade: c.quantidade ?? null,
+        precoUnitario: c.precoUnitario ?? null,
+        precoTotal: (c.quantidade ?? 0) * (c.precoUnitario ?? 0),
+        insumos: [],
+        usaInsumos: false,
+      }));
+      const composicoesAtualizadas = [...e.composicoes, ...novas];
+      return {
+        ...e,
+        usaComposicoes: true,
+        composicoes: composicoesAtualizadas,
+        precoTotal: composicoesAtualizadas.reduce((s, c) => s + (c.precoTotal || 0), 0),
+      };
+    }));
+    toast({ title: `${composicoes.length} composição${composicoes.length !== 1 ? 'ões' : ''} importada${composicoes.length !== 1 ? 's' : ''}!` });
+  }, [setEtapasWithUndo, generateComposicaoCodigo]);
 
   const toggleTemplateCode = (code: string, checked: boolean) => {
     setSelectedTemplateCodes(prev => {
@@ -182,23 +536,23 @@ export default function OrcamentoEditor({
     });
   };
 
-  const updateCategoria = (idx: number, categoriaAtualizada: OrcamentoCategoria) => {
-    setCategorias(prev => {
+  const updateEtapa = (idx: number, etapaAtualizada: OrcamentoEtapa) => {
+    setEtapas(prev => {
       const next = [...prev];
-      next[idx] = categoriaAtualizada;
+      next[idx] = etapaAtualizada;
       return next;
     });
   };
 
-  const removeCategoria = (idx: number) => {
-    setCategorias(prev => prev.filter((_, i) => i !== idx));
+  const removeEtapa = (idx: number) => {
+    setEtapasWithUndo(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleSave = async () => {
     try {
       setSaveStatus('saving');
-      await saveOrcamento({ obraId, categorias });
-      lastSavedSnapshotRef.current = JSON.stringify(categorias);
+      await saveOrcamento({ obraId, etapas });
+      lastSavedSnapshotRef.current = JSON.stringify(etapas);
       setSaveStatus('saved');
       toast({ title: 'Orçamento salvo com sucesso!' });
       window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
@@ -216,25 +570,31 @@ export default function OrcamentoEditor({
       toast({ title: 'Orçamento não encontrado para esta obra', variant: 'destructive' });
       return;
     }
-    const cloned: OrcamentoCategoria[] = source.categorias.map(cat => ({
+    const cloned: OrcamentoEtapa[] = source.etapas.map(cat => ({
       ...cat,
       id: crypto.randomUUID(),
       composicoes: cat.composicoes.map(comp => ({
         ...comp,
         id: crypto.randomUUID(),
-        subitens: comp.subitens.map(si => ({
+        insumos: comp.insumos.map(si => ({
           ...si,
-          id: `si-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `ins-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         })),
       })),
     }));
-    setCategorias(cloned);
+
+    if (importMode === 'mesclar') {
+      setEtapasWithUndo(prev => [...prev, ...cloned]);
+      toast({ title: `${cloned.length} etapa${cloned.length !== 1 ? 's' : ''} importada${cloned.length !== 1 ? 's' : ''} e mesclada${cloned.length !== 1 ? 's' : ''}!` });
+    } else {
+      setEtapasWithUndo(cloned);
+      toast({ title: 'Orçamento substituído. Edite conforme necessário.' });
+    }
     setImportDialogOpen(false);
-    toast({ title: 'Orçamento importado com sucesso! Edite conforme necessário.' });
   };
 
   const handleImportarSinapi = async (params: {
-    categoriaId: string;
+    etapaId: string;
     referenciaId: string;
     competencia: string;
     codigoComposicao: number;
@@ -243,7 +603,7 @@ export default function OrcamentoEditor({
     resultadoBase?: SinapiComposicaoExpandida;
     onProgress?: (progress: number, message: string) => void;
   }) => {
-    const { categoriaId, referenciaId, competencia, codigoComposicao, uf, regime, resultadoBase, onProgress } = params;
+    const { etapaId, referenciaId, competencia, codigoComposicao, uf, regime, resultadoBase, onProgress } = params;
 
     onProgress?.(20, 'Carregando composição...');
     const expandida = resultadoBase ?? await expandirComposicaoSinapi({ referenciaId, codigoComposicao, uf, regime });
@@ -252,28 +612,34 @@ export default function OrcamentoEditor({
     const composicao = sinapiExpandidaParaOrcamentoComposicao({ resultado: expandida, competencia });
 
     onProgress?.(90, 'Inserindo composição na etapa selecionada...');
-    setCategorias(prev =>
+    setEtapas(prev =>
       prev.map(cat => {
-        if (cat.id !== categoriaId) return cat;
+        if (cat.id !== etapaId) return cat;
         const composicoes = [...cat.composicoes, composicao];
-        const precoTotal = composicoes.reduce((acc: number, item) => acc + (Number(item.precoTotal) || 0), 0);
+        const precoTotal = composicoes.reduce((acc, item) => acc + (Number(item.precoTotal) || 0), 0);
         return { ...cat, usaComposicoes: true, composicoes, precoTotal };
       })
     );
-    setExpandedCategoriaId(categoriaId);
+    setExpandedEtapaId(etapaId);
     setAllExpanded(undefined);
     onProgress?.(100, 'Finalizado.');
   };
 
-  // Catalog items not yet added
-  const availableCats = catalogoCategorias.filter(c => !categorias.some(cat => cat.nome === c.nome));
-  const obrasComOrcamento = orcamentos.filter(o => o.obraId !== obraId && o.categorias.length > 0);
+  const updateSinapiConfig = (partial: Partial<SinapiConfig>) => {
+    const next = { ...sinapiConfig, ...partial };
+    setSinapiConfig(next);
+    saveSinapiConfig(next);
+  };
+
+  const availableCats = catalogoEtapas.filter(c => !etapas.some(cat => cat.nome === c.nome));
+  const obrasComOrcamento = orcamentos.filter(o => o.obraId !== obraId && o.etapas.length > 0);
+  const anyExpanded = allExpanded === true;
 
   const saveStatusLabel =
     saveStatus === 'saving' ? 'Salvando...' :
-    saveStatus === 'saved'  ? 'Salvo automaticamente ✓' :
-    saveStatus === 'error'  ? 'Erro no salvamento' :
-    'Auto-save ativo';
+    saveStatus === 'saved'  ? 'Salvo ✓' :
+    saveStatus === 'error'  ? 'Erro no save' :
+    '';
 
   const saveStatusColor =
     saveStatus === 'saving' ? 'text-muted-foreground' :
@@ -283,226 +649,448 @@ export default function OrcamentoEditor({
 
   return (
     <>
-      <div className="space-y-6">
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between gap-3">
-          <Button variant="outline" onClick={onBack} className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </Button>
+      <div className="flex flex-col h-full overflow-hidden">
 
-          <div className="flex items-center gap-2">
-            <span className={`text-sm hidden sm:inline ${saveStatusColor}`}>{saveStatusLabel}</span>
+        {/* Header movido para OrcamentoCentral (header global) */}
 
-            {/* Botão de bloqueio — muda para modo visualização */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBack}
-              title="Bloquear edição (modo visualização)"
-              className="text-muted-foreground hover:text-foreground"
-              aria-label="Fechar editor e entrar em modo de visualização"
-            >
-              <Lock className="w-4 h-4" />
-            </Button>
-
-            <Button onClick={handleSave} className="gap-2">
-              <Save className="w-4 h-4" />
-              Salvar
-            </Button>
-          </div>
-        </div>
-
-        {/* ── Totalizador ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Orçamento — {obraNome}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Defina as etapas e composições de custo previsto
-            </p>
-            <div className="rounded-lg border p-4 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">Total Previsto</div>
-              <div className="text-2xl font-semibold">{formatCurrency(totalGeral)}</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ── Adicionar etapa ── */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Etapas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {/* Ação principal: cria etapa em branco imediatamente */}
-              <Button onClick={addEmptyCategoria} className="gap-1.5">
-                <Plus className="w-4 h-4" />
-                Nova etapa
-              </Button>
-
-              {/* Template do catálogo */}
-              {availableCats.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedTemplateCodes(new Set());
-                    setTemplateDialogOpen(true);
-                  }}
-                  className="gap-1.5"
-                >
-                  <LayoutTemplate className="w-4 h-4" />
-                  Usar modelo…
-                </Button>
-              )}
-
-              {/* Importar de outra obra */}
-              {obrasComOrcamento.length > 0 && (
-                <Button variant="outline" onClick={() => setImportDialogOpen(true)} className="gap-1.5">
-                  <Copy className="w-4 h-4" />
-                  Importar orçamento
-                </Button>
-              )}
-
-              {/* SINAPI */}
-              <Button
-                variant="outline"
-                onClick={() => setImportSinapiOpen(true)}
-                className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
-              >
-                <DatabaseZap className="w-3.5 h-3.5" />
-                Importar da SINAPI
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ── Recolher / expandir ── */}
-        {categorias.length > 0 && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setAllExpanded(true)}>
-              <ChevronDown className="w-4 h-4 mr-1" /> Abrir todas
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setAllExpanded(false)}>
-              <ChevronRight className="w-4 h-4 mr-1" /> Fechar todas
-            </Button>
-          </div>
-        )}
-
-        {/* ── Etapas ── */}
-        <div className="space-y-4">
-          {categorias.map((cat, idx) => (
-            <CategoriaBlock
-              key={cat.id}
-              categoria={cat}
-              onChange={(c: OrcamentoCategoria) => updateCategoria(idx, c)}
-              onRemove={() => removeCategoria(idx)}
-              unidades={unidades}
-              getSugestaoInsumos={getSugestaoInsumos}
-              generateComposicaoCodigo={generateComposicaoCodigo}
-              generateSubitemCodigo={generateSubitemCodigo}
-              forceExpanded={expandedCategoriaId === cat.id ? true : allExpanded}
+        {/* ── Sprint 4: Seletor de versão ───────────────────────────────── */}
+        {getVersoes(obraId).length > 0 && (
+          <div className="flex items-center gap-2 px-4 md:px-6 py-2 border-b bg-background shrink-0">
+            <span className="text-xs text-muted-foreground font-medium hidden sm:inline">Versão:</span>
+            <VersaoSeletor
+              obraId={obraId}
+              versaoAtiva={versaoAtiva}
+              onVersaoChange={v => {
+                setVersaoAtiva(v);
+                // Trocar etapas para a nova versão
+                const etapasDaVersao = getEtapasDaVersao(v.id);
+                if (etapasDaVersao) setEtapas(etapasDaVersao);
+              }}
+              readOnly={readOnly}
             />
-          ))}
-        </div>
-
-        {/* Estado vazio */}
-        {categorias.length === 0 && (
-          <Card>
-            <CardContent className="py-10 text-center space-y-2">
-              <p className="text-muted-foreground text-sm">Nenhuma etapa adicionada.</p>
-              <p className="text-xs text-muted-foreground">
-                Clique em <span className="font-medium">Nova etapa</span> para começar do zero,
-                ou em <span className="font-medium">Usar modelo…</span> para aproveitar o catálogo.
-              </p>
-            </CardContent>
-          </Card>
+          </div>
         )}
 
-        {/* Totalizador rodapé */}
-        {categorias.length > 0 && (
-          <Card>
-            <CardContent className="py-4 flex items-center justify-between">
-              <div>
-                <div className="text-sm text-muted-foreground">Total Geral Previsto</div>
-                <div className="text-xs text-muted-foreground">
-                  {categorias.length} etapa{categorias.length !== 1 ? 's' : ''}
+        {/* ── Toolbar de Ações ──────────────────────────────────────────── */}
+        {!readOnly && (
+          <div className="flex items-center gap-2 px-4 md:px-6 py-1.5 border-b bg-muted/20 shrink-0">
+            {/* 3B Nova etapa com hint de atalho */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={addEmptyEtapa} size="sm" className="gap-1.5 h-7 text-xs">
+                    <Plus className="w-3.5 h-3.5" />
+                    Nova etapa
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Nova etapa <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted border rounded font-mono">N</kbd>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Expandir / Colapsar */}
+            {etapas.length > 0 && (
+              <button
+                onClick={() => setAllExpanded(prev => prev === true ? false : true)}
+                title={anyExpanded ? 'Colapsar todas' : 'Expandir todas'}
+                className="flex items-center gap-1 px-2 h-7 text-xs text-muted-foreground hover:text-foreground border rounded-md hover:bg-muted/50 transition-colors"
+              >
+                {anyExpanded
+                  ? <><ChevronsDownUp className="h-3.5 w-3.5" /> Fechar todas</>
+                  : <><ChevronsUpDown className="h-3.5 w-3.5" /> Abrir todas</>}
+              </button>
+            )}
+
+
+            {/* Botão Colar do Excel */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 h-7 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
+                    onClick={() => setPasteDialogOpen(true)}
+                    disabled={etapas.length === 0}
+                  >
+                    <ClipboardPaste className="w-3.5 h-3.5" />
+                    Colar Excel
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Importar composições copiando do Excel ou Google Sheets
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Botão global do hub de orçamento rápido */}
+            {!readOnly && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative hidden sm:block">
+                      {/* Anel pulsante — chama atenção para o fluxo mais poderoso */}
+                      {etapas.length > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-violet-500" />
+                        </span>
+                      )}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="gap-1.5 h-7 text-xs bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white border-0 shadow-sm"
+                        onClick={() => handleOpenCatalogo()}
+                      >
+                        <Zap className="w-3.5 h-3.5" />
+                        Orçamento Rápido
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+                    <p className="font-semibold mb-1">⚡ Orçamento Rápido</p>
+                    <p className="text-muted-foreground leading-snug">Adicione composicoes, insumos e itens do SINAPI de forma rápida sem sair da planilha. O fluxo mais eficiente para montar orçamentos completos.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
+            {/* Menu "Mais" — ações secundárias */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs text-muted-foreground">
+                  <MoreHorizontal className="w-3.5 h-3.5" />
+                  Mais
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                {obrasComOrcamento.length > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => setImportDialogOpen(true)}
+                    className="text-xs gap-2"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Importar de outra obra
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+
+            {/* Undo / Redo + Salvar + Toggle Densidade — todos no ml-auto */}
+            <div className="ml-auto flex items-center gap-2">
+              {/* Status de save */}
+              {saveStatus === 'saving' && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground hidden sm:flex">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Salvando
+                </span>
+              )}
+              {saveStatus === 'saved' && (
+                <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hidden sm:flex animate-in fade-in duration-300">
+                  <Check className="h-3 w-3" />
+                  Salvo
+                </span>
+              )}
+              {saveStatus === 'error' && (
+                <span className="flex items-center gap-1 text-xs text-destructive hidden sm:flex">
+                  <XCircle className="h-3 w-3" />
+                  Erro
+                </span>
+              )}
+              {/* Undo / Redo */}
+              <TooltipProvider>
+                <div className="flex items-center gap-0.5 border rounded-md overflow-hidden">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        disabled={!undoManager.canUndo}
+                        onClick={() => { const u = undoManager.undo(etapas); if (u) setEtapas(u); }}
+                        className="flex items-center px-2 py-1 text-sm text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >↩</button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Desfazer <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted border rounded font-mono">Ctrl+Z</kbd>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="w-px h-4 bg-border" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        disabled={!undoManager.canRedo}
+                        onClick={() => { const r = undoManager.redo(etapas); if (r) setEtapas(r); }}
+                        className="flex items-center px-2 py-1 text-sm text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >↪</button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Refazer <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted border rounded font-mono">Ctrl+⇧+Z</kbd>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
+              </TooltipProvider>
+              {/* Botão salvar */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={handleSave} variant="outline" size="sm" className="gap-1.5 h-7 text-xs">
+                      <Save className="w-3.5 h-3.5" />
+                      Salvar
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Salvar manualmente <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted border rounded font-mono">Ctrl+S</kbd>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {/* ── Sprint 3.2: Toggle Sugestão de Preços ── */}
+              {!readOnly && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={handleTogglePriceSuggestion}
+                        className={cn(
+                          'flex items-center gap-1.5 px-2.5 h-7 rounded-md border text-xs font-medium transition-all',
+                          priceSuggestionEnabled
+                            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400'
+                            : 'border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                        )}
+                      >
+                        <Sparkles className={cn('h-3.5 w-3.5', priceSuggestionEnabled && 'text-amber-500')} />
+                        <span className="hidden sm:inline">Sugestão de preços</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-56">
+                      {priceSuggestionEnabled
+                        ? 'Sugestão de preços ativa — busca automática no histórico da empresa e SINAPI'
+                        : 'Ativar sugestão automática de preços por histórico e SINAPI'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {/* ── Toggle de densidade — 3 ícones ── */}
+              <div className="flex items-center border rounded-md overflow-hidden">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => handleSetDensity('detalhado')} className={cn('flex items-center justify-center px-2 h-7 transition-colors', densityMode === 'detalhado' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50')}>
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">Detalhado — cabeçalhos e botões visíveis</TooltipContent>
+                  </Tooltip>
+                  <div className="w-px h-4 bg-border" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => handleSetDensity('padrao')} className={cn('flex items-center justify-center px-2 h-7 transition-colors', densityMode === 'padrao' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50')}>
+                        <AlignJustify className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">Padrão — sem cabeçalho de colunas</TooltipContent>
+                  </Tooltip>
+                  <div className="w-px h-4 bg-border" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => handleSetDensity('compacto')} className={cn('flex items-center justify-center px-2 h-7 transition-colors', densityMode === 'compacto' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50')}>
+                        <Minimize2 className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">Compacto — uma linha por composição</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              <div className="text-xl font-semibold">{formatCurrency(totalGeral)}</div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
+
+        {/* ── Área de conteúdo ─────────────────────────────────────────────── */}
+        <div className="flex-1 flex overflow-hidden">
+
+          {/* Lista de etapas */}
+          <div className={cn(
+            'flex-1 overflow-y-auto p-4 md:p-6 space-y-3 transition-all duration-300',
+          )}>
+
+            {/* ── Sprint 3.4: Banner de revisão SINAPI ? ── */}
+            {uncertainCount > 0 && !bannerDismissed && (
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 animate-in fade-in duration-300">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                    {uncertainCount} preço{uncertainCount !== 1 ? 's' : ''} com correspondência SINAPI incerta — recomendável revisar
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBannerDismissed(true)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            {etapas.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed py-14 px-6 bg-muted/5">
+                {!readOnly ? (
+                  <>
+                    <div className="text-center mb-8">
+                      <div className="text-3xl mb-2">📋</div>
+                      <p className="text-sm font-medium text-muted-foreground">Nenhuma etapa adicionada ainda</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Escolha como quer começar:</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+                      {/* Card: etapas pré-definidas */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCatalogo()}
+                        className="flex flex-col items-start gap-2 rounded-xl border-2 border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 p-4 text-left hover:border-violet-400 dark:hover:border-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all group"
+                      >
+                        <div className="h-9 w-9 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+                          <LayoutTemplate className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Usar etapas pré-definidas</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Selecione as etapas comuns da sua obra</p>
+                        </div>
+                        <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1 group-hover:gap-2 transition-all">
+                          Selecionar <ChevronRight className="h-3.5 w-3.5" />
+                        </span>
+                      </button>
+
+                      {/* Card: colar do Excel */}
+                      <button
+                        type="button"
+                        onClick={() => setPasteDialogOpen(true)}
+                        className="flex flex-col items-start gap-2 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 text-left hover:border-emerald-400 dark:hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all group"
+                      >
+                        <div className="h-9 w-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                          <ClipboardPaste className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Já tenho planilha no Excel</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Cole suas composições diretamente</p>
+                        </div>
+                        <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:gap-2 transition-all">
+                          Colar Excel <ChevronRight className="h-3.5 w-3.5" />
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Link discreto */}
+                    <div className="text-center mt-5">
+                      <button
+                        type="button"
+                        onClick={addEmptyEtapa}
+                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                      >
+                        + Criar etapa manualmente
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-3 text-center">
+                    <div className="text-4xl">📋</div>
+                    <p className="text-muted-foreground font-medium">Nenhuma etapa adicionada.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={({ active }) => setActiveEtapaId(active.id as string)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={etapas.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                    {etapas.map((cat, idx) => (
+                      <SortableEtapaWrapper key={cat.id} id={cat.id}>
+                        {({ dragListeners }) => (
+                          <EtapaBlock
+                            etapa={cat}
+                            posicao={idx + 1}
+                            onChange={(c: OrcamentoEtapa) => updateEtapa(idx, c)}
+                            onRemove={() => removeEtapa(idx)}
+                            unidades={unidades}
+                            generateComposicaoCodigo={generateComposicaoCodigo}
+                            generateInsumoCodigo={generateInsumoCodigo}
+                            forceExpanded={expandedEtapaId === cat.id ? true : allExpanded}
+                            readOnly={readOnly}
+                            obraId={obraId}
+                            allEtapas={etapas}
+                            dragListeners={dragListeners}
+                            onOpenCatalogo={() => handleOpenCatalogo(cat)}
+                            compactMode={compactMode}
+                            densityMode={densityMode}
+                            onGoCotacao={onGoCotacao}
+                            priceSuggestionEnabled={priceSuggestionEnabled}
+                            onPriceBadge={handlePriceBadge}
+                          />
+                        )}
+                      </SortableEtapaWrapper>
+                    ))}
+                  </SortableContext>
+                  <DragOverlay>
+                    {activeEtapaId && (
+                      <div className="rounded-lg border-2 border-primary/60 bg-card opacity-90 shadow-2xl p-4">
+                        <p className="text-sm font-semibold">
+                          {etapas.find(e => e.id === activeEtapaId)?.nome || 'Etapa'}
+                        </p>
+                      </div>
+                    )}
+                  </DragOverlay>
+                </DndContext>
+
+                {/* Rodapé totalizador */}
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl border bg-muted/30">
+                  <div>
+                    <div className="text-xs text-muted-foreground font-medium">Total Geral Previsto</div>
+                    <div className="text-[10px] text-muted-foreground">{etapas.length} etapa{etapas.length !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div className="text-lg font-bold text-foreground">{formatCurrency(totalGeral)}</div>
+                </div>
+              </>
+            )}
+        </div>
       </div>
 
-      {/* ── Dialog: Selecionar modelo de etapa ── */}
-      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-md">
+      {/* ── CatalogDrawer — substituiu o painel 50/50 ─────────────────── */}
+      <CatalogDrawer
+        open={catalogDrawerOpen}
+        onOpenChange={setCatalogDrawerOpen}
+        etapas={etapas}
+        defaultEtapaId={catalogDrawerDefaultEtapaId}
+        defaultTab={etapas.length === 0 ? 'etapas' : 'biblioteca'}
+        onApply={handleCatalogApply}
+        onApplyEtapas={(templates) => {
+          const toAdd = templates.filter(
+            (t) => !etapas.some((e) => e.nome === t.nome)
+          );
+          if (toAdd.length === 0) return;
+          const newEtapas = toAdd.map((t) => ({
+            id: crypto.randomUUID(),
+            codigo: t.codigo,
+            nome: t.nome,
+            precoTotal: 0,
+            usaComposicoes: true,
+            composicoes: [],
+          }));
+          setEtapasWithUndo((prev) => [...prev, ...newEtapas]);
+        }}
+      />
+
+
+      {/* ── Dialog: Importar orçamento de outra obra ──────────────────── */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Selecionar modelo de etapa</DialogTitle>
+            <DialogTitle>Importar orçamento</DialogTitle>
             <DialogDescription>
-              Escolha uma ou mais etapas do catálogo para adicionar ao orçamento.
+              Selecione a obra de origem e como deseja importar.
             </DialogDescription>
           </DialogHeader>
-
-          <ScrollArea className="max-h-72 pr-2">
-            <div className="space-y-1">
-              {availableCats.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Todas as etapas do catálogo já foram adicionadas.
-                </p>
-              ) : (
-                availableCats.map(cat => {
-                  const checked = selectedTemplateCodes.has(cat.codigo);
-                  return (
-                    <label
-                      key={cat.codigo}
-                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors hover:bg-muted ${checked ? 'bg-primary/5' : ''}`}
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={v => toggleTemplateCode(cat.codigo, !!v)}
-                        id={`tpl-${cat.codigo}`}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium leading-tight">{cat.nome}</p>
-                        <p className="text-[11px] text-muted-foreground">{cat.codigo}</p>
-                      </div>
-                    </label>
-                  );
-                })
-              )}
-            </div>
-          </ScrollArea>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={addFromTemplates}
-              disabled={selectedTemplateCodes.size === 0}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              {selectedTemplateCodes.size > 0
-                ? `Adicionar ${selectedTemplateCodes.size} etapa${selectedTemplateCodes.size !== 1 ? 's' : ''}`
-                : 'Adicionar etapas'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Dialog: Importar orçamento de outra obra ── */}
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Importar Orçamento de Outra Obra</DialogTitle>
-          </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Selecione a obra de origem. O orçamento será copiado e você poderá editá-lo livremente.
-            </p>
             <Select value={importObraId} onValueChange={setImportObraId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione a obra de origem" />
@@ -512,28 +1100,88 @@ export default function OrcamentoEditor({
                   const obra = obras.find(ob => ob.id === o.obraId);
                   return (
                     <SelectItem key={o.obraId} value={o.obraId}>
-                      {obra?.nome || o.obraId} ({o.categorias.length} etapas)
+                      {obra?.nome || o.obraId} ({o.etapas.length} etapas)
                     </SelectItem>
                   );
                 })}
               </SelectContent>
             </Select>
+
+            {/* Escolha de modo */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Como importar?</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setImportMode('mesclar')}
+                  className={cn(
+                    'rounded-lg border p-3 text-left transition-colors',
+                    importMode === 'mesclar' ? 'border-primary bg-primary/8 dark:bg-indigo-950/30' : 'border-border hover:bg-muted/40'
+                  )}
+                >
+                  <div className="text-sm font-semibold mb-0.5">Mesclar</div>
+                  <div className="text-[10px] text-muted-foreground">Adiciona as etapas ao orçamento atual sem remover nada</div>
+                </button>
+                <button
+                  onClick={() => setImportMode('substituir')}
+                  className={cn(
+                    'rounded-lg border p-3 text-left transition-colors',
+                    importMode === 'substituir' ? 'border-red-500 bg-red-50 dark:bg-red-950/30' : 'border-border hover:bg-muted/40'
+                  )}
+                >
+                  <div className="text-sm font-semibold mb-0.5">Substituir</div>
+                  <div className="text-[10px] text-muted-foreground">Remove o orçamento atual e importa o da obra selecionada</div>
+                </button>
+              </div>
+              {importMode === 'substituir' && (
+                <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400">O orçamento atual será perdido. Esta ação pode ser desfeita com Ctrl+Z.</p>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setImportDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleImport}>Importar</Button>
+            <Button
+              onClick={handleImport}
+              disabled={!importObraId}
+              className={importMode === 'substituir' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+            >
+              {importMode === 'mesclar' ? 'Mesclar' : 'Substituir'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Dialog: SINAPI ── */}
+      {/* ── Dialog: SINAPI ─────────────────────────────────────────────── */}
       <ImportarSinapiDialog
         open={importSinapiOpen}
         onOpenChange={setImportSinapiOpen}
-        categorias={categorias}
-        defaultCompetencia="2026-02"
+        etapas={etapas}
+        defaultCompetencia={sinapiConfig.competencia}
         onConfirm={handleImportarSinapi}
       />
+
+      {/* ── QuickStart Wizard (primeira visita com orçamento vazio) ─────── */}
+      {!readOnly && (
+        <QuickStartModal
+          hasNoEtapas={etapas.length === 0}
+          onStartManual={() => { addEmptyEtapa(); }}
+          onOpenTemplates={() => setCatalogDrawerOpen(true)}
+          onOpenSinapi={() => setImportSinapiOpen(true)}
+          onOpenPaste={() => setPasteDialogOpen(true)}
+        />
+      )}
+
+      {/* ── PasteImportDialog ───────────────────────────────────────────── */}
+      <PasteImportDialog
+        mode="planilha"
+        open={pasteDialogOpen}
+        onOpenChange={setPasteDialogOpen}
+        etapas={etapas}
+        onApplyComposicoes={handleApplyPastedComposicoes}
+      />
+    </div>{/* ← fecha <div className="flex flex-col h-full overflow-hidden"> */}
     </>
   );
 }

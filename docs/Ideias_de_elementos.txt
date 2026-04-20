@@ -1,0 +1,328 @@
+1) Breadcrumbs
+
+Já falamos deles, mas resumindo:
+
+Servem para mostrar o caminho da página atual.
+
+Exemplo
+
+Obras > Residência Souza > Orçamentos > Revisão 03
+
+Quando usar
+páginas internas
+páginas de detalhe
+telas com hierarquia
+Benefício
+reduz sensação de perda
+melhora navegação
+dá contexto imediato
+2) Tabs
+
+São abas dentro de uma mesma página ou contexto.
+
+Exemplo em uma obra
+Resumo
+Orçamentos
+Compras
+Financeiro
+Documentos
+Diário
+Agenda
+
+Em vez de levar o usuário para páginas totalmente separadas, você pode concentrar tudo dentro do contexto da obra.
+
+Quando usar
+quando várias seções pertencem ao mesmo objeto
+quando o usuário precisa alternar entre blocos relacionados
+Benefício
+navegação mais rápida
+menos sensação de sair e entrar em telas
+experiência mais fluida
+Cuidado
+
+Não colocar abas demais.
+Se tiver muitas, fica ruim. Aí pode virar menu lateral interno.
+
+3) Sidebar
+
+É o menu lateral principal do sistema.
+
+Exemplo
+Dashboard
+Obras
+Orçamentos
+Compras
+Financeiro
+Fornecedores
+Agenda
+Relatórios
+Configurações
+Pode ter
+ícones
+grupos
+item ativo destacado
+contadores
+submenu
+modo recolhido
+Benefício
+navegação global clara
+acesso rápido aos módulos
+estrutura o sistema inteiro
+No seu caso
+
+Seu sistema já está ficando robusto, então uma sidebar bem pensada é essencial.
+
+4) Command palette / busca global
+
+Esse é um recurso muito moderno.
+
+É aquele painel que abre ao apertar algo como:
+Ctrl + K
+
+E permite pesquisar qualquer coisa:
+
+obra
+cliente
+orçamento
+fornecedor
+item
+documento
+ação do sistema
+Exemplo
+
+O usuário digita:
+“Souza”
+e o sistema mostra:
+
+Obra Residência Souza
+Orçamento Residência Souza Rev. 2
+Documento contrato Souza
+Fornecedor Souza Materiais
+Benefício
+acelera demais o uso
+passa sensação de sistema premium
+reduz cliques
+Excelente para você
+
+Como seu SaaS tende a crescer em quantidade de módulos e registros, isso pode virar um grande diferencial.
+
+5) Filtros salvos
+
+Muito útil para sistemas com muita informação.
+
+Exemplo em orçamentos
+
+O usuário filtra:
+
+status = pendente
+obra = Residência Souza
+categoria = elétrica
+
+Depois ele salva isso como:
+“Pendentes elétrica - Souza”
+
+Exemplo em compras
+entregas atrasadas
+compras desta semana
+pedidos aguardando cotação
+Benefício
+economiza tempo
+melhora produtividade
+faz o usuário sentir que o sistema “se adapta” a ele
+6) Itens recentes
+
+Lista de últimos acessos.
+
+Exemplo
+Obra Residência Souza
+Orçamento Edifício Central
+Fornecedor Alfa Materiais
+Relatório Financeiro Março
+Benefício
+agiliza retorno ao que estava sendo usado
+ajuda muito em sistemas operacionais do dia a dia
+7) Favoritos / fixados
+
+Permite fixar:
+
+obras importantes
+relatórios mais usados
+fornecedores principais
+filtros
+dashboards
+Benefício
+acesso rápido
+melhora o fluxo dos usuários frequentes
+útil para quem trabalha sempre com poucas obras ao mesmo tempo
+8) Menu contextual / ações rápidas
+
+Ações disponíveis diretamente no item.
+
+Exemplo em uma linha de orçamento
+editar
+duplicar
+excluir
+ver histórico
+anexar
+transformar em compra
+Exemplo em uma obra
+abrir
+arquivar
+duplicar
+gerar relatório
+compartilhar
+Benefício
+reduz cliques
+deixa a operação mais fluida
+melhora sensação de produtividade
+9) Quick actions no topo
+
+Botões de ação rápida visíveis.
+
+Exemplo
+Nova obra
+Novo orçamento
+Novo pedido
+Novo fornecedor
+Importar composição
+Gerar relatório
+Benefício
+reduz esforço
+orienta o uso
+destaca as ações importantes
+10) Busca local dentro da página
+
+Além da busca global, vale ter busca específica dentro de módulos.
+
+Exemplo
+
+Na página de orçamento:
+
+buscar item
+buscar composição
+buscar categoria
+
+Na página de documentos:
+
+buscar contrato
+buscar projeto
+buscar nota fiscal
+Benefício
+ganho enorme de usabilidade
+essencial em tabelas grandes
+11) Modo de visualização
+
+Permitir alternar a forma de ver os dados.
+
+Exemplo em obras
+lista
+cards
+calendário
+cronograma
+Exemplo em documentos
+lista
+grade
+Exemplo em agenda
+dia
+semana
+mês
+Benefício
+adapta o sistema ao tipo de tarefa
+melhora muito a experiência
+12) Subnavegação dentro de páginas complexas
+
+Quando uma tela é grande, você pode criar navegação interna.
+
+Exemplo em uma obra
+resumo
+custos
+compras
+documentos
+equipe
+diário
+
+Isso pode ser com:
+
+tabs
+menu lateral interno
+âncoras
+13) Paginação / carregamento infinito
+
+Em listas muito grandes, o sistema precisa organizar navegação.
+
+Paginação
+
+Página 1, 2, 3...
+
+Carregamento infinito
+
+Vai carregando ao rolar
+
+Em sistemas como o seu
+
+Normalmente paginação costuma ser mais segura para:
+
+tabelas operacionais
+relatórios
+histórico
+14) Drawer / painel lateral
+
+Muito bom para ver ou editar detalhes sem sair da lista.
+
+Exemplo
+
+Na lista de orçamentos, o usuário clica num item e abre um painel lateral com:
+
+resumo
+histórico
+observações
+anexos
+ações
+Benefício
+mantém contexto
+evita navegação excessiva
+deixa o sistema moderno
+15) Empty states com ação
+
+Quando não há dados, a tela precisa orientar.
+
+Exemplo
+
+Nenhum orçamento encontrado
+Crie seu primeiro orçamento ou importe uma composição.
+
+[ Criar orçamento ] [ Importar composição ]
+
+Benefício
+evita tela “morta”
+ajuda onboarding
+melhora entendimento
+16) Notificações e alertas visíveis
+Exemplo
+entrega atrasada
+documento pendente
+custo acima do previsto
+orçamento sem revisão
+pagamento vencendo
+
+Esses alertas podem aparecer:
+
+no topo
+em cards
+em sino de notificações
+em badges no menu
+17) Indicador de contexto no topo
+
+Além do breadcrumb, a tela pode sempre deixar claro:
+
+nome da obra
+status
+cliente
+data
+responsável
+Exemplo
+
+Residência Souza
+Em andamento · 42% concluída · Responsável: Henrique
+
+Isso reforça muito a orientação do usuário.

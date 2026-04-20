@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
+import { OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import { CustoRealItem } from '@/contexts/CustoRealContext';
 import { formatCurrency } from '@/data/mockData';
 import {
@@ -13,7 +13,7 @@ import { parseISO, differenceInWeeks, addWeeks, format, isAfter, isBefore } from
 import { ptBR } from 'date-fns/locale';
 
 interface SCurveChartProps {
-  categorias: OrcamentoCategoria[];
+  etapas: OrcamentoEtapa[];
   custoItens: CustoRealItem[];
   obraInicio: string;
   obraFim: string;
@@ -26,19 +26,19 @@ interface ExtendedProps extends SCurveChartProps {
   onViewModeChange?: (mode: SCurveViewMode) => void;
 }
 
-export default function SCurveChart({ categorias, custoItens, obraInicio, obraFim, viewMode: externalMode, onViewModeChange }: ExtendedProps) {
+export default function SCurveChart({ etapas, custoItens, obraInicio, obraFim, viewMode: externalMode, onViewModeChange }: ExtendedProps) {
   const [internalMode, setInternalMode] = useState<SCurveViewMode>('tempo');
   const viewMode = externalMode ?? internalMode;
   const setViewMode = onViewModeChange ?? setInternalMode;
 
   const data = useMemo(() => {
-    if (!obraInicio || !obraFim || categorias.length === 0) return [];
+    if (!obraInicio || !obraFim || etapas.length === 0) return [];
 
     const inicio = parseISO(obraInicio);
     const fim = parseISO(obraFim);
     const today = new Date();
     const totalWeeks = Math.max(differenceInWeeks(fim, inicio), 1);
-    const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);
+    const totalPrevisto = etapas.reduce((s, c) => s + c.precoTotal, 0);
 
     const points: { semana: string; sNum: number; previsto: number; real: number | null }[] = [];
 
@@ -49,8 +49,8 @@ export default function SCurveChart({ categorias, custoItens, obraInicio, obraFi
       if (viewMode === 'tempo') {
         // Planned: sum weight of categories whose dataFimPrevista <= weekDate
         let plannedPct = 0;
-        const totalWeight = categorias.length;
-        categorias.forEach(c => {
+        const totalWeight = etapas.length;
+        etapas.forEach(c => {
           if (c.dataFimPrevista && !isAfter(parseISO(c.dataFimPrevista), weekDate)) {
             plannedPct += 100 / totalWeight;
           } else if (c.dataInicioPrevista && c.dataFimPrevista) {
@@ -68,7 +68,7 @@ export default function SCurveChart({ categorias, custoItens, obraInicio, obraFi
         let actualPct: number | null = null;
         if (!isAfter(weekDate, today)) {
           actualPct = 0;
-          categorias.forEach(c => {
+          etapas.forEach(c => {
             const pct = c.percentualCronograma ?? 0;
             if (c.dataFimReal && !isAfter(parseISO(c.dataFimReal), weekDate)) {
               actualPct! += 100 / totalWeight;
@@ -95,7 +95,7 @@ export default function SCurveChart({ categorias, custoItens, obraInicio, obraFi
       } else {
         // Cost view
         let plannedCost = 0;
-        categorias.forEach(c => {
+        etapas.forEach(c => {
           if (c.dataFimPrevista && !isAfter(parseISO(c.dataFimPrevista), weekDate)) {
             plannedCost += c.precoTotal;
           } else if (c.dataInicioPrevista && c.dataFimPrevista) {

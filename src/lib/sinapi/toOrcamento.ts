@@ -1,8 +1,8 @@
-import type { OrcamentoComposicao, OrcamentoSubitem } from '@/contexts/OrcamentoContext';
+import type { OrcamentoComposicao, OrcamentoInsumo } from '@/contexts/OrcamentoContext';
 import type { SinapiComposicaoExpandida } from './expandComposicao';
 
-function gerarCodigoSubitem(index: number) {
-  return `SIN-SUB-${String(index + 1).padStart(3, '0')}`;
+function gerarCodigoInsumo(index: number) {
+  return `SIN-INS-${String(index + 1).padStart(3, '0')}`;
 }
 
 export function sinapiExpandidaParaOrcamentoComposicao(params: {
@@ -11,7 +11,7 @@ export function sinapiExpandidaParaOrcamentoComposicao(params: {
 }): OrcamentoComposicao {
   const { resultado, competencia } = params;
 
-  const subitens: OrcamentoSubitem[] = resultado.consolidado.map((item, index) => {
+  const insumos: OrcamentoInsumo[] = resultado.consolidado.map((item, index) => {
     const origemPrincipal = item.origens[0];
     const precoUnitario = item.precoUnitario;
     const precoTotal = precoUnitario != null
@@ -20,7 +20,7 @@ export function sinapiExpandidaParaOrcamentoComposicao(params: {
 
     return {
       id: crypto.randomUUID(),
-      codigo: gerarCodigoSubitem(index),
+      codigo: gerarCodigoInsumo(index),
       descricao: item.descricao,
       unidade: item.unidade || '',
       quantidade: Number(item.quantidade),
@@ -48,8 +48,8 @@ export function sinapiExpandidaParaOrcamentoComposicao(params: {
     quantidade: 1,
     precoUnitario: custoUnitario,
     precoTotal: custoUnitario,
-    subitens,
-    usaSubitens: true,
+    insumos,
+    usaInsumos: true,
 
     fonteReferencia: 'SINAPI',
     codigoReferenciaExterna: String(resultado.composicaoPrincipal.codigo),

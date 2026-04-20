@@ -56,17 +56,17 @@ import {
   type SinapiComposicaoExpandida,
 } from '@/lib/sinapi/expandComposicao';
 
-import type { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
+import type { OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ImportarSinapiDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  categorias: OrcamentoCategoria[];
+  etapas: OrcamentoEtapa[];
   defaultCompetencia?: string;
   onConfirm: (params: {
-    categoriaId: string;
+    etapaId: string;
     referenciaId: string;
     competencia: string;
     codigoComposicao: number;
@@ -157,7 +157,7 @@ function buildPreview(base: SinapiComposicaoExpandida): PreviewData {
 export default function ImportarSinapiDialog({
   open,
   onOpenChange,
-  categorias,
+  etapas,
   defaultCompetencia = '',
   onConfirm,
 }: ImportarSinapiDialogProps) {
@@ -166,7 +166,7 @@ export default function ImportarSinapiDialog({
   const [referenciaId, setReferenciaId] = useState('');
   const [uf, setUf]                     = useState('SP');
   const [regime, setRegime]             = useState<SinapiRegime>('SEM_DESONERACAO');
-  const [categoriaId, setCategoriaId]   = useState('');
+  const [etapaId, setEtapaId]   = useState('');
   const [grupoSelecionado, setGrupoSelecionado] = useState('');
   const [competencia, setCompetencia]   = useState(defaultCompetencia);
 
@@ -290,7 +290,6 @@ export default function ImportarSinapiDialog({
         variant: 'destructive',
       }))
       .finally(() => setLoadingGrupos(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [referenciaId, referencias]);
 
   // Quando grupo muda: carrega TODAS as composições do grupo
@@ -309,7 +308,6 @@ export default function ImportarSinapiDialog({
         variant: 'destructive',
       }))
       .finally(() => setLoadingComposicoes(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grupoSelecionado, referenciaId]);
 
   // Preview automático ao selecionar composição
@@ -326,7 +324,7 @@ export default function ImportarSinapiDialog({
   // ─── Submit ──────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!categoriaId) { toast({ title: 'Selecione a etapa destino', variant: 'destructive' }); return; }
+    if (!etapaId) { toast({ title: 'Selecione a etapa destino', variant: 'destructive' }); return; }
     if (!referenciaId) { toast({ title: 'Selecione a referência SINAPI', variant: 'destructive' }); return; }
     if (!composicaoSelecionada) { toast({ title: 'Selecione uma composição', variant: 'destructive' }); return; }
 
@@ -337,7 +335,7 @@ export default function ImportarSinapiDialog({
     try {
       appendLog(resultadoBase ? 'Usando composição já carregada...' : 'Carregando composição...', 20);
       await onConfirm({
-        categoriaId, referenciaId, competencia,
+        etapaId, referenciaId, competencia,
         codigoComposicao: composicaoSelecionada.codigo,
         uf, regime, resultadoBase,
         onProgress: (p, m) => appendLog(m, p),
@@ -418,12 +416,12 @@ export default function ImportarSinapiDialog({
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs text-muted-foreground h-4 flex items-center">Etapa destino</Label>
-              <Select value={categoriaId} onValueChange={setCategoriaId}>
+              <Select value={etapaId} onValueChange={setEtapaId}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Selecione a etapa" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categorias.filter((c) => !!c.id).map((cat) => (
+                  {etapas.filter((c) => !!c.id).map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>{cat.codigo} — {cat.nome}</SelectItem>
                   ))}
                 </SelectContent>
@@ -713,7 +711,7 @@ export default function ImportarSinapiDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isLoading || !composicaoSelecionada || !categoriaId}
+              disabled={isLoading || !composicaoSelecionada || !etapaId}
               className="gap-2"
             >
               {isLoading

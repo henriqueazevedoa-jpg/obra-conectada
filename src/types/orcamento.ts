@@ -1,4 +1,4 @@
-export interface OrcamentoSubitem {
+export interface OrcamentoInsumo {
   id: string;
   codigo: string;
   descricao: string;
@@ -21,8 +21,8 @@ export interface OrcamentoComposicao {
   quantidade: number | null;
   precoUnitario: number | null;
   precoTotal: number;
-  subitens: OrcamentoSubitem[];
-  usaSubitens: boolean;
+  insumos: OrcamentoInsumo[];
+  usaInsumos: boolean;
 
   fonteReferencia?: string;
   codigoReferenciaExterna?: string;
@@ -31,7 +31,7 @@ export interface OrcamentoComposicao {
   regimeReferencia?: string;
 }
 
-export interface OrcamentoCategoria {
+export interface OrcamentoEtapa {
   id: string;
   codigo: string;
   nome: string;
@@ -41,5 +41,5 @@ export interface OrcamentoCategoria {
 }
 
 export interface OrcamentoObra {
-  categorias: OrcamentoCategoria[];
+  etapas: OrcamentoEtapa[];
 }

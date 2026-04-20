@@ -1,192 +1,169 @@
-# 🤖 Workflows do Antigravity para ObraConectada
+---
+description: Sistema de workflows do ObraConectada — guia de referência
+---
 
-Cada workflow carrega automaticamente o **SESSION-TEMPLATE.md** como contexto antes de qualquer tarefa.
+# Workflows — ObraConectada
 
-## 📋 Workflows Disponíveis
-
-### 1. 🔍 **inspecao.md**
-Mapear código antes de qualquer alteração.
-
-**Use quando:**
-- Precisa entender um trecho de código
-- Quer diagnosticar um problema antes de consertar
-- Quer revisar padrões (dependências, performance)
-
-**Exemplo:**
-```
-/inspecao src/contexts/ObrasContext.tsx
-```
+Sistema de execução guiado por memória operacional. Cada workflow carrega o contexto certo para o modo certo, evita retrabalho e propaga aprendizados.
 
 ---
 
-### 2. 🎨 **ui.md**
-Layout e estilos sem alterar lógica de negócio.
+## Qual workflow usar agora?
 
-**Use quando:**
-- Precisa alterar visual/layout
-- Quer melhorar UX/acessibilidade
-- Quer usar componentes shadcn/ui
-
-**Exemplo:**
 ```
-/ui src/components/orcamento/CatalogDrawer.tsx
+Há um bug ativo ou crash?                    → /debug
+Precisa entender antes de mexer?             → /inspecao
+É mudança só de layout/estilo?               → /ui
+É funcionalidade nova ou expansão?           → /feature
+É padronização em múltiplos arquivos?        → /migracao
+Precisa organizar a sessão ou próximo passo? → /sprint
+Precisa limpar ou consolidar a memória?      → /memory
 ```
 
-**Restrições:**
-- ❌ Não alterar handlers, queries ou contextos
-- ✅ Apenas Tailwind + shadcn/ui + lucide-react
+> Em dúvida entre `/inspecao` e `/debug`: se há bug ativo, use `/debug`. Se o problema ainda não está confirmado, use `/inspecao` primeiro.
+
+> Em dúvida entre `/feature` e `/migracao`: se está criando capacidade nova, use `/feature`. Se está apenas mudando como o código existente faz algo, use `/migracao`.
 
 ---
 
-### 3. ⚙️ **feature.md**
-Implementar nova funcionalidade completa.
+## Arquivos-base do sistema
 
-**Use quando:**
-- Precisa criar uma feature do zero
-- Envolve types → context → componente → página → rota
-- Pode envolver novas tabelas no banco
+| Arquivo | Função | Ler quando |
+|---|---|---|
+| `SESSION-TEMPLATE.md` | Constituição técnica — stack, estrutura, regras fixas | Sempre |
+| `VISUAL.md` | Design system — paleta, tokens, padrões de layout | Toda tarefa com UI |
+| `PROJECT-MEMORY.md` | Aprendizados cronológicos — bugs, causas raiz, táticas | Sempre — últimos 5 + área relevante |
+| `ARCHITECTURE-DECISIONS.md` | Regras duráveis — não rediscutir sem motivo forte | Antes de criar arquitetura, fetch, migrations, RLS |
+| `PATTERNS.md` | Receitas reaplicáveis — como este projeto faz bem as coisas | Antes de implementar feature, UI, debug ou migration |
 
-**Exemplo:**
-```
-/feature "Modo de visualização pública para clientes"
-```
-
-**Ordem obrigatória:**
-1. Tipos
-2. Context
-3. Componente
-4. Página
-5. Rota
-6. Integração com auth
+> Cada modo define o que é obrigatório. Não ler tudo sempre — ler o certo.
 
 ---
 
-### 4. 🔄 **migracao.md**
-Refatorar padrão em múltiplos arquivos sem quebrar comportamento.
+## Workflows disponíveis
 
-**Use quando:**
-- Precisa padronizar código (ex: user → userId)
-- Quer refatorar sem quebrar componentes consumidores
-- Envolve mudanças em 3+ arquivos
+### `/sprint` — Orquestrador de sessão
+Ponto de entrada de qualquer sessão. Carrega memória, identifica riscos, aponta o próximo passo e sugere o workflow certo. **Não implementa.**
 
-**Exemplo:**
-```
-/migracao "Extrair IDs primitivos em todos os contexts"
-```
-
-**Garantia:**
-- ✅ Comportamento preservado
-- ✅ Nomes de props mantidos
-- ✅ Zero breaking changes
+**Use:** para abrir sessão, priorizar, mapear dependências, escolher modo.
+**Não use:** para executar implementação diretamente.
 
 ---
 
-### 5. 🐛 **debug.md**
-Investigar causa raiz antes de qualquer correção.
+### `/inspecao` — Diagnóstico de código
+Mapear e classificar antes de tocar qualquer arquivo. Produz diagnóstico por categoria e gravidade.
 
-**Use quando:**
-- Há um bug a resolver
-- Precisa diagnosticar performance
-- Quer entender por que algo está falhando
-
-**Exemplo:**
-```
-/debug "Página fica com sensação de reload ao navegar"
-```
-
-**Primeiro passo automático:**
-```bash
-grep -r "\[user\]\|\[company\]\|\[obras\]" src/contexts/
-```
+**Use:** quando precisa entender antes de mexer, preparar refactor ou feature.
+**Não use:** quando a causa já está confirmada e a solução está clara — vá direto ao modo certo.
 
 ---
 
-### 6. 🚀 **sprint.md**
-Iniciar sessão de sprint — carrega contexto e mostra próximo da fila.
+### `/ui` — Layout e estilos
+Implementar ou revisar interface sem alterar lógica. Distingue polish, relayout e mudança sistêmica.
 
-**Use quando:**
-- Iniciando uma nova sessão de trabalho
-- Quer saber qual é o próximo item da fila
-- Quer verificar dependências antes de começar
-
-**Exemplo:**
-```
-/sprint
-```
-
-**Lê automaticamente:**
-1. SESSION-TEMPLATE.md (contexto completo)
-2. PLANO_GERAL_STATUS.md (status dos sprints)
+**Use:** para layout, densidade, componentes visuais, padronização de UI.
+**Não use:** para bugs de comportamento, lógica, fetch ou contexts.
 
 ---
 
-## 🎯 Como Usar
+### `/feature` — Nova funcionalidade
+Guia de implementação completa. Consulta memória antes de criar, avalia reaproveitamento, adapta a sequência ao escopo real.
 
-### Passo 1: Escolher o Workflow
-Baseado em **o que você precisa fazer**, escolha um dos 6 workflows.
-
-### Passo 2: Substituir Placeholders
-Cada workflow tem seções `[SUBSTITUIR]`:
-- Descrição da tarefa
-- Arquivos/componentes afetados
-- Resultado esperado
-
-### Passo 3: Confirmar com o Usuário
-Antes de avançar para implementação, sempre confirmar:
-- ✅ Entendimento correto
-- ✅ Escopo bem definido
-- ✅ Sem dependências bloqueantes
+**Use:** para criar feature nova, integrar módulo, expandir capacidade existente.
+**Não use:** para refatoração estrutural sem funcionalidade nova — use `/migracao`.
 
 ---
 
-## 🔗 Estrutura: Workflows + SESSION-TEMPLATE
+### `/debug` — Investigação de bugs
+Causa raiz antes de qualquer alteração. Classifica sintoma, gatilho e categoria. Consulta memória antes de investigar do zero.
+
+**Use:** para crash, comportamento errado, lentidão, loop, falha silenciosa de dados.
+**Não use:** para dívida técnica sem bug ativo — use `/inspecao`.
+
+---
+
+### `/migracao` — Refatoração segura
+Padronizar padrão em múltiplos arquivos sem quebrar comportamento. Zero breaking change. Aprendizado obrigatório ao final.
+
+**Use:** para normalizar padrão, remover antipadrão sistêmico, extrair abstração.
+**Não use:** para feature nova ou para mudança em arquivo único sem escopo amplo.
+
+---
+
+### `/memory` — Consolidação de memória
+Revisar, limpar e promover registros do PROJECT-MEMORY para arquivos permanentes.
+
+**Use:** ao final de sprint longa, quando a memória estiver difusa ou redundante.
+**Não use:** para registrar qualquer detalhe — isso ocorre nos outros workflows ao final da tarefa.
+
+---
+
+## Protocolo universal — 3 fases
+
+**Antes de começar**
+- Ler SESSION-TEMPLATE.md
+- Ler últimos 5 registros do PROJECT-MEMORY.md + registros da área relevante
+- Carregar arquivos adicionais conforme o modo (ver matriz abaixo)
+- Verificar se há bug conhecido, decisão ou pattern aplicável
+
+**Durante a execução**
+- Um bloco por vez — não alterar o que não está no escopo
+- Reportar achados antes de alterar
+- Zero erros TypeScript antes de avançar
+
+**Ao finalizar**
+- Confirmar comportamento esperado
+- Avaliar aprendizado novo e registrar se aplicável
+- Reportar a saída obrigatória do modo
+
+---
+
+## Matriz de leitura contextual por modo
+
+| Modo | SESSION | VISUAL | MEMORY | ARCH-DECISIONS | PATTERNS |
+|---|---|---|---|---|---|
+| sprint | ✅ | — | ✅ últimos 5 + área | ✅ relevantes | ✅ relevantes |
+| ui | ✅ | ✅ obrigatório | ✅ área UI/VISUAL | — | ✅ PT-001–PT-009 |
+| debug | ✅ | — | ✅ área + BUGFIX | ✅ relevantes | ✅ PT-016–PT-018 |
+| feature | ✅ | se tiver UI | ✅ área relevante | ✅ relevantes | ✅ relevantes |
+| inspecao | ✅ | se tiver UI | ✅ área relevante | ✅ para comparar | ✅ como referência |
+| migracao | ✅ | — | ✅ área + ANTIPADRAO | ✅ obrigatório | ✅ padrão novo |
+| memory | — | — | ✅ completo | ✅ completo | ✅ completo |
+
+---
+
+## Gatilho de aprendizado (todos os workflows)
+
+| Descoberta | Destino |
+|---|---|
+| Bug com causa raiz útil | `PROJECT-MEMORY.md` |
+| Regra durável, reaplicável, reduz risco sistêmico | `ARCHITECTURE-DECISIONS.md` |
+| Receita concreta, testada, reaplicável | `PATTERNS.md` |
+| Atende os dois | Promover para ambos |
+| Tático, contextual, recente | Só `PROJECT-MEMORY.md` |
+
+---
+
+## Estrutura de arquivos
 
 ```
 .agent/workflows/
-├── README.md              ← Você está aqui
-├── inspecao.md            ← Mapear código
-├── ui.md                  ← Layout/estilos
-├── feature.md             ← Nova feature
-├── migracao.md            ← Refatorar padrão
-├── debug.md               ← Investigar bug
-└── sprint.md              ← Iniciar sprint
+├── README.md        ← este arquivo
+├── sprint.md        ← orquestrador de sessão
+├── ui.md            ← layout e estilos
+├── feature.md       ← nova funcionalidade
+├── debug.md         ← investigação de bugs
+├── inspecao.md      ← mapeamento de código
+├── migracao.md      ← refatoração segura
+└── memory.md        ← consolidação de memória
 
-SESSION-TEMPLATE.md        ← Carregado por TODOS os workflows
-├── Contexto de Produto
-├── Banco de Dados
-├── Decisões Arquiteturais
-├── Estrutura de Pastas
-├── Imports Padrão
-└── Padrões Críticos
+SESSION-TEMPLATE.md       ← constituição técnica
+VISUAL.md                 ← design system
+PROJECT-MEMORY.md         ← aprendizados cronológicos
+ARCHITECTURE-DECISIONS.md ← regras duráveis
+PATTERNS.md               ← receitas reaplicáveis
 ```
 
 ---
 
-## 📌 Regras Universais (Todos os Workflows)
-
-1. ✅ **Ler SESSION-TEMPLATE.md primeiro** — contexto completo do projeto
-2. ✅ **Confirmar com usuário antes de alterar** — não assumir nada
-3. ✅ **Implementar em blocos pequenos** — reportar cada bloco antes de avançar
-4. ✅ **Zero erros TypeScript** — antes de considerar concluído
-5. ✅ **Testar no navegador** — não apenas "sintaxe funciona"
-
----
-
-## 🚀 Quick Start
-
-### Primeira vez?
-1. Abra `/sprint`
-2. Leia SESSION-TEMPLATE.md e PLANO_GERAL_STATUS.md
-3. Identifique o próximo item
-4. Escolha o workflow apropriado para aquele item
-
-### Dia a dia?
-1. Identifique o que precisa fazer
-2. Escolha o workflow correspondente
-3. Preencha os `[SUBSTITUIR]`
-4. Deixe o workflow guiar a implementação
-
----
-
-**Versão:** 2.0  
-**Última atualização:** 2026-04-19
+**Versão:** 3.1 | **Última atualização:** 2026-04-19

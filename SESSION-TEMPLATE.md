@@ -1,724 +1,546 @@
-# 📋 TEMPLATE DE SESSÃO — ObraConectada
+# 📋 SESSION-TEMPLATE — ObraConectada
 
-**Versão:** 2.0 | **Stack:** React 18 + TypeScript + Supabase + Tailwind CSS  
-**Última atualização:** 2026-04-19 | **Prioridade:** ⚠️ Este é o ÚNICO documento que precisa ser carregado
-
----
-
-## 🎯 MODOS DE TRABALHO
-
-Escolha UM modo abaixo e delete os outros. Cada modo tem seu próprio checklist.
-
----
-
-## 📊 MODO INSPEÇÃO
-*Revisar código, entender fluxo, diagnosticar problemas*
-
-```
-MODO: INSPEÇÃO
-┌─────────────────────────────────────────────────────────────────┐
-│ TAREFA                                                            │
-├─────────────────────────────────────────────────────────────────┤
-│ Descrição:                                                        │
-│ [Descrever o que precisa ser inspecionado]                       │
-│                                                                   │
-│ Arquivo(s) relevante(s):                                          │
-│ - src/contexts/XXXContext.tsx                                    │
-│ - src/components/XXX/YYY.tsx                                     │
-│                                                                   │
-│ Checklist de Inspeção:                                            │
-│ ☐ Dependências de useCallback/useEffect corretas?               │
-│ ☐ Há infinite loops ou re-renders desnecessários?               │
-│ ☐ State está bem estruturado?                                    │
-│ ☐ Queries ao Supabase são otimizadas?                            │
-│ ☐ Tipos TypeScript estão corretos?                               │
-│                                                                   │
-│ Resultado esperado:                                               │
-│ [Descrever o que se espera descobrir/confirmar]                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Convenções de Inspeção:
-- **Contextos:** `src/contexts/*Context.tsx` — sempre `useCallback` + `useEffect`
-- **Dependências:** usar valores primitivos (`id`, `boolean`), NUNCA objetos inteiros
-- **Padrão correto:** `const userId = user?.id;` antes do useCallback
-- **Padrão errado:** `[user, company]` — recria a cada render, dispara fetches desnecessários
-- **Performance:** grep por `[user]`, `[company]`, `[obras]` como dependências
-
----
-
-## 🎨 MODO UI
-*Criar ou modificar componentes, estilos, layouts*
-
-```
-MODO: UI
-┌─────────────────────────────────────────────────────────────────┐
-│ TAREFA                                                            │
-├─────────────────────────────────────────────────────────────────┤
-│ Descrição:                                                        │
-│ [Descrever a mudança visual/UX]                                  │
-│                                                                   │
-│ Componente(s):                                                    │
-│ - src/components/XXX/YYY.tsx (novo/modificado)                   │
-│                                                                   │
-│ Design System:                                                    │
-│ - Usar componentes de src/components/ui/ (shadcn/ui)            │
-│ - Tailwind CSS para estilos                                      │
-│ - Paleta: bg-background, text-foreground, border-border         │
-│ - Ícones: lucide-react                                           │
-│                                                                   │
-│ Checklist UI:                                                     │
-│ ☐ Responsivo (mobile, tablet, desktop)?                         │
-│ ☐ Acessibilidade (aria-labels, semantic HTML)?                  │
-│ ☐ Tema escuro/claro compatível?                                 │
-│ ☐ Ícones importados de lucide-react?                             │
-│ ☐ Componentes de ui/ reutilizados?                              │
-│ ☐ Testado no navegador (dev server rodando)?                    │
-│                                                                   │
-│ Resultado esperado:                                               │
-│ [Layout/comportamento esperado]                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Convenções de Componentes:
-```typescript
-// src/components/[Feature]/[ComponentName].tsx
-import { useState, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
-
-interface ComponentProps {
-  title: string;
-  onSubmit: (data: any) => void;
-}
-
-export default function ComponentName({ title, onSubmit }: ComponentProps) {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-
-  const handleAction = useCallback(async () => {
-    setLoading(true);
-    // ... lógica
-    setLoading(false);
-  }, []);
-
-  return (
-    <Card>
-      <CardContent>
-        <h2>{title}</h2>
-        <Button onClick={handleAction} disabled={loading}>
-          {loading ? 'Carregando...' : 'Ação'}
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-```
-
----
-
-## ⚙️ MODO FEATURE
-*Implementar feature completa (componente + context + página)*
-
-```
-MODO: FEATURE
-┌─────────────────────────────────────────────────────────────────┐
-│ TAREFA                                                            │
-├─────────────────────────────────────────────────────────────────┤
-│ Descrição:                                                        │
-│ [Feature nome, escopo, user stories]                             │
-│                                                                   │
-│ Arquivos que serão criados/modificados:                           │
-│ - src/contexts/XXXContext.tsx (novo/modificado)                  │
-│ - src/components/XXX/YYYEditor.tsx (novo)                        │
-│ - src/pages/XXXPage.tsx (novo/modificado)                        │
-│ - src/hooks/useXXX.ts (se necessário)                            │
-│ - src/types/*.ts (tipos novos)                                   │
-│                                                                   │
-│ Passos:                                                            │
-│ 1. ☐ Definir tipos/interfaces em src/types/                     │
-│ 2. ☐ Criar context em src/contexts/ (se state compartilhado)    │
-│ 3. ☐ Criar componente principal em src/components/[Feature]/    │
-│ 4. ☐ Criar página em src/pages/[Feature]Page.tsx                │
-│ 5. ☐ Adicionar rota em src/App.tsx                              │
-│ 6. ☐ Integrar com AuthProvider/CompanyProvider                  │
-│ 7. ☐ Testar no navegador                                        │
-│                                                                   │
-│ Banco de Dados:                                                   │
-│ - Tabelas necessárias: [listar]                                  │
-│ - RLS policies: [descrever]                                      │
-│                                                                   │
-│ Resultado esperado:                                               │
-│ [Feature completa e funcional descrita]                          │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Padrão de Context para Feature:
-```typescript
-// src/contexts/XXXContext.tsx
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/untyped';
-import { useAuth } from './AuthContext';
-import { useCompany } from './CompanyContext';
-
-export interface XXXItem {
-  id: string;
-  obraId: string;
-  companyId: string;
-  // ... outros campos
-}
-
-interface XXXContextType {
-  items: XXXItem[];
-  loading: boolean;
-  saveItem: (item: XXXItem) => Promise<void>;
-  deleteItem: (id: string) => Promise<void>;
-  refresh: () => Promise<void>;
-}
-
-const XXXContext = createContext<XXXContextType | null>(null);
-
-export function XXXProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const { company } = useCompany();
-  const [items, setItems] = useState<XXXItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // ✅ PADRÃO CORRETO: extrair IDs primitivos
-  const userId = user?.id;
-  const companyId = company?.id;
-
-  const fetchAll = useCallback(async () => {
-    if (!userId || !companyId) {
-      setItems([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('xxx_items')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Erro ao buscar items:', error);
-      setItems([]);
-    } else {
-      setItems((data || []) as XXXItem[]);
-    }
-    setLoading(false);
-  }, [userId, companyId]); // ✅ Usar IDs primitivos
-
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
-
-  const saveItem = useCallback(async (item: XXXItem) => {
-    const { error } = await supabase.from('xxx_items').upsert(item as any);
-    if (error) console.error('Erro ao salvar:', error);
-    else await fetchAll();
-  }, [fetchAll]);
-
-  const deleteItem = useCallback(async (id: string) => {
-    const { error } = await supabase.from('xxx_items').delete().eq('id', id);
-    if (error) console.error('Erro ao deletar:', error);
-    else await fetchAll();
-  }, [fetchAll]);
-
-  return (
-    <XXXContext.Provider value={{ items, loading, saveItem, deleteItem, refresh: fetchAll }}>
-      {children}
-    </XXXContext.Provider>
-  );
-}
-
-export function useXXX() {
-  const ctx = useContext(XXXContext);
-  if (!ctx) throw new Error('useXXX must be used within XXXProvider');
-  return ctx;
-}
-```
-
----
-
-## 🔄 MODO MIGRAÇÃO
-*Atualizar dados, alterar estrutura, refatorar padrão em múltiplos arquivos*
-
-```
-MODO: MIGRAÇÃO
-┌─────────────────────────────────────────────────────────────────┐
-│ TAREFA                                                            │
-├─────────────────────────────────────────────────────────────────┤
-│ Descrição:                                                        │
-│ [O que está sendo migrado, de onde para onde]                    │
-│                                                                   │
-│ Escopo:                                                            │
-│ - Arquivos afetados: [listar todos]                              │
-│ - Impacto: [quantos componentes/páginas]                         │
-│ - Backwards compatible? [sim/não]                                │
-│                                                                   │
-│ Passos:                                                            │
-│ 1. ☐ Backup/Branch (git checkout -b migration/XXX)              │
-│ 2. ☐ Atualizar tipos em src/types/                              │
-│ 3. ☐ Atualizar contextos em src/contexts/                       │
-│ 4. ☐ Atualizar componentes que usam                              │
-│ 5. ☐ Atualizar páginas que usam                                  │
-│ 6. ☐ Testar todas as páginas afetadas                           │
-│ 7. ☐ Commit com mensagem clara                                   │
-│ 8. ☐ Criar PR com descrição detalhada                           │
-│                                                                   │
-│ Rollback plan:                                                    │
-│ [Como reverter se der problema]                                  │
-│                                                                   │
-│ Resultado esperado:                                               │
-│ [Comportamento funcional mantido, código melhorado]              │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Checklist de Migração:
-- Git: `git checkout -b migration/descriptive-name`
-- TypeScript: sem erros (`npm run type-check`)
-- Componentes: todos os afetados testados
-- Context: dependências corretas
-- Database: migrations preparadas (se necessário)
-
----
-
-## 🐛 MODO DEBUG
-*Investigar bug, rastrear erro, diagnosticar performance*
-
-```
-MODO: DEBUG
-┌─────────────────────────────────────────────────────────────────┐
-│ TAREFA                                                            │
-├─────────────────────────────────────────────────────────────────┤
-│ Descrição:                                                        │
-│ [O que está errado, como reproduzir]                             │
-│                                                                   │
-│ Passos para reproduzir:                                           │
-│ 1. [Ação 1]                                                      │
-│ 2. [Ação 2]                                                      │
-│ 3. [Resultado inesperado]                                        │
-│                                                                   │
-│ Evidências:                                                       │
-│ - Console error: [copiar error/warning]                          │
-│ - Behavior: [o que acontece vs. o que deveria]                  │
-│ - Network: [requests falhando? qual URL?]                       │
-│ - Frequência: [sempre, intermitente, sob certas condições]      │
-│                                                                   │
-│ Investigação:                                                     │
-│ ☐ Abrir DevTools → Console (erros?)                             │
-│ ☐ Network tab → verificar requests                              │
-│ ☐ React DevTools → componente renderizando demais?             │
-│ ☐ Profiler → performance bottleneck?                            │
-│ ☐ Grep por console.log no código relevante                      │
-│ ☐ Verificar dependências de useCallback/useEffect               │
-│                                                                   │
-│ Root cause:                                                       │
-│ [Causa identificada]                                             │
-│                                                                   │
-│ Fix:                                                              │
-│ - Arquivo(s) afetado(s): [listar]                                │
-│ - Mudança: [descrever correção]                                  │
-│                                                                   │
-│ Teste:                                                            │
-│ ☐ Reproduzir steps novamente                                    │
-│ ☐ Verificar console (limpo?)                                    │
-│ ☐ Performance melhorou?                                         │
-│                                                                   │
-│ Resultado esperado:                                               │
-│ [Bug resolvido, comportamento correto]                           │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Ferramentas de Debug:
-```bash
-# DevTools
-DevTools F12 → Console, Network, React DevTools Profiler
-
-# Servidor
-npm run dev  # Vite dev server (HMR ativado)
-
-# Grep para logging
-grep -n "console.log\|console.error" src/contexts/XXX.tsx
-
-# Type check
-npm run type-check
-
-# Verificar dependências ruins
-grep -r "\[user\]\|\[company\]\|\[obras\]" src/contexts/
-```
-
----
-
-# 🌍 CONTEXTO DE PRODUTO
-
-## Sistema ObraConectada
-
-**O que é:** SaaS de gestão de obras para construtoras brasileiras pequenas e médias (2–20 obras simultâneas).
-
-**Filosofia de produto:**
-- ❌ **Não é** uma planilha de luxo
-- ✅ **É** um ERP leve de execução integrado
-- ✅ **UX:** premium, inspirada em Linear/Notion/Vercel
-- ✅ **Objetivo:** o usuário digita uma vez e o sistema propaga para todos os módulos
-
-### Perfis de Usuário
-
-| Perfil | Acesso | Conta | Descrição |
-|--------|--------|-------|-----------|
-| **Administrador** | Total | Sim | 1 por empresa. Acesso a todos os módulos e administrativo |
-| **Responsável** | Parcial | Sim | Múltiplos por empresa. Acesso às obras atribuídas |
-| **Funcionário** | Campo | **Não** | Acessa via Link de Operação (`/o/:token`) sem login |
-| **Cliente** | Visualização | **Não** | Acessa via Link de Visualização (`/v/:token`) sem login |
-
-### Planos (Limites de Obras ATIVAS + PAUSADAS)
-
-| Plano | Obras | Responsáveis | Assistente IA | Preço |
-|-------|-------|--------------|---------------|-------|
-| **Start** | 2 | 1 adicional | Não | R$ 199/mês |
-| **Pro** | 5 | 3 adicionais | Sim (100 msg/mês) | R$ 499/mês |
-| **Enterprise** | Ilimitadas | Ilimitados | Sim (ilimitado) | Custom |
-
-**Regra crítica:** 
-- ✅ Obras ATIVAS e PAUSADAS **contam** no limite
-- ✅ Obras FINALIZADAS **não contam** — armazenadas para sempre
-- ⚠️ Reativar obra finalizada requer slot disponível
-
-### Nomenclatura Obrigatória
-**Sempre usar estes termos:**
-- **Obra** — projeto de construção
-- **Etapa** (= `orcamento_categorias`) — fases da obra (Estrutura, Acabamento, etc.)
-- **Composição** — serviços/produtos que compõem uma etapa
-- **Insumo** — materiais/mão de obra unitária de uma composição
-- **Cotação** — requisição de preços a fornecedores
-- **Pagamento** — lançamento financeiro
-- **Custo Real** — despesa efetivamente realizada
-- **Diário de Campo** — registros diários da obra
-- **Link de Operação** (`/o/:token`) — formulário mobile para funcionários
-- **Link de Visualização** (`/v/:token`) — painel read-only para clientes
-
----
-
-# 🗄️ BANCO DE DADOS — TABELAS REAIS
-
-## Tabelas Principais
-
-| Tabela | Propósito | Multi-tenant |
-|--------|-----------|--------------|
-| `companies` | Empresas clientes | Sim (`id`) |
-| `profiles` | Usuários (role: admin/gestor/tecnico) | Sim (via JOIN) |
-| `obras` | Projetos de construção | Sim (`company_id`) |
-| `orcamento_categorias` | **ETAPAS** do orçamento (confusão de nomes!) | Sim (`company_id`) |
-| `orcamento_composicoes` | Composições de cada etapa | Sim (`company_id`) |
-| `orcamento_subitens` | Insumos das composições | Sim (`company_id`) |
-| `sinapi_composicoes` | ~10.360 composições SINAPI pré-carregadas | Não (leitura pública) |
-| `sinapi_insumos` | Insumos SINAPI por UF e código | Não (leitura pública) |
-| `cotacao_lotes` | Lotes de cotação (agrupamento de itens) | Sim (`company_id`) |
-| `cotacao_respostas` | Respostas de fornecedores aos lotes | Sim (via JOIN) |
-| `fornecedores` | Cadastro de fornecedores | Sim (`company_id`) |
-| `catalogo_composicoes` | Composições favoritas/históricas | Sim (`company_id`) |
-| `cronograma_tarefas` | Tarefas do Gantt (tipos: PADRAO/MARCO/RESUMO) | Sim (`obra_id` → `company_id`) |
-| `cronograma_dependencias` | Dependências entre tarefas (FS/SS/FF/SF + lag) | Sim (via JOIN) |
-| `precos_fornecedores` | Histórico de preços por insumo/fornecedor | Sim (`company_id`) |
-| `custo_real_itens` | Custos efetivamente realizados | Sim (`company_id`) |
-| `pagamentos` | Lançamentos de pagamentos | Sim (`company_id`) |
-| `materiais` | Itens de estoque por obra | Sim (`obra_id` → `company_id`) |
-| `movimentacoes` | Entrada/saída de estoque | Sim (via JOIN) |
-| `obra_links` | Links públicos (visualização + operação) | Sim (`obra_id` → `company_id`) |
-
-## Schema JSONB Crítico: orcamentos.etapas
-
-```typescript
-OrcamentoEtapa {
-  id: string (UUID)
-  codigo: string (ex: "01")
-  nome: string
-  precoTotal: number
-  usaComposicoes: boolean
-  dataInicioPrevista?: string (ISO)
-  dataFimPrevista?: string (ISO)
-  composicoes: OrcamentoComposicao[]
-}
-
-OrcamentoComposicao {
-  id: string
-  codigo: string (ex: "01.01")
-  descricao: string
-  unidade: string
-  quantidade: number | null
-  precoUnitario: number | null
-  precoTotal: number
-  usaInsumos: boolean
-  fonteReferencia?: string  ← "SINAPI"
-  ufReferencia?: string
-  regimeReferencia?: string
-  referenciaCompetencia?: string
-  insumos: OrcamentoInsumo[]
-}
-
-OrcamentoInsumo {
-  id: string
-  codigo: string (ex: "01.01.001")
-  descricao: string
-  unidade: string
-  quantidade: number | null
-  precoUnitario: number | null
-  precoTotal: number
-}
-```
-
-## Políticas RLS Críticas
-
-- **`orcamento_categorias`, `orcamento_composicoes`, `orcamento_subitens`** → isolado por `company_id`
-- **`cotacao_lotes`, `cotacao_respostas`, `fornecedores`** → isolado por `company_id`
-- **`sinapi_*`** → leitura pública (sem RLS restritivo)
-- **`obra_links`** → SELECT público por token válido (sem auth)
-
----
-
-# 🔧 DECISÕES ARQUITETURAIS — NÃO REVERTER SEM DISCUSSÃO
-
-### Performance
-- ✅ **useCallback/useEffect:** sempre usar IDs primitivos (`user?.id`, `company?.id`) como dependência
-  - ❌ NUNCA `[user, company]` (objetos inteiros)
-  - ❌ NUNCA `[obras]` (array de objetos)
-  - ✅ SIM `[userId, companyId]` (strings primitivas)
-- ✅ **React Query:** `staleTime: 60s`, `gcTime: 5min`, `refetchOnWindowFocus: false`
-- ✅ **9 hooks migrados para useQuery** — não reverter para useEffect
-
-### Banco
-- ✅ **SINAPI:** busca por bag-of-words normalizado (sem pgvector — fase futura)
-- ✅ **Migrations:** apenas `ADD COLUMN IF NOT EXISTS` e `CREATE TABLE IF NOT EXISTS`
-  - ❌ NUNCA `ALTER COLUMN` ou `DROP` — quebra em produção
-- ✅ **RLS por `company_id`** — multi-tenancy obrigatório
-
-### Produto
-- ✅ **Gateway de pagamento:** Iugu ou Asaas (taxa ~1.9-2.9%)
-  - ❌ NUNCA Nexano (taxa 7.9% — caro demais)
-- ✅ **Preço de fundador:** 24 meses garantido (não vitalício)
-- ✅ **Modo demo:** clonar obras template com flag `is_demo = true`
-
-### Bugs Conhecidos Corrigidos
-- ✅ **Re-renders excessivos:** corrigido em ObrasContext + OrcamentoContext + EstoqueContext + CustoRealContext (era `[user, company]`)
-- ✅ **"Recarregamento" ao navegar:** eram contextos sem `useCallback` estável
-
----
-
-# 🛠️ REFERÊNCIA RÁPIDA
-
-## Estrutura de Pastas (REAL)
-```
-src/
-├── components/              # Componentes React (por feature)
-│   ├── ui/                 # shadcn/ui components (não editar)
-│   ├── execucao/           # DiarioTab, PendenciasPanel, EquipeTab, etc.
-│   ├── gantt/              # CronogramaEditor, GanttCanvasPanel, TaskDetailDrawer
-│   ├── orcamento/          # OrcamentoEditor, CatalogDrawer, ComposicaoRow
-│   ├── painel/             # SmartCards, ResumoExecutivo, SCurveChart, etc.
-│   ├── obra/               # LinksDeAcessoCard, ObraForm
-│   ├── custo-real/         # CustoRealEditor
-│   ├── diario/             # DiarioFotoUpload, DiarioReportPicker
-│   ├── AppLayout.tsx       # Layout principal com sidebar
-│   ├── ErrorBoundary.tsx   # Tratamento de erros React
-│   └── CommandPalette.tsx  # Command palette global (Cmd+K)
-├── contexts/               # Context Providers (state global)
-│   ├── AuthContext.tsx
-│   ├── CompanyContext.tsx
-│   ├── ObrasContext.tsx
-│   ├── OrcamentoContext.tsx
-│   ├── EstoqueContext.tsx
-│   ├── CustoRealContext.tsx
-│   ├── SuprimentosContext.tsx
-│   ├── ObraSelectionContext.tsx
-│   └── CommandPaletteContext.tsx
-├── pages/                  # Páginas (uma por rota)
-│   ├── admin/              # AdminCompaniesPage, AdminPlansPage, AdminAddonsPage
-│   ├── public/             # VisualizacaoPublicaPage, OperacaoMobilePage
-│   ├── LoginPage.tsx
-│   ├── ObrasPage.tsx
-│   ├── OrcamentoPage.tsx
-│   ├── CronogramaPage.tsx
-│   ├── CustoRealPage.tsx
-│   ├── PainelObraPage.tsx
-│   ├── ExecucaoCentral.tsx
-│   ├── FinanceiroCentral.tsx
-│   ├── RelatoriosPage.tsx
-│   ├── DocumentosPage.tsx
-│   ├── ContatosPage.tsx
-│   ├── EquipePage.tsx
-│   ├── EstoquePage.tsx
-│   ├── PerfilPage.tsx
-│   └── NotFound.tsx
-├── hooks/                  # Custom hooks
-│   ├── useCronograma.ts    # CRUD tarefas, dependências, baseline
-│   ├── useRecursos.ts      # CRUD recursos e alocações
-│   ├── useGanttFinanceiro.ts # Total orçado por etapa
-│   ├── useCotacaoCategorias.ts # Carrega cotacao_categorias
-│   ├── usePersistentPageState.ts # Estado persistido (sessionStorage)
-│   └── use-toast.ts
-├── types/                  # TypeScript types/interfaces
-│   ├── orcamento.ts
-│   ├── suprimentos.ts
-│   ├── planFeatures.ts
-│   └── *.ts
-├── lib/                    # Utilitários
-│   └── utils.ts (cn, helpers)
-├── data/                   # Mock data, seeding
-│   ├── mockData.ts
-│   ├── catalogoInsumos.ts
-│   └── seedOrcamentos.ts
-├── integrations/           # APIs externas
-│   └── supabase/
-│       └── untyped.ts      # ⚠️ Usar ESTE (não o "client" tipado)
-└── App.tsx                 # App root + Router config
-```
-
-## Imports Padrão
-```typescript
-// React
-import { useState, useCallback, useEffect, useMemo } from 'react';
-
-// Componentes UI
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-// Ícones
-import { ChevronDown, AlertCircle, CheckCircle2, Plus, Trash2, Search } from 'lucide-react';
-
-// Router
-import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
-
-// Contexts
-import { useAuth } from '@/contexts/AuthContext';
-import { useCompany } from '@/contexts/CompanyContext';
-import { useObras } from '@/contexts/ObrasContext';
-import { useOrcamento } from '@/contexts/OrcamentoContext';
-
-// Data
-import { format, parseISO, differenceInDays, addDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
-// Supabase
-import { supabase } from '@/integrations/supabase/untyped';
-
-// Utils
-import { cn } from '@/lib/utils';
-
-// Gráficos (Recharts)
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { LineChart, Line } from 'recharts';
-import { PieChart, Pie, Cell } from 'recharts';
-
-// DnD
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, useSortable, arrayMove } from '@dnd-kit/sortable';
-
-// Export/PDF
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-
-// Toast
-import { useToast } from '@/hooks/use-toast';
-```
-
-## Padrões Críticos
-
-### ❌ ERRADO — Objeto inteiro como dependência
-```typescript
-const fetchData = useCallback(async () => {
-  // usa user.id ou company.id
-}, [user, company]); // ← Recria toda vez, dispara fetches!
-
-useEffect(() => {
-  fetchData();
-}, [fetchData]); // ← Dispara toda vez
-```
-
-### ✅ CORRETO — ID primitivo como dependência
-```typescript
-const userId = user?.id;
-const companyId = company?.id;
-
-const fetchData = useCallback(async () => {
-  if (!userId || !companyId) return;
-  // ... usa userId e companyId
-}, [userId, companyId]); // ← Estável, recria só quando IDs mudam
-
-useEffect(() => {
-  fetchData();
-}, [fetchData]); // ← Dispara muito menos
-```
-
-## Queries Supabase (Padrão)
-```typescript
-// Ler
-const { data, error } = await supabase
-  .from('tabela')
-  .select('*')
-  .eq('company_id', companyId)
-  .order('created_at', { ascending: false });
-
-// Inserir
-const { data, error } = await supabase
-  .from('tabela')
-  .insert(objeto)
-  .select()
-  .single();
-
-// Atualizar
-const { error } = await supabase
-  .from('tabela')
-  .update(objeto)
-  .eq('id', id);
-
-// Deletar
-const { error } = await supabase
-  .from('tabela')
-  .delete()
-  .eq('id', id);
-
-// Upsert (insert or update)
-const { error } = await supabase
-  .from('tabela')
-  .upsert(objeto);
-
-// Cast ao tipo correto
-const items = (data || []) as unknown as MinhaInterface[];
-```
-
----
-
-# 📝 COMO USAR ESTE TEMPLATE
-
-1. **Copiar tudo** deste arquivo
-2. **No início da sessão:**
-   - Criar arquivo `SESSION.md` na raiz do projeto
-   - Colar o template completo
-   - Escolher UM modo (deletar os outros 4)
-   - Preencher seção `TAREFA`
-3. **Durante a sessão:**
-   - Marcar checkboxes conforme progride
-   - Atualizar "Resultado esperado" com descobertas
-4. **Ao final:**
-   - Verificar se todos os checkboxes estão ☑️
-   - Copiar "Resultado esperado" para commit message
-5. **Manter atualizado:**
-   - Sempre que projeto muda significativamente
-   - Editar este template
-
----
-
+**Versão:** 3.0  
+**Stack:** React 18 + TypeScript + Supabase + Tailwind CSS  
 **Última atualização:** 2026-04-19  
-**Versão:** 2.0 (Completa com banco, decisões arquiteturais, estrutura real)  
-**Linhas:** ~1000+ | **Páginas:** ~8 (impresso)
+**Objetivo desta versão:** aumentar drasticamente consistência entre workflows, reduzir retrabalho, preservar aprendizados úteis e melhorar qualidade de execução técnica/visual.
+
+> ⚠️ **ARQUIVOS OBRIGATÓRIOS PARA QUALQUER TAREFA**
+>
+> 1. `SESSION-TEMPLATE.md` — regras operacionais da sessão.
+> 2. `VISUAL.md` — design system e regras de UI.
+> 3. `PROJECT-MEMORY.md` — memória tática cronológica do projeto.
+> 4. `ARCHITECTURE-DECISIONS.md` — decisões permanentes e restrições arquiteturais.
+> 5. `PATTERNS.md` — receitas e padrões reutilizáveis.
+
+---
+
+# 1) PRINCÍPIO CENTRAL
+
+Este projeto não deve depender apenas da qualidade do raciocínio pontual do workflow.  
+Ele deve depender de um **sistema de execução assistido por memória**.
+
+Toda tarefa deve:
+- reutilizar decisões já validadas;
+- evitar erros reincidentes;
+- preservar consistência arquitetural e visual;
+- transformar descobertas úteis em ativos reaproveitáveis.
+
+Em outras palavras:
+- **não repetir erro conhecido**;
+- **não reinventar solução já descoberta**;
+- **não quebrar padrões consolidados**;
+- **não tratar descoberta importante como detalhe descartável**.
+
+---
+
+# 2) HIERARQUIA DE MEMÓRIA
+
+## 2.1 Memória tática recente
+**Arquivo:** `PROJECT-MEMORY.md`
+
+Usar para:
+- bugs corrigidos;
+- macetes técnicos;
+- armadilhas reais encontradas;
+- decisões táticas recentes;
+- soluções pontuais que podem reaparecer.
+
+Não usar para:
+- regras permanentes já consolidadas;
+- documentação de arquitetura estável;
+- descrição trivial do que foi feito.
+
+---
+
+## 2.2 Memória estrutural permanente
+**Arquivo:** `ARCHITECTURE-DECISIONS.md`
+
+Usar para:
+- regras duráveis;
+- restrições do sistema;
+- decisões que não devem ser reavaliadas a cada tarefa;
+- princípios de arquitetura, performance, fetch, estado, RLS, migrations.
+
+---
+
+## 2.3 Memória de execução por analogia
+**Arquivo:** `PATTERNS.md`
+
+Usar para:
+- padrões reaplicáveis;
+- receitas de implementação;
+- estrutura de páginas, contextos, fetch, tabs, cards, drawers, formulários, listas, integração Supabase.
+
+---
+
+# 3) PROTOCOLO DE LEITURA OBRIGATÓRIA
+
+## 3.1 Antes de começar qualquer tarefa
+Ler sempre:
+1. este arquivo (`SESSION-TEMPLATE.md`);
+2. os **últimos 5 registros** do `PROJECT-MEMORY.md`;
+3. os registros do `PROJECT-MEMORY.md` relacionados à área da tarefa;
+4. o `ARCHITECTURE-DECISIONS.md` se a tarefa tocar arquitetura, dados, performance, RLS, contextos ou migrações;
+5. o `PATTERNS.md` se a tarefa envolver implementação nova, UI, páginas, fluxos, contexts, Supabase ou componentes reaproveitáveis;
+6. o `VISUAL.md` se qualquer parte da tarefa tocar interface.
+
+---
+
+## 3.2 Consulta temática mínima por modo
+- **UI:** `VISUAL.md` + memória recente visual + padrões de página/lista/KPI/tabs.
+- **FEATURE:** memória recente + decisões permanentes + padrões estruturais aplicáveis.
+- **DEBUG:** memória recente + bugs semelhantes + decisões de arquitetura relacionadas.
+- **MIGRAÇÃO:** memória recente + decisões de migrations/RLS/dados + padrões de compatibilidade.
+- **INSPEÇÃO:** memória recente + decisões permanentes da área inspecionada.
+
+---
+
+# 4) PROTOCOLO DE ESCRITA DE MEMÓRIA
+
+## 4.1 Ao finalizar a tarefa
+Registrar no `PROJECT-MEMORY.md` apenas se houver pelo menos um dos itens abaixo:
+- bug com causa raiz identificada;
+- workaround importante;
+- macete técnico reutilizável;
+- antipadrão detectado;
+- descoberta que evita retrabalho futuro;
+- decisão tática relevante;
+- limitação real de ferramenta ou stack;
+- regra nova extraída de incidente recorrente.
+
+---
+
+## 4.2 Promover o aprendizado quando necessário
+- Se o aprendizado for **durável e estrutural**, promover também para `ARCHITECTURE-DECISIONS.md`.
+- Se o aprendizado virar **receita replicável**, promover também para `PATTERNS.md`.
+- Se o item for só contextual e recente, manter apenas em `PROJECT-MEMORY.md`.
+
+---
+
+## 4.3 O que NÃO registrar na memória
+Não registrar:
+- resumo genérico do que foi implementado;
+- alterações puramente cosméticas sem lição reutilizável;
+- refactors sem descoberta técnica;
+- decisões já documentadas em `VISUAL.md`, `ARCHITECTURE-DECISIONS.md` ou `PATTERNS.md`;
+- tarefas executadas com sucesso sem novo aprendizado.
+
+---
+
+# 5) TEMPLATE MÍNIMO PARA NOVA ENTRADA NO PROJECT-MEMORY
+
+Toda entrada de memória deve conter, sempre que aplicável:
+- **Contexto**
+- **Problema ou oportunidade**
+- **Causa raiz**
+- **Solução aplicada**
+- **Regra extraída**
+- **Quando reutilizar**
+- **Hipótese invalidada** (se houver)
+- **Promover para memória permanente?**
+
+---
+
+# 6) CHECKLIST UNIVERSAL PRÉ-EXECUÇÃO
+
+Antes de escrever código ou emitir conclusão:
+- ☐ A tarefa foi classificada corretamente em um modo?
+- ☐ A memória recente foi consultada?
+- ☐ As regras permanentes aplicáveis foram consultadas?
+- ☐ Os padrões reutilizáveis aplicáveis foram consultados?
+- ☐ A solução respeita as restrições de arquitetura já definidas?
+- ☐ Se houver UI, a solução respeita o `VISUAL.md` e a referência `/orcamento`?
+- ☐ A proposta evita reintroduzir erro já conhecido?
+
+---
+
+# 7) MODOS DE TRABALHO
+
+Escolher **um** modo principal por tarefa.  
+Se a tarefa tiver natureza mista, o modo principal deve refletir o risco dominante.
+
+---
+
+# 7A) MODO INSPEÇÃO
+
+```md
+MODO: INSPEÇÃO
+
+TAREFA:
+[Descrever o que precisa ser inspecionado]
+
+ARQUIVOS RELEVANTES:
+- [listar arquivos]
+
+CONSULTAS DE MEMÓRIA OBRIGATÓRIAS:
+- Últimos 5 registros do PROJECT-MEMORY
+- Registros da área inspecionada
+- Decisões permanentes relacionadas
+
+CHECKLIST DE INSPEÇÃO:
+- ☐ Dependências de useCallback/useEffect corretas?
+- ☐ Há loops, re-renders ou recomputações desnecessárias?
+- ☐ Há objetos inteiros em deps quando deveria haver IDs primitivos?
+- ☐ State está bem segmentado e com responsabilidades claras?
+- ☐ Queries ao Supabase são mínimas e bem localizadas?
+- ☐ Tipos TypeScript estão corretos e úteis?
+- ☐ Abas estão montadas com display:none em vez de desmontagem?
+- ☐ Fetch está centralizado no pai quando aplicável?
+- ☐ Há lógica duplicada que deveria virar pattern?
+
+NÃO FAZER:
+- Corrigir sem localizar causa raiz
+- Declarar “está bom” sem validar dependências e fluxo real
+- Ignorar decisões permanentes já registradas
+
+PÓS-TAREFA — APRENDIZADO:
+- ☐ A inspeção encontrou antipadrão recorrente?
+- ☐ A inspeção encontrou débito sistêmico?
+- ☐ Registrar no PROJECT-MEMORY se houver lição reutilizável
+- ☐ Promover para ARCHITECTURE-DECISIONS ou PATTERNS se necessário
+```
+
+---
+
+# 7B) MODO UI
+
+> Antes de qualquer alteração visual:
+> 1. Ler `VISUAL.md` completo.
+> 2. Ler memória recente visual.
+> 3. Abrir `OrcamentoPage.tsx` como referência de estrutura.
+> 4. Usar `/orcamento` como referência visual de densidade e qualidade.
+
+```md
+MODO: UI
+
+TAREFA:
+[Descrever a mudança visual/UX]
+
+CONSULTAS DE MEMÓRIA OBRIGATÓRIAS:
+- VISUAL.md
+- Últimos 5 registros do PROJECT-MEMORY
+- Entradas recentes de UI/UX/CSS/TABS/CARDS
+- Patterns de páginas, cards, listagens e abas
+
+CHECKLIST UI:
+- ☐ Ícone inline na linha de abas?
+- ☐ KPIs em cards e não em linha pobre?
+- ☐ Lista em cards com borda lateral quando aplicável?
+- ☐ Abas mantidas com display:none?
+- ☐ Nenhuma cor hardcoded fora dos tokens permitidos?
+- ☐ Tipografia, espaçamento e densidade compatíveis com /orcamento?
+- ☐ Componentes respeitam consistência visual global?
+- ☐ Solução é boa em desktop e mobile?
+
+NÃO FAZER:
+- Introduzir visual fora do design system
+- Adotar tabela plana quando card-list é superior para a UX proposta
+- Resolver layout com gambiarra não documentada
+- Criar exceção visual sem critério real
+
+PÓS-TAREFA — APRENDIZADO:
+- ☐ Houve limitação real de layout, Tailwind ou componente?
+- ☐ Houve workaround visual útil para o futuro?
+- ☐ Registrar “macete” no PROJECT-MEMORY
+- ☐ Promover padrão reaplicável para PATTERNS
+```
+
+---
+
+# 7C) MODO FEATURE
+
+> Se a feature tocar UI, `VISUAL.md` é obrigatório.
+
+```md
+MODO: FEATURE
+
+TAREFA:
+[Nome da feature, escopo, user stories e limites]
+
+CONSULTAS DE MEMÓRIA OBRIGATÓRIAS:
+- Últimos 5 registros do PROJECT-MEMORY
+- Registros temáticos da área da feature
+- ARCHITECTURE-DECISIONS aplicáveis
+- PATTERNS aplicáveis
+- VISUAL.md se houver interface
+
+FLUXO RECOMENDADO:
+1. ☐ Entender escopo e impacto da feature
+2. ☐ Confirmar regras permanentes aplicáveis
+3. ☐ Reaproveitar patterns existentes antes de inventar nova estrutura
+4. ☐ Definir tipos em `src/types/`
+5. ☐ Estruturar dados/contexto com IDs primitivos
+6. ☐ Implementar fetch no nível correto
+7. ☐ Construir componentes e página
+8. ☐ Adicionar rota e integração no app
+9. ☐ Validar coerência visual e arquitetural
+10. ☐ Testar fluxo principal e estados vazios/erro/carregamento
+
+NÃO FAZER:
+- Introduzir nova feature quebrando regra consolidada
+- Distribuir fetch por abas/components sem necessidade
+- Acoplar feature a estado legado implícito
+- Ignorar impacto em performance, RLS ou estrutura de dados
+
+PÓS-TAREFA — APRENDIZADO:
+- ☐ Surgiu nova regra de negócio relevante?
+- ☐ Surgiu novo padrão estrutural reaproveitável?
+- ☐ Alguma hipótese anterior foi invalidada?
+- ☐ Registrar no PROJECT-MEMORY
+- ☐ Promover para ARCHITECTURE-DECISIONS ou PATTERNS se necessário
+```
+
+---
+
+# 7D) MODO MIGRAÇÃO
+
+```md
+MODO: MIGRAÇÃO
+
+TAREFA:
+[O que migrar, origem, destino, impactos]
+
+CONSULTAS DE MEMÓRIA OBRIGATÓRIAS:
+- Últimos 5 registros do PROJECT-MEMORY
+- Registros de MIGRAÇÃO / RLS / SUPABASE / COMPATIBILIDADE
+- ARCHITECTURE-DECISIONS de banco e migrations
+- Patterns de migração segura, se existirem
+
+CHECKLIST DE MIGRAÇÃO:
+- ☐ A estratégia é aditiva e compatível?
+- ☐ Há risco de quebrar fluxo atual?
+- ☐ Tipos/contextos foram atualizados?
+- ☐ Queries existentes continuam compatíveis?
+- ☐ `npm run type-check` foi considerado?
+- ☐ Páginas afetadas foram mapeadas e testadas?
+- ☐ A migração respeita a política de não usar DROP/ALTER destrutivo?
+
+NÃO FAZER:
+- Assumir que uma migração pequena não tem efeito colateral
+- Alterar contrato de dados sem mapear impacto
+- Introduzir ruptura silenciosa em contexts ou pages existentes
+
+PÓS-TAREFA — APRENDIZADO:
+- ☐ Houve efeito colateral inesperado?
+- ☐ Houve decisão de compatibilidade relevante?
+- ☐ Registrar “o que não fazer” no PROJECT-MEMORY
+- ☐ Promover regra permanente se necessário
+```
+
+---
+
+# 7E) MODO DEBUG
+
+```md
+MODO: DEBUG
+
+TAREFA:
+[Problema, como reproduzir, contexto]
+
+CONSULTAS DE MEMÓRIA OBRIGATÓRIAS:
+- Últimos 5 registros do PROJECT-MEMORY
+- Entradas parecidas por área/erro/tipo
+- ARCHITECTURE-DECISIONS relacionadas
+- Patterns úteis para isolamento de causa raiz
+
+INVESTIGAÇÃO:
+- ☐ O problema já apareceu antes?
+- ☐ O sintoma está sendo separado da causa raiz?
+- ☐ Console / Network / React DevTools foram considerados?
+- ☐ Dependências de hooks foram verificadas?
+- ☐ Estado ou props estão gerando efeito cascata?
+- ☐ Se houver lentidão: tabs desmontam? fetch duplica? state recalcula? queries repetem?
+- ☐ Existe acoplamento implícito com IDs, contexto, auth, obra ativa ou demo seed?
+
+NÃO FAZER:
+- Aplicar paliativo sem entender a causa
+- Mudar muitos pontos ao mesmo tempo sem isolamento
+- Tratar problema estrutural como bug superficial
+- Encerrar debug sem registrar aprendizado reutilizável
+
+PÓS-TAREFA — APRENDIZADO:
+- ☐ Causa raiz identificada?
+- ☐ Solução validada?
+- ☐ Regra extraída?
+- ☐ Registrar no PROJECT-MEMORY
+- ☐ Promover para memória permanente se necessário
+```
+
+---
+
+# 8) CONTEXTO DE PRODUTO
+
+## ObraConectada
+**O que é:** SaaS de gestão de obras para construtoras brasileiras com operação enxuta e necessidade de organização premium.  
+**Público principal:** empresas com aproximadamente 2–20 obras.  
+**Ambição de UX:** sensação premium, moderna, clara, eficiente e agradável de operar.
+
+### Referências de sensação
+- Linear
+- Notion
+- Vercel
+
+### Resultado desejado
+O usuário deve sentir:
+- clareza;
+- velocidade;
+- organização;
+- confiança;
+- vontade de continuar usando.
+
+---
+
+# 9) PERFIS E ACESSOS
+
+| Perfil | Conta | Acesso |
+|--------|-------|--------|
+| Administrador | Sim | Total (1 por empresa) |
+| Responsável | Sim | Obras atribuídas |
+| Funcionário | Não | Link de Operação `/o/:token` |
+| Cliente | Não | Link de Visualização `/v/:token` |
+
+---
+
+# 10) PLANOS
+
+| Plano | Obras | Responsáveis | IA | Preço |
+|-------|-------|--------------|----|-------|
+| Start | 2 | 1 adicional | Não | R$ 199/mês |
+| Pro | 5 | 3 adicionais | 100 msg/mês | R$ 499/mês |
+| Enterprise | Ilimitadas | Ilimitados | Ilimitada | Custom |
+
+---
+
+# 11) NOMENCLATURA OBRIGATÓRIA
+
+Usar consistentemente:
+- **Obra**
+- **Etapa** (`orcamento_categorias` no banco)
+- **Composição**
+- **Insumo**
+- **Cotação**
+- **Pagamento**
+- **Custo Real**
+- **Diário de Campo**
+
+Não variar terminologia sem motivo muito forte.
+
+---
+
+# 12) BANCO DE DADOS (SUPABASE)
+
+| Tabela | Propósito |
+|--------|-----------|
+| `companies` | Empresas clientes |
+| `profiles` | Usuários |
+| `obras` | Projetos |
+| `orcamento_categorias` | Etapas |
+| `orcamento_composicoes` | Composições de preço |
+| `orcamento_subitens` | Insumos |
+| `sinapi_composicoes` | Base pública SINAPI |
+| `sinapi_insumos` | Insumos SINAPI |
+| `cotacao_lotes` | Lotes de cotação |
+| `cronograma_tarefas` | Gantt (`PADRAO`, `MARCO`, `RESUMO`) |
+| `pagamentos` | Lançamentos financeiros |
+| `obra_links` | Links públicos (tokens) |
+
+---
+
+# 13) REGRAS DE BANCO
+
+- RLS: tudo segregado por `company_id`.
+- Migrations: apenas estratégia aditiva e segura.
+- Permitido:
+  - `ADD COLUMN IF NOT EXISTS`
+  - `CREATE TABLE IF NOT EXISTS`
+- Proibido como prática padrão:
+  - `DROP`
+  - `ALTER COLUMN` destrutivo
+  - mudanças que rompam compatibilidade sem estratégia explícita
+
+---
+
+# 14) DECISÕES ARQUITETURAIS-BASE
+
+## Performance
+- Usar **IDs primitivos** em dependências.
+- Nunca depender de objeto inteiro quando basta `user?.id`, `companyId`, `obraId` etc.
+- Em telas densas, **abas devem permanecer montadas** e alternar via `display: none`.
+- Fetch de dados deve ficar preferencialmente no **componente pai**, distribuindo dados por props.
+
+## Visual
+- Cor de ação primária: roxo `#534AB7`.
+- Estrutura-base:
+  - ícone inline nas abas;
+  - KPIs em cards;
+  - listas em cards com borda lateral quando adequado.
+
+---
+
+# 15) REFERÊNCIA RÁPIDA DE ESTRUTURA
+
+```txt
+src/
+├── components/
+│   ├── ui/              # shadcn/ui — não editar
+│   ├── orcamento/       # OrcamentoEditor, CatalogDrawer
+│   └── AppLayout.tsx
+├── contexts/            # AuthContext, CompanyContext
+├── pages/
+│   ├── OrcamentoPage.tsx  ← referência estrutural
+│   ├── CronogramaPage.tsx ← referência de densidade
+│   └── ...
+├── integrations/supabase/untyped.ts  ← usar para queries
+```
+
+---
+
+# 16) IMPORTS PADRÃO
+
+```typescript
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/untyped';
+import { cn } from '@/lib/utils';
+```
+
+---
+
+# 17) CHECKLIST UNIVERSAL PÓS-TAREFA
+
+Antes de encerrar qualquer tarefa:
+- ☐ A solução respeita arquitetura e padrões existentes?
+- ☐ Não houve reintrodução de erro já conhecido?
+- ☐ A solução ficou coerente com o resto do sistema?
+- ☐ A memória foi atualizada apenas se houve aprendizado real?
+- ☐ Algum item deveria ser promovido para regra permanente ou pattern?
+
+---
+
+# 18) COMO USAR
+
+1. Carregar este arquivo + `VISUAL.md` + `PROJECT-MEMORY.md` + `ARCHITECTURE-DECISIONS.md` + `PATTERNS.md`.
+2. Escolher um modo principal.
+3. Descrever a tarefa.
+4. Consultar a memória obrigatória do modo.
+5. Executar respeitando decisões permanentes e patterns existentes.
+6. Registrar apenas aprendizados reais.
+7. Promover itens estruturais ou replicáveis quando necessário.
+
+---
+
+# 19) META DESTE SISTEMA
+
+Este sistema existe para produzir um delta real de performance no fluxo de trabalho por meio de:
+- menos reincidência de erro;
+- menos decisões repetidas;
+- menos inconsistência visual e estrutural;
+- mais reaproveitamento de soluções já validadas;
+- mais previsibilidade e velocidade nos workflows.
+
+---
+
+**Versão:** 3.0  
+**Atualizado:** 2026-04-19

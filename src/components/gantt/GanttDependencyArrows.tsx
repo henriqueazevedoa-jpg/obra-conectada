@@ -89,21 +89,36 @@ function GanttDependencyArrows({ tasks, dependencies, dayWidth, timelineStart, l
         </marker>
       </defs>
       {arrows.map(({ fromX, fromY, toX, toY, id }) => {
-        // Build a path with a right-angle connector
-        const midX = fromX + Math.max((toX - fromX) / 2, 12);
-        const path = toX > fromX + 20
-          ? `M ${fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${toX} ${toY}`
-          : `M ${fromX} ${fromY} L ${fromX + 12} ${fromY} L ${fromX + 12} ${toY + (toY > fromY ? -14 : 14)} L ${toX - 8} ${toY + (toY > fromY ? -14 : 14)} L ${toX - 8} ${toY} L ${toX} ${toY}`;
+        let path = '';
+
+        if (toX > fromX + 20) {
+          // Curva Bezier principal (S-curve suave)
+          // Limita o arco a um máximo flexível para não ficar muito largo em vãos enormes
+          const ctrlOffset = Math.max(Math.min((toX - fromX) / 2, 80), 30);
+          path = `M ${fromX} ${fromY} C ${fromX + ctrlOffset} ${fromY}, ${toX - ctrlOffset} ${toY}, ${toX} ${toY}`;
+        } else {
+          // Bypass suave para deps retroativas/curtas
+          const dropY = toY + (toY > fromY ? -18 : 18); // Meio exato entre as linhas pra evitar cruzamento das barras
+          
+          path = `M ${fromX} ${fromY} 
+                  C ${fromX + 24} ${fromY}, ${fromX + 24} ${dropY}, ${fromX} ${dropY}
+                  L ${toX - 16} ${dropY}
+                  C ${toX - 24} ${dropY}, ${toX - 24} ${toY}, ${toX} ${toY}`;
+        }
 
         return (
-          <path
-            key={id}
-            d={path}
-            className="stroke-primary/60"
-            strokeWidth={1.5}
-            fill="none"
-            markerEnd="url(#dep-arrow)"
-          />
+          <g key={id}>
+            {/* Ponto âncora (circle) conectando à barra de origem */}
+            <circle cx={fromX} cy={fromY} r={2.5} className="fill-primary/80" />
+            
+            <path
+              d={path}
+              className="stroke-primary/60 hover:stroke-primary transition-colors"
+              strokeWidth={1.5}
+              fill="none"
+              markerEnd="url(#dep-arrow)"
+            />
+          </g>
         );
       })}
     </svg>

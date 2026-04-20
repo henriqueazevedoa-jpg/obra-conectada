@@ -50,8 +50,11 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
   const [obras, setObras] = useState<Obra[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const userId = user?.id;
+  const companyId = company?.id;
+
   const fetchObras = useCallback(async () => {
-    if (!user || !company) {
+    if (!userId || !companyId) {
       setObras([]);
       setLoading(false);
       return;
@@ -62,7 +65,7 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase
       .from('obras')
       .select('*')
-      .eq('company_id', company.id)
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -74,7 +77,7 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
 
     setObras((data || []).map(dbToObra));
     setLoading(false);
-  }, [user, company]);
+  }, [userId, companyId]);
 
   useEffect(() => {
     fetchObras();
@@ -91,10 +94,10 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
         return { id: null, success: false, error: 'Não foi possível identificar a empresa do usuário.' };
       }
 
-      const companyId = rpcCompanyId || company.id;
+      const finalCompanyId = rpcCompanyId || companyId;
 
       const { data: limitData, error: limitError } = await supabase.rpc('check_plan_limit', {
-        _company_id: companyId,
+        _company_id: finalCompanyId,
         _resource: 'obras',
       });
 
@@ -122,7 +125,7 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
         responsavel: obra.responsavel || null,
         percentual_andamento: obra.percentualAndamento ?? 0,
         descricao: obra.descricao || null,
-        company_id: companyId,
+        company_id: finalCompanyId,
       };
 
       const { data, error } = await supabase
@@ -140,12 +143,12 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      if (user) {
+      if (userId) {
         const { error: membershipError } = await supabase
           .from('obra_memberships')
           .insert({
             obra_id: data.id,
-            user_id: user.id,
+            user_id: userId,
             role: 'gestor' as any,
           });
 
@@ -157,7 +160,7 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
       await fetchObras();
       return { id: data.id, success: true };
     },
-    [user, company, fetchObras]
+    [userId, companyId, fetchObras]
   );
 
   const updateObra = useCallback(

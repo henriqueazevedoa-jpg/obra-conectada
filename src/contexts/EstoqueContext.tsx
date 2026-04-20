@@ -52,8 +52,10 @@ export function EstoqueProvider({ children }: { children: React.ReactNode }) {
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const userId = user?.id;
+
   const fetchEstoque = useCallback(async () => {
-    if (!user) { setMateriais([]); setMovimentacoes([]); setLoading(false); return; }
+    if (!userId) { setMateriais([]); setMovimentacoes([]); setLoading(false); return; }
 
     const [matRes, movRes] = await Promise.all([
       supabase.from('materiais').select('*'),
@@ -63,7 +65,7 @@ export function EstoqueProvider({ children }: { children: React.ReactNode }) {
     if (matRes.data) setMateriais(matRes.data.map(dbToMaterial));
     if (movRes.data) setMovimentacoes(movRes.data.map(dbToMovimentacao));
     setLoading(false);
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     fetchEstoque();

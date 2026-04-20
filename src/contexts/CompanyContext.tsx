@@ -17,6 +17,12 @@ export interface Plan {
   ativo: boolean | null;
 }
 
+export interface CompanyAddon {
+  addon_code: string;
+  status: string;  // 'active' | 'trial' | 'inactive'
+  trial_end?: string | null;
+}
+
 export interface Company {
   id: string;
   nome: string;
@@ -25,6 +31,7 @@ export interface Company {
   telefone: string;
   plan_id: string | null;
   status: string;
+  addons: CompanyAddon[];
 }
 
 export interface Subscription {
@@ -51,6 +58,8 @@ interface CompanyContextType {
   subscription: Subscription | null;
   plans: Plan[];
   planFeatures: PlanFeatures;
+  addons: CompanyAddon[];
+  hasAddon: (code: string) => boolean;
   loading: boolean;
   plansLoading: boolean;
   needsOnboarding: boolean;
@@ -76,6 +85,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [addons, setAddons] = useState<CompanyAddon[]>([]);
   const [loading, setLoading] = useState(true);
   const [plansLoading, setPlansLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
@@ -85,8 +95,13 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     setCompany(null);
     setPlan(null);
     setSubscription(null);
+    setAddons([]);
     setPlanFeatures({ ...DEFAULT_PLAN_FEATURES });
   }, []);
+
+  const hasAddon = useCallback((code: string): boolean => {
+    return addons.some(a => a.addon_code === code && a.status === 'active');
+  }, [addons]);
 
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true);
@@ -110,6 +125,36 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       setPlans([]);
     } finally {
       setPlansLoading(false);
+    }
+  }, []);
+
+  const autoCreateCompany = useCallback(async (userId: string, userEmail: string): Promise<boolean> => {
+    // ── DEV MODE: Auto-cria empresa no primeiro login ──────────────────────────
+    // Isso simplifica o fluxo durante o desenvolvimento.
+    // Em produção, remova ou coloque atrás de um feature flag.
+    // A estrutura de onboarding completo (planSlug, etc.) permanece intacta.
+    try {
+      const nomeEmpresa = userEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      
+      // Usa a RPC complete_onboarding com o plano start padrão
+      const { error } = await (supabase as any).rpc('complete_onboarding', {
+        _nome: `Empresa de ${nomeEmpresa}`,
+        _cnpj: '',
+        _email: userEmail,
+        _telefone: '',
+        _plan_slug: 'start',
+      });
+
+      if (error) {
+        console.error('[DEV] Erro ao auto-criar empresa:', error);
+        return false;
+      }
+
+      console.info('[DEV] Empresa criada automaticamente para:', userEmail);
+      return true;
+    } catch (err) {
+      console.error('[DEV] Erro inesperado ao auto-criar empresa:', err);
+      return false;
     }
   }, []);
 
@@ -139,10 +184,19 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!profile?.company_id) {
-        resetCompanyState();
-        setNeedsOnboarding(true);
-        setLoading(false);
-        return;
+        // ── DEV MODE: Tenta auto-criar empresa em vez de ir pro onboarding ───
+        console.info('[DEV] Usuário sem empresa. Tentando auto-criar...');
+        const created = await autoCreateCompany(user.id, user.email);
+        if (!created) {
+          // Fallback: onboarding manual (comportamento original)
+          resetCompanyState();
+          setNeedsOnboarding(true);
+          setLoading(false);
+          return;
+        }
+        // Recarrega após criar empresa
+        return fetchCompany();
+        // ─────────────────────────────────────────────────────────────────────
       }
 
       const { data: companyData, error: companyError } = await supabase
@@ -162,14 +216,17 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       setCompany(companyData as Company);
 
       if (!companyData.plan_id) {
+        // ── DEV MODE: Sem plano vinculado — acesso liberado mesmo assim ───────
+        // Em produção, reabilitar: setNeedsOnboarding(true); return;
         setPlan(null);
         setSubscription(null);
-        setNeedsOnboarding(true);
+        setNeedsOnboarding(false);
         setLoading(false);
         return;
+        // ─────────────────────────────────────────────────────────────────────
       }
 
-      const [{ data: planData, error: planError }, { data: subData, error: subError }] =
+      const [{ data: planData, error: planError }, { data: subData, error: subError }, { data: addonsData }] =
         await Promise.all([
           supabase.from('plans').select('*').eq('id', companyData.plan_id).maybeSingle(),
           supabase
@@ -180,6 +237,10 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
+          (supabase as any)
+            .from('company_addons')
+            .select('addon_code, status, trial_end')
+            .eq('company_id', companyData.id),
         ]);
 
       if (planError) {
@@ -193,7 +254,11 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       setPlan((planData as Plan) || null);
       setPlanFeatures(normalizePlanFeatures((planData as any)?.features));
       setSubscription((subData as Subscription) || null);
+      setAddons((addonsData as CompanyAddon[]) || []);
       setNeedsOnboarding(false);
+
+      // Dados de demonstração da conta admin são gerenciados diretamente no banco de dados via SQL.
+      // Não utilize auto-seed do frontend para evitar duplicações pelo React StrictMode/Vite HMR.
     } catch (err) {
       console.error('Erro inesperado ao buscar dados da empresa:', err);
       resetCompanyState();
@@ -317,6 +382,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         subscription,
         plans,
         planFeatures,
+        addons,
+        hasAddon,
         loading,
         plansLoading,
         needsOnboarding,

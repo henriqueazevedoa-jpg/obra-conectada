@@ -31,7 +31,7 @@ interface DiarioRow {
   status: string;
   usuario_nome: string;
   obra_id: string;
-  user_id: string;
+  user_id: string | null;
 }
 
 function useDiarioRegistros(obraId?: string) {
@@ -61,8 +61,8 @@ function GestorDashboard() {
   }
 
   const orcamento = getOrcamento(obra.id);
-  const categorias = orcamento?.categorias || [];
-  const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);
+  const etapas = orcamento?.etapas || [];
+  const totalPrevisto = etapas.reduce((s, c) => s + c.precoTotal, 0);
 
   const today = new Date();
 
@@ -79,22 +79,22 @@ function GestorDashboard() {
     return Math.round((done / totalPeso) * 100);
   };
 
-  const andamentoReal = categorias.length > 0
-    ? Math.round(categorias.reduce((s, c) => s + computePercentual(c), 0) / categorias.length)
+  const andamentoReal = etapas.length > 0
+    ? Math.round(etapas.reduce((s, c) => s + computePercentual(c), 0) / etapas.length)
     : obra.percentualAndamento;
 
   // Andamento Planejado: % of etapas whose dataFimPrevista <= today
   const andamentoPlanejado = (() => {
-    if (categorias.length === 0) return 0;
-    const withDates = categorias.filter(c => c.dataFimPrevista);
+    if (etapas.length === 0) return 0;
+    const withDates = etapas.filter(c => c.dataFimPrevista);
     if (withDates.length === 0) return 0;
     const shouldBeDone = withDates.filter(c => new Date(c.dataFimPrevista!) <= today).length;
-    return Math.round((shouldBeDone / categorias.length) * 100);
+    return Math.round((shouldBeDone / etapas.length) * 100);
   })();
 
   const materiaisObra = getMateriaisByObra(obra.id);
   const materiaisBaixo = materiaisObra.filter(m => m.estoqueAtual < m.estoqueMinimo).length;
-  const etapasAtrasadas = categorias.filter(c => {
+  const etapasAtrasadas = etapas.filter(c => {
     if (c.statusCronograma === 'atrasada') return true;
     if (c.dataFimPrevista && !c.dataFimReal && new Date() > new Date(c.dataFimPrevista)) return true;
     return false;
@@ -221,7 +221,7 @@ function GestorDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {categorias.filter(c => {
+            {etapas.filter(c => {
               if (c.statusCronograma === 'atrasada') return true;
               if (c.dataFimPrevista && !c.dataFimReal && new Date() > new Date(c.dataFimPrevista)) return true;
               return false;
@@ -292,8 +292,8 @@ function FuncionarioDashboard() {
   const diarioRegistros = useDiarioRegistros(obra?.id);
   const meusRegistros = diarioRegistros.filter(d => d.user_id === user?.id);
   const orcamento = obra ? getOrcamento(obra.id) : null;
-  const categorias = orcamento?.categorias || [];
-  const etapasAndamento = categorias.filter(c => c.statusCronograma === 'em_andamento');
+  const etapas = orcamento?.etapas || [];
+  const etapasAndamento = etapas.filter(c => c.statusCronograma === 'em_andamento');
 
   if (!obra) {
     return (
@@ -384,10 +384,10 @@ function ClienteDashboard() {
   const obra = obras[0];
   const diarioRegistros = useDiarioRegistros(obra?.id);
   const orcamento = obra ? getOrcamento(obra.id) : null;
-  const categorias = orcamento?.categorias || [];
-  const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);
+  const etapas = orcamento?.etapas || [];
+  const totalPrevisto = etapas.reduce((s, c) => s + c.precoTotal, 0);
   const registrosAprovados = diarioRegistros.filter(d => d.status === 'aprovado');
-  const proximasEtapas = categorias.filter(c => c.statusCronograma === 'em_andamento' || c.statusCronograma === 'nao_iniciada').slice(0, 3);
+  const proximasEtapas = etapas.filter(c => c.statusCronograma === 'em_andamento' || c.statusCronograma === 'nao_iniciada').slice(0, 3);
 
   if (!obra) {
     return (

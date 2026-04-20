@@ -11,6 +11,11 @@ const supabase = createClient(
 const filePath = process.env.SINAPI_FILE_PATH;
 const competencia = process.env.SINAPI_COMPETENCIA;
 
+// Quais regimes importar (pode sobrescrever via env: SINAPI_REGIMES=SEM_DESONERACAO,COM_DESONERACAO)
+const REGIMES_SOLICITADOS = process.env.SINAPI_REGIMES
+  ? process.env.SINAPI_REGIMES.split(',').map((r) => r.trim())
+  : ['SEM_DESONERACAO', 'COM_DESONERACAO', 'SEM_ENCARGOS'];
+
 if (!filePath) throw new Error('SINAPI_FILE_PATH não definido');
 if (!competencia) throw new Error('SINAPI_COMPETENCIA não definido');
 
@@ -20,28 +25,76 @@ const BATCH_SIZE_INSUMOS = 1000;
 const BATCH_SIZE_PRECOS = 2000;
 const BATCH_SIZE_CUSTOS = 2000;
 
+// ─── Mapeamento aba → regime ──────────────────────────────────────────────────
+
+const INSUMO_ABAS = [
+  { aba: 'ISD', regime: 'SEM_DESONERACAO' },
+  { aba: 'ICD', regime: 'COM_DESONERACAO' },
+  { aba: 'ISE', regime: 'SEM_ENCARGOS'    },
+];
+
+const CUSTO_ABAS = [
+  { aba: 'CSD', regime: 'SEM_DESONERACAO' },
+  { aba: 'CCD', regime: 'COM_DESONERACAO' },
+  { aba: 'CSE', regime: 'SEM_ENCARGOS'    },
+];
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
 async function main() {
   console.log('Iniciando importação SINAPI...');
+  console.log(`Regimes a importar: ${REGIMES_SOLICITADOS.join(', ')}`);
 
   if (!fs.existsSync(filePath)) {
     throw new Error(`Arquivo não encontrado: ${filePath}`);
   }
 
   const workbook = xlsx.readFile(filePath);
-  const nomeArquivo = filePath.split('/').pop();
+  const abasDisponiveis = workbook.SheetNames;
+  console.log(`Abas disponíveis no arquivo: ${abasDisponiveis.join(' | ')}`);
 
+  const nomeArquivo = filePath.split(/[\\/]/).pop();
   const referencia = await getOrCreateReferencia(nomeArquivo);
-  console.log(`Referência ativa: ${referencia.id}`);
+  console.log(`Referência ativa: ${referencia.id} (${referencia.competencia})`);
 
-  await limparImportacaoAnterior(referencia.id);
-  console.log('Dados anteriores da referência removidos.');
+  // Limpar apenas preços/custos dos regimes que serão reimportados
+  // (preserva regimes não solicitados se já existirem)
+  await limparRegimes(referencia.id, REGIMES_SOLICITADOS);
 
+  // 1. Aba Analítico: composições + itens (não depende de regime)
   await parseAnalitico(workbook, referencia.id);
-  await parseInsumosISD(workbook, referencia.id);
-  await parseCustosCSD(workbook, referencia.id);
 
-  console.log('✅ SINAPI importada com sucesso');
+  // 2. Insumos e preços — uma aba por regime
+  for (const { aba, regime } of INSUMO_ABAS) {
+    if (!REGIMES_SOLICITADOS.includes(regime)) continue;
+
+    if (!workbook.Sheets[aba]) {
+      console.warn(`⚠️  Aba "${aba}" não encontrada no arquivo — regime ${regime} ignorado.`);
+      continue;
+    }
+
+    console.log(`\n── Processando insumos: aba "${aba}" → regime ${regime} ──`);
+    await parseInsumos(workbook, referencia.id, aba, regime);
+  }
+
+  // 3. Custos (sinapi_composicao_custos) — uma aba por regime
+  for (const { aba, regime } of CUSTO_ABAS) {
+    if (!REGIMES_SOLICITADOS.includes(regime)) continue;
+
+    if (!workbook.Sheets[aba]) {
+      console.warn(`⚠️  Aba "${aba}" não encontrada no arquivo — regime ${regime} ignorado.`);
+      continue;
+    }
+
+    console.log(`\n── Processando custos: aba "${aba}" → regime ${regime} ──`);
+    await parseCustos(workbook, referencia.id, aba, regime);
+  }
+
+  console.log('\n✅ SINAPI importada com sucesso');
+  console.log(`   Regimes importados: ${REGIMES_SOLICITADOS.join(', ')}`);
 }
+
+// ─── Banco ────────────────────────────────────────────────────────────────────
 
 async function getOrCreateReferencia(nomeArquivo) {
   const { data: existente, error: selectError } = await supabase
@@ -56,10 +109,7 @@ async function getOrCreateReferencia(nomeArquivo) {
 
   const { data, error } = await supabase
     .from('sinapi_referencias')
-    .insert({
-      competencia,
-      arquivo_nome: nomeArquivo,
-    })
+    .insert({ competencia, arquivo_nome: nomeArquivo })
     .select()
     .single();
 
@@ -67,38 +117,54 @@ async function getOrCreateReferencia(nomeArquivo) {
   return data;
 }
 
-async function limparImportacaoAnterior(referenciaId) {
-  const tabelas = [
-    'sinapi_composicao_custos',
-    'sinapi_insumo_precos',
-    'sinapi_insumos',
-    'sinapi_composicao_itens',
-    'sinapi_composicoes',
-  ];
+async function limparRegimes(referenciaId, regimes) {
+  console.log(`\nLimpando dados anteriores para regimes: ${regimes.join(', ')}...`);
 
-  for (const tabela of tabelas) {
+  // Preços de insumos: deletar por regime
+  for (const regime of regimes) {
+    const { error } = await supabase
+      .from('sinapi_insumo_precos')
+      .delete()
+      .eq('referencia_id', referenciaId)
+      .eq('regime', regime);
+    if (error) throw error;
+    console.log(`  sinapi_insumo_precos [${regime}]: limpo`);
+  }
+
+  // Custos de composição: deletar por regime
+  for (const regime of regimes) {
+    const { error } = await supabase
+      .from('sinapi_composicao_custos')
+      .delete()
+      .eq('referencia_id', referenciaId)
+      .eq('regime', regime);
+    if (error) throw error;
+    console.log(`  sinapi_composicao_custos [${regime}]: limpo`);
+  }
+
+  // Composições e itens sempre relimpados (não têm regime)
+  for (const tabela of ['sinapi_composicao_itens', 'sinapi_composicoes', 'sinapi_insumos']) {
     const { error } = await supabase
       .from(tabela)
       .delete()
       .eq('referencia_id', referenciaId);
-
     if (error) throw error;
+    console.log(`  ${tabela}: limpo`);
   }
 }
 
+// ─── Parsers ──────────────────────────────────────────────────────────────────
+
 function normalizarChaves(obj) {
   const novo = {};
-
   for (const [key, value] of Object.entries(obj || {})) {
     const chave = String(key)
       .replace(/\r/g, '')
       .replace(/\n/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-
     novo[chave] = value;
   }
-
   return novo;
 }
 
@@ -131,10 +197,7 @@ async function executarComRetry(fn, tentativas = 3, esperaMs = 1500) {
       return await fn();
     } catch (error) {
       ultimoErro = error;
-      console.log(
-        `Tentativa ${tentativa}/${tentativas} falhou: ${error.message || error}`
-      );
-
+      console.log(`Tentativa ${tentativa}/${tentativas} falhou: ${error.message || error}`);
       if (tentativa < tentativas) {
         await new Promise((resolve) => setTimeout(resolve, esperaMs));
       }
@@ -144,14 +207,7 @@ async function executarComRetry(fn, tentativas = 3, esperaMs = 1500) {
   throw ultimoErro;
 }
 
-async function inserirEmLotes({
-  tabela,
-  dados,
-  tamanhoLote,
-  tipo,
-  upsert = false,
-  onConflict,
-}) {
+async function inserirEmLotes({ tabela, dados, tamanhoLote, tipo, upsert = false, onConflict }) {
   if (!dados.length) {
     console.log(`${tipo}: nenhum registro para importar`);
     return;
@@ -175,28 +231,29 @@ async function inserirEmLotes({
       if (error) throw error;
     });
 
-    console.log(`${tipo}: lote ${i + 1}/${lotes.length} importado`);
+    const pct = Math.round(((i + 1) / lotes.length) * 100);
+    process.stdout.write(`\r  ${tipo}: lote ${i + 1}/${lotes.length} (${pct}%)`);
   }
+  console.log(); // nova linha após progresso
 }
 
+// ── Aba Analítico: composições + itens (sem regime) ──────────────────────────
+
 async function parseAnalitico(workbook, referenciaId) {
-  const nomeAba = workbook.SheetNames.find((name) =>
-    name.toLowerCase().includes('analítico')
-  ) || workbook.SheetNames.find((name) =>
-    name.toLowerCase().includes('anal')
-  );
+  const nomeAba =
+    workbook.SheetNames.find((name) => name.toLowerCase().includes('analítico')) ||
+    workbook.SheetNames.find((name) => name.toLowerCase().includes('anal'));
 
-  if (!nomeAba) {
-    throw new Error('Aba Analítico não encontrada');
-  }
+  if (!nomeAba) throw new Error('Aba Analítico não encontrada');
 
+  console.log(`\n── Processando composições: aba "${nomeAba}" ──`);
   const sheet = workbook.Sheets[nomeAba];
 
   const rows = xlsx.utils
     .sheet_to_json(sheet, { defval: null, range: 9 })
     .map(normalizarChaves);
 
-  console.log(`Linhas lidas da aba ${nomeAba}: ${rows.length}`);
+  console.log(`  Linhas lidas: ${rows.length}`);
 
   let composicaoAtual = null;
   let ordem = 0;
@@ -210,7 +267,6 @@ async function parseAnalitico(workbook, referenciaId) {
 
     const codigoComposicao = valorNumerico(row['Código da Composição']);
     const codigoItem = valorNumerico(row['Código do Item']);
-
     const descricao = row['Descrição']?.toString().trim() || null;
     const grupo = row['Grupo']?.toString().trim() || null;
     const unidade = row['Unidade']?.toString().trim() || null;
@@ -251,9 +307,7 @@ async function parseAnalitico(workbook, referenciaId) {
   }
 
   const composicoes = Array.from(composicoesMap.values());
-
-  console.log(`Composições preparadas: ${composicoes.length}`);
-  console.log(`Itens preparados: ${itens.length}`);
+  console.log(`  Composições: ${composicoes.length} | Itens: ${itens.length}`);
 
   await inserirEmLotes({
     tabela: 'sinapi_composicoes',
@@ -268,31 +322,27 @@ async function parseAnalitico(workbook, referenciaId) {
     tabela: 'sinapi_composicao_itens',
     dados: itens,
     tamanhoLote: BATCH_SIZE_ITENS,
-    tipo: 'Itens',
+    tipo: 'Itens de composição',
   });
 }
 
-async function parseInsumosISD(workbook, referenciaId) {
-  const sheet = workbook.Sheets['ISD'];
+// ── Aba de insumos (ISD / ICD / ISE) — um regime por chamada ─────────────────
 
-  if (!sheet) {
-    throw new Error('Aba ISD não encontrada');
-  }
+async function parseInsumos(workbook, referenciaId, nomeAba, regime) {
+  const sheet = workbook.Sheets[nomeAba];
+  if (!sheet) throw new Error(`Aba ${nomeAba} não encontrada`);
 
   const rows = xlsx.utils
     .sheet_to_json(sheet, { defval: null, range: 9 })
     .map(normalizarChaves);
 
-  console.log(`Linhas lidas da aba ISD: ${rows.length}`);
+  console.log(`  Linhas lidas: ${rows.length}`);
 
-  if (!rows.length) {
-    throw new Error('Nenhuma linha lida da aba ISD');
-  }
+  if (!rows.length) throw new Error(`Nenhuma linha lida da aba ${nomeAba}`);
 
   const colunas = Object.keys(rows[0] || {});
   const ufs = colunas.filter((col) => /^[A-Z]{2}$/.test(col));
-
-  console.log(`UFs detectadas na ISD: ${ufs.join(', ')}`);
+  console.log(`  UFs detectadas: ${ufs.join(', ')}`);
 
   const insumosMap = new Map();
   const precos = [];
@@ -306,6 +356,7 @@ async function parseInsumosISD(workbook, referenciaId) {
 
     if (!codigo || !descricao) continue;
 
+    // Insumos são os mesmos para todos os regimes; inserir apenas 1x (chave única)
     insumosMap.set(`${referenciaId}-${codigo}`, {
       referencia_id: referenciaId,
       codigo,
@@ -323,22 +374,21 @@ async function parseInsumosISD(workbook, referenciaId) {
         referencia_id: referenciaId,
         insumo_codigo: codigo,
         uf,
-        regime: 'SEM_DESONERACAO',
+        regime,
         preco,
       });
     }
   }
 
   const insumos = Array.from(insumosMap.values());
+  console.log(`  Insumos: ${insumos.length} | Preços: ${precos.length}`);
 
-  console.log(`Insumos preparados: ${insumos.length}`);
-  console.log(`Preços preparados: ${precos.length}`);
-
+  // Insumos: upsert — os dados são idênticos entre regimes
   await inserirEmLotes({
     tabela: 'sinapi_insumos',
     dados: insumos,
     tamanhoLote: BATCH_SIZE_INSUMOS,
-    tipo: 'Insumos',
+    tipo: `Insumos [${regime}]`,
     upsert: true,
     onConflict: 'referencia_id,codigo',
   });
@@ -347,39 +397,34 @@ async function parseInsumosISD(workbook, referenciaId) {
     tabela: 'sinapi_insumo_precos',
     dados: precos,
     tamanhoLote: BATCH_SIZE_PRECOS,
-    tipo: 'Preços',
+    tipo: `Preços [${regime}]`,
     upsert: true,
     onConflict: 'referencia_id,insumo_codigo,uf,regime',
   });
 }
 
-async function parseCustosCSD(workbook, referenciaId) {
-  const sheet = workbook.Sheets['CSD'];
+// ── Aba de custos (CSD / CCD / CSE) — um regime por chamada ──────────────────
 
-  if (!sheet) {
-    throw new Error('Aba CSD não encontrada');
-  }
+async function parseCustos(workbook, referenciaId, nomeAba, regime) {
+  const sheet = workbook.Sheets[nomeAba];
+  if (!sheet) throw new Error(`Aba ${nomeAba} não encontrada`);
 
   const rows = xlsx.utils
     .sheet_to_json(sheet, { defval: null, range: 9 })
     .map(normalizarChaves);
 
-  console.log(`Linhas lidas da aba CSD: ${rows.length}`);
+  console.log(`  Linhas lidas: ${rows.length}`);
 
-  if (!rows.length) {
-    throw new Error('Nenhuma linha lida da aba CSD');
-  }
+  if (!rows.length) throw new Error(`Nenhuma linha lida da aba ${nomeAba}`);
 
   const colunas = Object.keys(rows[0] || {});
   const ufs = colunas.filter((col) => /^[A-Z]{2}$/.test(col));
-
-  console.log(`UFs detectadas na CSD: ${ufs.join(', ')}`);
+  console.log(`  UFs detectadas: ${ufs.join(', ')}`);
 
   const custos = [];
 
   for (const row of rows) {
     const composicaoCodigo = valorNumerico(row['Código da Composição']);
-
     if (!composicaoCodigo) continue;
 
     for (const uf of ufs) {
@@ -390,19 +435,21 @@ async function parseCustosCSD(workbook, referenciaId) {
         referencia_id: referenciaId,
         composicao_codigo: composicaoCodigo,
         uf,
-        regime: 'SEM_DESONERACAO',
+        regime,
         custo,
+        // percentual_as pode existir dependendo da versão do arquivo
+        percentual_as: valorNumerico(row['% AS']) ?? null,
       });
     }
   }
 
-  console.log(`Custos preparados: ${custos.length}`);
+  console.log(`  Custos preparados: ${custos.length}`);
 
   await inserirEmLotes({
     tabela: 'sinapi_composicao_custos',
     dados: custos,
     tamanhoLote: BATCH_SIZE_CUSTOS,
-    tipo: 'Custos',
+    tipo: `Custos [${regime}]`,
     upsert: true,
     onConflict: 'referencia_id,composicao_codigo,uf,regime',
   });

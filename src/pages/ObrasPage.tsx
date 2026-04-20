@@ -173,41 +173,78 @@ export default function ObrasPage() {
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            Obras
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} obra(s) encontrada(s)</p>
-        </div>
-        {hasPermission('obras:create') && (
-          <Button size="sm" onClick={openCreateDialog}><Plus className="h-4 w-4 mr-1" /> Nova Obra</Button>
-        )}
-      </div>
+    <div className="flex flex-col h-full bg-[var(--color-background-primary)] animate-fade-in">
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar obra..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {['', 'em_andamento', 'planejamento', 'pausada', 'concluida'].map(s => (
+      {/* ─── STICKY HEADER L1 ────────────────────────────────────── */}
+      <div className="sticky top-0 z-20 shrink-0">
+        <div className="flex items-center h-[48px] bg-[var(--color-background-primary)] border-b-[0.5px] border-[var(--color-border-tertiary)] px-[16px] gap-3">
+
+          {/* Ícone + nome */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div style={{
+              width: 28, height: 28, borderRadius: 8,
+              background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Building2 className="h-4 w-4" style={{ color: '#C2410C' }} />
+            </div>
+            <span className="text-[14px] font-medium text-[var(--color-text-primary)] whitespace-nowrap">
+              Obras
+            </span>
+            <span className="text-[12px] text-[var(--color-text-secondary)] whitespace-nowrap">
+              {filtered.length > 0 ? `· ${filtered.length}` : ''}
+            </span>
+          </div>
+
+          {/* Divisor */}
+          <div className="w-[1px] h-4 bg-[var(--color-border-tertiary)] shrink-0" />
+
+          {/* Busca */}
+          <div className="relative flex-1 max-w-[280px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+            <Input
+              placeholder="Buscar obra..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-8 h-7 text-[12px] border-[0.5px] border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] rounded-[6px]"
+            />
+          </div>
+
+          {/* Filtros de status */}
+          <div className="flex gap-1.5 flex-1 overflow-x-auto">
+            {['', 'em_andamento', 'planejamento', 'pausada', 'concluida'].map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border-[0.5px] transition-colors whitespace-nowrap ${
+                  statusFilter === s
+                    ? 'bg-[#534AB7] text-white border-[#534AB7]'
+                    : 'bg-transparent text-[var(--color-text-secondary)] border-[var(--color-border-tertiary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                {s ? statusObraLabels[s] : 'Todas'}
+              </button>
+            ))}
+          </div>
+
+          {/* Botão primário */}
+          {hasPermission('obras:create') && (
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                statusFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-border hover:bg-accent'
-              }`}
+              onClick={openCreateDialog}
+              className="flex items-center gap-1 h-7 px-3 bg-[#534AB7] hover:bg-[#534AB7]/90 text-white rounded-[6px] text-[12px] font-medium transition-colors whitespace-nowrap shrink-0"
             >
-              {s ? statusObraLabels[s] : 'Todas'}
+              <Plus className="h-3.5 w-3.5" />
+              Nova Obra
             </button>
-          ))}
+          )}
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* ─── CONTEÚDO ROLAVEL */}
+      <div className="flex-1 overflow-auto p-4">
+
+        <div className="grid md:grid-cols-2 gap-4">
+
         {filtered.map(obra => (
           <div
             key={obra.id}
@@ -258,7 +295,9 @@ export default function ObrasPage() {
             </Card>
           </div>
         ))}
-      </div>
+        </div>{/* /grid */}
+
+      </div>{/* /scrollarea */}
 
       {/* Dialog Criar/Editar Obra */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

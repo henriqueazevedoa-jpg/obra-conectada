@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
+import { OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import { CustoRealItem } from '@/contexts/CustoRealContext';
 import { formatCurrency } from '@/data/mockData';
 import {
@@ -10,7 +10,7 @@ import {
 import { PieChartIcon } from 'lucide-react';
 
 interface Props {
-  categorias: OrcamentoCategoria[];
+  etapas: OrcamentoEtapa[];
   custoItens: CustoRealItem[];
 }
 
@@ -61,14 +61,14 @@ interface CostPieChartProps extends Props {
   onViewChange?: (view: CostPieView) => void;
 }
 
-export default function CostPieChart({ categorias, custoItens, view: externalView, onViewChange }: CostPieChartProps) {
+export default function CostPieChart({ etapas, custoItens, view: externalView, onViewChange }: CostPieChartProps) {
   const [internalView, setInternalView] = useState<CostPieView>('etapa');
   const view = externalView ?? internalView;
   const setView = onViewChange ?? setInternalView;
 
   const data = useMemo(() => {
     if (view === 'etapa') {
-      return categorias
+      return etapas
         .filter(c => c.precoTotal > 0)
         .map(c => ({ name: c.nome, value: c.precoTotal }));
     }
@@ -79,7 +79,7 @@ export default function CostPieChart({ categorias, custoItens, view: externalVie
         byType[cat] = (byType[cat] || 0) + i.valor;
       });
       if (Object.keys(byType).length === 0) {
-        return categorias.filter(c => c.precoTotal > 0).map(c => ({ name: c.nome, value: c.precoTotal }));
+        return etapas.filter(c => c.precoTotal > 0).map(c => ({ name: c.nome, value: c.precoTotal }));
       }
       return Object.entries(byType).map(([name, value]) => ({ name, value }));
     }
@@ -89,7 +89,7 @@ export default function CostPieChart({ categorias, custoItens, view: externalVie
       byDesc[i.descricao] = (byDesc[i.descricao] || 0) + i.valor;
     });
     if (Object.keys(byDesc).length === 0) {
-      return categorias.filter(c => c.precoTotal > 0).map(c => ({ name: c.nome, value: c.precoTotal }));
+      return etapas.filter(c => c.precoTotal > 0).map(c => ({ name: c.nome, value: c.precoTotal }));
     }
     const sorted = Object.entries(byDesc)
       .map(([name, value]) => ({ name, value }))
@@ -99,7 +99,7 @@ export default function CostPieChart({ categorias, custoItens, view: externalVie
     const outrosValue = sorted.slice(9).reduce((s, d) => s + d.value, 0);
     if (outrosValue > 0) top.push({ name: 'Outros', value: outrosValue });
     return top;
-  }, [categorias, custoItens, view]);
+  }, [etapas, custoItens, view]);
 
   const total = data.reduce((s, d) => s + d.value, 0);
 

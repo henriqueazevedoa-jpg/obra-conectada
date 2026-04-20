@@ -7,9 +7,8 @@
  *
  * Merge por etapa_id. Entradas sem etapa → "Custos Indiretos".
  */
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { usePortalTarget } from '@/hooks/usePortalTarget';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { PageKPI } from '@/components/layout/PageShell';
 import { useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/untyped';
@@ -32,7 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
-  ResponsiveContainer, Cell, Legend,
+  Cell, Legend,
 } from 'recharts';
 import {
   ChevronDown, ChevronRight, DollarSign, TrendingUp, TrendingDown,
@@ -84,17 +83,95 @@ const CATEGORIAS_LANCAMENTO = [
 
 // ── Tooltip do gráfico ─────────────────────────────────────────────────────────
 
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
+function CustomTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: { name: string; value: number; color: string; payload?: { fullName: string; Orçado: number; Realizado: number } }[];
+  label?: string;
+}) {
   if (!active || !payload?.length) return null;
+  const orcado   = payload.find(p => p.name === 'Orçado')?.value   ?? 0;
+  const realizado = payload.find(p => p.name === 'Realizado')?.value ?? 0;
+  const desvio   = realizado - orcado;
+  const fullName  = payload[0]?.payload?.fullName || label;
   return (
-    <div className="bg-card border border-border rounded-lg shadow-lg p-3 text-xs space-y-1 min-w-[180px]">
-      <p className="font-semibold text-foreground truncate max-w-[200px]">{label}</p>
-      {payload.map(entry => (
-        <div key={entry.name} className="flex justify-between gap-4">
-          <span style={{ color: entry.color }} className="font-medium">{entry.name}</span>
-          <span className="font-bold tabular-nums">{formatCurrencyShort(entry.value)}</span>
+    <div className="bg-card border border-border rounded-xl shadow-lg p-3 text-xs min-w-[200px] space-y-2">
+      <p className="font-semibold text-foreground truncate max-w-[220px]">{fullName}</p>
+      <div className="space-y-1">
+        <div className="flex justify-between gap-4">
+          <span style={{ color: '#AFA9EC' }} className="font-medium">Orçado</span>
+          <span className="font-bold tabular-nums">{formatCurrencyShort(orcado)}</span>
         </div>
-      ))}
+        <div className="flex justify-between gap-4">
+          <span style={{ color: realizado > orcado ? '#A32D2D' : '#534AB7' }} className="font-medium">Realizado</span>
+          <span className="font-bold tabular-nums">{formatCurrencyShort(realizado)}</span>
+        </div>
+      </div>
+      {orcado > 0 && (
+        <div className="pt-1 border-t border-border/50">
+          <div className="flex justify-between gap-4">
+            <span className={desvio > 0 ? 'text-[#A32D2D] font-medium' : 'text-emerald-600 font-medium'}>Desvio</span>
+            <span className={`font-bold tabular-nums ${desvio > 0 ? 'text-[#A32D2D]' : 'text-emerald-600'}`}>
+              {desvio > 0 ? '+' : ''}{Math.round((desvio / orcado) * 100)}%
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ChartCard: gráfico de distribuição por etapa com largura medida por ref ──
+
+interface ChartEntry {
+  name: string;
+  fullName: string;
+  Orçado: number;
+  Realizado: number;
+}
+
+function ChartCard({ data }: { data: ChartEntry[] }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) setWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div style={{
+      background: '#FFFFFF',
+      border: '1px solid var(--color-border-secondary)',
+      borderRadius: 12,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      overflow: 'hidden',
+    }}>
+      <div className="px-4 pt-3 pb-1">
+        <p className="text-sm font-semibold">Distribuição por etapa</p>
+      </div>
+      <div ref={wrapperRef} style={{ padding: '4px 16px 12px' }}>
+        {width > 0 && (
+          <BarChart data={data} width={width - 32} height={160} barGap={3} barCategoryGap="28%" margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={v => formatCurrencyShort(v)} width={60} />
+            <ReTooltip content={<CustomTooltip />} />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: 4 }} />
+            <Bar dataKey="Orçado" fill="#AFA9EC" radius={[4, 4, 0, 0]} minPointSize={3} />
+            <Bar dataKey="Realizado" radius={[4, 4, 0, 0]} minPointSize={3}>
+              {data.map((entry, i) => (
+                <Cell key={i} fill={entry.Realizado > entry.Orçado ? '#A32D2D' : '#534AB7'} />
+              ))}
+            </Bar>
+          </BarChart>
+        )}
+      </div>
     </div>
   );
 }
@@ -252,9 +329,9 @@ function RegistrarCustoModal({ open, onClose, obraId, companyId, etapas, onSaved
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-interface Props { obraId: string; }
+interface Props { obraId: string; isActive?: boolean; onKpisReady?: (kpis: PageKPI[]) => void; }
 
-export default function CustoRealTab({ obraId }: Props) {
+export default function CustoRealTab({ obraId, isActive = true, onKpisReady }: Props) {
   const { getOrcamento } = useOrcamento();
   const { company } = useCompany();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -273,8 +350,7 @@ export default function CustoRealTab({ obraId }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
 
-  // ── Portal target (must be before any early return — Rules of Hooks) ─────────
-  const kpiPortalTarget = usePortalTarget('financeiro-kpi-portal');
+  // ── Portal target removed — lift-state-up via onKpisReady ─────────────────
 
   // ── Buscar as duas fontes ────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -389,17 +465,37 @@ export default function CustoRealTab({ obraId }: Props) {
   const pctExecutado = totalOrcado > 0 ? Math.min(100, Math.round((totalRealizado / totalOrcado) * 100)) : 0;
 
   // ── Chart data ────────────────────────────────────────────────────────────────
-  const chartData = useMemo(() =>
-    etapas
-      .filter(e => e.orcado > 0 || e.realizado > 0)
+  const chartData = useMemo(() => {
+    // Incluir etapas com orcado>0 OU realizado>0 para o gráfico sempre refletir a realidade
+    const comDados = etapas.filter(e => e.orcado > 0 || e.realizado > 0);
+    // Se nenhuma etapa tem dados do orçamento (categoriasOrc vazio), usar lançamentos agrupados por etapa_nome
+    if (comDados.length === 0 && lancamentos.length > 0) {
+      const porNome = new Map<string, number>();
+      for (const l of lancamentos) {
+        if (!l.etapa_id && !l.etapa_nome) continue;
+        const key = l.etapa_nome || l.etapa_id || 'Sem etapa';
+        porNome.set(key, (porNome.get(key) || 0) + l.valor);
+      }
+      return Array.from(porNome.entries())
+        .filter(([, v]) => v > 0)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([nome, realizado]) => ({
+          name: nome.length > 18 ? nome.slice(0, 16) + '…' : nome,
+          fullName: nome,
+          Orçado: 0,
+          Realizado: realizado,
+        }));
+    }
+    return comDados
       .slice(0, 10)
       .map(e => ({
         name: e.nome.length > 18 ? e.nome.slice(0, 16) + '…' : e.nome,
         fullName: e.nome,
         Orçado: e.orcado,
         Realizado: e.realizado,
-      })),
-  [etapas]);
+      }));
+  }, [etapas, lancamentos]);
 
   const toggleEtapa = (id: string) => {
     setExpandedEtapas(prev => {
@@ -408,6 +504,40 @@ export default function CustoRealTab({ obraId }: Props) {
       return next;
     });
   };
+
+  // ── KPI lift-state-up ──────────────────────────────────────────────────────
+  // IMPORTANTE: deve ficar ANTES de qualquer early return para não violar Rules of Hooks
+  useEffect(() => {
+    if (!isActive || !onKpisReady || loading) return;
+    const desvioPctVal = totalOrcado > 0 ? (totalDesvio / totalOrcado) * 100 : 0;
+    onKpisReady([
+      { id: 'orcado', label: 'Orçado total', value: formatCurrency(totalOrcado),
+        icon: <DollarSign style={{ width: 14, height: 14, color: '#534AB7' }} />,
+        tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7', main: true },
+      { id: 'realizado', label: 'Realizado', value: formatCurrency(totalRealizado),
+        icon: <Receipt style={{ width: 14, height: 14, color: totalRealizado > 0 ? '#3B6D11' : '#888' }} />,
+        tint: totalRealizado > 0 ? '#EAF3DE' : undefined,
+        valueColor: totalRealizado > 0 ? '#3B6D11' : undefined },
+      { id: 'desvio', label: 'Desvio', value: `${totalDesvio > 0 ? '+' : ''}${desvioPctVal.toFixed(1)}%`,
+        icon: totalDesvio > 0
+          ? <AlertTriangle style={{ width: 14, height: 14, color: '#A32D2D' }} />
+          : totalDesvio < 0
+          ? <CheckCircle2 style={{ width: 14, height: 14, color: '#3B6D11' }} />
+          : <Minus style={{ width: 14, height: 14, color: '#888' }} />,
+        sublabel: totalDesvio > 0 ? 'acima do orçado' : totalDesvio < 0 ? 'abaixo do orçado' : 'dentro do orçado',
+        tint: totalDesvio > 0 ? '#FCEBEB' : totalDesvio < 0 ? '#EAF3DE' : undefined,
+        valueColor: totalDesvio > 0 ? '#A32D2D' : totalDesvio < 0 ? '#3B6D11' : undefined,
+        labelColor: totalDesvio > 0 ? '#A32D2D' : totalDesvio < 0 ? '#3B6D11' : undefined },
+      { id: 'indiretos', label: 'Indiretos', value: formatCurrency(totalIndiretos),
+        icon: <Wallet style={{ width: 14, height: 14, color: totalIndiretos > 0 ? '#854F0B' : '#888' }} />,
+        tint: totalIndiretos > 0 ? '#FAEEDA' : undefined,
+        valueColor: totalIndiretos > 0 ? '#854F0B' : undefined },
+      { id: 'pct', label: '% executado', value: `${pctExecutado}%`,
+        icon: <TrendingUp style={{ width: 14, height: 14, color: '#1E5A8D' }} />,
+        tint: '#E6F1FB',
+        progress: pctExecutado },
+    ]);
+  }, [isActive, loading, totalOrcado, totalRealizado, totalDesvio, totalIndiretos, pctExecutado, onKpisReady]);
 
   // ── Empty state ───────────────────────────────────────────────────────────────
   
@@ -422,71 +552,21 @@ export default function CustoRealTab({ obraId }: Props) {
     );
   }
 
-  const desvioPct = totalOrcado > 0 ? (totalDesvio / totalOrcado) * 100 : 0;
-  const kpiBar = (
-    <div className="flex w-full overflow-x-auto border-b-[0.5px] border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shrink-0">
-      <div className="px-[20px] py-[14px] min-w-[160px] border-r-[0.5px] border-[var(--color-border-tertiary)] bg-[#F3F2FD] flex flex-col justify-center">
-        <p className="text-[10px] font-medium text-[#534AB7] tracking-wider uppercase">Orçado total</p>
-        <p className="text-[22px] font-medium text-[#3C3489] tabular-nums leading-tight mt-1">{formatCurrency(totalOrcado)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[130px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Realizado</p>
-        <p className="text-[15px] font-medium text-[var(--color-text-primary)] tabular-nums mt-1">{formatCurrency(totalRealizado)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[120px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Desvio</p>
-        <p className={cn("text-[15px] font-medium tabular-nums mt-1", totalDesvio > 0 ? "text-[#A32D2D]" : totalDesvio < 0 ? "text-[#3B6D11]" : "text-[var(--color-text-primary)]")}>
-          {totalDesvio > 0 ? '+' : ''}{desvioPct.toFixed(1)}%
-        </p>
-        <p className={cn("text-[10px] leading-tight mt-0.5", totalDesvio > 0 ? "text-[#A32D2D]" : totalDesvio < 0 ? "text-[#3B6D11]" : "text-[var(--color-text-secondary)]")}>
-          {totalDesvio > 0 ? "acima do orçado" : totalDesvio < 0 ? "abaixo do orçado" : "dentro do orçado"}
-        </p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[130px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider flex items-center gap-1"><Wallet className="h-[10px] w-[10px]" /> Indiretos</p>
-        <p className="text-[15px] font-medium text-[var(--color-text-primary)] tabular-nums mt-1">{formatCurrency(totalIndiretos)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] flex flex-col justify-center min-w-[150px]">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">% executado</p>
-          <span className="text-[12px] font-medium text-[var(--color-text-primary)] tabular-nums">{pctExecutado}%</span>
-        </div>
-        <div className="h-[3px] w-full bg-[var(--color-border-secondary)] rounded-full overflow-hidden mt-2">
-          <div className="h-full rounded-full bg-[#534AB7] transition-all duration-500" style={{ width: `${pctExecutado}%` }} />
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <>
-      {kpiPortalTarget && createPortal(kpiBar, kpiPortalTarget)}
-      <div className="flex flex-col gap-6 p-4 animate-in fade-in duration-300 h-full overflow-auto bg-[var(--color-background-primary)]">
-        {/* ── Gráfico ──────────────────────────────────────────────────────── */}
-        {chartData.length > 0 && (
-          <div className="order-2 mb-8">
-            <p className="text-[12px] text-[var(--color-text-secondary)] mb-3">Distribuição por etapa</p>
-            <ResponsiveContainer width="100%" height={100}>
-              <BarChart data={chartData} barGap={2} barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={v => formatCurrencyShort(v)} width={60} />
-                <ReTooltip content={<CustomTooltip />} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px' }} />
-                <Bar dataKey="Orçado" fill="#AFA9EC" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Realizado" radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.Realizado > entry.Orçado ? '#A32D2D' : '#3C3489'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-      {/* ── Tabela por Etapa ─────────────────────────────────────────────── */}
-      <div className="order-1 space-y-1">
-        <p className="text-sm font-semibold mb-2">Detalhamento por Etapa</p>
+      <div className="flex flex-col gap-6 p-4 animate-in fade-in duration-300 h-full overflow-auto bg-[var(--color-background-secondary)]">
+        {/* ── Tabela por Etapa ─────────────────────────────────────────────── */}
+      <div style={{
+        background: '#FFFFFF',
+        border: '1px solid var(--color-border-secondary)',
+        borderRadius: 12,
+        overflow: 'clip',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      }}>
+        <div className="px-4 py-3 border-b border-border/40">
+          <p className="text-sm font-semibold">Detalhamento por Etapa</p>
+        </div>
 
         {etapas.length === 0 && indiretos.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
@@ -500,7 +580,7 @@ export default function CustoRealTab({ obraId }: Props) {
             </Button>
           </div>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="overflow-y-auto">
             {/* Cabeçalho */}
             <div className="grid grid-cols-[1fr_110px_110px_90px_70px_28px] gap-2 px-3 py-2 bg-muted/50 border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               <span>Etapa</span>
@@ -677,6 +757,12 @@ export default function CustoRealTab({ obraId }: Props) {
             </div>
           </div>
         )}
+
+        {/* ── Gráfico por Etapa ─────────────────────────────────────────── */}
+        {chartData.length > 0 && (
+          <ChartCard data={chartData} />
+        )}
+
       </div>
 
       {/* ── Modal Registrar Custo ─────────────────────────────────────────── */}

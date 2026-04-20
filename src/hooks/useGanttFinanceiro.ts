@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/untyped';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 
 interface Pagamento {
   id: string;
@@ -23,24 +24,23 @@ export interface EtapaFinanceiro {
 
 export type FinanceiroByEtapa = Record<string, EtapaFinanceiro>;
 
-export function useGanttFinanceiro(obraId: string | undefined) {
-  const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
-  const [loading, setLoading] = useState(false);
+// ── Fetch function ────────────────────────────────────────────────────────────
+async function fetchGanttFinanceiro(obraId: string): Promise<Pagamento[]> {
+  const { data, error } = await supabase
+    .from('pagamentos')
+    .select('id, descricao, valor_previsto, data_vencimento, status, fornecedor, etapa_orcamento')
+    .eq('obra_id', obraId)
+    .order('data_vencimento', { ascending: true }) as any;
+  if (error) console.warn('[GanttFinanceiro] error:', error.message);
+  return (data as Pagamento[]) || [];
+}
 
-  useEffect(() => {
-    if (!obraId) { setPagamentos([]); return; }
-    setLoading(true);
-    supabase
-      .from('pagamentos')
-      .select('id, descricao, valor_previsto, data_vencimento, status, fornecedor, etapa_orcamento')
-      .eq('obra_id', obraId)
-      .order('data_vencimento', { ascending: true })
-      .then(({ data, error }: any) => {
-        if (error) console.warn('[GanttFinanceiro] error:', error.message);
-        setPagamentos((data as Pagamento[]) || []);
-        setLoading(false);
-      });
-  }, [obraId]);
+export function useGanttFinanceiro(obraId: string | undefined) {
+  const { data: pagamentos = [], isLoading: loading } = useQuery({
+    queryKey: ['gantt-financeiro', obraId],
+    queryFn: () => fetchGanttFinanceiro(obraId!),
+    enabled: !!obraId,
+  });
 
   const today = format(new Date(), 'yyyy-MM-dd');
 

@@ -1,0 +1,814 @@
+1) PRINCÍPIOS VISUAIS GERAIS
+
+Antes de falar de componentes, estas ideias devem guiar o sistema inteiro:
+
+1. Clareza acima de “enfeite”
+
+Em gestão de obras, o usuário normalmente quer:
+
+saber o que está acontecendo
+encontrar rapidamente um orçamento/insumo/etapa
+identificar atrasos, custos e pendências
+tomar decisão
+
+Então o design precisa ter:
+
+poucos elementos concorrendo pela atenção
+espaçamento adequado
+tipografia legível
+contraste claro
+informações agrupadas por contexto
+2. Consistência
+
+Se o botão azul confirma em uma tela, ele deve confirmar em todas.
+Se um “status verde” significa concluído, isso precisa se repetir.
+
+A consistência é o que faz um sistema parecer mais fácil do que ele é.
+
+3. Feedback imediato
+
+Toda ação deve devolver alguma resposta:
+
+carregando
+salvo com sucesso
+houve erro
+item atualizado
+subtotal recalculado
+orçamento duplicado
+insumo já existente
+arquivo anexado
+
+Esse feedback gera confiança.
+
+4. Direcionamento de atenção
+
+Use cor, peso tipográfico e ícones para guiar o olhar do usuário:
+
+o mais importante no topo ou no canto superior esquerdo
+valores destacados
+status visíveis
+ações mais usadas com maior destaque
+2) ELEMENTOS VISUAIS QUE DEIXAM O SISTEMA MAIS MODERNO
+2.1 Cards
+
+Ótimos para:
+
+KPI
+resumo de obra
+etapas
+alertas
+orçamentos recentes
+tarefas pendentes
+indicadores de custo/prazo
+Boas práticas
+cantos arredondados
+sombra leve
+títulos curtos
+valor grande com subtítulo
+ícone discreto
+indicador de variação (↑ ↓)
+Exemplo
+
+Custo previsto
+R$ 128.450,00
+↑ 4,2% vs orçamento inicial
+
+2.2 Tabelas modernas
+
+Como seu sistema provavelmente terá muitas tabelas, vale muito investir nelas.
+
+Recursos úteis
+cabeçalho fixo
+colunas redimensionáveis
+ordenação
+filtros por coluna
+busca instantânea
+paginação ou carregamento infinito
+colunas “congeladas” à esquerda
+zebra stripes leves (linhas alternadas)
+ações rápidas por linha
+seleção múltipla
+agrupamento por etapa/categoria/fornecedor
+linha expansível para ver detalhes
+edição inline
+resumo no rodapé (subtotal, total, média)
+Efeitos visuais modernos
+hover sutil na linha
+ícones de status
+tags de categoria
+chips coloridos
+densidade ajustável (compacto / confortável)
+2.3 Badges / chips / tags
+
+Ótimos para comunicar:
+
+status
+categoria
+prioridade
+tipo de orçamento
+situação do pagamento
+etapa da obra
+tipo de fornecedor
+Exemplos
+Em andamento
+Aprovado
+Aguardando cliente
+Atrasado
+Urgente
+Material
+Mão de obra
+Elétrica
+Hidráulica
+Visual moderno
+badge com fundo suave
+texto curto
+cor coerente
+ícone opcional
+2.4 Barras de progresso
+
+Muito úteis em gestão de obra.
+
+Você pode usar para:
+
+avanço físico da obra
+orçamento utilizado
+percentual pago
+etapas concluídas
+checklist
+medições
+documentos pendentes
+percentual de margem
+Variações
+barra linear
+barra circular / donut
+barra segmentada por etapa
+barra com meta e progresso atual
+barra comparando planejado x realizado
+2.5 Timeline
+
+Combina muito com obras.
+
+Pode representar:
+
+etapas
+aprovações
+histórico de alterações
+cronograma
+envio de orçamento
+status de compra
+fluxo de aprovação
+ocorrências
+Exemplo
+orçamento criado
+enviado ao cliente
+revisado
+aprovado
+compra solicitada
+pedido emitido
+material entregue
+2.6 Stepper / wizard
+
+Muito útil em cadastros longos ou fluxos complexos.
+
+Exemplo:
+
+Dados da obra
+Cliente
+Itens do orçamento
+Custos indiretos
+Revisão
+Aprovação / envio
+
+Isso ajuda muito a não cansar o usuário.
+
+2.7 Accordion / áreas expansíveis
+
+Bom para esconder complexidade.
+
+Exemplo:
+
+Detalhes do orçamento
+Impostos e taxas
+Custos indiretos
+Observações
+Histórico
+Condições comerciais
+2.8 Sidebar moderna
+
+Menu lateral com:
+
+ícones
+grupos
+possibilidade de recolher/expandir
+destaque da tela atual
+favoritos ou acesso rápido
+indicadores de notificações
+Exemplo de seções
+Dashboard
+Obras
+Orçamentos
+Compras
+Financeiro
+Equipes
+Agenda
+Relatórios
+Configurações
+2.9 Busca global / command palette
+
+Isso pode ser muito forte no seu sistema.
+
+Algo como:
+
+pressionar Ctrl + K ou /
+abrir uma busca global
+pesquisar obra, cliente, orçamento, fornecedor, item, documento
+
+Isso dá uma sensação muito moderna e de alta produtividade.
+
+2.10 Empty states
+
+Quando não há dados, não deixe só vazio.
+
+Exemplo:
+
+“Nenhum orçamento criado ainda”
+botão “Criar orçamento”
+breve explicação
+ilustração leve
+
+Isso torna o sistema mais humano.
+
+3) TIPOS DE GRÁFICO QUE PODEM FAZER SENTIDO
+
+Em SaaS de obras, gráficos precisam ser muito práticos.
+O usuário quer entender andamento, custo, prazo, performance e desvios.
+
+3.1 Gráfico de barras
+
+Muito útil para comparar categorias.
+
+Aplicações
+custo por etapa
+custo por categoria
+orçamento por fornecedor
+valores pagos x pendentes
+comparativo mensal
+horas por equipe
+produtividade por obra
+Variações
+barra vertical
+barra horizontal
+empilhada
+agrupada
+3.2 Gráfico de linha
+
+Ótimo para evolução temporal.
+
+Aplicações
+evolução do custo ao longo dos meses
+avanço físico da obra no tempo
+fluxo de caixa
+orçamento executado vs planejado
+inadimplência
+produtividade
+3.3 Área / área empilhada
+
+Bom para mostrar volume e composição ao longo do tempo.
+
+Aplicações
+custo acumulado
+gastos por categoria ao longo do tempo
+evolução do consumo de insumos
+distribuição de horas
+3.4 Donut / pizza
+
+Útil para proporções simples.
+
+Aplicações
+percentual por categoria de custo
+status de orçamentos
+materiais x mão de obra
+etapas concluídas x pendentes
+Cuidado
+
+Não usar em excesso e evitar com muitas fatias.
+
+3.5 Gauge / velocímetro
+
+Funciona bem quando há meta.
+
+Aplicações
+orçamento consumido
+avanço da obra
+margem
+percentual concluído
+eficiência da equipe
+3.6 Gráfico de Gantt
+
+Esse é muito útil em obras.
+
+Aplicações
+cronograma
+dependência entre tarefas
+duração planejada x real
+etapas concluídas/atrasadas
+marcos importantes
+3.7 Waterfall / cascata
+
+Ótimo para mostrar composição de custos e variações.
+
+Aplicações
+custo inicial + aditivos + despesas extras = custo final
+previsão de margem
+orçamento original vs revisões
+3.8 Heatmap
+
+Muito bom para padrões visuais.
+
+Aplicações
+produtividade por dia/semana
+incidência de atrasos
+concentração de gastos
+frequência de ocorrências por período
+3.9 Sankey / fluxo
+
+Mais avançado, mas bonito e útil se bem aplicado.
+
+Aplicações
+fluxo de orçamento → compras → pagamentos
+distribuição de custos
+origem e destino de recursos
+caminho de aprovação
+3.10 Radar
+
+Pode comparar desempenhos.
+
+Aplicações
+fornecedores por critérios
+equipes por produtividade, qualidade, prazo, custo
+obras por indicadores
+3.11 Bullet chart
+
+Mais técnico, muito bom para gestão.
+
+Aplicações
+realizado vs meta
+prazo real vs prazo esperado
+custo real vs custo planejado
+4) TRANSIÇÕES E ANIMAÇÕES QUE DEIXAM O SISTEMA MAIS AGRADÁVEL
+
+O segredo é: animação não deve ser enfeite, deve explicar o que está acontecendo.
+
+4.1 Fade in / fade out
+
+Bom para:
+
+abrir e fechar modais
+trocar conteúdos
+exibir mensagens
+carregar cards
+4.2 Slide
+
+Ótimo para:
+
+painéis laterais
+filtros
+drawers
+menus recolhíveis
+wizard/etapas
+4.3 Expand / collapse suave
+
+Útil em:
+
+accordions
+linhas expansíveis
+seções avançadas
+detalhes de orçamento
+4.4 Skeleton loading
+
+Muito importante.
+
+Em vez de “carregando...”, mostrar:
+
+blocos cinza animados
+estrutura da tabela
+placeholders de cards
+
+Isso reduz a sensação de espera.
+
+4.5 Hover states
+
+Todo elemento clicável deve reagir:
+
+muda levemente a cor
+aparece sombra
+ícone se move suavemente
+sublinha
+muda o cursor
+4.6 Microinterações
+
+Muito valiosas.
+
+Exemplos:
+
+checkbox marca com animação
+botão “salvar” mostra check
+item adicionado aparece suavemente
+contador muda com transição
+status muda de cor com animação leve
+card se destaca ao atualizar
+4.7 Toasts / notificações flutuantes
+
+Mensagens temporárias no canto da tela:
+
+salvo com sucesso
+erro ao anexar arquivo
+orçamento duplicado
+medição concluída
+4.8 Drag and drop
+
+Muito interessante se fizer sentido.
+
+Exemplo:
+
+reordenar etapas
+mover tarefas de status
+arrastar itens em orçamento
+anexar arquivos por arrastar
+4.9 Transição entre abas
+
+Ao alternar entre abas, a troca pode ter:
+
+fade
+slide horizontal
+indicador animado
+
+Isso dá sensação de fluidez.
+
+4.10 Contadores animados
+
+Bom em dashboards.
+
+Exemplo:
+
+total de obras
+custo total
+valor aprovado
+saldo
+
+Fica bonito, mas use com moderação.
+
+5) COMPONENTES E PADRÕES QUE AJUDAM A “PRENDER” O USUÁRIO
+
+“Prender” aqui no bom sentido: dar sensação de controle, fluidez e prazer de usar.
+
+5.1 Dashboard com KPIs e resumo
+
+A tela inicial precisa dar visão geral da operação.
+
+Sugestões
+obras em andamento
+orçamentos pendentes
+custo previsto x realizado
+medições do mês
+total a pagar
+materiais críticos
+etapas atrasadas
+tarefas pendentes
+5.2 Ações rápidas
+
+Botões visíveis no topo:
+
+nova obra
+novo orçamento
+nova compra
+novo fornecedor
+anexar documento
+gerar relatório
+
+Isso acelera o uso.
+
+5.3 Favoritos / recentemente acessados
+
+Muito útil em SaaS com muita navegação.
+
+obras favoritas
+últimos orçamentos abertos
+fornecedores frequentes
+itens mais usados
+5.4 Autocomplete / busca inteligente
+
+Em orçamentos e compras isso é essencial.
+
+Exemplo
+
+Ao digitar “cimento”, o sistema sugere:
+
+itens cadastrados
+unidades
+últimos preços
+fornecedor
+categoria
+
+Isso deixa o sistema “vivo”.
+
+5.5 Histórico / undo / rastreabilidade
+
+Muito importante em sistema sério.
+
+Exemplo:
+
+quem alterou
+quando alterou
+valor anterior
+possibilidade de desfazer
+
+Isso gera confiança e facilita auditoria.
+
+5.6 Seletores visuais
+
+No lugar de só dropdowns, às vezes vale usar:
+
+botões segmentados
+cartões selecionáveis
+opções com ícones
+
+Exemplo:
+
+tipo de obra
+categoria de orçamento
+fase da obra
+status
+5.7 Drawers / painéis laterais
+
+Ao invés de abrir nova página para tudo, um painel lateral pode ser ótimo para:
+
+editar item
+ver detalhes
+anexar documento
+histórico
+observações
+
+Isso reduz “quebra” no fluxo.
+
+5.8 Modo compacto / avançado
+
+Interessante se você tiver usuários com perfis diferentes.
+
+Exemplo:
+
+modo simples → apenas campos essenciais
+modo avançado → impostos, margens, fórmulas, rateios
+
+Isso torna o sistema acessível sem perder potência.
+
+5.9 Assistente contextual / dicas
+
+Pequenas ajudas:
+
+tooltip explicando um campo
+onboarding com destaque em áreas
+dicas para primeiro uso
+campo com “exemplo”
+5.10 Indicadores de risco
+
+Muito coerente com gestão de obras.
+
+Exemplo:
+
+material com estoque baixo
+etapa atrasada
+orçamento estourado
+documento vencendo
+fornecedor com atraso recorrente
+
+Esses indicadores podem aparecer com:
+
+cor
+ícone
+badge
+card de alerta
+6) TIPOGRAFIA, CORES E ESTILO
+Tipografia
+
+Use fonte limpa e moderna.
+
+Boas opções:
+
+Inter
+Manrope
+Roboto
+IBM Plex Sans
+Work Sans
+Hierarquia
+Título de página
+subtítulo
+título de seção
+labels
+corpo
+texto secundário
+Cores
+
+Um SaaS moderno de obra pode combinar:
+
+neutros (cinza, branco, preto)
+uma cor principal forte (azul, verde petróleo, roxo, laranja queimado)
+cores de estado (verde, amarelo, vermelho, azul)
+Paletas possíveis
+1. Azul + cinza
+
+Passa confiança e tecnologia.
+
+2. Verde petróleo + cinza
+
+Moderno, mais sóbrio e mais “engenharia”.
+
+3. Laranja queimado + cinza escuro
+
+Pode remeter a construção e energia.
+
+4. Azul escuro + verde
+
+Boa mistura de corporativo e funcional.
+
+Importante
+
+Use cores de estado de forma consistente:
+
+verde = ok / concluído
+amarelo = atenção
+vermelho = problema
+azul = informativo
+7) VISUAL COERENTE COM O CONTEXTO DE OBRAS
+
+Você pode adicionar referências sutis ao universo da construção sem ficar caricato.
+
+Elementos que remetem ao setor
+ícones de planta / régua / trena / capacete / prumo / caminhão / bloco / cronograma
+padrões sutis de grade / malha / blueprint
+linhas técnicas
+uso de azul / cinza / laranja / amarelo industrial
+Cuidado
+
+Não exagerar em texturas ou imagens de obra.
+O sistema precisa parecer profissional e limpo, não “pesado”.
+
+8) IDEIAS ESPECÍFICAS PARA A PÁGINA DE ORÇAMENTOS
+
+Como você comentou que a de orçamentos é a mais estruturada, aqui vão ideias bem direcionadas.
+
+8.1 Resumo fixo no topo
+valor total
+margem
+número de itens
+custo de materiais
+custo de mão de obra
+impostos
+descontos
+status
+8.2 Área central com tabela de itens
+
+Com:
+
+categoria
+descrição
+unidade
+quantidade
+preço unitário
+subtotal
+fornecedor
+observações
+ações
+8.3 Painel lateral de detalhes
+
+Ao clicar num item:
+
+histórico de preço
+composição
+fornecedor
+observações
+anexos
+edição rápida
+8.4 Agrupamento por etapa/categoria
+
+Exemplo:
+
+fundação
+estrutura
+cobertura
+acabamento
+elétrica
+hidráulica
+
+Cada grupo pode ser expansível.
+
+8.5 Comparativo de versões
+
+Isso pode ser diferencial.
+
+Mostrar:
+
+orçamento A
+orçamento B
+itens alterados
+aumento / redução
+percentual de diferença
+8.6 Destacar desvios
+
+Exemplo:
+
+preço acima do histórico
+margem baixa
+item sem fornecedor
+item duplicado
+item com unidade inconsistente
+8.7 Geração de PDF / compartilhamento
+
+Com visual bonito, identidade da empresa e assinatura.
+
+8.8 Indicadores visuais de custo
+barras de percentual por categoria
+donut material x mão de obra
+waterfall de composição do total
+comparativo previsto x revisado
+9) RECURSOS DE USABILIDADE QUE FAZEM O SISTEMA PARECER “INTELIGENTE”
+9.1 Autosave
+
+Salvar automaticamente em pontos estratégicos.
+
+9.2 Atalhos de teclado
+novo orçamento
+buscar
+salvar
+duplicar
+adicionar item
+9.3 Preenchimento inteligente
+repetir último fornecedor
+sugerir unidade
+sugerir categoria
+histórico de preço
+templates de orçamento
+9.4 Modelos / templates
+orçamento residencial
+reforma
+obra comercial
+etapa padrão
+composição padrão
+9.5 Duplicação inteligente
+duplicar orçamento
+duplicar etapa
+duplicar composição
+copiar itens entre obras
+9.6 Importação
+CSV / Excel
+planilhas padrão
+catálogos de insumos
+9.7 Filtros salvos
+“Orçamentos pendentes”
+“Obras atrasadas”
+“Compras desta semana”
+9.8 Notificações contextuais
+orçamento sem aprovação
+fornecedor em atraso
+custo acima do previsto
+documento faltando
+10) O QUE EVITAR
+
+Para um sistema moderno e fácil, também é importante saber o que não fazer.
+
+Evite
+excesso de cores
+muitos ícones sem necessidade
+tabelas com muitas ações escondidas/confusas
+pop-ups o tempo todo
+textos longos demais
+animações lentas
+campos obrigatórios em excesso
+fontes pequenas
+telas lotadas
+menus profundos demais
+excesso de gráfico “bonito” sem utilidade
+11) UMA ESTRATÉGIA DE EXPERIÊNCIA QUE FUNCIONA MUITO
+
+Pense em cada tela com esta estrutura:
+
+topo
+título
+breadcrumbs
+status
+ações principais
+resumo
+KPIs ou cards rápidos
+área central
+tabela, formulário ou gráfico principal
+lateral ou seção auxiliar
+filtros
+detalhes
+histórico
+ajuda
+rodapé ou área inferior
+totalizações
+observações
+ações secundárias
+
+Essa organização costuma funcionar muito bem.

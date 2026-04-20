@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
+import { OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import { CustoRealItem } from '@/contexts/CustoRealContext';
 import { formatCurrency } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { BarChart3 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface ABCTableProps {
-  categorias: OrcamentoCategoria[];
+  etapas: OrcamentoEtapa[];
   custoItens: CustoRealItem[];
   view?: ABCView;
   onViewChange?: (view: ABCView) => void;
@@ -91,14 +91,14 @@ function ABCRows({ rows }: { rows: ABCRow[] }) {
   );
 }
 
-export default function ABCTable({ categorias, custoItens, view: externalView, onViewChange }: ABCTableProps) {
+export default function ABCTable({ etapas, custoItens, view: externalView, onViewChange }: ABCTableProps) {
   const [internalView, setInternalView] = useState<ABCView>('etapas');
   const view = externalView ?? internalView;
   const setView = onViewChange ?? setInternalView;
 
   const etapasRows = useMemo(() => {
-    return classifyABC(categorias.map(c => ({ nome: c.nome, valor: c.precoTotal })));
-  }, [categorias]);
+    return classifyABC(etapas.map(c => ({ nome: c.nome, valor: c.precoTotal })));
+  }, [etapas]);
 
   const categoriaRows = useMemo(() => {
     const byType: Record<string, number> = {};

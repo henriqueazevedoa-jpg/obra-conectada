@@ -2,10 +2,10 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from './AuthContext';
 import { useCompany } from './CompanyContext';
-import { catalogoInsumos, categoriasExtras, InsumoTemplate } from '@/data/catalogoInsumos';
+import { catalogoInsumos, InsumoTemplate } from '@/data/catalogoInsumos';
 
 // --- Types ---
-export interface OrcamentoSubitem {
+export interface OrcamentoInsumo {
   id: string;
   codigo: string;
   descricao: string;
@@ -18,6 +18,13 @@ export interface OrcamentoSubitem {
   origemGrupoTitulo?: string;
   origemComposicaoCodigo?: string;
   origemComposicaoDescricao?: string;
+
+  // Campos SINAPI (preenchidos pelo assistente de IA)
+  sinapiCodigo?: number | null;
+  sinapiFonte?: string | null;
+  sinapiPreco?: number | null;
+  sinapiConfidence?: string | null;
+  sinapiConfirmado?: boolean;
 }
 
 export interface OrcamentoComposicao {
@@ -28,14 +35,24 @@ export interface OrcamentoComposicao {
   quantidade: number | null;
   precoUnitario: number | null;
   precoTotal: number;
-  subitens: OrcamentoSubitem[];
-  usaSubitens: boolean;
+  insumos: OrcamentoInsumo[];
+  usaInsumos: boolean;
 
   fonteReferencia?: string;
   codigoReferenciaExterna?: string;
   referenciaCompetencia?: string;
   ufReferencia?: string;
   regimeReferencia?: string;
+
+  // Campos SINAPI (preenchidos pelo assistente de IA)
+  sinapiCodigo?: number | null;
+  sinapiFonte?: string | null;
+  sinapiPreco?: number | null;
+  sinapiConfidence?: string | null;
+  sinapiConfirmado?: boolean;
+
+  /** Tipo do item: composicao (com insumos) ou insumo_direto (sem decomposicao) */
+  tipo?: 'composicao' | 'insumo_direto';
 
   dataInicioPrevista?: string;
   dataFimPrevista?: string;
@@ -45,7 +62,7 @@ export interface OrcamentoComposicao {
   concluida?: boolean;
 }
 
-export interface OrcamentoCategoria {
+export interface OrcamentoEtapa {
   id: string;
   codigo: string;
   nome: string;
@@ -60,35 +77,61 @@ export interface OrcamentoCategoria {
   percentualCronograma?: number;
   responsavel?: string;
   observacoesCronograma?: string;
+  /** Sprint 4: referência à versão de orçamento */
+  versaoId?: string;
+  /** Sprint 4: valor estimativo (base para delta no modo Analítico) */
+  estimadoValor?: number;
+}
+
+export type VersaoTipo = 'estimativo' | 'analitico' | 'revisao';
+export type VersaoStatus = 'rascunho' | 'ativo' | 'arquivado';
+
+export interface OrcamentoVersao {
+  id: string;
+  obraId: string;
+  companyId: string | null;
+  numeroVersao: string;
+  tipo: VersaoTipo;
+  status: VersaoStatus;
+  valorTotal: number;
+  versaoPaiId?: string;
+  descricao?: string;
+  createdAt: string;
 }
 
 export interface OrcamentoObra {
   obraId: string;
-  categorias: OrcamentoCategoria[];
+  etapas: OrcamentoEtapa[];
 }
 
-export interface CategoriaTemplate {
+export interface EtapaTemplate {
   codigo: string;
   nome: string;
 }
 
 type DbRow = Record<string, unknown>;
 
-const defaultCategorias: CategoriaTemplate[] = [
-  { codigo: 'CAT-001', nome: 'Serviços Preliminares' },
-  { codigo: 'CAT-002', nome: 'Fundação' },
-  { codigo: 'CAT-003', nome: 'Estrutura' },
-  { codigo: 'CAT-004', nome: 'Alvenaria' },
-  { codigo: 'CAT-005', nome: 'Cobertura' },
-  { codigo: 'CAT-006', nome: 'Instalações Elétricas' },
-  { codigo: 'CAT-007', nome: 'Instalações Hidráulicas' },
-  { codigo: 'CAT-008', nome: 'Revestimentos' },
-  { codigo: 'CAT-009', nome: 'Pisos' },
-  { codigo: 'CAT-010', nome: 'Pintura' },
-  { codigo: 'CAT-011', nome: 'Esquadrias' },
-  { codigo: 'CAT-012', nome: 'Louças e Metais' },
-  { codigo: 'CAT-013', nome: 'Limpeza Final' },
-  ...categoriasExtras,
+const defaultEtapas: EtapaTemplate[] = [
+  { codigo: '01', nome: 'Serviços Preliminares' },
+  { codigo: '02', nome: 'Demolições e Remoções' },
+  { codigo: '03', nome: 'Movimento de Terra e Terraplanagem' },
+  { codigo: '04', nome: 'Fundações e Contenções' },
+  { codigo: '05', nome: 'Estrutura' },
+  { codigo: '06', nome: 'Impermeabilização' },
+  { codigo: '07', nome: 'Alvenaria e Vedações' },
+  { codigo: '08', nome: 'Cobertura e Telhamento' },
+  { codigo: '09', nome: 'Instalações Hidrossanitárias' },
+  { codigo: '10', nome: 'Instalações Elétricas e Lógica' },
+  { codigo: '11', nome: 'Instalações de Climatização' },
+  { codigo: '12', nome: 'Instalações de Incêndio e SPDA' },
+  { codigo: '13', nome: 'Revestimentos Internos' },
+  { codigo: '14', nome: 'Revestimentos Externos e Fachada' },
+  { codigo: '15', nome: 'Pisos e Contrapisos' },
+  { codigo: '16', nome: 'Esquadrias e Vidros' },
+  { codigo: '17', nome: 'Louças, Metais e Acessórios' },
+  { codigo: '18', nome: 'Pintura e Acabamentos' },
+  { codigo: '19', nome: 'Paisagismo e Urbanização' },
+  { codigo: '20', nome: 'Entrega e Limpeza Final' },
 ];
 
 interface OrcamentoContextType {
@@ -96,15 +139,27 @@ interface OrcamentoContextType {
   loading: boolean;
   getOrcamento: (obraId: string) => OrcamentoObra | undefined;
   saveOrcamento: (orc: OrcamentoObra) => Promise<void>;
-  catalogoCategorias: CategoriaTemplate[];
-  addCategoriaToCatalogo: (cat: CategoriaTemplate) => void;
-  generateCategoriaCodigo: () => string;
+  finalizarOrcamento: (orc: OrcamentoObra) => Promise<{ total: number; novos: number }>;
+  catalogoEtapas: EtapaTemplate[];
+  addEtapaToCatalogo: (cat: EtapaTemplate) => void;
+  generateEtapaCodigo: (etapasAtuais: OrcamentoEtapa[]) => string;
   getUnidadesUsadas: () => string[];
-  getSugestaoInsumos: (categoriaNome: string) => InsumoTemplate[];
-  getComposicoesUsadasPorCategoria: (categoriaNome: string) => { descricao: string; unidade: string }[];
-  generateComposicaoCodigo: (categoriaCode: string, existingCodes: string[]) => string;
-  generateSubitemCodigo: (composicaoCodigo: string, existingCodes: string[]) => string;
+  getSugestaoInsumos: (etapaNome: string) => InsumoTemplate[];
+  getComposicoesUsadasPorEtapa: (etapaNome: string) => { descricao: string; unidade: string }[];
+  getTodasComposicoes: () => { descricao: string; unidade: string; etapaNome: string }[];
+  generateComposicaoCodigo: (etapaCode: string, existingCodes: string[]) => string;
+  generateInsumoCodigo: (composicaoCodigo: string, existingCodes: string[]) => string;
   refreshOrcamentos: () => Promise<void>;
+  // ── Sprint 4: Versões de orçamento ────────────────────────────────────────────────────
+  versoes: OrcamentoVersao[];
+  getVersoes: (obraId: string) => OrcamentoVersao[];
+  getVersaoAtiva: (obraId: string) => OrcamentoVersao | undefined;
+  criarVersao: (obraId: string, opts: { tipo: VersaoTipo; descricao?: string; copiarDeVersaoId?: string }) => Promise<OrcamentoVersao>;
+  salvarVersao: (versaoId: string, etapas: OrcamentoEtapa[]) => Promise<void>;
+  getEtapasDaVersao: (versaoId: string) => OrcamentoEtapa[] | undefined;
+  evoluirParaAnalitico: (versaoEstimativoId: string) => Promise<OrcamentoVersao>;
+  ativarVersao: (versaoId: string, obraId: string) => Promise<void>;
+  arquivarVersao: (versaoId: string) => Promise<void>;
 }
 
 const OrcamentoContext = createContext<OrcamentoContextType | null>(null);
@@ -137,7 +192,7 @@ function asBoolean(value: unknown): boolean {
 
 function asStatusCronograma(
   value: unknown
-): OrcamentoCategoria['statusCronograma'] {
+): OrcamentoEtapa['statusCronograma'] {
   if (
     value === 'nao_iniciada' ||
     value === 'em_andamento' ||
@@ -150,7 +205,7 @@ function asStatusCronograma(
 }
 
 // --- DB mapping helpers ---
-function dbToSubitem(row: DbRow): OrcamentoSubitem {
+function dbToInsumo(row: DbRow): OrcamentoInsumo {
   return {
     id: asString(row.id),
     codigo: asString(row.codigo),
@@ -164,10 +219,16 @@ function dbToSubitem(row: DbRow): OrcamentoSubitem {
     origemGrupoTitulo: asOptionalString(row.origem_grupo_titulo),
     origemComposicaoCodigo: asOptionalString(row.origem_composicao_codigo),
     origemComposicaoDescricao: asOptionalString(row.origem_composicao_descricao),
+
+    sinapiCodigo: row.sinapi_codigo != null ? Number(row.sinapi_codigo) : null,
+    sinapiFonte: asOptionalString(row.sinapi_fonte),
+    sinapiPreco: row.sinapi_preco != null ? Number(row.sinapi_preco) : null,
+    sinapiConfidence: asOptionalString(row.sinapi_confidence),
+    sinapiConfirmado: asBoolean(row.sinapi_confirmado),
   };
 }
 
-function dbToComposicao(row: DbRow, subitens: OrcamentoSubitem[]): OrcamentoComposicao {
+function dbToComposicao(row: DbRow, insumos: OrcamentoInsumo[]): OrcamentoComposicao {
   return {
     id: asString(row.id),
     codigo: asString(row.codigo),
@@ -176,8 +237,8 @@ function dbToComposicao(row: DbRow, subitens: OrcamentoSubitem[]): OrcamentoComp
     quantidade: asNullableNumber(row.quantidade),
     precoUnitario: asNullableNumber(row.preco_unitario),
     precoTotal: asNumber(row.preco_total) ?? 0,
-    subitens,
-    usaSubitens: asBoolean(row.usa_subitens),
+    insumos,
+    usaInsumos: asBoolean(row.usa_subitens),
 
     fonteReferencia: asOptionalString(row.fonte_referencia),
     codigoReferenciaExterna: asOptionalString(row.codigo_referencia_externa),
@@ -185,16 +246,23 @@ function dbToComposicao(row: DbRow, subitens: OrcamentoSubitem[]): OrcamentoComp
     ufReferencia: asOptionalString(row.uf_referencia),
     regimeReferencia: asOptionalString(row.regime_referencia),
 
+    sinapiCodigo: row.sinapi_codigo != null ? Number(row.sinapi_codigo) : null,
+    sinapiFonte: asOptionalString(row.sinapi_fonte),
+    sinapiPreco: row.sinapi_preco != null ? Number(row.sinapi_preco) : null,
+    sinapiConfidence: asOptionalString(row.sinapi_confidence),
+    sinapiConfirmado: asBoolean(row.sinapi_confirmado),
+
     dataInicioPrevista: asOptionalString(row.data_inicio_prevista),
     dataFimPrevista: asOptionalString(row.data_fim_prevista),
     dataInicioReal: asOptionalString(row.data_inicio_real),
     dataFimReal: asOptionalString(row.data_fim_real),
     pesoCronograma: asNumber(row.peso_cronograma),
     concluida: asBoolean(row.concluida),
+    tipo: (row.tipo === 'insumo_direto' ? 'insumo_direto' : 'composicao') as 'composicao' | 'insumo_direto',
   };
 }
 
-function dbToCategoria(row: DbRow, composicoes: OrcamentoComposicao[]): OrcamentoCategoria {
+function dbToEtapa(row: DbRow, composicoes: OrcamentoComposicao[]): OrcamentoEtapa {
   return {
     id: asString(row.id),
     codigo: asString(row.codigo),
@@ -210,6 +278,24 @@ function dbToCategoria(row: DbRow, composicoes: OrcamentoComposicao[]): Orcament
     percentualCronograma: asNumber(row.percentual_cronograma),
     responsavel: asOptionalString(row.responsavel),
     observacoesCronograma: asOptionalString(row.observacoes_cronograma),
+    // Sprint 4
+    versaoId: asOptionalString(row.versao_id),
+    estimadoValor: asNumber(row.estimado_valor),
+  };
+}
+
+function dbToVersao(row: DbRow): OrcamentoVersao {
+  return {
+    id: asString(row.id),
+    obraId: asString(row.obra_id),
+    companyId: asOptionalString(row.company_id) ?? null,
+    numeroVersao: asString(row.numero_versao, 'v1.0'),
+    tipo: (row.tipo as VersaoTipo) || 'estimativo',
+    status: (row.status as VersaoStatus) || 'ativo',
+    valorTotal: asNumber(row.valor_total) ?? 0,
+    versaoPaiId: asOptionalString(row.versao_pai_id),
+    descricao: asOptionalString(row.descricao),
+    createdAt: asString(row.created_at),
   };
 }
 
@@ -217,72 +303,94 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { company } = useCompany();
   const [orcamentos, setOrcamentos] = useState<OrcamentoObra[]>([]);
-  const [catalogoCategorias, setCatalogo] = useState<CategoriaTemplate[]>(defaultCategorias);
+  const [versoes, setVersoes] = useState<OrcamentoVersao[]>([]);
+  const [etapasByVersao, setEtapasByVersao] = useState<Map<string, OrcamentoEtapa[]>>(new Map());
+  const [catalogoEtapas, setCatalogo] = useState<EtapaTemplate[]>(defaultEtapas);
   const [loading, setLoading] = useState(true);
 
+  const userId = user?.id;
+
   const fetchAll = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setOrcamentos([]);
       setLoading(false);
       return;
     }
 
-    const [catRes, compRes, subRes] = await Promise.all([
+    const [etapaRes, compRes, insumoRes, versaoRes] = await Promise.all([
       supabase.from('orcamento_categorias').select('*'),
       supabase.from('orcamento_composicoes').select('*'),
       supabase.from('orcamento_subitens').select('*'),
+      supabase.from('orcamento_versoes').select('*'),
     ]);
 
-    if (catRes.error) throw catRes.error;
+    if (etapaRes.error) throw etapaRes.error;
     if (compRes.error) throw compRes.error;
-    if (subRes.error) throw subRes.error;
+    if (insumoRes.error) throw insumoRes.error;
 
-    const cats = (catRes.data || []) as DbRow[];
-    const comps = (compRes.data || []) as DbRow[];
-    const subs = (subRes.data || []) as DbRow[];
+    const etapasDb = (etapaRes.data || []) as DbRow[];
+    const compsDb = (compRes.data || []) as DbRow[];
+    const insumosDb = (insumoRes.data || []) as DbRow[];
+    const versoesDb = (versaoRes?.data || []) as DbRow[];
 
-    const subsByComp = new Map<string, DbRow[]>();
-    for (const s of subs) {
-      const composicaoId = asString(s.composicao_id);
-      const arr = subsByComp.get(composicaoId) || [];
-      arr.push(s);
-      subsByComp.set(composicaoId, arr);
+    const insumosByComp = new Map<string, DbRow[]>();
+    for (const ins of insumosDb) {
+      const composicaoId = asString(ins.composicao_id);
+      const arr = insumosByComp.get(composicaoId) || [];
+      arr.push(ins);
+      insumosByComp.set(composicaoId, arr);
     }
 
-    const compsByCat = new Map<string, OrcamentoComposicao[]>();
-    for (const c of comps) {
+    const compsByEtapa = new Map<string, OrcamentoComposicao[]>();
+    for (const c of compsDb) {
       const compId = asString(c.id);
-      const categoriaId = asString(c.categoria_id);
-      const compSubs = (subsByComp.get(compId) || []).map(dbToSubitem);
-      const comp = dbToComposicao(c, compSubs);
-      const arr = compsByCat.get(categoriaId) || [];
+      const etapaId = asString(c.etapa_id);
+      const compInsumos = (insumosByComp.get(compId) || []).map(dbToInsumo);
+      const comp = dbToComposicao(c, compInsumos);
+      const arr = compsByEtapa.get(etapaId) || [];
       arr.push(comp);
-      compsByCat.set(categoriaId, arr);
+      compsByEtapa.set(etapaId, arr);
     }
 
-    const obraMap = new Map<string, OrcamentoCategoria[]>();
-    for (const cat of cats) {
-      const catId = asString(cat.id);
-      const obraId = asString(cat.obra_id);
-      const catComps = compsByCat.get(catId) || [];
-      const categoria = dbToCategoria(cat, catComps);
+    const obraMap = new Map<string, OrcamentoEtapa[]>();
+    for (const etp of etapasDb) {
+      const etpId = asString(etp.id);
+      const obraId = asString(etp.obra_id);
+      const etpComps = compsByEtapa.get(etpId) || [];
+      const etapa = dbToEtapa(etp, etpComps);
       const arr = obraMap.get(obraId) || [];
-      arr.push(categoria);
+      arr.push(etapa);
       obraMap.set(obraId, arr);
     }
 
     const result: OrcamentoObra[] = [];
-    for (const [obraId, categorias] of obraMap) {
-      result.push({ obraId, categorias });
+    for (const [obraId, etapas] of obraMap) {
+      result.push({ obraId, etapas });
     }
 
     setOrcamentos(result);
 
+    // Sprint 4: mapear etapas por versaoId
+    const byVersao = new Map<string, OrcamentoEtapa[]>();
+    for (const etp of etapasDb) {
+      const versaoId = asOptionalString(etp.versao_id);
+      if (versaoId) {
+        const etpId = asString(etp.id);
+        const etpComps = compsByEtapa.get(etpId) || [];
+        const etapa = dbToEtapa(etp, etpComps);
+        const arr = byVersao.get(versaoId) || [];
+        arr.push(etapa);
+        byVersao.set(versaoId, arr);
+      }
+    }
+    setEtapasByVersao(byVersao);
+    setVersoes(versoesDb.map(dbToVersao));
+
     setCatalogo((prev) => {
       const next = [...prev];
-      for (const cat of cats) {
-        const codigo = asString(cat.codigo);
-        const nome = asString(cat.nome);
+      for (const etp of etapasDb) {
+        const codigo = asString(etp.codigo);
+        const nome = asString(etp.nome);
         if (!next.some((c) => c.codigo === codigo)) {
           next.push({ codigo, nome });
         }
@@ -291,7 +399,7 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     });
 
     setLoading(false);
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     void fetchAll();
@@ -305,55 +413,55 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     const obraId = orc.obraId;
 
     const existing = orcamentos.find((o) => o.obraId === obraId);
-    const existingCatIds = new Set<string>();
+    const existingEtapaIds = new Set<string>();
     const existingCompIds = new Set<string>();
-    const existingSubIds = new Set<string>();
+    const existingInsumoIds = new Set<string>();
 
     if (existing) {
-      for (const cat of existing.categorias) {
-        existingCatIds.add(cat.id);
-        for (const comp of cat.composicoes) {
+      for (const etapa of existing.etapas) {
+        existingEtapaIds.add(etapa.id);
+        for (const comp of etapa.composicoes) {
           existingCompIds.add(comp.id);
-          for (const sub of comp.subitens) {
-            existingSubIds.add(sub.id);
+          for (const insumo of comp.insumos) {
+            existingInsumoIds.add(insumo.id);
           }
         }
       }
     }
 
-    const newCatIds = new Set<string>();
+    const newEtapaIds = new Set<string>();
     const newCompIds = new Set<string>();
-    const newSubIds = new Set<string>();
+    const newInsumoIds = new Set<string>();
 
-    for (const cat of orc.categorias) {
-      newCatIds.add(cat.id);
+    for (const etapa of orc.etapas) {
+      newEtapaIds.add(etapa.id);
 
-      const { error: catError } = await supabase.from('orcamento_categorias').upsert({
-        id: cat.id,
+      const { error: etapaError } = await supabase.from('orcamento_categorias').upsert({
+        id: etapa.id,
         obra_id: obraId,
         company_id: company?.id ?? null,
-        codigo: cat.codigo,
-        nome: cat.nome,
-        preco_total: cat.precoTotal,
-        usa_composicoes: cat.usaComposicoes,
-        data_inicio_prevista: cat.dataInicioPrevista || null,
-        data_fim_prevista: cat.dataFimPrevista || null,
-        data_inicio_real: cat.dataInicioReal || null,
-        data_fim_real: cat.dataFimReal || null,
-        status_cronograma: cat.statusCronograma || null,
-        percentual_cronograma: cat.percentualCronograma ?? null,
-        responsavel: cat.responsavel || null,
-        observacoes_cronograma: cat.observacoesCronograma || null,
+        codigo: etapa.codigo,
+        nome: etapa.nome,
+        preco_total: etapa.precoTotal,
+        usa_composicoes: etapa.usaComposicoes,
+        data_inicio_prevista: etapa.dataInicioPrevista || null,
+        data_fim_prevista: etapa.dataFimPrevista || null,
+        data_inicio_real: etapa.dataInicioReal || null,
+        data_fim_real: etapa.dataFimReal || null,
+        status_cronograma: etapa.statusCronograma || null,
+        percentual_cronograma: etapa.percentualCronograma ?? null,
+        responsavel: etapa.responsavel || null,
+        observacoes_cronograma: etapa.observacoesCronograma || null,
       });
 
-      if (catError) throw catError;
+      if (etapaError) throw etapaError;
 
-      for (const comp of cat.composicoes) {
+      for (const comp of etapa.composicoes) {
         newCompIds.add(comp.id);
 
         const { error: compError } = await supabase.from('orcamento_composicoes').upsert({
           id: comp.id,
-          categoria_id: cat.id,
+          etapa_id: etapa.id,
           company_id: company?.id ?? null,
           codigo: comp.codigo,
           descricao: comp.descricao,
@@ -361,7 +469,7 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
           quantidade: comp.quantidade,
           preco_unitario: comp.precoUnitario,
           preco_total: comp.precoTotal,
-          usa_subitens: comp.usaSubitens,
+          usa_subitens: comp.usaInsumos,
 
           fonte_referencia: comp.fonteReferencia || null,
           codigo_referencia_externa: comp.codigoReferenciaExterna || null,
@@ -375,101 +483,456 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
           data_fim_real: comp.dataFimReal || null,
           peso_cronograma: comp.pesoCronograma ?? null,
           concluida: comp.concluida || false,
+          tipo: comp.tipo || 'composicao',
         });
 
         if (compError) throw compError;
 
-        for (const sub of comp.subitens) {
-          newSubIds.add(sub.id);
+        for (const insumo of comp.insumos) {
+          newInsumoIds.add(insumo.id);
 
-          const { error: subError } = await supabase.from('orcamento_subitens').upsert({
-            id: sub.id,
+          const { error: insumoError } = await supabase.from('orcamento_subitens').upsert({
+            id: insumo.id,
             composicao_id: comp.id,
             // NOT NULL fields required by DB schema and RLS policy
-            categoria_id: cat.id,
+            categoria_id: etapa.id,
             company_id: company?.id,
-            nome: (sub.descricao || sub.codigo || 'Subitem').replace(/^\[DEMO\] /, '').substring(0, 200),
+            nome: (insumo.descricao || insumo.codigo || 'Insumo').replace(/^\[DEMO\] /, '').substring(0, 200),
             // Regular fields
-            codigo: sub.codigo,
-            descricao: sub.descricao,
-            unidade: sub.unidade || null,
-            quantidade: sub.quantidade,
-            preco_unitario: sub.precoUnitario,
-            preco_total: sub.precoTotal,
+            codigo: insumo.codigo,
+            descricao: insumo.descricao,
+            unidade: insumo.unidade || null,
+            quantidade: insumo.quantidade,
+            preco_unitario: insumo.precoUnitario,
+            preco_total: insumo.precoTotal,
 
-            codigo_referencia_externa: sub.codigoReferenciaExterna || null,
-            origem_grupo_titulo: sub.origemGrupoTitulo || null,
-            origem_composicao_codigo: sub.origemComposicaoCodigo || null,
-            origem_composicao_descricao: sub.origemComposicaoDescricao || null,
+            codigo_referencia_externa: insumo.codigoReferenciaExterna || null,
+            origem_grupo_titulo: insumo.origemGrupoTitulo || null,
+            origem_composicao_codigo: insumo.origemComposicaoCodigo || null,
+            origem_composicao_descricao: insumo.origemComposicaoDescricao || null,
           });
 
-          if (subError) throw subError;
+          if (insumoError) throw insumoError;
         }
       }
     }
 
-    const subsToDelete = [...existingSubIds].filter((id) => !newSubIds.has(id));
+    const insumosToDelete = [...existingInsumoIds].filter((id) => !newInsumoIds.has(id));
     const compsToDelete = [...existingCompIds].filter((id) => !newCompIds.has(id));
-    const catsToDelete = [...existingCatIds].filter((id) => !newCatIds.has(id));
+    const etapasToDelete = [...existingEtapaIds].filter((id) => !newEtapaIds.has(id));
 
-    if (subsToDelete.length > 0) {
-      const { error } = await supabase.from('orcamento_subitens').delete().in('id', subsToDelete);
+    if (insumosToDelete.length > 0) {
+      const { error } = await supabase.from('orcamento_subitens').delete().in('id', insumosToDelete);
       if (error) throw error;
     }
     if (compsToDelete.length > 0) {
       const { error } = await supabase.from('orcamento_composicoes').delete().in('id', compsToDelete);
       if (error) throw error;
     }
-    if (catsToDelete.length > 0) {
-      const { error } = await supabase.from('orcamento_categorias').delete().in('id', catsToDelete);
+    if (etapasToDelete.length > 0) {
+      const { error } = await supabase.from('orcamento_categorias').delete().in('id', etapasToDelete);
       if (error) throw error;
     }
 
     setCatalogo((prev) => {
       const next = [...prev];
-      for (const cat of orc.categorias) {
-        if (!next.some((c) => c.codigo === cat.codigo)) {
-          next.push({ codigo: cat.codigo, nome: cat.nome });
+      for (const etapa of orc.etapas) {
+        if (!next.some((c) => c.codigo === etapa.codigo)) {
+          next.push({ codigo: etapa.codigo, nome: etapa.nome });
         }
       }
       return next;
     });
 
-    // Optimistic update: atualiza estado local sem buscar novamente do banco.
-    // Evita o re-fetch completo (3 tabelas) após cada autosave, que causava
-    // refreshes visíveis na UI. Os dados no banco já foram persistidos acima.
+    // Optimistic update sem re-fetch completo do banco
     setOrcamentos((prev) => {
       const idx = prev.findIndex((o) => o.obraId === obraId);
       if (idx >= 0) {
         const next = [...prev];
-        next[idx] = { obraId, categorias: orc.categorias };
+        next[idx] = { obraId, etapas: orc.etapas };
         return next;
       }
-      return [...prev, { obraId, categorias: orc.categorias }];
+      return [...prev, { obraId, etapas: orc.etapas }];
     });
   }, [orcamentos]);
 
-  const addCategoriaToCatalogo = useCallback((cat: CategoriaTemplate) => {
+  /**
+   * finalizarOrcamento — Fase 2.3 (Alternativa A)
+   * Salva o orçamento e, em seguida, varre todos os itens sem preço,
+   * inserindo-os na fila `insumos_pendentes_cotacao`.
+   * Retorna o total de itens sem preço e quantos foram inseridos como novos.
+   */
+  const finalizarOrcamento = useCallback(async (orc: OrcamentoObra): Promise<{ total: number; novos: number }> => {
+    const obraId = orc.obraId;
+
+    // 1. Salva o orçamento no banco
+    await saveOrcamento(orc);
+
+    // 2. Coleta itens sem preço
+    const itensSemPreco: { subitem_id: string | null; nome_insumo: string; unidade: string | null }[] = [];
+    const subIdsComPreco: string[] = [];
+
+    for (const etapa of orc.etapas) {
+      for (const comp of etapa.composicoes) {
+        if (!comp.usaInsumos) {
+          if ((!comp.precoUnitario || comp.precoUnitario === 0) && comp.descricao?.trim()) {
+            itensSemPreco.push({ subitem_id: null, nome_insumo: comp.descricao, unidade: comp.unidade || null });
+          }
+        } else {
+          for (const insumo of comp.insumos) {
+            if (!insumo.descricao?.trim()) continue;
+            if (!insumo.precoUnitario || insumo.precoUnitario === 0) {
+              itensSemPreco.push({ subitem_id: insumo.id, nome_insumo: insumo.descricao, unidade: insumo.unidade || null });
+            } else {
+              subIdsComPreco.push(insumo.id);
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Remove da fila insumos que ganharam preço
+    if (subIdsComPreco.length > 0) {
+      await supabase.from('insumos_pendentes_cotacao').delete().in('subitem_id', subIdsComPreco).eq('obra_id', obraId);
+    }
+
+    // 4. Insere novos sem preço (evitando duplicatas por subitem_id)
+    let novosInseridos = 0;
+    const rowsComId = itensSemPreco.filter(r => r.subitem_id !== null);
+    const rowsSemId = itensSemPreco.filter(r => r.subitem_id === null);
+
+    if (rowsComId.length > 0) {
+      const { data: existentes } = await supabase
+        .from('insumos_pendentes_cotacao')
+        .select('subitem_id')
+        .in('subitem_id', rowsComId.map(r => r.subitem_id!))
+        .eq('obra_id', obraId);
+      const existentesIds = new Set((existentes || []).map((e: Record<string, unknown>) => e.subitem_id as string));
+      const paraInserir = rowsComId.filter(r => !existentesIds.has(r.subitem_id!));
+      if (paraInserir.length > 0) {
+        await supabase.from('insumos_pendentes_cotacao').insert(
+          paraInserir.map(r => ({ obra_id: obraId, subitem_id: r.subitem_id, nome_insumo: r.nome_insumo, unidade: r.unidade, status: 'pendente' }))
+        );
+        novosInseridos += paraInserir.length;
+      }
+    }
+
+    for (const row of rowsSemId) {
+      const { data: ex } = await supabase
+        .from('insumos_pendentes_cotacao')
+        .select('id')
+        .eq('obra_id', obraId)
+        .eq('nome_insumo', row.nome_insumo)
+        .is('subitem_id', null)
+        .limit(1);
+      if (!ex || ex.length === 0) {
+        await supabase.from('insumos_pendentes_cotacao').insert({ obra_id: obraId, subitem_id: null, nome_insumo: row.nome_insumo, unidade: row.unidade, status: 'pendente' });
+        novosInseridos++;
+      }
+    }
+
+    return { total: itensSemPreco.length, novos: novosInseridos };
+  }, [saveOrcamento]);
+
+  // ── Sprint 4: Funções de versão ───────────────────────────────────────────
+
+  const getVersoes = useCallback((obraId: string) => {
+    return versoes
+      .filter(v => v.obraId === obraId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [versoes]);
+
+  const getVersaoAtiva = useCallback((obraId: string) => {
+    return versoes.find(v => v.obraId === obraId && v.status === 'ativo');
+  }, [versoes]);
+
+  const getEtapasDaVersao = useCallback((versaoId: string) => {
+    return etapasByVersao.get(versaoId);
+  }, [etapasByVersao]);
+
+  /** Cria nova versão (em branco ou cópia de outra). Retorna a versão criada. */
+  const criarVersao = useCallback(async (
+    obraId: string,
+    opts: { tipo: VersaoTipo; descricao?: string; copiarDeVersaoId?: string }
+  ): Promise<OrcamentoVersao> => {
+    // Determinar próximo número de versão
+    const existentes = versoes.filter(v => v.obraId === obraId);
+    const major = existentes.length + 1;
+    const numeroVersao = `v${major}.0`;
+
+    const { data: novaVersaoData, error: vErr } = await supabase
+      .from('orcamento_versoes')
+      .insert({
+        obra_id: obraId,
+        company_id: company?.id ?? null,
+        numero_versao: numeroVersao,
+        tipo: opts.tipo,
+        status: 'rascunho',
+        valor_total: 0,
+        descricao: opts.descricao || null,
+      })
+      .select()
+      .single();
+    if (vErr) throw vErr;
+    const novaVersao = dbToVersao(novaVersaoData as DbRow);
+
+    // Copiar etapas + composições + insumos da versão de origem (se solicitado)
+    if (opts.copiarDeVersaoId) {
+      const etapasOrigem = etapasByVersao.get(opts.copiarDeVersaoId) || [];
+      for (const etapa of etapasOrigem) {
+        const novoEtapaId = crypto.randomUUID();
+        await supabase.from('orcamento_categorias').insert({
+          id: novoEtapaId,
+          obra_id: obraId,
+          company_id: company?.id ?? null,
+          versao_id: novaVersao.id,
+          codigo: etapa.codigo,
+          nome: etapa.nome,
+          preco_total: etapa.precoTotal,
+          usa_composicoes: etapa.usaComposicoes,
+          estimado_valor: null,
+        });
+        for (const comp of etapa.composicoes) {
+          const novoCompId = crypto.randomUUID();
+          await supabase.from('orcamento_composicoes').insert({
+            id: novoCompId,
+            etapa_id: novoEtapaId,
+            company_id: company?.id ?? null,
+            codigo: comp.codigo,
+            descricao: comp.descricao,
+            unidade: comp.unidade || null,
+            quantidade: comp.quantidade,
+            preco_unitario: comp.precoUnitario,
+            preco_total: comp.precoTotal,
+            usa_subitens: comp.usaInsumos,
+            tipo: comp.tipo || 'composicao',
+            fonte_referencia: comp.fonteReferencia || null,
+          });
+          for (const ins of comp.insumos) {
+            await supabase.from('orcamento_subitens').insert({
+              id: crypto.randomUUID(),
+              composicao_id: novoCompId,
+              categoria_id: novoEtapaId,
+              company_id: company?.id ?? null,
+              nome: ins.descricao || ins.codigo,
+              codigo: ins.codigo,
+              descricao: ins.descricao,
+              unidade: ins.unidade || null,
+              quantidade: ins.quantidade,
+              preco_unitario: ins.precoUnitario,
+              preco_total: ins.precoTotal,
+            });
+          }
+        }
+      }
+    }
+
+    await fetchAll();
+    return novaVersao;
+  }, [versoes, etapasByVersao, company, fetchAll]);
+
+  /** Salva etapas de uma versão específica (similar a saveOrcamento mas por versaoId) */
+  const salvarVersao = useCallback(async (versaoId: string, etapas: OrcamentoEtapa[]) => {
+    const versao = versoes.find(v => v.id === versaoId);
+    if (!versao) throw new Error('Versão não encontrada');
+
+    const existingEtapas = etapasByVersao.get(versaoId) || [];
+    const existingIds = new Set(existingEtapas.map(e => e.id));
+    const newIds = new Set(etapas.map(e => e.id));
+
+    let totalValor = 0;
+    for (const etapa of etapas) {
+      totalValor += etapa.precoTotal;
+      await supabase.from('orcamento_categorias').upsert({
+        id: etapa.id,
+        obra_id: versao.obraId,
+        company_id: company?.id ?? null,
+        versao_id: versaoId,
+        codigo: etapa.codigo,
+        nome: etapa.nome,
+        preco_total: etapa.precoTotal,
+        usa_composicoes: etapa.usaComposicoes,
+        estimado_valor: etapa.estimadoValor ?? null,
+        data_inicio_prevista: etapa.dataInicioPrevista || null,
+        data_fim_prevista: etapa.dataFimPrevista || null,
+        status_cronograma: etapa.statusCronograma || null,
+        percentual_cronograma: etapa.percentualCronograma ?? null,
+        responsavel: etapa.responsavel || null,
+      });
+
+      const existingComps = existingEtapas.find(e => e.id === etapa.id)?.composicoes || [];
+      const existingCompIds = new Set(existingComps.map(c => c.id));
+      const newCompIds = new Set(etapa.composicoes.map(c => c.id));
+
+      for (const comp of etapa.composicoes) {
+        await supabase.from('orcamento_composicoes').upsert({
+          id: comp.id,
+          etapa_id: etapa.id,
+          company_id: company?.id ?? null,
+          codigo: comp.codigo,
+          descricao: comp.descricao,
+          unidade: comp.unidade || null,
+          quantidade: comp.quantidade,
+          preco_unitario: comp.precoUnitario,
+          preco_total: comp.precoTotal,
+          usa_subitens: comp.usaInsumos,
+          tipo: comp.tipo || 'composicao',
+          fonte_referencia: comp.fonteReferencia || null,
+          codigo_referencia_externa: comp.codigoReferenciaExterna || null,
+        });
+        for (const ins of comp.insumos) {
+          await supabase.from('orcamento_subitens').upsert({
+            id: ins.id,
+            composicao_id: comp.id,
+            categoria_id: etapa.id,
+            company_id: company?.id ?? null,
+            nome: ins.descricao || ins.codigo,
+            codigo: ins.codigo,
+            descricao: ins.descricao,
+            unidade: ins.unidade || null,
+            quantidade: ins.quantidade,
+            preco_unitario: ins.precoUnitario,
+            preco_total: ins.precoTotal,
+          });
+        }
+        // Remover subitens deleted
+        const existingInsIds = new Set((existingComps.find(c => c.id === comp.id)?.insumos || []).map(i => i.id));
+        const newInsIds = new Set(comp.insumos.map(i => i.id));
+        const delIns = [...existingInsIds].filter(id => !newInsIds.has(id));
+        if (delIns.length > 0) await supabase.from('orcamento_subitens').delete().in('id', delIns);
+      }
+      // Remover comps deleted
+      const delComps = [...existingCompIds].filter(id => !newCompIds.has(id));
+      if (delComps.length > 0) await supabase.from('orcamento_composicoes').delete().in('id', delComps);
+    }
+    // Remover etapas deleted
+    const delEtapas = [...existingIds].filter(id => !newIds.has(id));
+    if (delEtapas.length > 0) await supabase.from('orcamento_categorias').delete().in('id', delEtapas);
+
+    // Atualizar valor_total na versão
+    await supabase.from('orcamento_versoes').update({ valor_total: totalValor }).eq('id', versaoId);
+
+    // Optimistic update
+    setEtapasByVersao(prev => { const next = new Map(prev); next.set(versaoId, etapas); return next; });
+    setVersoes(prev => prev.map(v => v.id === versaoId ? { ...v, valorTotal: totalValor } : v));
+  }, [versoes, etapasByVersao, company?.id]);
+
+  /** Cria versão Analítica baseada em uma versão Estimativa, copiando estrutura + registrando estimado_valor */
+  const evoluirParaAnalitico = useCallback(async (versaoEstimativoId: string): Promise<OrcamentoVersao> => {
+    const versaoOrigem = versoes.find(v => v.id === versaoEstimativoId);
+    if (!versaoOrigem) throw new Error('Versão estimativa não encontrada');
+
+    const etapasOrigem = etapasByVersao.get(versaoEstimativoId) || [];
+    const existentes = versoes.filter(v => v.obraId === versaoOrigem.obraId);
+    const major = existentes.length + 1;
+    const numeroVersao = `v${major}.0`;
+
+    // Criar versão analítica
+    const { data: novaVData, error: vErr } = await supabase
+      .from('orcamento_versoes')
+      .insert({
+        obra_id: versaoOrigem.obraId,
+        company_id: company?.id ?? null,
+        numero_versao: numeroVersao,
+        tipo: 'analitico',
+        status: 'ativo',
+        valor_total: 0,
+        versao_pai_id: versaoEstimativoId,
+        descricao: `Evoluído de ${versaoOrigem.numeroVersao} — ${versaoOrigem.descricao || 'Estimativo'}`,
+      })
+      .select()
+      .single();
+    if (vErr) throw vErr;
+    const novaVersao = dbToVersao(novaVData as DbRow);
+
+    // Copiar etapas com estimado_valor = preco_total do estimativo, zerando composicoes
+    for (const etapa of etapasOrigem) {
+      const novoEtapaId = crypto.randomUUID();
+      await supabase.from('orcamento_categorias').insert({
+        id: novoEtapaId,
+        obra_id: versaoOrigem.obraId,
+        company_id: company?.id ?? null,
+        versao_id: novaVersao.id,
+        codigo: etapa.codigo,
+        nome: etapa.nome,
+        preco_total: 0, // será preenchido conforme composições
+        usa_composicoes: true,
+        estimado_valor: etapa.precoTotal, // <<< valor do estimativo como referência
+      });
+      // Copiar composições como ponto de partida editavel
+      for (const comp of etapa.composicoes) {
+        const novoCompId = crypto.randomUUID();
+        await supabase.from('orcamento_composicoes').insert({
+          id: novoCompId,
+          etapa_id: novoEtapaId,
+          company_id: company?.id ?? null,
+          codigo: comp.codigo,
+          descricao: comp.descricao,
+          unidade: comp.unidade || null,
+          quantidade: comp.quantidade,
+          preco_unitario: comp.precoUnitario,
+          preco_total: comp.precoTotal,
+          usa_subitens: comp.usaInsumos,
+          tipo: comp.tipo || 'composicao',
+          fonte_referencia: comp.fonteReferencia || null,
+        });
+        for (const ins of comp.insumos) {
+          await supabase.from('orcamento_subitens').insert({
+            id: crypto.randomUUID(),
+            composicao_id: novoCompId,
+            categoria_id: novoEtapaId,
+            company_id: company?.id ?? null,
+            nome: ins.descricao || ins.codigo,
+            codigo: ins.codigo,
+            descricao: ins.descricao,
+            unidade: ins.unidade || null,
+            quantidade: ins.quantidade,
+            preco_unitario: ins.precoUnitario,
+            preco_total: ins.precoTotal,
+          });
+        }
+      }
+    }
+
+    // Arquivar versão estimativa
+    await supabase.from('orcamento_versoes').update({ status: 'arquivado' }).eq('id', versaoEstimativoId);
+    await fetchAll();
+    return novaVersao;
+  }, [versoes, etapasByVersao, company, fetchAll]);
+
+  const ativarVersao = useCallback(async (versaoId: string, obraId: string) => {
+    // Arquivar todas as ativas da mesma obra
+    await supabase.from('orcamento_versoes').update({ status: 'arquivado' })
+      .eq('obra_id', obraId).eq('status', 'ativo');
+    await supabase.from('orcamento_versoes').update({ status: 'ativo' }).eq('id', versaoId);
+    setVersoes(prev => prev.map(v => v.obraId === obraId
+      ? { ...v, status: v.id === versaoId ? 'ativo' : (v.status === 'ativo' ? 'arquivado' : v.status) }
+      : v));
+  }, []);
+
+  const arquivarVersao = useCallback(async (versaoId: string) => {
+    await supabase.from('orcamento_versoes').update({ status: 'arquivado' }).eq('id', versaoId);
+    setVersoes(prev => prev.map(v => v.id === versaoId ? { ...v, status: 'arquivado' } : v));
+  }, []);
+
+  // ──────────────────────────────────────────────────────────────────
+  const addEtapaToCatalogo = useCallback((cat: EtapaTemplate) => {
     setCatalogo((prev) => {
       if (prev.some((c) => c.codigo === cat.codigo)) return prev;
       return [...prev, cat];
     });
   }, []);
 
-  const generateCategoriaCodigo = useCallback(() => {
-    const nums = catalogoCategorias
-      .map((c) => {
-        const m = c.codigo.match(/^CAT-(\d+)$/);
-        return m ? parseInt(m[1], 10) : 0;
-      })
-      .filter((n) => n > 0);
-
+  const generateEtapaCodigo = useCallback((etapasAtuais: OrcamentoEtapa[]) => {
+    const nums = etapasAtuais
+      .map(e => parseInt(e.codigo, 10))
+      .filter(n => !isNaN(n) && n > 0);
     const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
-    return `CAT-${String(next).padStart(3, '0')}`;
-  }, [catalogoCategorias]);
+    return String(next).padStart(2, '0');
+  }, []);
 
-  const generateComposicaoCodigo = useCallback((categoriaCode: string, existingCodes: string[]) => {
-    const prefix = categoriaCode.replace('CAT-', 'COMP-');
+  const generateComposicaoCodigo = useCallback((etapaCode: string, existingCodes: string[]) => {
+    const prefix = etapaCode.replace('ETP-', 'COMP-');
     let max = 0;
 
     for (const code of existingCodes) {
@@ -480,8 +943,8 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     return `${prefix}-${String(max + 1).padStart(2, '0')}`;
   }, []);
 
-  const generateSubitemCodigo = useCallback((composicaoCodigo: string, existingCodes: string[]) => {
-    const prefix = composicaoCodigo.replace('COMP-', 'SUB-');
+  const generateInsumoCodigo = useCallback((composicaoCodigo: string, existingCodes: string[]) => {
+    const prefix = composicaoCodigo.replace('COMP-', 'INS-');
     let max = 0;
 
     for (const code of existingCodes) {
@@ -497,11 +960,11 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     ['vb', 'm²', 'm³', 'm', 'un', 'kg', 'saco', 'barra', 'rolo', 'l', 't', 'mês', 'dia', 'h'].forEach((u) => set.add(u));
 
     for (const orc of orcamentos) {
-      for (const cat of orc.categorias) {
-        for (const comp of cat.composicoes) {
+      for (const etapa of orc.etapas) {
+        for (const comp of etapa.composicoes) {
           if (comp.unidade) set.add(comp.unidade);
-          for (const sub of comp.subitens) {
-            if (sub.unidade) set.add(sub.unidade);
+          for (const insumo of comp.insumos) {
+            if (insumo.unidade) set.add(insumo.unidade);
           }
         }
       }
@@ -510,14 +973,14 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     return Array.from(set).sort();
   }, [orcamentos]);
 
-  const getSugestaoInsumos = useCallback((categoriaNome: string): InsumoTemplate[] => {
-    const fromCatalog = catalogoInsumos.filter((i) => i.categoriaRef === categoriaNome);
+  const getSugestaoInsumos = useCallback((etapaNome: string): InsumoTemplate[] => {
+    const fromCatalog = catalogoInsumos.filter((i) => i.etapaRef === etapaNome);
     const fromExisting: InsumoTemplate[] = [];
 
     for (const orc of orcamentos) {
-      for (const cat of orc.categorias) {
-        if (cat.nome === categoriaNome) {
-          for (const comp of cat.composicoes) {
+      for (const etapa of orc.etapas) {
+        if (etapa.nome === etapaNome) {
+          for (const comp of etapa.composicoes) {
             if (
               comp.descricao &&
               !fromCatalog.some((c) => c.descricao === comp.descricao) &&
@@ -526,7 +989,7 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
               fromExisting.push({
                 descricao: comp.descricao,
                 unidade: comp.unidade,
-                categoriaRef: categoriaNome,
+                etapaRef: etapaNome,
               });
             }
           }
@@ -537,13 +1000,13 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     return [...fromCatalog, ...fromExisting];
   }, [orcamentos]);
 
-  const getComposicoesUsadasPorCategoria = useCallback((categoriaNome: string) => {
+  const getComposicoesUsadasPorEtapa = useCallback((etapaNome: string) => {
     const result: { descricao: string; unidade: string }[] = [];
 
     for (const orc of orcamentos) {
-      for (const cat of orc.categorias) {
-        if (cat.nome === categoriaNome) {
-          for (const comp of cat.composicoes) {
+      for (const etapa of orc.etapas) {
+        if (etapa.nome === etapaNome) {
+          for (const comp of etapa.composicoes) {
             if (comp.descricao && !result.some((r) => r.descricao === comp.descricao)) {
               result.push({ descricao: comp.descricao, unidade: comp.unidade });
             }
@@ -555,6 +1018,22 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, [orcamentos]);
 
+  // Fix BUG-4: retorna TODAS as composições de TODAS as obras/etapas da company
+  // sem filtro restritivo por nome de etapa
+  const getTodasComposicoes = useCallback((): { descricao: string; unidade: string; etapaNome: string }[] => {
+    const result: { descricao: string; unidade: string; etapaNome: string }[] = [];
+    for (const orc of orcamentos) {
+      for (const etapa of orc.etapas) {
+        for (const comp of etapa.composicoes) {
+          if (comp.descricao && !result.some((r) => r.descricao === comp.descricao)) {
+            result.push({ descricao: comp.descricao, unidade: comp.unidade, etapaNome: etapa.nome });
+          }
+        }
+      }
+    }
+    return result;
+  }, [orcamentos]);
+
   return (
     <OrcamentoContext.Provider
       value={{
@@ -562,15 +1041,27 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
         loading,
         getOrcamento,
         saveOrcamento,
-        catalogoCategorias,
-        addCategoriaToCatalogo,
-        generateCategoriaCodigo,
+        finalizarOrcamento,
+        catalogoEtapas,
+        addEtapaToCatalogo,
+        generateEtapaCodigo,
         getUnidadesUsadas,
         getSugestaoInsumos,
-        getComposicoesUsadasPorCategoria,
+        getComposicoesUsadasPorEtapa,
+        getTodasComposicoes,
         generateComposicaoCodigo,
-        generateSubitemCodigo,
+        generateInsumoCodigo,
         refreshOrcamentos: fetchAll,
+        // Sprint 4
+        versoes,
+        getVersoes,
+        getVersaoAtiva,
+        criarVersao,
+        salvarVersao,
+        getEtapasDaVersao,
+        evoluirParaAnalitico,
+        ativarVersao,
+        arquivarVersao,
       }}
     >
       {children}

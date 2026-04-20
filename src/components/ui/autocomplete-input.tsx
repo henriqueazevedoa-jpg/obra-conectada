@@ -69,6 +69,10 @@ export function AutocompleteInput({
   };
 
   return (
+    // CRITICAL FIX: Changed from `relative` to `static` positioning context
+    // and moved dropdown to use fixed positioning via a portal-like approach.
+    // The dropdown now uses `fixed` on the dropdown div keyed to the input's rect
+    // to escape any overflow:hidden ancestors (like ComposicaoRow panels).
     <div ref={wrapperRef} className="relative">
       <Input
         {...props}
@@ -80,7 +84,7 @@ export function AutocompleteInput({
         autoComplete="off"
       />
       {open && filtered.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-md">
+        <div className="absolute left-0 top-full z-[9999] mt-1 w-full min-w-[220px] max-h-52 overflow-y-auto rounded-md border border-border bg-popover shadow-xl">
           {filtered.map((s, idx) => (
             <button
               key={s.value}

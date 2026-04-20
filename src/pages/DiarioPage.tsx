@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
-import { useOrcamento, OrcamentoCategoria, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
+import { useOrcamento, OrcamentoEtapa, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -79,7 +79,7 @@ export default function DiarioPage() {
   const [reportSections, setReportSections] = useState<DiarioReportSections>(defaultDiarioReportSections);
 
   const orcamento = obra ? getOrcamento(obra.id) : null;
-  const categorias = orcamento?.categorias || [];
+  const etapas = orcamento?.etapas || [];
   const materiaisObra = obra ? getMateriaisByObra(obra.id) : [];
 
   // Fetch registros from Supabase
@@ -117,7 +117,7 @@ export default function DiarioPage() {
       servicos: (svcs || []).filter((s: any) => s.registro_id === r.id).map((s: any) => ({
         id: s.id,
         descricao: s.descricao,
-        categoriaId: s.categoria_id || undefined,
+        etapaId: s.etapa_id || undefined,
         composicaoId: s.composicao_id || undefined,
         percentualAdicionado: s.percentual_adicionado ? Number(s.percentual_adicionado) : undefined,
       })),
@@ -179,7 +179,7 @@ export default function DiarioPage() {
     if (filterProblemas === 'com' && !r.problemas) return false;
     if (filterProblemas === 'sem' && r.problemas) return false;
     if (filterEtapa !== '_all') {
-      const hasEtapa = r.servicos?.some(s => s.categoriaId === filterEtapa || s.composicaoId === filterEtapa);
+      const hasEtapa = r.servicos?.some(s => s.etapaId === filterEtapa || s.composicaoId === filterEtapa);
       if (!hasEtapa) return false;
     }
     if (filterMaterial !== '_all') {
@@ -196,16 +196,16 @@ export default function DiarioPage() {
   const sortedRegistros = [...filteredRegistros].sort((a, b) => b.data.localeCompare(a.data));
 
   // --- Helpers for etapa progress ---
-  const getAccumulatedPercent = (categoriaId: string, composicaoId?: string): number => {
-    const cat = categorias.find(c => c.id === categoriaId);
-    if (!cat) return 0;
+  const getAccumulatedPercent = (etapaId: string, composicaoId?: string): number => {
+    const item = etapas.find(e => e.id === etapaId);
+    if (!item) return 0;
 
     let baseline = 0;
     if (composicaoId) {
-      const comp = cat.composicoes.find(c => c.id === composicaoId);
+      const comp = item.composicoes.find(c => c.id === composicaoId);
       if (comp?.concluida) return 100;
     } else {
-      baseline = cat.percentualCronograma || 0;
+      baseline = item.percentualCronograma || 0;
     }
 
     let fromDiario = 0;
@@ -214,7 +214,7 @@ export default function DiarioPage() {
         if (composicaoId) {
           if (svc.composicaoId === composicaoId) fromDiario += (svc.percentualAdicionado || 0);
         } else {
-          if (svc.categoriaId === categoriaId && !svc.composicaoId) fromDiario += (svc.percentualAdicionado || 0);
+          if (svc.etapaId === etapaId && !svc.composicaoId) fromDiario += (svc.percentualAdicionado || 0);
         }
       }
     }
@@ -309,7 +309,7 @@ export default function DiarioPage() {
           filteredServicos.map(s => ({
             registro_id: editingId,
             descricao: s.descricao,
-            categoria_id: s.categoriaId || null,
+            etapa_id: s.etapaId || null,
             composicao_id: s.composicaoId || null,
             percentual_adicionado: s.percentualAdicionado || 0,
           }))
@@ -370,7 +370,7 @@ export default function DiarioPage() {
           filteredServicos.map(s => ({
             registro_id: newReg.id,
             descricao: s.descricao,
-            categoria_id: s.categoriaId || null,
+            etapa_id: s.etapaId || null,
             composicao_id: s.composicaoId || null,
             percentual_adicionado: s.percentualAdicionado || 0,
           }))
@@ -407,40 +407,40 @@ export default function DiarioPage() {
 
       // Update cronograma based on service links
       if (orcamento) {
-        const updatedCategorias = [...orcamento.categorias.map(c => ({ ...c, composicoes: c.composicoes.map(comp => ({ ...comp })) }))];
+        const updatedEtapas = [...orcamento.etapas.map(e => ({ ...e, composicoes: e.composicoes.map(comp => ({ ...comp })) }))];
 
         for (const svc of filteredServicos) {
-          if (svc.categoriaId && svc.percentualAdicionado) {
-            const catIdx = updatedCategorias.findIndex(c => c.id === svc.categoriaId);
-            if (catIdx >= 0) {
-              const cat = updatedCategorias[catIdx];
+          if (svc.etapaId && svc.percentualAdicionado) {
+            const etapaIdx = updatedEtapas.findIndex(e => e.id === svc.etapaId);
+            if (etapaIdx >= 0) {
+              const etapa = updatedEtapas[etapaIdx];
 
               if (svc.composicaoId) {
-                const compIdx = cat.composicoes.findIndex(c => c.id === svc.composicaoId);
+                const compIdx = etapa.composicoes.findIndex(c => c.id === svc.composicaoId);
                 if (compIdx >= 0) {
-                  const comp = cat.composicoes[compIdx];
-                  const accum = getAccumulatedPercent(svc.categoriaId, svc.composicaoId) + svc.percentualAdicionado;
+                  const comp = etapa.composicoes[compIdx];
+                  const accum = getAccumulatedPercent(svc.etapaId, svc.composicaoId) + svc.percentualAdicionado;
                   if (!comp.dataInicioReal) comp.dataInicioReal = hoje;
                   if (accum >= 100) { comp.concluida = true; comp.dataFimReal = hoje; }
                 }
               }
 
-              if (!cat.dataInicioReal) { cat.dataInicioReal = hoje; cat.statusCronograma = 'em_andamento'; }
-              const catPercent = cat.composicoes.length > 0
-                ? cat.composicoes.reduce((sum, comp) => {
-                    const compAccum = getAccumulatedPercent(cat.id, comp.id) +
+              if (!etapa.dataInicioReal) { etapa.dataInicioReal = hoje; etapa.statusCronograma = 'em_andamento'; }
+              const etapaPercent = etapa.composicoes.length > 0
+                ? etapa.composicoes.reduce((sum, comp) => {
+                    const compAccum = getAccumulatedPercent(etapa.id, comp.id) +
                       (filteredServicos.find(s => s.composicaoId === comp.id)?.percentualAdicionado || 0);
-                    const weight = comp.pesoCronograma || (100 / cat.composicoes.length);
+                    const weight = comp.pesoCronograma || (100 / etapa.composicoes.length);
                     return sum + (Math.min(100, compAccum) / 100) * weight;
                   }, 0)
-                : (cat.percentualCronograma || 0) + (svc.composicaoId ? 0 : svc.percentualAdicionado);
+                : (etapa.percentualCronograma || 0) + (svc.composicaoId ? 0 : svc.percentualAdicionado);
 
-              cat.percentualCronograma = Math.min(100, catPercent);
-              if (cat.percentualCronograma >= 100) { cat.statusCronograma = 'concluida'; cat.dataFimReal = hoje; }
+              etapa.percentualCronograma = Math.min(100, etapaPercent);
+              if (etapa.percentualCronograma >= 100) { etapa.statusCronograma = 'concluida'; etapa.dataFimReal = hoje; }
             }
           }
         }
-        saveOrcamento({ ...orcamento, categorias: updatedCategorias });
+        saveOrcamento({ ...orcamento, etapas: updatedEtapas });
       }
 
       // Upload photos for new registro
@@ -745,8 +745,8 @@ ${toPrint.map(r => {
                   </div>
                   {servicos.length === 0 && <p className="text-sm text-muted-foreground italic">Nenhum serviço adicionado.</p>}
                   {servicos.map((svc, idx) => {
-                    const linkedCat = svc.categoriaId ? categorias.find(c => c.id === svc.categoriaId) : null;
-                    const accum = svc.categoriaId ? getAccumulatedPercent(svc.categoriaId, svc.composicaoId) : 0;
+                    const linkedEtapa = svc.etapaId ? etapas.find(c => c.id === svc.etapaId) : null;
+                    const accum = svc.etapaId ? getAccumulatedPercent(svc.etapaId, svc.composicaoId) : 0;
                     return (
                       <div key={svc.id} className="border border-border rounded-lg p-3 space-y-3">
                         <div className="flex items-start gap-2">
@@ -762,24 +762,24 @@ ${toPrint.map(r => {
                             <Link2 className="h-3.5 w-3.5" /><span>Vincular a etapa (opcional)</span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <Select value={svc.categoriaId || '_none'} onValueChange={v => updateServico(idx, { categoriaId: v === '_none' ? undefined : v, composicaoId: undefined, percentualAdicionado: undefined })}>
-                              <SelectTrigger className="text-xs h-9"><SelectValue placeholder="Categoria..." /></SelectTrigger>
+                            <Select value={svc.etapaId || '_none'} onValueChange={v => updateServico(idx, { etapaId: v === '_none' ? undefined : v, composicaoId: undefined, percentualAdicionado: undefined })}>
+                              <SelectTrigger className="text-xs h-9"><SelectValue placeholder="Etapa..." /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="_none">Sem vínculo</SelectItem>
-                                {categorias.map(cat => (<SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>))}
+                                {etapas.map(etapa => (<SelectItem key={etapa.id} value={etapa.id}>{etapa.nome}</SelectItem>))}
                               </SelectContent>
                             </Select>
-                            {svc.categoriaId && linkedCat && linkedCat.composicoes.length > 0 && (
+                            {svc.etapaId && linkedEtapa && linkedEtapa.composicoes.length > 0 && (
                               <Select value={svc.composicaoId || '_cat_only'} onValueChange={v => updateServico(idx, { composicaoId: v === '_cat_only' ? undefined : v })}>
                                 <SelectTrigger className="text-xs h-9"><SelectValue placeholder="Composição..." /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="_cat_only">Categoria geral</SelectItem>
-                                  {linkedCat.composicoes.map(comp => (<SelectItem key={comp.id} value={comp.id}>{comp.descricao}</SelectItem>))}
+                                  <SelectItem value="_cat_only">Etapa geral</SelectItem>
+                                  {linkedEtapa.composicoes.map(comp => (<SelectItem key={comp.id} value={comp.id}>{comp.descricao}</SelectItem>))}
                                 </SelectContent>
                               </Select>
                             )}
                           </div>
-                          {svc.categoriaId && (
+                          {svc.etapaId && (
                             <div className="bg-muted/50 rounded-md p-2 space-y-2">
                               <div className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">Progresso acumulado</span>
@@ -872,7 +872,7 @@ ${toPrint.map(r => {
                 <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Etapa..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_all">Todas etapas</SelectItem>
-                  {categorias.map(cat => (<SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>))}
+                  {etapas.map(etapa => (<SelectItem key={etapa.id} value={etapa.id}>{etapa.nome}</SelectItem>))}
                 </SelectContent>
               </Select>
               <Select value={filterMaterial} onValueChange={setFilterMaterial}>
@@ -1011,14 +1011,14 @@ ${toPrint.map(r => {
                       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Serviços</p>
                       <div className="space-y-1">
                         {registro.servicos.map(svc => {
-                          const linkedCat = svc.categoriaId ? categorias.find(c => c.id === svc.categoriaId) : null;
-                          const linkedComp = svc.composicaoId && linkedCat ? linkedCat.composicoes.find(c => c.id === svc.composicaoId) : null;
+                          const linkedEtapa = svc.etapaId ? etapas.find(e => e.id === svc.etapaId) : null;
+                          const linkedComp = svc.composicaoId && linkedEtapa ? linkedEtapa.composicoes.find(c => c.id === svc.composicaoId) : null;
                           return (
                             <div key={svc.id} className="flex flex-wrap items-center gap-1 text-sm">
                               <span className="text-foreground">• {svc.descricao}</span>
-                              {linkedCat && (
+                              {linkedEtapa && (
                                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                  {linkedComp ? linkedComp.descricao : linkedCat.nome}
+                                  {linkedComp ? linkedComp.descricao : linkedEtapa.nome}
                                   {svc.percentualAdicionado ? ` +${svc.percentualAdicionado}%` : ''}
                                 </Badge>
                               )}

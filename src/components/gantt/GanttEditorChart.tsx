@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { OrcamentoCategoria } from '@/contexts/OrcamentoContext';
+import { OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import { GanttTask, GanttDragState, STATUS_LABELS, ZoomLevel, ZOOM_DAY_WIDTHS } from './types';
 import GanttBar from './GanttBar';
 import GanttTimelineHeader from './GanttTimelineHeader';
@@ -20,36 +20,36 @@ import { formatCurrency } from '@/data/mockData';
 import { GanttDependency, DepType, CascadeResult } from '@/hooks/useGanttDependencies';
 
 interface Props {
-  categorias: OrcamentoCategoria[];
-  onUpdateDates?: (catId: string, startDate: string, endDate: string) => void;
-  onUpdateBaseline?: (catId: string, startDate: string, endDate: string) => void;
+  etapas: OrcamentoEtapa[];
+  onUpdateDates?: (etapaId: string, startDate: string, endDate: string) => void;
+  onUpdateBaseline?: (etapaId: string, startDate: string, endDate: string) => void;
   financeiroByEtapa?: FinanceiroByEtapa;
   dependencies?: GanttDependency[];
   onAddDependency?: (sourceId: string, targetId: string, tipo: DepType) => Promise<boolean | undefined>;
   onRemoveDependency?: (depId: string) => void;
-  onCalculateCascade?: (catId: string, newStart: string, newEnd: string) => CascadeResult[];
+  onCalculateCascade?: (etapaId: string, newStart: string, newEnd: string) => CascadeResult[];
 }
 
-function computeStatus(cat: OrcamentoCategoria): GanttTask['status'] {
-  if (cat.statusCronograma) return cat.statusCronograma;
-  if ((cat.percentualCronograma ?? 0) >= 100) return 'concluida';
-  if (cat.dataInicioReal) {
-    if (cat.dataFimPrevista && !cat.dataFimReal && isAfter(new Date(), parseISO(cat.dataFimPrevista))) return 'atrasada';
+function computeStatus(etapa: OrcamentoEtapa): GanttTask['status'] {
+  if (etapa.statusCronograma) return etapa.statusCronograma;
+  if ((etapa.percentualCronograma ?? 0) >= 100) return 'concluida';
+  if (etapa.dataInicioReal) {
+    if (etapa.dataFimPrevista && !etapa.dataFimReal && isAfter(new Date(), parseISO(etapa.dataFimPrevista))) return 'atrasada';
     return 'em_andamento';
   }
-  if (cat.dataFimPrevista && isAfter(new Date(), parseISO(cat.dataFimPrevista))) return 'atrasada';
+  if (etapa.dataFimPrevista && isAfter(new Date(), parseISO(etapa.dataFimPrevista))) return 'atrasada';
   return 'nao_iniciada';
 }
 
-function computeProgress(cat: OrcamentoCategoria): number {
-  if (cat.percentualCronograma != null) return cat.percentualCronograma;
-  if (!cat.usaComposicoes || cat.composicoes.length === 0) return 0;
-  const totalPeso = cat.composicoes.reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
+function computeProgress(etapa: OrcamentoEtapa): number {
+  if (etapa.percentualCronograma != null) return etapa.percentualCronograma;
+  if (!etapa.usaComposicoes || etapa.composicoes.length === 0) return 0;
+  const totalPeso = etapa.composicoes.reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
   if (totalPeso === 0) {
-    const done = cat.composicoes.filter(c => c.concluida).length;
-    return Math.round((done / cat.composicoes.length) * 100);
+    const done = etapa.composicoes.filter(c => c.concluida).length;
+    return Math.round((done / etapa.composicoes.length) * 100);
   }
-  const doneW = cat.composicoes.filter(c => c.concluida).reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
+  const doneW = etapa.composicoes.filter(c => c.concluida).reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
   return Math.round((doneW / totalPeso) * 100);
 }
 
@@ -57,7 +57,7 @@ const LABEL_WIDTH = 200;
 const ROW_HEIGHT = 36;
 const MAX_HEIGHT = 480;
 
-export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBaseline, financeiroByEtapa, dependencies = [], onAddDependency, onRemoveDependency, onCalculateCascade }: Props) {
+export default function GanttEditorChart({ etapas, onUpdateDates, onUpdateBaseline, financeiroByEtapa, dependencies = [], onAddDependency, onRemoveDependency, onCalculateCascade }: Props) {
   const { planFeatures } = useCompany();
   const canView = planFeatures.gantt_view;
   const canEditGantt = planFeatures.gantt_edit;
@@ -71,7 +71,7 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [showBaseline, setShowBaseline] = useState(canViewBaseline);
   const [baselineEditMode, setBaselineEditMode] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(categorias.map(c => c.id)));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(etapas.map(e => e.id)));
   const [dragState, setDragState] = useState<GanttDragState | null>(null);
   const [dragDelta, setDragDelta] = useState(0);
   const [pendingChange, setPendingChange] = useState<GanttChangeInfo | null>(null);
@@ -81,22 +81,22 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
   // Compute tasks & timeline bounds
   const { tasks, timelineStart, totalDays } = useMemo(() => {
     const allTasks: GanttTask[] = [];
-    categorias.forEach(cat => {
+    etapas.forEach(etapa => {
       const group: GanttTask = {
-        id: cat.id,
-        name: cat.nome,
-        code: cat.codigo,
-        startDate: cat.dataInicioPrevista,
-        endDate: cat.dataFimPrevista,
-        actualStart: cat.dataInicioReal,
-        actualEnd: cat.dataFimReal,
-        progress: computeProgress(cat),
-        status: computeStatus(cat),
-        isGroup: cat.usaComposicoes && cat.composicoes.length > 0,
+        id: etapa.id,
+        name: etapa.nome,
+        code: etapa.codigo,
+        startDate: etapa.dataInicioPrevista,
+        endDate: etapa.dataFimPrevista,
+        actualStart: etapa.dataInicioReal,
+        actualEnd: etapa.dataFimReal,
+        progress: computeProgress(etapa),
+        status: computeStatus(etapa),
+        isGroup: etapa.usaComposicoes && etapa.composicoes.length > 0,
         children: [],
       };
-      if (group.isGroup && expandedGroups.has(cat.id)) {
-        cat.composicoes.forEach(comp => {
+      if (group.isGroup && expandedGroups.has(etapa.id)) {
+        etapa.composicoes.forEach(comp => {
           group.children!.push({
             id: comp.id,
             name: comp.descricao || comp.codigo,
@@ -107,7 +107,7 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
             actualEnd: comp.dataFimReal,
             progress: comp.concluida ? 100 : 0,
             status: comp.concluida ? 'concluida' : (comp.dataInicioReal ? 'em_andamento' : 'nao_iniciada'),
-            groupId: cat.id,
+            groupId: etapa.id,
           });
         });
       }
@@ -115,9 +115,9 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
     });
 
     const allDates: string[] = [];
-    categorias.forEach(c => {
-      [c.dataInicioPrevista, c.dataFimPrevista, c.dataInicioReal, c.dataFimReal].forEach(d => { if (d) allDates.push(d); });
-      c.composicoes.forEach(comp => {
+    etapas.forEach(e => {
+      [e.dataInicioPrevista, e.dataFimPrevista, e.dataInicioReal, e.dataFimReal].forEach(d => { if (d) allDates.push(d); });
+      e.composicoes.forEach(comp => {
         [comp.dataInicioPrevista, comp.dataFimPrevista, comp.dataInicioReal, comp.dataFimReal].forEach(d => { if (d) allDates.push(d); });
       });
     });
@@ -129,7 +129,7 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
     const max = addDays(parseISO(sorted[sorted.length - 1]), 7);
     const days = Math.max(differenceInDays(max, min) + 1, 30);
     return { tasks: allTasks, timelineStart: min, totalDays: days };
-  }, [categorias, expandedGroups]);
+  }, [etapas, expandedGroups]);
 
   // Compute dayWidth based on zoom
   const dayWidth = useMemo(() => {
@@ -143,12 +143,16 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
   const todayOffset = differenceInDays(new Date(), timelineStart) * dayWidth;
 
   const toggleGroup = useCallback((id: string) => {
-    setExpandedGroups(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setExpandedGroups(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) { n.delete(id); } else { n.add(id); }
+      return n;
+    });
   }, []);
 
   const expandAll = useCallback(() => {
-    setExpandedGroups(new Set(categorias.filter(c => c.usaComposicoes && c.composicoes.length > 0).map(c => c.id)));
-  }, [categorias]);
+    setExpandedGroups(new Set(etapas.filter(e => e.usaComposicoes && e.composicoes.length > 0).map(e => e.id)));
+  }, [etapas]);
 
   const collapseAll = useCallback(() => setExpandedGroups(new Set()), []);
 
@@ -186,7 +190,7 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
           if (newEnd <= newStart) { setDragState(null); setDragDelta(0); return; }
         }
 
-        const taskName = categorias.find(c => c.id === dragState.taskId)?.nome || 'Tarefa';
+        const taskName = etapas.find(e => e.id === dragState.taskId)?.nome || 'Tarefa';
         const newStartStr = format(newStart, 'yyyy-MM-dd');
         const newEndStr = format(newEnd, 'yyyy-MM-dd');
 
@@ -213,7 +217,7 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp); };
-  }, [dragState, dayWidth, categorias]);
+  }, [dragState, dayWidth, etapas, onCalculateCascade, onUpdateDates, onUpdateBaseline]);
 
   const handleConfirm = useCallback(() => {
     if (!pendingChange) return;
@@ -436,13 +440,13 @@ export default function GanttEditorChart({ categorias, onUpdateDates, onUpdateBa
 
       {/* Financial detail panel */}
       {selectedTask && financeiroByEtapa && (() => {
-        const cat = categorias.find(c => c.id === selectedTask);
-        const fin = cat ? financeiroByEtapa[cat.nome] : undefined;
+        const etapa = etapas.find(e => e.id === selectedTask);
+        const fin = etapa ? financeiroByEtapa[etapa.nome] : undefined;
         if (!fin || fin.totalPrevisto === 0) return null;
         return (
           <div className="mt-3">
             <GanttFinanceiroPanel
-              etapaNome={cat!.nome}
+              etapaNome={etapa!.nome}
               financeiro={fin}
               onClose={() => setSelectedTask(null)}
             />

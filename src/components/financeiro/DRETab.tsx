@@ -13,11 +13,15 @@
  *   campo "valor_contrato" da tabela "contratos" vinculada à obra.
  */
 import { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { usePortalTarget } from '@/hooks/usePortalTarget';
+import type { PageKPI } from '@/components/layout/PageShell';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useOrcamento } from '@/contexts/OrcamentoContext';
+
+// ── Module-level cache ────────────────────────────────────────────
+type DRECache = { pagamentos: PagamentoDRE[]; custosReais: CustoRealItem[] };
+const dreCache = new Map<string, DRECache>();
+
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -147,18 +151,24 @@ function DRELine({ label, value, sub, indent = 0, bold = false, highlight, icon:
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 
-interface Props { obraId: string; }
+interface Props { obraId: string; isActive?: boolean; onKpisReady?: (kpis: PageKPI[]) => void; }
 
-export default function DRETab({ obraId }: Props) {
+export default function DRETab({ obraId, isActive = true, onKpisReady }: Props) {
   const { getOrcamento } = useOrcamento();
   const [pagamentos, setPagamentos] = useState<PagamentoDRE[]>([]);
   const [custosReais, setCustosReais] = useState<CustoRealItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ── Portal target (must be before any early return — Rules of Hooks) ─────────
-  const kpiPortalTarget = usePortalTarget('financeiro-kpi-portal');
+  // ── Portal target removed — lift-state-up via onKpisReady ─────────────────
 
   useEffect(() => {
+    const cached = dreCache.get(obraId);
+    if (cached) {
+      setPagamentos(cached.pagamentos);
+      setCustosReais(cached.custosReais);
+      setLoading(false);
+      return;
+    }
     let active = true;
     setLoading(true);
     Promise.all([
@@ -172,8 +182,11 @@ export default function DRETab({ obraId }: Props) {
         .neq('origem', 'pagamento_vinculado'),
     ]).then(([{ data: pags }, { data: reais }]) => {
       if (active) {
-        setPagamentos((pags || []) as PagamentoDRE[]);
-        setCustosReais((reais || []) as CustoRealItem[]);
+        const p = (pags || []) as PagamentoDRE[];
+        const r = (reais || []) as CustoRealItem[];
+        dreCache.set(obraId, { pagamentos: p, custosReais: r });
+        setPagamentos(p);
+        setCustosReais(r);
         setLoading(false);
       }
     });
@@ -245,7 +258,6 @@ export default function DRETab({ obraId }: Props) {
     }).filter(e => e.orcado > 0 || e.realizado > 0);
   }, [custosReais, orcamento]);
 
-  // ── Dados gráfico pizza ─────────────────────────────────────────────────
   const pieData = useMemo(() =>
     porTipo.map(t => ({
       name: TIPO_CONFIG[t.tipo]?.label || t.tipo,
@@ -256,11 +268,10 @@ export default function DRETab({ obraId }: Props) {
     [porTipo, totalPago]
   );
 
-  // ── Dados gráfico de área ───────────────────────────────────────────────
   const areaData = useMemo(() => {
     const mesMap = new Map<string, Record<string, number>>();
     for (const p of pagamentos) {
-      if (p.status !== 'pago') continue;
+      if (p.status !== 'pago' || !p.data_vencimento) continue;
       const mes = format(parseISO(p.data_vencimento), 'yyyy-MM');
       const tipo = p.tipo_pagamento || 'outro';
       if (!mesMap.has(mes)) mesMap.set(mes, {});
@@ -276,7 +287,35 @@ export default function DRETab({ obraId }: Props) {
       });
   }, [pagamentos]);
 
-  // ── Loading ───────────────────────────────────────────────────────────────
+  const economiaPct = receita > 0 ? ((receita - totalPago) / receita) * 100 : 0;
+  const pctObraPaga = receita > 0 ? (totalPago / receita) * 100 : 0;
+
+  // ── KPI lift-state-up ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isActive || !onKpisReady || loading || (pagamentos.length === 0 && custosReais.length === 0)) return;
+    onKpisReady([
+      { id: 'orcado', label: 'Orçado total', value: fmt(receita),
+        icon: <Building2 style={{ width: 14, height: 14, color: '#534AB7' }} />,
+        tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7', main: true },
+      { id: 'gasto', label: 'Gasto até agora', value: fmt(totalPago),
+        icon: <Hammer style={{ width: 14, height: 14, color: 'var(--color-text-secondary)' }} /> },
+      { id: 'economia', label: 'Economia / Estouro',
+        value: `${resultadoBruto >= 0 ? '+' : ''}${economiaPct.toFixed(1)}%`,
+        icon: resultadoBruto >= 0
+          ? <TrendingUp style={{ width: 14, height: 14, color: '#3B6D11' }} />
+          : <TrendingDown style={{ width: 14, height: 14, color: '#A32D2D' }} />,
+        sublabel: resultadoBruto > 0 ? 'dentro do orçado' : resultadoBruto < 0 ? 'acima do orçado' : 'no limite',
+        tint: resultadoBruto > 0 ? '#EAF3DE' : resultadoBruto < 0 ? '#FCEBEB' : undefined,
+        valueColor: resultadoBruto > 0 ? '#3B6D11' : resultadoBruto < 0 ? '#A32D2D' : undefined,
+        labelColor: resultadoBruto > 0 ? '#3B6D11' : resultadoBruto < 0 ? '#A32D2D' : undefined },
+      { id: 'pctPaga', label: '% da obra paga', value: `${pctObraPaga.toFixed(0)}%`,
+        icon: <BarChart3 style={{ width: 14, height: 14, color: '#1E5A8D' }} />,
+        tint: '#E6F1FB',
+        progress: Math.min(100, pctObraPaga) },
+    ]);
+  }, [isActive, loading, receita, totalPago, resultadoBruto, economiaPct, pctObraPaga, onKpisReady]);
+
+  // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="space-y-4">
@@ -300,65 +339,23 @@ export default function DRETab({ obraId }: Props) {
     );
   }
 
-  const impostos = custosReais.filter(c => !c.etapa_id && c.categoria === 'taxa').reduce((s, c) => s + Number(c.valor), 0);
-
-  const economiaPct = receita > 0 ? ((receita - totalPago) / receita) * 100 : 0;
-  const pctObraPaga = receita > 0 ? (totalPago / receita) * 100 : 0;
-
-  const kpiBar = (
-    <div className="flex w-full overflow-x-auto border-b-[0.5px] border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shrink-0">
-      <div className="px-[20px] py-[14px] min-w-[160px] border-r-[0.5px] border-[var(--color-border-tertiary)] bg-[#F3F2FD] flex flex-col justify-center">
-        <p className="text-[10px] font-medium text-[#534AB7] tracking-wider uppercase">Orçado total</p>
-        <p className="text-[22px] font-medium text-[#3C3489] tabular-nums leading-tight mt-1">{fmt(receita)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[130px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Gasto até agora</p>
-        <p className="text-[15px] font-medium text-[var(--color-text-primary)] tabular-nums mt-1">{fmt(totalPago)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[130px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Economia / Estouro</p>
-        <p className={cn("text-[15px] font-medium tabular-nums mt-1",
-          resultadoBruto > 0 ? "text-[#3B6D11]" :
-          resultadoBruto < 0 ? "text-[#A32D2D]" : "text-[var(--color-text-primary)]")}>
-          {resultadoBruto >= 0 ? '+' : ''}{economiaPct.toFixed(1)}%
-        </p>
-        <p className={cn("text-[10px] leading-tight mt-0.5",
-          resultadoBruto > 0 ? "text-[#3B6D11]" :
-          resultadoBruto < 0 ? "text-[#A32D2D]" : "text-[var(--color-text-secondary)]")}>
-          {resultadoBruto > 0 ? "dentro do orçado" : resultadoBruto < 0 ? "acima do orçado" : "no limite"}
-        </p>
-      </div>
-      <div className="px-[16px] py-[14px] flex flex-col justify-center min-w-[150px]">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">% da obra paga</p>
-          <span className="text-[12px] font-medium text-[var(--color-text-primary)] tabular-nums">{pctObraPaga.toFixed(0)}%</span>
-        </div>
-        <div className="h-[3px] w-full bg-[var(--color-border-secondary)] rounded-full overflow-hidden mt-2">
-          <div
-            className="h-full rounded-full bg-[#534AB7] transition-all duration-500"
-            style={{ width: `${Math.min(100, pctObraPaga)}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <>
-      {kpiPortalTarget && createPortal(kpiBar, kpiPortalTarget)}
       <div className="space-y-5 py-4 px-4 h-full overflow-auto bg-[var(--color-background-primary)]">
 
-      {/* ── Badge diagnóstico dinâmico ──────────────────────────────── */}
       {receita > 0 && (
-        <div className="flex items-center gap-2.5">
-          <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Resultado financeiro</span>
-          <span className={cn("text-[11px] px-2 py-0.5 rounded-full font-medium border",
-            resultadoBruto < 0 && (-resultadoBruto / receita) > 0.2
-              ? "bg-red-100 text-red-700 border-red-200"
-              : resultadoBruto < 0
-              ? "bg-amber-100 text-amber-700 border-amber-200"
-              : "bg-green-100 text-green-700 border-green-200"
-          )}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>Resultado financeiro</span>
+          <span style={{
+            fontSize: 11, padding: '2px 10px', borderRadius: 999, fontWeight: 500,
+            border: '0.5px solid',
+            background: resultadoBruto < 0 && (-resultadoBruto / receita) > 0.2
+              ? '#FCEBEB' : resultadoBruto < 0 ? '#FAEEDA' : '#EAF3DE',
+            color: resultadoBruto < 0 && (-resultadoBruto / receita) > 0.2
+              ? '#A32D2D' : resultadoBruto < 0 ? '#854F0B' : '#3B6D11',
+            borderColor: resultadoBruto < 0 && (-resultadoBruto / receita) > 0.2
+              ? '#F7C1C1' : resultadoBruto < 0 ? '#FAC775' : '#C0DD97',
+          }}>
             {resultadoBruto < 0 && (-resultadoBruto / receita) > 0.2
               ? `estouro: +${((-resultadoBruto / receita) * 100).toFixed(1)}% do orçado`
               : resultadoBruto < 0
@@ -418,15 +415,19 @@ export default function DRETab({ obraId }: Props) {
                 highlight={resultadoBruto >= 0 ? 'positive' : 'negative'}
                 icon={resultadoBruto >= 0 ? TrendingUp : TrendingDown}
                 color={resultadoBruto >= 0 ? 'hsl(152 55% 38%)' : 'hsl(0 72% 51%)'} />
-              <div className="flex items-center justify-between py-2 pl-4">
-                <span className="text-xs text-muted-foreground">Margem bruta</span>
-                <Badge className={cn('text-[11px]', margemBruta >= 0 ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30' : 'bg-red-500/15 text-red-700 border-red-500/30')}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--color-background-secondary)', borderRadius: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Margem bruta</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                  background: margemBruta >= 0 ? '#EAF3DE' : '#FCEBEB',
+                  color: margemBruta >= 0 ? '#3B6D11' : '#A32D2D',
+                }}>
                   {margemBruta.toFixed(1)}%
-                </Badge>
+                </span>
               </div>
-              <div className="flex items-center justify-between py-2 pl-4">
-                <span className="text-xs text-muted-foreground">Custo previsto total</span>
-                <span className="text-xs font-medium tabular-nums">{fmt(totalPrevisto)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px' }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Custo previsto total</span>
+                <span style={{ fontSize: 12, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{fmt(totalPrevisto)}</span>
               </div>
             </div>
           </CardContent>

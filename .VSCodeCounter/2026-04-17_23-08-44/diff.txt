@@ -1,0 +1,262 @@
+Date : 2026-04-17 23:08:44
+Directory : c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\orcamento
+Total : 204 files,  -29577 codes, -774 comments, -3161 blanks, all -33512 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| CSS            |          2 |       -175 |          0 |        -35 |       -210 |
+| TypeScript     |         41 |     -3,601 |       -140 |       -465 |     -4,206 |
+| TypeScript JSX |        161 |    -25,801 |       -634 |     -2,661 |    -29,096 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                         | files      | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                            |        204 |    -29,577 |       -774 |     -3,161 |    -33,512 |
+| ..                                                                                                                           |        204 |    -29,577 |       -774 |     -3,161 |    -33,512 |
+| .. (Files)                                                                                                                   |          9 |     -1,393 |        -63 |       -146 |     -1,602 |
+| ..\..                                                                                                                        |         84 |    -16,570 |       -470 |     -1,680 |    -18,720 |
+| ..\.. (Files)                                                                                                                |          5 |       -354 |         -5 |        -65 |       -424 |
+| ..\..\contexts                                                                                                               |          9 |     -1,760 |        -45 |       -281 |     -2,086 |
+| ..\..\data                                                                                                                   |          4 |       -900 |        -60 |        -67 |     -1,027 |
+| ..\..\hooks                                                                                                                  |         14 |     -1,264 |        -31 |       -201 |     -1,496 |
+| ..\..\integrations                                                                                                           |          3 |       -344 |         -5 |        -15 |       -364 |
+| ..\..\integrations\supabase                                                                                                  |          3 |       -344 |         -5 |        -15 |       -364 |
+| ..\..\lib                                                                                                                    |          9 |       -509 |        -10 |        -76 |       -595 |
+| ..\..\lib (Files)                                                                                                            |          2 |        -20 |          0 |         -3 |        -23 |
+| ..\..\lib\planilha                                                                                                           |          2 |       -126 |         -5 |        -20 |       -151 |
+| ..\..\lib\sinapi                                                                                                             |          5 |       -363 |         -5 |        -53 |       -421 |
+| ..\..\pages                                                                                                                  |         31 |    -10,888 |       -281 |       -874 |    -12,043 |
+| ..\..\pages (Files)                                                                                                          |         27 |    -10,431 |       -279 |       -835 |    -11,545 |
+| ..\..\pages\admin                                                                                                            |          4 |       -457 |         -2 |        -39 |       -498 |
+| ..\..\scripts                                                                                                                |          1 |        -56 |         -5 |        -16 |        -77 |
+| ..\..\test                                                                                                                   |          2 |        -20 |          0 |         -4 |        -24 |
+| ..\..\types                                                                                                                  |          3 |        -89 |          0 |        -11 |       -100 |
+| ..\..\utils                                                                                                                  |          3 |       -386 |        -28 |        -70 |       -484 |
+| ..\cronograma                                                                                                                |          3 |     -1,260 |        -72 |       -150 |     -1,482 |
+| ..\custo-real                                                                                                                |          1 |       -231 |        -11 |        -18 |       -260 |
+| ..\diario                                                                                                                    |          2 |       -189 |          0 |        -20 |       -209 |
+| ..\execucao                                                                                                                  |          4 |     -1,116 |        -37 |        -79 |     -1,232 |
+| ..\gantt                                                                                                                     |          9 |     -1,181 |        -31 |       -140 |     -1,352 |
+| ..\insumos                                                                                                                   |          1 |       -211 |         -6 |        -22 |       -239 |
+| ..\landing                                                                                                                   |         16 |       -533 |         -1 |        -48 |       -582 |
+| ..\obras                                                                                                                     |          1 |        -35 |          0 |         -4 |        -39 |
+| ..\painel                                                                                                                    |         21 |     -2,859 |        -56 |       -296 |     -3,211 |
+| ..\suprimentos                                                                                                               |          1 |       -239 |         -5 |        -18 |       -262 |
+| ..\ui                                                                                                                        |         51 |     -3,612 |        -18 |       -524 |     -4,154 |
+| ..\voice                                                                                                                     |          1 |       -148 |         -4 |        -16 |       -168 |
++------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++------------------------------------------------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                                                                     | language       | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\App.css                                       | CSS            |        -37 |          0 |         -6 |        -43 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\App.tsx                                       | TypeScript JSX |       -175 |         -4 |        -27 |       -206 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\AppLayout.tsx                      | TypeScript JSX |       -539 |        -27 |        -55 |       -621 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\CommandPalette.tsx                 | TypeScript JSX |       -144 |         -4 |        -15 |       -163 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\DemoModeBar.tsx                    | TypeScript JSX |       -223 |        -14 |        -16 |       -253 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ErrorBoundary.tsx                  | TypeScript JSX |       -111 |         -4 |        -14 |       -129 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\GlobalFAB.tsx                      | TypeScript JSX |        -93 |         -6 |        -14 |       -113 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\NavLink.tsx                        | TypeScript JSX |        -24 |          0 |         -5 |        -29 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\NotificationCenter.tsx             | TypeScript JSX |       -160 |         -8 |        -16 |       -184 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\PageHeader.tsx                     | TypeScript JSX |        -79 |          0 |         -5 |        -84 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ProtectedRoute.tsx                 | TypeScript JSX |        -20 |          0 |         -6 |        -26 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\cronograma\CurvaS.tsx              | TypeScript JSX |       -170 |         -9 |        -23 |       -202 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\cronograma\GanttCanvasPanel.tsx    | TypeScript JSX |       -607 |        -50 |        -89 |       -746 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\cronograma\TaskDetailDrawer.tsx    | TypeScript JSX |       -483 |        -13 |        -38 |       -534 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\custo-real\CustoRealEditor.tsx     | TypeScript JSX |       -231 |        -11 |        -18 |       -260 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\diario\DiarioFotoUpload.tsx        | TypeScript JSX |        -83 |          0 |        -10 |        -93 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\diario\DiarioReportPicker.tsx      | TypeScript JSX |       -106 |          0 |        -10 |       -116 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\execucao\DiarioTab.tsx             | TypeScript JSX |       -656 |        -25 |        -41 |       -722 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\execucao\EquipeTab.tsx             | TypeScript JSX |        -78 |         -1 |         -8 |        -87 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\execucao\EstoqueQuickView.tsx      | TypeScript JSX |        -94 |         -3 |         -9 |       -106 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\execucao\PendenciasPanel.tsx       | TypeScript JSX |       -288 |         -8 |        -21 |       -317 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttBar.tsx                 | TypeScript JSX |       -184 |         -2 |        -18 |       -204 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttConfirmDialog.tsx       | TypeScript JSX |       -102 |         -1 |        -12 |       -115 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttDependencyArrows.tsx    | TypeScript JSX |        -96 |         -3 |        -15 |       -114 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttDependencyEditor.tsx    | TypeScript JSX |       -107 |         -3 |        -15 |       -125 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttEditorChart.tsx         | TypeScript JSX |       -411 |        -15 |        -47 |       -473 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttFinanceiroPanel.tsx     | TypeScript JSX |        -93 |         -2 |         -8 |       -103 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttTimelineHeader.tsx      | TypeScript JSX |        -47 |          0 |         -7 |        -54 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttToolbar.tsx             | TypeScript JSX |        -95 |         -5 |        -11 |       -111 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\types.ts                     | TypeScript     |        -46 |          0 |         -7 |        -53 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\insumos\ImportarCotacaoDialog.tsx  | TypeScript JSX |       -211 |         -6 |        -22 |       -239 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\BeliefBreakSection.tsx     | TypeScript JSX |        -27 |          0 |         -2 |        -29 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\BenefitsSection.tsx        | TypeScript JSX |        -31 |          0 |         -3 |        -34 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\DemoSection.tsx            | TypeScript JSX |        -28 |          0 |         -3 |        -31 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\FinalCTA.tsx               | TypeScript JSX |        -20 |          0 |         -3 |        -23 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\Footer.tsx                 | TypeScript JSX |        -14 |          0 |         -2 |        -16 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\HeroSection.tsx            | TypeScript JSX |        -54 |          0 |         -3 |        -57 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\ImpactSection.tsx          | TypeScript JSX |        -19 |          0 |         -2 |        -21 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\LeadCaptureSection.tsx     | TypeScript JSX |        -70 |         -1 |         -6 |        -77 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\ModulesSection.tsx         | TypeScript JSX |        -38 |          0 |         -3 |        -41 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\NavBar.tsx                 | TypeScript JSX |        -44 |          0 |         -5 |        -49 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\ObjectionSection.tsx       | TypeScript JSX |        -16 |          0 |         -2 |        -18 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\PlansSection.tsx           | TypeScript JSX |        -73 |          0 |         -4 |        -77 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\ProblemSection.tsx         | TypeScript JSX |        -35 |          0 |         -2 |        -37 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\SolutionSection.tsx        | TypeScript JSX |        -16 |          0 |         -2 |        -18 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\WhatsAppFAB.tsx            | TypeScript JSX |        -15 |          0 |         -3 |        -18 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\WhatsAppServiceSection.tsx | TypeScript JSX |        -33 |          0 |         -3 |        -36 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\obras\NoObraState.tsx              | TypeScript JSX |        -35 |          0 |         -4 |        -39 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ABCTable.tsx                | TypeScript JSX |       -130 |          0 |        -15 |       -145 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\AcoesPrioritarias.tsx       | TypeScript JSX |       -102 |          0 |        -12 |       -114 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\AgendaTimelineView.tsx      | TypeScript JSX |       -100 |          0 |        -10 |       -110 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\CostPieChart.tsx            | TypeScript JSX |       -146 |         -1 |        -13 |       -160 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\CronogramaPagamentos.tsx    | TypeScript JSX |       -223 |         -8 |        -20 |       -251 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\DiarioTimelineView.tsx      | TypeScript JSX |       -122 |          0 |        -11 |       -133 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\GanttChart.tsx              | TypeScript JSX |       -136 |         -2 |        -16 |       -154 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ObraCalendarView.tsx        | TypeScript JSX |       -326 |         -6 |        -33 |       -365 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ObraHeader.tsx              | TypeScript JSX |        -60 |          0 |         -5 |        -65 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PagamentosCalendarView.tsx  | TypeScript JSX |       -152 |         -5 |        -20 |       -177 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PagamentosResumoMensal.tsx  | TypeScript JSX |        -70 |          0 |         -8 |        -78 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PagamentosTimelineView.tsx  | TypeScript JSX |       -144 |         -7 |        -15 |       -166 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PainelUnifiedListView.tsx   | TypeScript JSX |       -158 |          0 |        -16 |       -174 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PendenciasBlock.tsx         | TypeScript JSX |       -106 |         -3 |        -13 |       -122 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PendenciasTimelineView.tsx  | TypeScript JSX |       -102 |          0 |        -10 |       -112 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PontosAtencao.tsx           | TypeScript JSX |        -77 |         -3 |         -7 |        -87 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PrintSectionPicker.tsx      | TypeScript JSX |       -104 |          0 |         -8 |       -112 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ResumoExecutivo.tsx         | TypeScript JSX |       -131 |         -4 |        -17 |       -152 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\SCurveChart.tsx             | TypeScript JSX |       -194 |         -6 |        -17 |       -217 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\SmartCards.tsx              | TypeScript JSX |       -242 |        -11 |        -25 |       -278 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ViewModeSwitcher.tsx        | TypeScript JSX |        -34 |          0 |         -5 |        -39 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\suprimentos\MatrizDecisao.tsx      | TypeScript JSX |       -239 |         -5 |        -18 |       -262 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\HelpPopover.tsx                 | TypeScript JSX |        -41 |          0 |         -3 |        -44 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\accordion.tsx                   | TypeScript JSX |        -45 |          0 |         -8 |        -53 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\alert-dialog.tsx                | TypeScript JSX |        -91 |          0 |        -14 |       -105 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\alert.tsx                       | TypeScript JSX |        -37 |          0 |         -7 |        -44 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\aspect-ratio.tsx                | TypeScript JSX |         -3 |          0 |         -3 |         -6 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\autocomplete-input.tsx          | TypeScript JSX |        -94 |         -4 |         -9 |       -107 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\avatar.tsx                      | TypeScript JSX |        -33 |          0 |         -6 |        -39 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\badge.tsx                       | TypeScript JSX |        -24 |          0 |         -6 |        -30 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\breadcrumb.tsx                  | TypeScript JSX |        -80 |          0 |        -11 |        -91 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\button.tsx                      | TypeScript JSX |        -42 |          0 |         -6 |        -48 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\calendar.tsx                    | TypeScript JSX |        -50 |          0 |         -5 |        -55 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\card.tsx                        | TypeScript JSX |        -35 |          0 |         -9 |        -44 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\carousel.tsx                    | TypeScript JSX |       -195 |          0 |        -30 |       -225 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\chart.tsx                       | TypeScript JSX |       -266 |         -2 |        -36 |       -304 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\checkbox.tsx                    | TypeScript JSX |        -23 |          0 |         -4 |        -27 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\collapsible.tsx                 | TypeScript JSX |         -5 |          0 |         -5 |        -10 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\command.tsx                     | TypeScript JSX |       -115 |          0 |        -18 |       -133 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\context-menu.tsx                | TypeScript JSX |       -161 |          0 |        -18 |       -179 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\dialog.tsx                      | TypeScript JSX |        -83 |          0 |        -13 |        -96 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\drawer.tsx                      | TypeScript JSX |        -75 |          0 |        -13 |        -88 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\dropdown-menu.tsx               | TypeScript JSX |       -162 |          0 |        -18 |       -180 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\form.tsx                        | TypeScript JSX |       -105 |          0 |        -25 |       -130 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\hover-card.tsx                  | TypeScript JSX |        -22 |          0 |         -6 |        -28 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\input-otp.tsx                   | TypeScript JSX |        -54 |          0 |         -8 |        -62 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\input.tsx                       | TypeScript JSX |        -19 |          0 |         -4 |        -23 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\label.tsx                       | TypeScript JSX |        -13 |          0 |         -5 |        -18 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\menubar.tsx                     | TypeScript JSX |       -189 |          0 |        -19 |       -208 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\navigation-menu.tsx             | TypeScript JSX |       -109 |          0 |        -12 |       -121 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\pagination.tsx                  | TypeScript JSX |        -71 |          0 |        -11 |        -82 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\popover.tsx                     | TypeScript JSX |        -24 |          0 |         -6 |        -30 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\progress.tsx                    | TypeScript JSX |        -20 |          0 |         -4 |        -24 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\radio-group.tsx                 | TypeScript JSX |        -32 |          0 |         -5 |        -37 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\resizable.tsx                   | TypeScript JSX |        -32 |          0 |         -6 |        -38 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\scroll-area.tsx                 | TypeScript JSX |        -34 |          0 |         -5 |        -39 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\select.tsx                      | TypeScript JSX |       -130 |          0 |        -14 |       -144 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\separator.tsx                   | TypeScript JSX |        -17 |          0 |         -4 |        -21 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\sheet.tsx                       | TypeScript JSX |        -93 |          0 |        -15 |       -108 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\sidebar.tsx                     | TypeScript JSX |       -572 |        -12 |        -54 |       -638 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\skeleton.tsx                    | TypeScript JSX |         -5 |          0 |         -3 |         -8 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\slider.tsx                      | TypeScript JSX |        -20 |          0 |         -4 |        -24 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\sonner.tsx                      | TypeScript JSX |        -23 |          0 |         -5 |        -28 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\switch.tsx                      | TypeScript JSX |        -24 |          0 |         -4 |        -28 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\table.tsx                       | TypeScript JSX |        -62 |          0 |        -11 |        -73 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\tabs.tsx                        | TypeScript JSX |        -47 |          0 |         -7 |        -54 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\textarea.tsx                    | TypeScript JSX |        -17 |          0 |         -5 |        -22 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\toast.tsx                       | TypeScript JSX |        -99 |          0 |        -13 |       -112 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\toaster.tsx                     | TypeScript JSX |        -22 |          0 |         -3 |        -25 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\toggle-group.tsx                | TypeScript JSX |        -41 |          0 |         -9 |        -50 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\toggle.tsx                      | TypeScript JSX |        -32 |          0 |         -6 |        -38 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\tooltip.tsx                     | TypeScript JSX |        -22 |          0 |         -7 |        -29 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\use-toast.ts                    | TypeScript     |         -2 |          0 |         -2 |         -4 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\voice\VoiceInputButton.tsx         | TypeScript JSX |       -148 |         -4 |        -16 |       -168 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\AuthContext.tsx                      | TypeScript JSX |       -127 |          0 |        -19 |       -146 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\CommandPaletteContext.tsx            | TypeScript JSX |        -33 |          0 |         -8 |        -41 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\CompanyContext.tsx                   | TypeScript JSX |       -325 |        -16 |        -43 |       -384 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\CustoRealContext.tsx                 | TypeScript JSX |       -120 |          0 |        -17 |       -137 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\EstoqueContext.tsx                   | TypeScript JSX |       -122 |         -1 |        -18 |       -141 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\ObraSelectionContext.tsx             | TypeScript JSX |        -41 |         -1 |        -11 |        -53 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\ObrasContext.tsx                     | TypeScript JSX |       -222 |          0 |        -41 |       -263 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\OrcamentoContext.tsx                 | TypeScript JSX |       -585 |        -11 |        -87 |       -683 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\SuprimentosContext.tsx               | TypeScript JSX |       -185 |        -16 |        -37 |       -238 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\data\catalogoInsumos.ts                       | TypeScript     |       -205 |        -20 |        -20 |       -245 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\data\demoSeeder.ts                            | TypeScript     |        -23 |         -1 |         -4 |        -28 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\data\mockData.ts                              | TypeScript     |       -209 |        -16 |        -25 |       -250 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\data\seedOrcamentos.ts                        | TypeScript     |       -463 |        -23 |        -18 |       -504 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\use-mobile.tsx                          | TypeScript JSX |        -15 |          0 |         -5 |        -20 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\use-toast.ts                            | TypeScript     |       -154 |         -2 |        -31 |       -187 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useAddonAccess.ts                       | TypeScript     |        -33 |          0 |         -8 |        -41 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useCotacaoCategorias.ts                 | TypeScript     |        -96 |         -4 |        -14 |       -114 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useCronograma.ts                        | TypeScript     |       -227 |         -9 |        -21 |       -257 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useEtapaDependencias.ts                 | TypeScript     |       -133 |         -4 |        -19 |       -156 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useGanttDependencies.ts                 | TypeScript     |       -140 |         -6 |        -27 |       -173 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useGanttFinanceiro.ts                   | TypeScript     |        -78 |          0 |        -12 |        -90 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useOrcamentoParaCronograma.ts           | TypeScript     |        -73 |          0 |         -9 |        -82 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useOrcamentoUndo.ts                     | TypeScript     |        -57 |         -1 |         -9 |        -67 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\usePersistentPageState.ts               | TypeScript     |        -42 |         -1 |         -7 |        -50 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\usePlanLimits.ts                        | TypeScript     |        -25 |          0 |         -4 |        -29 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useRecursos.ts                          | TypeScript     |        -98 |         -1 |        -15 |       -114 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useVoiceInput.ts                        | TypeScript     |        -93 |         -3 |        -20 |       -116 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\index.css                                     | CSS            |       -138 |          0 |        -29 |       -167 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\integrations\supabase\client.ts               | TypeScript     |        -14 |         -3 |         -3 |        -20 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\integrations\supabase\types.ts                | TypeScript     |       -323 |         -2 |        -10 |       -335 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\integrations\supabase\untyped.ts              | TypeScript     |         -7 |          0 |         -2 |         -9 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\normalizeText.ts                          | TypeScript     |        -15 |          0 |         -1 |        -16 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\planilha\exportCotacao.ts                 | TypeScript     |        -57 |         -4 |        -11 |        -72 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\planilha\importCotacao.ts                 | TypeScript     |        -69 |         -1 |         -9 |        -79 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\buscarComposicoes.ts               | TypeScript     |        -81 |          0 |        -16 |        -97 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\expandComposicao.ts                | TypeScript     |       -184 |         -5 |        -19 |       -208 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\listarGrupos.ts                    | TypeScript     |        -17 |          0 |         -3 |        -20 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\listarReferencias.ts               | TypeScript     |        -29 |          0 |         -6 |        -35 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\toOrcamento.ts                     | TypeScript     |        -52 |          0 |         -9 |        -61 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\utils.ts                                  | TypeScript     |         -5 |          0 |         -2 |         -7 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\main.tsx                                      | TypeScript JSX |         -4 |          0 |         -2 |         -6 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\AgendaObraPage.tsx                      | TypeScript JSX |       -494 |         -7 |        -32 |       -533 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\CotacaoPublicaPage.tsx                  | TypeScript JSX |       -288 |        -21 |        -33 |       -342 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\CronogramaPage.tsx                      | TypeScript JSX |       -451 |        -30 |        -40 |       -521 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\CustoRealPage.tsx                       | TypeScript JSX |       -203 |         -4 |        -11 |       -218 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\DashboardPage.tsx                       | TypeScript JSX |       -448 |         -6 |        -33 |       -487 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\DiarioPage.tsx                          | TypeScript JSX |     -1,018 |        -28 |        -80 |     -1,126 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\DocumentosPage.tsx                      | TypeScript JSX |       -429 |        -10 |        -31 |       -470 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\EquipePage.tsx                          | TypeScript JSX |       -549 |        -15 |        -41 |       -605 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\EstoquePage.tsx                         | TypeScript JSX |       -524 |         -2 |        -46 |       -572 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\ExecucaoCentral.tsx                     | TypeScript JSX |       -265 |        -11 |        -31 |       -307 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\FornecedoresPage.tsx                    | TypeScript JSX |       -275 |         -6 |        -26 |       -307 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\Index.tsx                               | TypeScript JSX |         -4 |          0 |         -2 |         -6 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\InsumosPage.tsx                         | TypeScript JSX |       -739 |        -25 |        -56 |       -820 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\LandingPage.tsx                         | TypeScript JSX |        -41 |          0 |         -3 |        -44 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\LoginPage.tsx                           | TypeScript JSX |       -218 |         -4 |        -12 |       -234 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\NotFound.tsx                            | TypeScript JSX |        -20 |          0 |         -5 |        -25 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\ObraDetalhePage.tsx                     | TypeScript JSX |       -283 |         -9 |        -28 |       -320 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\ObrasPage.tsx                           | TypeScript JSX |       -394 |         -4 |        -19 |       -417 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\OnboardingPage.tsx                      | TypeScript JSX |       -114 |          0 |        -13 |       -127 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\OrcamentoCentral.tsx                    | TypeScript JSX |       -359 |        -21 |        -39 |       -419 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\OrcamentoPage(ORIGINAL).tsx             | TypeScript JSX |       -291 |         -1 |        -26 |       -318 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\OrcamentoPage.tsx                       | TypeScript JSX |         -4 |          0 |         -1 |         -5 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\PagamentosPage.tsx                      | TypeScript JSX |     -1,595 |        -54 |       -116 |     -1,765 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\PainelObraPage.tsx                      | TypeScript JSX |       -651 |         -6 |        -53 |       -710 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\PendenciasPage.tsx                      | TypeScript JSX |       -330 |         -5 |        -26 |       -361 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\PerfilPage.tsx                          | TypeScript JSX |        -69 |          0 |         -9 |        -78 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\RelatoriosPage.tsx                      | TypeScript JSX |       -375 |        -10 |        -23 |       -408 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\admin\AdminAddonsPage.tsx               | TypeScript JSX |        -43 |          0 |         -7 |        -50 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\admin\AdminCompaniesPage.tsx            | TypeScript JSX |       -299 |          0 |        -18 |       -317 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\admin\AdminLayout.tsx                   | TypeScript JSX |        -62 |         -2 |         -7 |        -71 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\admin\AdminPlansPage.tsx                | TypeScript JSX |        -53 |          0 |         -7 |        -60 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\scripts\verifyCotacaoFluxo.ts                 | TypeScript     |        -56 |         -5 |        -16 |        -77 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\test\example.test.ts                          | TypeScript     |         -6 |          0 |         -2 |         -8 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\test\setup.ts                                 | TypeScript     |        -14 |          0 |         -2 |        -16 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\types\orcamento.ts                            | TypeScript     |        -40 |          0 |         -5 |        -45 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\types\planFeatures.ts                         | TypeScript     |        -16 |          0 |         -2 |        -18 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\types\suprimentos.ts                          | TypeScript     |        -33 |          0 |         -4 |        -37 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\utils\cotacaoCategorias.ts                    | TypeScript     |       -115 |         -4 |        -16 |       -135 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\utils\normalizePlanFeatures.ts                | TypeScript     |        -15 |          0 |         -4 |        -19 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\utils\seedRealistico.ts                       | TypeScript     |       -256 |        -24 |        -50 |       -330 |
+| c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\vite-env.d.ts                                 | TypeScript     |          0 |         -1 |         -1 |         -2 |
+| Total                                                                                                                        |                |    -29,577 |       -774 |     -3,161 |    -33,512 |
++------------------------------------------------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

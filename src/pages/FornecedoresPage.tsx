@@ -15,16 +15,19 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
-  Plus, Pencil, Trash2, Store, Search, Package,
+  Plus, Pencil, Trash2, Store, Search, Package, Tag,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
+import { useCotacaoCategorias } from '@/hooks/useCotacaoCategorias';
+import { cn } from '@/lib/utils';
 
 interface Fornecedor {
   id: string; obra_id: string; nome: string; cnpj: string | null;
   email: string | null; telefone: string | null; cidade: string | null;
   observacoes: string | null; created_at: string;
+  especialidades: string[] | null;
 }
 
 const emptyFornecedor = { nome: '', cnpj: '', email: '', telefone: '', cidade: '', observacoes: '' };
@@ -32,6 +35,7 @@ const emptyFornecedor = { nome: '', cnpj: '', email: '', telefone: '', cidade: '
 export default function FornecedoresPage() {
   const { obras } = useObras();
   const navigate = useNavigate();
+  const { categorias } = useCotacaoCategorias();
 
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +43,7 @@ export default function FornecedoresPage() {
   const [fDialogOpen, setFDialogOpen] = useState(false);
   const [fEditingId, setFEditingId] = useState<string | null>(null);
   const [fForm, setFForm] = useState(emptyFornecedor);
+  const [fEspecialidades, setFEspecialidades] = useState<string[]>([]);
   const [fDeleteId, setFDeleteId] = useState<string | null>(null);
   const [fSearch, setFSearch] = usePersistentPageState<string>('fornecedores:search', '');
   const [fObraId, setFObraId] = usePersistentPageState<string>('fornecedores:obraId', obras[0]?.id || '');
@@ -63,33 +68,54 @@ export default function FornecedoresPage() {
   const openCreateF = () => {
     setFEditingId(null);
     setFForm(emptyFornecedor);
+    setFEspecialidades([]);
     setFObraId(obras[0]?.id || '');
     setFDialogOpen(true);
   };
+
   const openEditF = (f: Fornecedor) => {
     setFEditingId(f.id);
     setFObraId(f.obra_id);
     setFForm({ nome: f.nome, cnpj: f.cnpj || '', email: f.email || '', telefone: f.telefone || '', cidade: f.cidade || '', observacoes: f.observacoes || '' });
+    setFEspecialidades(f.especialidades || []);
     setFDialogOpen(true);
   };
+
+  const toggleEspecialidade = (codigo: string) => {
+    setFEspecialidades(prev =>
+      prev.includes(codigo)
+        ? prev.filter(c => c !== codigo)
+        : [...prev, codigo]
+    );
+  };
+
   const saveF = async () => {
     if (!fForm.nome || savingF) return;
     setSavingF(true);
     try {
-      const payload = { nome: fForm.nome, cnpj: fForm.cnpj || null, email: fForm.email || null, telefone: fForm.telefone || null, cidade: fForm.cidade || null, observacoes: fForm.observacoes || null };
+      const payload = {
+        nome: fForm.nome,
+        cnpj: fForm.cnpj || null,
+        email: fForm.email || null,
+        telefone: fForm.telefone || null,
+        cidade: fForm.cidade || null,
+        observacoes: fForm.observacoes || null,
+        especialidades: fEspecialidades,
+      };
       if (fEditingId) {
-        const { error } = await supabase.from('fornecedores').update(payload).eq('id', fEditingId);
+        const { error } = await (supabase as any).from('fornecedores').update(payload).eq('id', fEditingId);
         if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
         toast({ title: 'Fornecedor atualizado!' });
       } else {
         if (!fObraId) { toast({ title: 'Selecione uma obra.', variant: 'destructive' }); return; }
-        const { error } = await supabase.from('fornecedores').insert({ ...payload, obra_id: fObraId });
+        const { error } = await (supabase as any).from('fornecedores').insert({ ...payload, obra_id: fObraId });
         if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
         toast({ title: 'Fornecedor cadastrado!' });
       }
       setFDialogOpen(false); fetchData();
     } finally { setSavingF(false); }
   };
+
   const deleteF = async () => {
     if (!fDeleteId) return;
     const { error } = await supabase.from('fornecedores').delete().eq('id', fDeleteId);
@@ -140,31 +166,56 @@ export default function FornecedoresPage() {
         </CardContent></Card>
       ) : (
         <div className="space-y-2">
-          {filteredFornecedores.map(f => (
-            <Card key={f.id}>
-              <CardContent className="p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-foreground">{f.nome}</p>
-                    <Badge variant="outline" className="text-[10px] shrink-0">{getObraNome(f.obra_id)}</Badge>
+          {filteredFornecedores.map(f => {
+            const espCats = (f.especialidades || [])
+              .map(cod => categorias.find(c => c.codigo === cod))
+              .filter(Boolean);
+
+            return (
+              <Card key={f.id}>
+                <CardContent className="p-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    {/* Linha 1: nome + badge de obra */}
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground">{f.nome}</p>
+                      <Badge variant="outline" className="text-[10px] shrink-0">{getObraNome(f.obra_id)}</Badge>
+                    </div>
+
+                    {/* Linha 2: contato */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                      {f.cnpj && <span>CNPJ: {f.cnpj}</span>}
+                      {f.telefone && <span>Tel: {f.telefone}</span>}
+                      {f.email && <span>{f.email}</span>}
+                      {f.cidade && <span>{f.cidade}</span>}
+                    </div>
+
+                    {/* Linha 3: especialidades */}
+                    {espCats.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {espCats.map(cat => cat && (
+                          <span
+                            key={cat.codigo}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/8 dark:bg-indigo-950/30 text-primary dark:text-primary/60 border border-primary/25 dark:border-indigo-800"
+                          >
+                            <span>{cat.emoji}</span>
+                            {cat.nome}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-1">
-                    {f.cnpj && <span>CNPJ: {f.cnpj}</span>}
-                    {f.telefone && <span>Tel: {f.telefone}</span>}
-                    {f.email && <span>{f.email}</span>}
-                    {f.cidade && <span>{f.cidade}</span>}
+
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => navigate(`/insumos?fornecedor=${f.id}`)} className="p-1.5 rounded-md hover:bg-accent" title="Ver preços">
+                      <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                    <button onClick={() => openEditF(f)} className="p-1.5 rounded-md hover:bg-accent"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                    <button onClick={() => setFDeleteId(f.id)} className="p-1.5 rounded-md hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
                   </div>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => navigate(`/insumos?fornecedor=${f.id}`)} className="p-1.5 rounded-md hover:bg-accent" title="Ver preços">
-                    <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                  <button onClick={() => openEditF(f)} className="p-1.5 rounded-md hover:bg-accent"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                  <button onClick={() => setFDeleteId(f.id)} className="p-1.5 rounded-md hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -196,6 +247,44 @@ export default function FornecedoresPage() {
               <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={fForm.email} onChange={e => setFForm(f => ({ ...f, email: e.target.value }))} /></div>
               <div className="space-y-1.5"><Label>Cidade</Label><Input value={fForm.cidade} onChange={e => setFForm(f => ({ ...f, cidade: e.target.value }))} /></div>
             </div>
+
+            {/* ── Especialidades ────────────────────────────────────────── */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5 text-primary" />
+                <Label>Especialidades</Label>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Selecione os tipos de material/serviço que este fornecedor trabalha. Usado para filtrar cotações automaticamente.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                {categorias.map(cat => {
+                  const active = fEspecialidades.includes(cat.codigo);
+                  return (
+                    <button
+                      key={cat.codigo}
+                      type="button"
+                      onClick={() => toggleEspecialidade(cat.codigo)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-all',
+                        active
+                          ? 'bg-primary text-white border-primary shadow-sm shadow-primary/25 dark:shadow-none'
+                          : 'bg-background border-border text-muted-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/8 dark:hover:bg-indigo-950/20'
+                      )}
+                    >
+                      <span>{cat.emoji}</span>
+                      {cat.nome}
+                    </button>
+                  );
+                })}
+              </div>
+              {fEspecialidades.length > 0 && (
+                <p className="text-[11px] text-primary font-medium">
+                  {fEspecialidades.length} especialidade{fEspecialidades.length !== 1 ? 's' : ''} selecionada{fEspecialidades.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+
             <div className="space-y-1.5"><Label>Observações</Label><Textarea value={fForm.observacoes} onChange={e => setFForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} /></div>
           </div>
           <DialogFooter>

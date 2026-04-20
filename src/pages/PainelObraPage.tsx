@@ -38,6 +38,7 @@ import NoObraState from '@/components/obras/NoObraState';
 import ObraCalendarView from '@/components/painel/ObraCalendarView';
 import PainelUnifiedListView from '@/components/painel/PainelUnifiedListView';
 import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
+import LinksDeAcessoCard from '@/components/obra/LinksDeAcessoCard';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
 interface DiarioRow {
@@ -137,8 +138,8 @@ function GestorPainel() {
   }
 
   const orcamento = getOrcamento(obra.id);
-  const categorias = orcamento?.categorias || [];
-  const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);
+  const etapas = orcamento?.etapas || [];
+  const totalPrevisto = etapas.reduce((s, c) => s + c.precoTotal, 0);
   const custoItens = getCustoItensByObra(obra.id);
   const totalRealizado = custoItens.reduce((s, i) => s + i.valor, 0);
   const materiaisObra = getMateriaisByObra(obra.id);
@@ -147,25 +148,25 @@ function GestorPainel() {
   const registrosAprovados = diarioRegistros.filter(d => d.status === 'aprovado');
 
   const today = new Date();
-  const concluidas = categorias.filter(c => computeStatus(c) === 'concluida');
-  const emAndamento = categorias.filter(c => computeStatus(c) === 'em_andamento');
-  const atrasadas = categorias.filter(c => computeStatus(c) === 'atrasada');
-  const naoIniciadas = categorias.filter(c => computeStatus(c) === 'nao_iniciada');
+  const concluidas = etapas.filter(c => computeStatus(c) === 'concluida');
+  const emAndamento = etapas.filter(c => computeStatus(c) === 'em_andamento');
+  const atrasadas = etapas.filter(c => computeStatus(c) === 'atrasada');
+  const naoIniciadas = etapas.filter(c => computeStatus(c) === 'nao_iniciada');
 
-  const andamentoReal = categorias.length > 0
-    ? Math.round(categorias.reduce((s, c) => s + computePercentual(c), 0) / categorias.length)
+  const andamentoReal = etapas.length > 0
+    ? Math.round(etapas.reduce((s, c) => s + computePercentual(c), 0) / etapas.length)
     : obra.percentualAndamento;
 
   const andamentoPlanejado = (() => {
-    if (categorias.length === 0) return 0;
-    const withDates = categorias.filter(c => c.dataFimPrevista);
+    if (etapas.length === 0) return 0;
+    const withDates = etapas.filter(c => c.dataFimPrevista);
     if (withDates.length === 0) return 0;
     const shouldBeDone = withDates.filter(c => new Date(c.dataFimPrevista!) <= today).length;
-    return Math.round((shouldBeDone / categorias.length) * 100);
+    return Math.round((shouldBeDone / etapas.length) * 100);
   })();
 
-  const previstoAcumulado = categorias.length === 0 || totalPrevisto === 0 ? 0 :
-    categorias.reduce((sum, cat) => sum + cat.precoTotal * (computePercentual(cat) / 100), 0);
+  const previstoAcumulado = etapas.length === 0 || totalPrevisto === 0 ? 0 :
+    etapas.reduce((sum, cat) => sum + cat.precoTotal * (computePercentual(cat) / 100), 0);
 
   // Índices calculados para SmartCards
   const produtividade = andamentoPlanejado > 0
@@ -374,10 +375,10 @@ function GestorPainel() {
                   <div className="text-center p-2 rounded-lg bg-muted"><p className="text-xl font-bold text-muted-foreground">{naoIniciadas.length}</p><p className="text-[10px] text-muted-foreground">Não Iniciadas</p></div>
                 </div>
                 {cronogramaView === 'gantt' ? (
-                  <GanttEditorChart categorias={categorias} />
+                  <GanttEditorChart categorias={etapas} />
                 ) : (
                   <div className="space-y-2">
-                    {categorias.map(c => {
+                    {etapas.map(c => {
                       const status = computeStatus(c);
                       const pct = computePercentual(c);
                       return (
@@ -402,7 +403,7 @@ function GestorPainel() {
                         </div>
                       );
                     })}
-                    {categorias.length === 0 && (
+                    {etapas.length === 0 && (
                       <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada no orçamento.</p>
                     )}
                   </div>
@@ -415,14 +416,14 @@ function GestorPainel() {
       case 'custosEtapa':
         return (
           <div key={key} {...dragProps} data-print-section="custosEtapa">
-            <CostPieChart categorias={categorias} custoItens={custoItens} />
+            <CostPieChart categorias={etapas} custoItens={custoItens} />
           </div>
         );
 
       case 'curvaABC':
         return (
           <div key={key} {...dragProps} data-print-section="curvaABC">
-            <ABCTable categorias={categorias} custoItens={custoItens} />
+            <ABCTable categorias={etapas} custoItens={custoItens} />
           </div>
         );
 
@@ -519,6 +520,15 @@ function GestorPainel() {
         <Separator className="mt-2" />
       </div>
 
+      {/* Links de Acesso — visível apenas para gestor, oculto na impressão */}
+      {obra && (
+        <Card className="shadow-card print:hidden">
+          <CardContent className="pt-4">
+            <LinksDeAcessoCard obraId={obra.id} />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Draggable sections */}
       {sectionOrder.map(key => renderSection(key))}
 
@@ -567,8 +577,8 @@ function FuncionarioPainel() {
 
   const meusRegistros = diarioRegistros.filter(d => d.usuario_nome === user?.name);
   const orcamento = obra ? getOrcamento(obra.id) : null;
-  const categorias = orcamento?.categorias || [];
-  const etapasAndamento = categorias.filter(c => c.statusCronograma === 'em_andamento');
+  const etapas = orcamento?.etapas || [];
+  const etapasAndamento = etapas.filter(c => c.statusCronograma === 'em_andamento');
 
   if (!obra) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Nenhuma obra disponível.</div>;
@@ -639,10 +649,10 @@ function ClientePainel() {
   }, [obra?.id]);
 
   const orcamento = obra ? getOrcamento(obra.id) : null;
-  const categorias = orcamento?.categorias || [];
-  const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);
+  const etapas = orcamento?.etapas || [];
+  const totalPrevisto = etapas.reduce((s, c) => s + c.precoTotal, 0);
   const registrosAprovados = diarioRegistros.filter(d => d.status === 'aprovado');
-  const proximasEtapas = categorias.filter(c => c.statusCronograma === 'em_andamento' || c.statusCronograma === 'nao_iniciada').slice(0, 3);
+  const proximasEtapas = etapas.filter(c => c.statusCronograma === 'em_andamento' || c.statusCronograma === 'nao_iniciada').slice(0, 3);
 
   if (!obra) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Nenhuma obra disponível.</div>;
@@ -696,6 +706,15 @@ function ClientePainel() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Links de Acesso */}
+      {obra && (
+        <Card className="shadow-card">
+          <CardContent className="pt-4">
+            <LinksDeAcessoCard obraId={obra.id} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

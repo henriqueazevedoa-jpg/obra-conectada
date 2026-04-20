@@ -6,60 +6,67 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    /* ── Base ─────────────────────────────────────────────────── */
+    --background: 220 25% 97%;         /* cinza-azulado frio */
+    --foreground: 224 20% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 224 20% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 224 20% 10%;
 
-    --primary: 215 60% 42%;
+    /* ── Primary: roxo Lastra (#534AB7) ──────────────────── */
+    --primary: 248 44% 52%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 15% 93%;
-    --secondary-foreground: 220 20% 20%;
+    /* ── Superfícies neutras ────────────────────────────────── */
+    --secondary: 220 18% 92%;
+    --secondary-foreground: 224 20% 20%;
 
-    --muted: 210 15% 95%;
-    --muted-foreground: 215 10% 46%;
+    --muted: 220 18% 94%;
+    --muted-foreground: 220 12% 46%;
 
-    --accent: 210 15% 93%;
-    --accent-foreground: 220 20% 15%;
+    --accent: 248 55% 93%;             /* roxo-50 suave */
+    --accent-foreground: 248 44% 35%;
 
+    /* ── Semânticas ─────────────────────────────────────────── */
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 60% 36%;
+    --success: 152 55% 38%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 38 90% 48%;
     --warning-foreground: 0 0% 100%;
 
-    --info: 215 60% 42%;
+    --info: 248 44% 52%;               /* = primary */
     --info-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 215 60% 42%;
+    /* ── Bordas e inputs ────────────────────────────────────── */
+    --border: 220 18% 87%;
+    --input: 220 18% 87%;
+    --ring: 248 44% 52%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 220 20% 12%;
-    --sidebar-foreground: 210 15% 85%;
-    --sidebar-primary: 215 60% 55%;
+    /* ── Sidebar (dark, roxo Lastra) ────────────────────────── */
+    --sidebar-background: 224 30% 10%;
+    --sidebar-foreground: 220 15% 85%;
+    --sidebar-primary: 248 44% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 18% 18%;
-    --sidebar-accent-foreground: 210 15% 90%;
-    --sidebar-border: 220 15% 20%;
-    --sidebar-ring: 215 60% 55%;
-    --sidebar-muted: 220 15% 25%;
+    --sidebar-accent: 224 25% 16%;
+    --sidebar-accent-foreground: 220 15% 90%;
+    --sidebar-border: 224 20% 18%;
+    --sidebar-ring: 248 44% 62%;
+    --sidebar-muted: 224 22% 22%;
 
-    --chart-1: 215 60% 42%;
-    --chart-2: 152 60% 36%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 72% 51%;
-    --chart-5: 262 50% 50%;
+    /* ── Gráficos ───────────────────────────────────────────── */
+    --chart-1: 248 44% 52%;            /* roxo Lastra */
+    --chart-2: 152 55% 38%;            /* verde */
+    --chart-3: 38 90% 48%;             /* âmbar */
+    --chart-4: 0 72% 51%;              /* vermelho */
+    --chart-5: 270 60% 58%;            /* violeta */
   }
 }
 
@@ -80,6 +87,53 @@
       font-size: 16px !important; /* Prevents iOS zoom on focus */
     }
   }
+}
+
+/* ── Scrollbar: global app (light mode) ─────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(214 20% 82%) transparent;
+}
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: hsl(214 20% 82%);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(214 15% 68%);
+}
+
+/* ── Scrollbar: sidebar dark variant ─────────────────────────────────────── */
+.scrollbar-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(220 15% 28%) transparent;
+}
+.scrollbar-sidebar::-webkit-scrollbar {
+  width: 3px;
+}
+.scrollbar-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-sidebar::-webkit-scrollbar-thumb {
+  background-color: hsl(220 15% 30%);
+  border-radius: 99px;
+}
+.scrollbar-sidebar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(220 15% 42%);
+}
+
+/* ── Scrollbar: hide completely (utility) ────────────────────────────────── */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 @layer utilities {

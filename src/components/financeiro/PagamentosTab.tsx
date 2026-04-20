@@ -5,9 +5,8 @@
  *  - Recebe `obraId` via prop (seletor de obra fica no shell FinanceiroCentral)
  *  - Todo o restante da lógica é idêntico ao original
  */
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { usePortalTarget } from '@/hooks/usePortalTarget';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type { PageKPI } from '@/components/layout/PageShell';
 import { useSearchParams } from 'react-router-dom';
 import { format, parseISO, addDays, addMonths, isBefore, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/untyped';
@@ -18,6 +17,7 @@ import { useCustoReal } from '@/contexts/CustoRealContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import { Card, CardContent } from '@/components/ui/card';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import PagamentosTimelineView from '@/components/painel/PagamentosTimelineView';
 import PagamentosCalendarView from '@/components/painel/PagamentosCalendarView';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { toast } from '@/hooks/use-toast';
 import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
@@ -115,11 +116,14 @@ const statusLabels: Record<string, string> = {
   cancelado: 'Cancelado',
 };
 
-const statusColors: Record<string, string> = {
-  previsto: 'bg-blue-100 text-blue-700',
-  pago: 'bg-green-100 text-green-700',
-  atrasado: 'bg-red-100 text-red-700',
-  cancelado: 'bg-gray-100 text-gray-500',
+const getStatusStyle = (status: string): React.CSSProperties => {
+  const styles: Record<string, React.CSSProperties> = {
+    previsto:  { background: '#EEEDFE', color: '#3C3489', border: '0.5px solid #AFA9EC' },
+    pago:      { background: '#EAF3DE', color: '#3B6D11', border: '0.5px solid #C0DD97' },
+    atrasado:  { background: '#FCEBEB', color: '#A32D2D', border: '0.5px solid #F7C1C1' },
+    cancelado: { background: 'var(--color-background-secondary)', color: 'var(--color-text-secondary)', border: '0.5px solid var(--color-border-secondary)' },
+  };
+  return styles[status] ?? styles.cancelado;
 };
 
 const formaLabels: Record<string, string> = {
@@ -159,10 +163,12 @@ function makeEmptyItem(): ItemCompra {
 
 interface Props {
   obraId: string;
+  isActive?: boolean;
   onPagamentoChange?: () => void;
+  onKpisReady?: (kpis: PageKPI[]) => void;
 }
 
-export default function PagamentosTab({ obraId, onPagamentoChange }: Props) {
+export default function PagamentosTab({ obraId, isActive = true, onPagamentoChange, onKpisReady }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission } = useAuth();
   const { obras } = useObras();
@@ -770,48 +776,36 @@ export default function PagamentosTab({ obraId, onPagamentoChange }: Props) {
   const addItem = () => setItensCompra(prev => [...prev, makeEmptyItem()]);
   const removeItem = (tempId: string) => setItensCompra(prev => prev.length <= 1 ? prev : prev.filter(i => i.tempId !== tempId));
 
-  // ── Portal Content (KPI Bar) ────────────────────────────────────────────────
-  const kpiPortalTarget = usePortalTarget('financeiro-kpi-portal');
-  const kpiBar = (
-    <div className="flex w-full overflow-x-auto border-b-[0.5px] border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shrink-0">
-      <div className="px-[20px] py-[14px] min-w-[160px] border-r-[0.5px] border-[var(--color-border-tertiary)] bg-[#F3F2FD] flex flex-col justify-center">
-        <p className="text-[10px] font-medium text-[#534AB7] tracking-wider uppercase">Total da obra</p>
-        <p className="text-[22px] font-medium text-[#3C3489] tabular-nums leading-tight mt-1">{formatCurrency(totalDaObra)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[130px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Pago</p>
-        <p className={cn("text-[15px] font-medium tabular-nums mt-1", totalPago > 0 ? "text-[#3B6D11]" : "text-[var(--color-text-primary)]")}>{formatCurrency(totalPago)}</p>
-      </div>
-      <div className={cn("px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[130px]", totalVencido > 0 && "bg-[#FFF0F0]")}>
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Vencido</p>
-        <p className={cn("text-[15px] font-medium tabular-nums mt-1", totalVencido > 0 ? "text-[#A32D2D]" : "text-[var(--color-text-primary)]")}>{formatCurrency(totalVencido)}</p>
-      </div>
-      <div className="px-[16px] py-[14px] border-r-[0.5px] border-[var(--color-border-tertiary)] flex flex-col justify-center min-w-[150px]">
-        <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Próx. 30 dias</p>
-        <p className={cn("text-[15px] font-medium tabular-nums mt-1", totalProx30 > 0 ? "text-[#854F0B]" : "text-[var(--color-text-primary)]")}>{formatCurrency(totalProx30)}</p>
-        {totalProx30 > 0 && (
-          <p className="text-[10px] text-[#854F0B] mt-1">Próximo vencimento em breve</p>
-        )}
-      </div>
-      <div className="px-[16px] py-[14px] flex flex-col justify-center min-w-[140px]">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-[10px] text-[var(--color-text-secondary)] tracking-wider">Execução</p>
-          <span className="text-[12px] font-medium text-[var(--color-text-primary)] tabular-nums">{execucaoPct}%</span>
-        </div>
-        <div className="h-[3px] w-full bg-[var(--color-border-secondary)] rounded-full overflow-hidden mt-2">
-          <div
-            className={cn("h-full rounded-full transition-all duration-500", totalVencido > 0 ? "bg-[#A32D2D]" : "bg-[#534AB7]")}
-            style={{ width: `${execucaoPct}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
+  // ── KPI lift-state-up ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isActive || !onKpisReady) return;
+    onKpisReady([
+      { id: 'total', label: 'Total da obra', value: formatCurrency(totalDaObra),
+        icon: <DollarSign style={{ width: 14, height: 14, color: '#534AB7' }} />,
+        tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7', main: true },
+      { id: 'pago', label: 'Pago', value: formatCurrency(totalPago),
+        icon: <CheckCircle2 style={{ width: 14, height: 14, color: totalPago > 0 ? '#3B6D11' : '#888' }} />,
+        tint: totalPago > 0 ? '#EAF3DE' : undefined,
+        valueColor: totalPago > 0 ? '#3B6D11' : undefined,
+        labelColor: totalPago > 0 ? '#3B6D11' : undefined },
+      { id: 'vencido', label: 'Vencido', value: formatCurrency(totalVencido),
+        icon: <AlertTriangle style={{ width: 14, height: 14, color: totalVencido > 0 ? '#A32D2D' : '#888' }} />,
+        tint: totalVencido > 0 ? '#FCEBEB' : undefined,
+        valueColor: totalVencido > 0 ? '#A32D2D' : undefined,
+        labelColor: totalVencido > 0 ? '#A32D2D' : undefined },
+      { id: 'prox30', label: 'Próx. 30 dias', value: formatCurrency(totalProx30),
+        icon: <Clock style={{ width: 14, height: 14, color: totalProx30 > 0 ? '#854F0B' : '#888' }} />,
+        tint: totalProx30 > 0 ? '#FAEEDA' : undefined,
+        valueColor: totalProx30 > 0 ? '#854F0B' : undefined,
+        labelColor: totalProx30 > 0 ? '#854F0B' : undefined },
+    ]);
+  }, [isActive, totalDaObra, totalPago, totalVencido, totalProx30, onKpisReady]);
+
+  const [mobileFilterOpen, setMobileFilterOpen] = React.useState(false);
 
   return (
     <>
-      {kpiPortalTarget && createPortal(kpiBar, kpiPortalTarget)}
-      <div className="flex flex-col h-full bg-[var(--color-background-primary)] animate-in fade-in duration-300">
+      <div className="flex flex-col h-full bg-[var(--color-background-secondary)] animate-in fade-in duration-300">
         
         {loading ? (
           <p className="text-center text-muted-foreground py-8">Carregando...</p>
@@ -832,31 +826,39 @@ export default function PagamentosTab({ obraId, onPagamentoChange }: Props) {
           </div>
         ) : (
           <div className="flex flex-col h-full break-words min-h-0">
-            {/* Inline Filters */}
-            <div className="bg-[var(--color-background-secondary)] px-[16px] py-[8px] border-b-[0.5px] border-[var(--color-border-tertiary)] flex items-center gap-3 shrink-0 flex-wrap">
-              <div className="relative w-full max-w-[200px]">
+            {/* ── Filters bar ── */}
+            <div style={{
+              background: 'var(--color-background-secondary)',
+              padding: '0 16px',
+              height: 44,
+              borderBottom: '0.5px solid var(--color-border-tertiary)',
+              display: 'flex', alignItems: 'center', gap: 10,
+              flexShrink: 0,
+            }}>
+              {/* Busca — desktop */}
+              <div className="hidden sm:block" style={{ position: 'relative', maxWidth: 200 }}>
                 <Input
                   placeholder="Buscar pagamento..."
                   value={filterSearch}
                   onChange={e => setFilterSearch(e.target.value)}
-                  className="h-7 text-[12px] bg-[var(--color-background-primary)]"
+                  className="h-8 text-[12px] bg-[var(--color-background-primary)]"
                 />
               </div>
-              
-              <div className="flex items-center gap-1">
+
+              {/* Filtros — desktop */}
+              <div className="hidden sm:flex items-center gap-1">
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="h-7 border-transparent bg-transparent outline-none ring-0 w-auto text-[12px] hover:text-[var(--color-text-primary)] p-2">
-                    <span className="text-[var(--color-text-primary)]">Status</span>
+                  <SelectTrigger className="h-8 border-transparent bg-transparent outline-none ring-0 min-w-[110px] text-[12px] text-[var(--color-text-primary)] hover:text-[var(--color-text-primary)] px-2">
+                    Status
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Todos</SelectItem>
                     {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                   </SelectContent>
                 </Select>
-
                 <Select value={filterEtapa} onValueChange={setFilterEtapa}>
-                  <SelectTrigger className="h-7 border-transparent bg-transparent outline-none ring-0 w-auto text-[12px] hover:text-[var(--color-text-primary)] p-2">
-                    <span className="text-[var(--color-text-primary)]">Etapa</span>
+                  <SelectTrigger className="h-8 border-transparent bg-transparent outline-none ring-0 min-w-[120px] text-[12px] text-[var(--color-text-primary)] hover:text-[var(--color-text-primary)] px-2">
+                    Etapa
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Todas</SelectItem>
@@ -865,10 +867,9 @@ export default function PagamentosTab({ obraId, onPagamentoChange }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
-
                 <Select value={filterPeriodo} onValueChange={setFilterPeriodo}>
-                  <SelectTrigger className="h-7 border-transparent bg-transparent outline-none ring-0 w-auto text-[12px] hover:text-[var(--color-text-primary)] p-2">
-                    <span className="text-[var(--color-text-primary)]">Período</span>
+                  <SelectTrigger className="h-8 border-transparent bg-transparent outline-none ring-0 min-w-[115px] text-[12px] text-[var(--color-text-primary)] hover:text-[var(--color-text-primary)] px-2">
+                    Período
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Todos</SelectItem>
@@ -877,137 +878,237 @@ export default function PagamentosTab({ obraId, onPagamentoChange }: Props) {
                     <SelectItem value="atrasados">Atrasados</SelectItem>
                   </SelectContent>
                 </Select>
-
                 {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); setFilterSearch(''); }} className="h-7 text-[11px] text-[var(--color-text-secondary)] hover:text-foreground">
+                  <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); setFilterSearch(''); }} className="h-8 text-[11px] text-[var(--color-text-secondary)] hover:text-foreground">
                     Limpar
                   </Button>
                 )}
+              </div>
+
+              {/* Filtros — mobile: botão que abre bottom sheet */}
+              <div className="flex sm:hidden items-center gap-2 w-full">
+                <Input
+                  placeholder="Buscar..."
+                  value={filterSearch}
+                  onChange={e => setFilterSearch(e.target.value)}
+                  className="h-8 text-[12px] bg-[var(--color-background-primary)] flex-1"
+                />
+                <button
+                  onClick={() => setMobileFilterOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    height: 32, padding: '0 12px',
+                    border: '0.5px solid var(--color-border-secondary)',
+                    borderRadius: 6, background: hasActiveFilters ? '#EEEDFE' : 'var(--color-background-primary)',
+                    color: hasActiveFilters ? '#534AB7' : 'var(--color-text-secondary)',
+                    fontSize: 12, fontWeight: 500, cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  <Filter style={{ width: 12, height: 12 }} />
+                  Filtrar
+                  {hasActiveFilters && <span style={{ fontSize: 9, background: '#534AB7', color: '#fff', borderRadius: 10, padding: '0 4px' }}>!</span>}
+                </button>
               </div>
             </div>
 
             <div className="flex-1 overflow-auto p-4">
               <div className="space-y-4">
-          {/* Desktop table */}
+          {/* ── Desktop table — premium ── */}
           <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-2">Descrição</th>
-                  <th className="text-left p-2">Etapa</th>
-                  <th className="text-left p-2">Tipo</th>
-                  <th className="text-right p-2">Valor Parcela</th>
-                  <th className="text-right p-2 text-muted-foreground text-xs">Total</th>
-                  <th className="text-center p-2">Vencimento</th>
-                  <th className="text-center p-2">Status</th>
-                  <th className="text-center p-2">Forma</th>
-                  <th className="text-right p-2">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPagamentos.map(p => {
-                  const pAnexos = anexos.get(p.id) || [];
-                  const displayValue = p.valor_parcela && p.total_parcelas && p.total_parcelas > 1
-                    ? Number(p.valor_parcela) : Number(p.valor_previsto);
-                  return (
-                    <tr key={p.id} className="border-b border-border/50 hover:bg-muted/50">
-                      <td className="p-2">
-                        <div className="font-medium">{p.descricao}</div>
-                        {p.fornecedor && <div className="text-xs text-muted-foreground">{p.fornecedor}</div>}
-                        {p.numero_parcela && p.total_parcelas && <div className="text-xs text-muted-foreground">Parcela {p.numero_parcela}/{p.total_parcelas}</div>}
-                        {pAnexos.length > 0 && (
-                          <button onClick={() => setViewAnexosId(p.id)} className="text-xs text-primary flex items-center gap-1 mt-0.5 hover:underline">
-                            <Paperclip className="h-3 w-3" />{pAnexos.length} anexo(s)
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid var(--color-border-secondary)',
+              borderRadius: 10, overflow: 'hidden',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            }}>
+              {/* Cabeçalho */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 0.8fr 1fr 0.7fr 0.7fr 0.7fr 80px',
+                padding: '8px 16px',
+                background: 'var(--color-background-secondary)',
+                borderBottom: '0.5px solid var(--color-border-tertiary)',
+              }}>
+                {['Descrição', 'Etapa', 'Tipo', 'Valor', 'Vencimento', 'Status', 'Forma', 'Ações'].map((h, i) => (
+                  <span key={h} style={{
+                    fontSize: 10, fontWeight: 500, color: 'var(--color-text-secondary)',
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                    textAlign: i >= 3 && i !== 7 ? 'right' : i === 7 ? 'right' : 'left',
+                  }}>{h}</span>
+                ))}
+              </div>
+              {/* Linhas */}
+              {filteredPagamentos.map(p => {
+                const pAnexos = anexos.get(p.id) || [];
+                const displayValue = p.valor_parcela && p.total_parcelas && p.total_parcelas > 1
+                  ? Number(p.valor_parcela) : Number(p.valor_previsto);
+                return (
+                  <div key={p.id} style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 0.8fr 1fr 0.7fr 0.7fr 0.7fr 80px',
+                    padding: '11px 16px',
+                    borderBottom: '0.5px solid var(--color-border-tertiary)',
+                    alignItems: 'center',
+                    transition: 'background 120ms',
+                  }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--color-background-secondary)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                  >
+                    {/* Descrição */}
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.descricao}
+                      </p>
+                      {p.fornecedor && <p style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{p.fornecedor}</p>}
+                      {p.numero_parcela && p.total_parcelas && (
+                        <p style={{ fontSize: 10, color: 'var(--color-text-secondary)' }}>Parcela {p.numero_parcela}/{p.total_parcelas}</p>
+                      )}
+                      {pAnexos.length > 0 && (
+                        <button onClick={() => setViewAnexosId(p.id)}
+                          style={{ fontSize: 10, color: '#534AB7', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                          <Paperclip style={{ width: 10, height: 10 }} />{pAnexos.length} anexo(s)
+                        </button>
+                      )}
+                    </div>
+                    {/* Etapa */}
+                    <div style={{ paddingRight: 4 }}>
+                      {p.etapa_orcamento ? (
+                        <span style={{ fontSize: 11, color: '#3C3489', background: '#EEEDFE', border: '0.5px solid #AFA9EC', padding: '2px 7px', borderRadius: 4, fontWeight: 500 }}>
+                          {p.etapa_orcamento.length > 16 ? p.etapa_orcamento.slice(0, 14) + '…' : p.etapa_orcamento}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 4, background: '#FAEEDA', color: '#854F0B', border: '0.5px solid #FAC775' }}>
+                          ⬡ {p.categoria_indireta ? p.categoria_indireta.replace(/_/g, ' ') : 'Indireto'}
+                        </span>
+                      )}
+                    </div>
+                    {/* Tipo */}
+                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                      {tipoLabels[p.tipo_pagamento] || p.tipo_pagamento}
+                    </span>
+                    {/* Valor */}
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                        {formatCurrency(displayValue)}
+                      </p>
+                      {p.total_parcelas && p.total_parcelas > 1 && (
+                        <p style={{ fontSize: 10, color: 'var(--color-text-secondary)' }}>Total: {formatCurrency(Number(p.valor_previsto))}</p>
+                      )}
+                    </div>
+                    {/* Vencimento */}
+                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {format(parseISO(p.data_vencimento), 'dd/MM/yy')}
+                    </span>
+                    {/* Status */}
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ ...getStatusStyle(p.status), fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        {statusLabels[p.status]}
+                      </span>
+                    </div>
+                    {/* Forma */}
+                    <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', textAlign: 'right' }}>
+                      {formaLabels[p.forma_pagamento] || p.forma_pagamento}
+                    </span>
+                    {/* Ações */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                      {canEdit && (
+                        <button onClick={() => setViewAnexosId(p.id)}
+                          style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--color-text-secondary)' }}>
+                          <Paperclip style={{ width: 13, height: 13 }} />
+                        </button>
+                      )}
+                      {p.status !== 'pago' && p.status !== 'cancelado' && canEdit && (
+                        <button onClick={() => handleMarcarPago(p.id)}
+                          style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: '#3B6D11' }}>
+                          <CheckCircle2 style={{ width: 13, height: 13 }} />
+                        </button>
+                      )}
+                      {canEdit && (
+                        <>
+                          <button onClick={() => openEdit(p)}
+                            style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--color-text-secondary)' }}>
+                            <Pencil style={{ width: 13, height: 13 }} />
                           </button>
-                        )}
-                      </td>
-                      <td className="p-2 text-xs text-muted-foreground">
-                        {p.etapa_orcamento ? (
-                          p.etapa_orcamento
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-medium">
-                            ⬡ {p.categoria_indireta ? p.categoria_indireta.replace(/_/g, ' ') : 'Indireto'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-2">{tipoLabels[p.tipo_pagamento] || p.tipo_pagamento}</td>
-                      <td className="p-2 text-right font-bold">{formatCurrency(displayValue)}</td>
-                      <td className="p-2 text-right text-xs text-muted-foreground">{p.total_parcelas && p.total_parcelas > 1 ? formatCurrency(Number(p.valor_previsto)) : '—'}</td>
-                      <td className="p-2 text-center">{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</td>
-                      <td className="p-2 text-center"><Badge className={cn('text-xs', statusColors[p.status])}>{statusLabels[p.status]}</Badge></td>
-                      <td className="p-2 text-center text-xs">{formaLabels[p.forma_pagamento] || p.forma_pagamento}</td>
-                      <td className="p-2 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {canEdit && <Button variant="ghost" size="sm" onClick={() => setViewAnexosId(p.id)}><Paperclip className="h-4 w-4" /></Button>}
-                          {p.status !== 'pago' && p.status !== 'cancelado' && canEdit && (
-                            <Button variant="ghost" size="sm" onClick={() => handleMarcarPago(p.id)}><CheckCircle2 className="h-4 w-4 text-green-600" /></Button>
-                          )}
-                          {canEdit && <>
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="sm" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                          </>}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          <button onClick={() => setDeleteId(p.id)}
+                            style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: '#A32D2D' }}>
+                            <Trash2 style={{ width: 13, height: 13 }} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Mobile cards */}
-          <div className="sm:hidden space-y-2">
-            {filteredPagamentos.map(p => {
-              const pAnexos = anexos.get(p.id) || [];
-              return (
-                <Card key={p.id}>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{p.descricao}</p>
-                        {p.fornecedor && <p className="text-xs text-muted-foreground">{p.fornecedor}</p>}
-                        {p.etapa_orcamento ? (
-                          <p className="text-xs text-primary">{p.etapa_orcamento}</p>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-medium">
-                            ⬡ {p.categoria_indireta ? p.categoria_indireta.replace(/_/g, ' ') : 'Custo Indireto'}
-                          </span>
-                        )}
-                      </div>
-                      <Badge className={cn('text-xs', statusColors[p.status])}>{statusLabels[p.status]}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div>
-                        <span className="font-bold">{formatCurrency(p.valor_parcela && p.total_parcelas && p.total_parcelas > 1 ? Number(p.valor_parcela) : Number(p.valor_previsto))}</span>
-                        {p.total_parcelas && p.total_parcelas > 1 && <span className="text-[10px] text-muted-foreground ml-1">(Total: {formatCurrency(Number(p.valor_previsto))})</span>}
-                      </div>
-                      <span className="text-muted-foreground">{format(parseISO(p.data_vencimento), 'dd/MM/yyyy')}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{tipoLabels[p.tipo_pagamento]}</span><span>{formaLabels[p.forma_pagamento]}</span>
-                    </div>
-                    {pAnexos.length > 0 && (
-                      <button onClick={() => setViewAnexosId(p.id)} className="text-xs text-primary flex items-center gap-1 hover:underline">
-                        <Paperclip className="h-3 w-3" />{pAnexos.length} anexo(s)
-                      </button>
-                    )}
-                    {canEdit && (
-                      <div className="flex gap-1 pt-1">
-                        {p.status !== 'pago' && p.status !== 'cancelado' && (
-                          <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => handleMarcarPago(p.id)}>
-                            <CheckCircle2 className="h-3 w-3 mr-1" />Pago
-                          </Button>
-                        )}
-                        <Button variant="outline" size="sm" className="text-xs" onClick={() => setViewAnexosId(p.id)}><Paperclip className="h-3 w-3" /></Button>
-                        <Button variant="outline" size="sm" className="text-xs" onClick={() => openEdit(p)}><Pencil className="h-3 w-3" /></Button>
-                        <Button variant="outline" size="sm" className="text-xs" onClick={() => setDeleteId(p.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+
+          {/* ── Bottom Sheet: filtros mobile ── */}
+          <BottomSheet
+            open={mobileFilterOpen}
+            onClose={() => setMobileFilterOpen(false)}
+            title="Filtros"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 6 }}>Status</label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Todos</SelectItem>
+                    {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 6 }}>Etapa</label>
+                <Select value={filterEtapa} onValueChange={setFilterEtapa}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Todas</SelectItem>
+                    {[...new Set(pagamentos.map(p => p.etapa_orcamento).filter(Boolean))].map(e => (
+                      <SelectItem key={e!} value={e!}>{e}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 6 }}>Período</label>
+                <Select value={filterPeriodo} onValueChange={setFilterPeriodo}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Todos</SelectItem>
+                    <SelectItem value="7dias">Próximos 7 dias</SelectItem>
+                    <SelectItem value="30dias">Próximos 30 dias</SelectItem>
+                    <SelectItem value="atrasados">Atrasados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => { setFilterStatus('_all'); setFilterTipo('_all'); setFilterPeriodo('_all'); setFilterEtapa('_all'); setFilterSearch(''); setMobileFilterOpen(false); }}
+                  style={{
+                    width: '100%', height: 44, borderRadius: 8,
+                    background: '#FCEBEB', color: '#A32D2D',
+                    border: '0.5px solid #F7C1C1',
+                    fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                  }}
+                >
+                  Limpar todos os filtros
+                </button>
+              )}
+              <button
+                onClick={() => setMobileFilterOpen(false)}
+                style={{
+                  width: '100%', height: 48, borderRadius: 10,
+                  background: '#534AB7', color: '#fff',
+                  border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Aplicar filtros
+              </button>
+            </div>
+          </BottomSheet>
         </div>
         </div>
         </div>

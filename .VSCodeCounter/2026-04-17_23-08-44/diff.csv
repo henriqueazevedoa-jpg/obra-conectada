@@ -1,0 +1,206 @@
+"filename", "language", "TypeScript JSX", "TypeScript", "CSS", "comment", "blank", "total"
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\App.css", "CSS", 0, 0, -37, 0, -6, -43
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\App.tsx", "TypeScript JSX", -175, 0, 0, -4, -27, -206
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\AppLayout.tsx", "TypeScript JSX", -539, 0, 0, -27, -55, -621
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\CommandPalette.tsx", "TypeScript JSX", -144, 0, 0, -4, -15, -163
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\DemoModeBar.tsx", "TypeScript JSX", -223, 0, 0, -14, -16, -253
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ErrorBoundary.tsx", "TypeScript JSX", -111, 0, 0, -4, -14, -129
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\GlobalFAB.tsx", "TypeScript JSX", -93, 0, 0, -6, -14, -113
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\NavLink.tsx", "TypeScript JSX", -24, 0, 0, 0, -5, -29
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\NotificationCenter.tsx", "TypeScript JSX", -160, 0, 0, -8, -16, -184
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\PageHeader.tsx", "TypeScript JSX", -79, 0, 0, 0, -5, -84
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ProtectedRoute.tsx", "TypeScript JSX", -20, 0, 0, 0, -6, -26
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\cronograma\CurvaS.tsx", "TypeScript JSX", -170, 0, 0, -9, -23, -202
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\cronograma\GanttCanvasPanel.tsx", "TypeScript JSX", -607, 0, 0, -50, -89, -746
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\cronograma\TaskDetailDrawer.tsx", "TypeScript JSX", -483, 0, 0, -13, -38, -534
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\custo-real\CustoRealEditor.tsx", "TypeScript JSX", -231, 0, 0, -11, -18, -260
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\diario\DiarioFotoUpload.tsx", "TypeScript JSX", -83, 0, 0, 0, -10, -93
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\diario\DiarioReportPicker.tsx", "TypeScript JSX", -106, 0, 0, 0, -10, -116
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\execucao\DiarioTab.tsx", "TypeScript JSX", -656, 0, 0, -25, -41, -722
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\execucao\EquipeTab.tsx", "TypeScript JSX", -78, 0, 0, -1, -8, -87
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\execucao\EstoqueQuickView.tsx", "TypeScript JSX", -94, 0, 0, -3, -9, -106
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\execucao\PendenciasPanel.tsx", "TypeScript JSX", -288, 0, 0, -8, -21, -317
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttBar.tsx", "TypeScript JSX", -184, 0, 0, -2, -18, -204
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttConfirmDialog.tsx", "TypeScript JSX", -102, 0, 0, -1, -12, -115
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttDependencyArrows.tsx", "TypeScript JSX", -96, 0, 0, -3, -15, -114
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttDependencyEditor.tsx", "TypeScript JSX", -107, 0, 0, -3, -15, -125
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttEditorChart.tsx", "TypeScript JSX", -411, 0, 0, -15, -47, -473
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttFinanceiroPanel.tsx", "TypeScript JSX", -93, 0, 0, -2, -8, -103
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttTimelineHeader.tsx", "TypeScript JSX", -47, 0, 0, 0, -7, -54
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\GanttToolbar.tsx", "TypeScript JSX", -95, 0, 0, -5, -11, -111
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\gantt\types.ts", "TypeScript", 0, -46, 0, 0, -7, -53
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\insumos\ImportarCotacaoDialog.tsx", "TypeScript JSX", -211, 0, 0, -6, -22, -239
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\BeliefBreakSection.tsx", "TypeScript JSX", -27, 0, 0, 0, -2, -29
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\BenefitsSection.tsx", "TypeScript JSX", -31, 0, 0, 0, -3, -34
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\DemoSection.tsx", "TypeScript JSX", -28, 0, 0, 0, -3, -31
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\FinalCTA.tsx", "TypeScript JSX", -20, 0, 0, 0, -3, -23
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\Footer.tsx", "TypeScript JSX", -14, 0, 0, 0, -2, -16
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\HeroSection.tsx", "TypeScript JSX", -54, 0, 0, 0, -3, -57
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\ImpactSection.tsx", "TypeScript JSX", -19, 0, 0, 0, -2, -21
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\LeadCaptureSection.tsx", "TypeScript JSX", -70, 0, 0, -1, -6, -77
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\ModulesSection.tsx", "TypeScript JSX", -38, 0, 0, 0, -3, -41
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\NavBar.tsx", "TypeScript JSX", -44, 0, 0, 0, -5, -49
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\ObjectionSection.tsx", "TypeScript JSX", -16, 0, 0, 0, -2, -18
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\PlansSection.tsx", "TypeScript JSX", -73, 0, 0, 0, -4, -77
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\ProblemSection.tsx", "TypeScript JSX", -35, 0, 0, 0, -2, -37
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\SolutionSection.tsx", "TypeScript JSX", -16, 0, 0, 0, -2, -18
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\WhatsAppFAB.tsx", "TypeScript JSX", -15, 0, 0, 0, -3, -18
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\landing\WhatsAppServiceSection.tsx", "TypeScript JSX", -33, 0, 0, 0, -3, -36
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\obras\NoObraState.tsx", "TypeScript JSX", -35, 0, 0, 0, -4, -39
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ABCTable.tsx", "TypeScript JSX", -130, 0, 0, 0, -15, -145
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\AcoesPrioritarias.tsx", "TypeScript JSX", -102, 0, 0, 0, -12, -114
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\AgendaTimelineView.tsx", "TypeScript JSX", -100, 0, 0, 0, -10, -110
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\CostPieChart.tsx", "TypeScript JSX", -146, 0, 0, -1, -13, -160
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\CronogramaPagamentos.tsx", "TypeScript JSX", -223, 0, 0, -8, -20, -251
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\DiarioTimelineView.tsx", "TypeScript JSX", -122, 0, 0, 0, -11, -133
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\GanttChart.tsx", "TypeScript JSX", -136, 0, 0, -2, -16, -154
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ObraCalendarView.tsx", "TypeScript JSX", -326, 0, 0, -6, -33, -365
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ObraHeader.tsx", "TypeScript JSX", -60, 0, 0, 0, -5, -65
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PagamentosCalendarView.tsx", "TypeScript JSX", -152, 0, 0, -5, -20, -177
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PagamentosResumoMensal.tsx", "TypeScript JSX", -70, 0, 0, 0, -8, -78
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PagamentosTimelineView.tsx", "TypeScript JSX", -144, 0, 0, -7, -15, -166
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PainelUnifiedListView.tsx", "TypeScript JSX", -158, 0, 0, 0, -16, -174
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PendenciasBlock.tsx", "TypeScript JSX", -106, 0, 0, -3, -13, -122
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PendenciasTimelineView.tsx", "TypeScript JSX", -102, 0, 0, 0, -10, -112
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PontosAtencao.tsx", "TypeScript JSX", -77, 0, 0, -3, -7, -87
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\PrintSectionPicker.tsx", "TypeScript JSX", -104, 0, 0, 0, -8, -112
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ResumoExecutivo.tsx", "TypeScript JSX", -131, 0, 0, -4, -17, -152
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\SCurveChart.tsx", "TypeScript JSX", -194, 0, 0, -6, -17, -217
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\SmartCards.tsx", "TypeScript JSX", -242, 0, 0, -11, -25, -278
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\painel\ViewModeSwitcher.tsx", "TypeScript JSX", -34, 0, 0, 0, -5, -39
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\suprimentos\MatrizDecisao.tsx", "TypeScript JSX", -239, 0, 0, -5, -18, -262
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\HelpPopover.tsx", "TypeScript JSX", -41, 0, 0, 0, -3, -44
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\accordion.tsx", "TypeScript JSX", -45, 0, 0, 0, -8, -53
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\alert-dialog.tsx", "TypeScript JSX", -91, 0, 0, 0, -14, -105
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\alert.tsx", "TypeScript JSX", -37, 0, 0, 0, -7, -44
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\aspect-ratio.tsx", "TypeScript JSX", -3, 0, 0, 0, -3, -6
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\autocomplete-input.tsx", "TypeScript JSX", -94, 0, 0, -4, -9, -107
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\avatar.tsx", "TypeScript JSX", -33, 0, 0, 0, -6, -39
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\badge.tsx", "TypeScript JSX", -24, 0, 0, 0, -6, -30
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\breadcrumb.tsx", "TypeScript JSX", -80, 0, 0, 0, -11, -91
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\button.tsx", "TypeScript JSX", -42, 0, 0, 0, -6, -48
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\calendar.tsx", "TypeScript JSX", -50, 0, 0, 0, -5, -55
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\card.tsx", "TypeScript JSX", -35, 0, 0, 0, -9, -44
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\carousel.tsx", "TypeScript JSX", -195, 0, 0, 0, -30, -225
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\chart.tsx", "TypeScript JSX", -266, 0, 0, -2, -36, -304
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\checkbox.tsx", "TypeScript JSX", -23, 0, 0, 0, -4, -27
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\collapsible.tsx", "TypeScript JSX", -5, 0, 0, 0, -5, -10
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\command.tsx", "TypeScript JSX", -115, 0, 0, 0, -18, -133
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\context-menu.tsx", "TypeScript JSX", -161, 0, 0, 0, -18, -179
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\dialog.tsx", "TypeScript JSX", -83, 0, 0, 0, -13, -96
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\drawer.tsx", "TypeScript JSX", -75, 0, 0, 0, -13, -88
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\dropdown-menu.tsx", "TypeScript JSX", -162, 0, 0, 0, -18, -180
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\form.tsx", "TypeScript JSX", -105, 0, 0, 0, -25, -130
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\hover-card.tsx", "TypeScript JSX", -22, 0, 0, 0, -6, -28
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\input-otp.tsx", "TypeScript JSX", -54, 0, 0, 0, -8, -62
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\input.tsx", "TypeScript JSX", -19, 0, 0, 0, -4, -23
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\label.tsx", "TypeScript JSX", -13, 0, 0, 0, -5, -18
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\menubar.tsx", "TypeScript JSX", -189, 0, 0, 0, -19, -208
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\navigation-menu.tsx", "TypeScript JSX", -109, 0, 0, 0, -12, -121
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\pagination.tsx", "TypeScript JSX", -71, 0, 0, 0, -11, -82
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\popover.tsx", "TypeScript JSX", -24, 0, 0, 0, -6, -30
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\progress.tsx", "TypeScript JSX", -20, 0, 0, 0, -4, -24
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\radio-group.tsx", "TypeScript JSX", -32, 0, 0, 0, -5, -37
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\resizable.tsx", "TypeScript JSX", -32, 0, 0, 0, -6, -38
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\scroll-area.tsx", "TypeScript JSX", -34, 0, 0, 0, -5, -39
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\select.tsx", "TypeScript JSX", -130, 0, 0, 0, -14, -144
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\separator.tsx", "TypeScript JSX", -17, 0, 0, 0, -4, -21
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\sheet.tsx", "TypeScript JSX", -93, 0, 0, 0, -15, -108
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\sidebar.tsx", "TypeScript JSX", -572, 0, 0, -12, -54, -638
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\skeleton.tsx", "TypeScript JSX", -5, 0, 0, 0, -3, -8
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\slider.tsx", "TypeScript JSX", -20, 0, 0, 0, -4, -24
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\sonner.tsx", "TypeScript JSX", -23, 0, 0, 0, -5, -28
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\switch.tsx", "TypeScript JSX", -24, 0, 0, 0, -4, -28
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\table.tsx", "TypeScript JSX", -62, 0, 0, 0, -11, -73
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\tabs.tsx", "TypeScript JSX", -47, 0, 0, 0, -7, -54
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\textarea.tsx", "TypeScript JSX", -17, 0, 0, 0, -5, -22
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\toast.tsx", "TypeScript JSX", -99, 0, 0, 0, -13, -112
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\toaster.tsx", "TypeScript JSX", -22, 0, 0, 0, -3, -25
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\toggle-group.tsx", "TypeScript JSX", -41, 0, 0, 0, -9, -50
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\toggle.tsx", "TypeScript JSX", -32, 0, 0, 0, -6, -38
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\tooltip.tsx", "TypeScript JSX", -22, 0, 0, 0, -7, -29
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\ui\use-toast.ts", "TypeScript", 0, -2, 0, 0, -2, -4
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\components\voice\VoiceInputButton.tsx", "TypeScript JSX", -148, 0, 0, -4, -16, -168
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\AuthContext.tsx", "TypeScript JSX", -127, 0, 0, 0, -19, -146
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\CommandPaletteContext.tsx", "TypeScript JSX", -33, 0, 0, 0, -8, -41
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\CompanyContext.tsx", "TypeScript JSX", -325, 0, 0, -16, -43, -384
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\CustoRealContext.tsx", "TypeScript JSX", -120, 0, 0, 0, -17, -137
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\EstoqueContext.tsx", "TypeScript JSX", -122, 0, 0, -1, -18, -141
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\ObraSelectionContext.tsx", "TypeScript JSX", -41, 0, 0, -1, -11, -53
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\ObrasContext.tsx", "TypeScript JSX", -222, 0, 0, 0, -41, -263
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\OrcamentoContext.tsx", "TypeScript JSX", -585, 0, 0, -11, -87, -683
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\contexts\SuprimentosContext.tsx", "TypeScript JSX", -185, 0, 0, -16, -37, -238
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\data\catalogoInsumos.ts", "TypeScript", 0, -205, 0, -20, -20, -245
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\data\demoSeeder.ts", "TypeScript", 0, -23, 0, -1, -4, -28
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\data\mockData.ts", "TypeScript", 0, -209, 0, -16, -25, -250
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\data\seedOrcamentos.ts", "TypeScript", 0, -463, 0, -23, -18, -504
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\use-mobile.tsx", "TypeScript JSX", -15, 0, 0, 0, -5, -20
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\use-toast.ts", "TypeScript", 0, -154, 0, -2, -31, -187
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useAddonAccess.ts", "TypeScript", 0, -33, 0, 0, -8, -41
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useCotacaoCategorias.ts", "TypeScript", 0, -96, 0, -4, -14, -114
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useCronograma.ts", "TypeScript", 0, -227, 0, -9, -21, -257
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useEtapaDependencias.ts", "TypeScript", 0, -133, 0, -4, -19, -156
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useGanttDependencies.ts", "TypeScript", 0, -140, 0, -6, -27, -173
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useGanttFinanceiro.ts", "TypeScript", 0, -78, 0, 0, -12, -90
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useOrcamentoParaCronograma.ts", "TypeScript", 0, -73, 0, 0, -9, -82
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useOrcamentoUndo.ts", "TypeScript", 0, -57, 0, -1, -9, -67
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\usePersistentPageState.ts", "TypeScript", 0, -42, 0, -1, -7, -50
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\usePlanLimits.ts", "TypeScript", 0, -25, 0, 0, -4, -29
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useRecursos.ts", "TypeScript", 0, -98, 0, -1, -15, -114
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\hooks\useVoiceInput.ts", "TypeScript", 0, -93, 0, -3, -20, -116
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\index.css", "CSS", 0, 0, -138, 0, -29, -167
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\integrations\supabase\client.ts", "TypeScript", 0, -14, 0, -3, -3, -20
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\integrations\supabase\types.ts", "TypeScript", 0, -323, 0, -2, -10, -335
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\integrations\supabase\untyped.ts", "TypeScript", 0, -7, 0, 0, -2, -9
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\normalizeText.ts", "TypeScript", 0, -15, 0, 0, -1, -16
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\planilha\exportCotacao.ts", "TypeScript", 0, -57, 0, -4, -11, -72
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\planilha\importCotacao.ts", "TypeScript", 0, -69, 0, -1, -9, -79
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\buscarComposicoes.ts", "TypeScript", 0, -81, 0, 0, -16, -97
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\expandComposicao.ts", "TypeScript", 0, -184, 0, -5, -19, -208
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\listarGrupos.ts", "TypeScript", 0, -17, 0, 0, -3, -20
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\listarReferencias.ts", "TypeScript", 0, -29, 0, 0, -6, -35
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\sinapi\toOrcamento.ts", "TypeScript", 0, -52, 0, 0, -9, -61
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\lib\utils.ts", "TypeScript", 0, -5, 0, 0, -2, -7
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\main.tsx", "TypeScript JSX", -4, 0, 0, 0, -2, -6
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\AgendaObraPage.tsx", "TypeScript JSX", -494, 0, 0, -7, -32, -533
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\CotacaoPublicaPage.tsx", "TypeScript JSX", -288, 0, 0, -21, -33, -342
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\CronogramaPage.tsx", "TypeScript JSX", -451, 0, 0, -30, -40, -521
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\CustoRealPage.tsx", "TypeScript JSX", -203, 0, 0, -4, -11, -218
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\DashboardPage.tsx", "TypeScript JSX", -448, 0, 0, -6, -33, -487
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\DiarioPage.tsx", "TypeScript JSX", -1018, 0, 0, -28, -80, -1126
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\DocumentosPage.tsx", "TypeScript JSX", -429, 0, 0, -10, -31, -470
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\EquipePage.tsx", "TypeScript JSX", -549, 0, 0, -15, -41, -605
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\EstoquePage.tsx", "TypeScript JSX", -524, 0, 0, -2, -46, -572
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\ExecucaoCentral.tsx", "TypeScript JSX", -265, 0, 0, -11, -31, -307
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\FornecedoresPage.tsx", "TypeScript JSX", -275, 0, 0, -6, -26, -307
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\Index.tsx", "TypeScript JSX", -4, 0, 0, 0, -2, -6
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\InsumosPage.tsx", "TypeScript JSX", -739, 0, 0, -25, -56, -820
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\LandingPage.tsx", "TypeScript JSX", -41, 0, 0, 0, -3, -44
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\LoginPage.tsx", "TypeScript JSX", -218, 0, 0, -4, -12, -234
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\NotFound.tsx", "TypeScript JSX", -20, 0, 0, 0, -5, -25
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\ObraDetalhePage.tsx", "TypeScript JSX", -283, 0, 0, -9, -28, -320
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\ObrasPage.tsx", "TypeScript JSX", -394, 0, 0, -4, -19, -417
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\OnboardingPage.tsx", "TypeScript JSX", -114, 0, 0, 0, -13, -127
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\OrcamentoCentral.tsx", "TypeScript JSX", -359, 0, 0, -21, -39, -419
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\OrcamentoPage(ORIGINAL).tsx", "TypeScript JSX", -291, 0, 0, -1, -26, -318
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\OrcamentoPage.tsx", "TypeScript JSX", -4, 0, 0, 0, -1, -5
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\PagamentosPage.tsx", "TypeScript JSX", -1595, 0, 0, -54, -116, -1765
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\PainelObraPage.tsx", "TypeScript JSX", -651, 0, 0, -6, -53, -710
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\PendenciasPage.tsx", "TypeScript JSX", -330, 0, 0, -5, -26, -361
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\PerfilPage.tsx", "TypeScript JSX", -69, 0, 0, 0, -9, -78
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\RelatoriosPage.tsx", "TypeScript JSX", -375, 0, 0, -10, -23, -408
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\admin\AdminAddonsPage.tsx", "TypeScript JSX", -43, 0, 0, 0, -7, -50
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\admin\AdminCompaniesPage.tsx", "TypeScript JSX", -299, 0, 0, 0, -18, -317
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\admin\AdminLayout.tsx", "TypeScript JSX", -62, 0, 0, -2, -7, -71
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\pages\admin\AdminPlansPage.tsx", "TypeScript JSX", -53, 0, 0, 0, -7, -60
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\scripts\verifyCotacaoFluxo.ts", "TypeScript", 0, -56, 0, -5, -16, -77
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\test\example.test.ts", "TypeScript", 0, -6, 0, 0, -2, -8
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\test\setup.ts", "TypeScript", 0, -14, 0, 0, -2, -16
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\types\orcamento.ts", "TypeScript", 0, -40, 0, 0, -5, -45
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\types\planFeatures.ts", "TypeScript", 0, -16, 0, 0, -2, -18
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\types\suprimentos.ts", "TypeScript", 0, -33, 0, 0, -4, -37
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\utils\cotacaoCategorias.ts", "TypeScript", 0, -115, 0, -4, -16, -135
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\utils\normalizePlanFeatures.ts", "TypeScript", 0, -15, 0, 0, -4, -19
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\utils\seedRealistico.ts", "TypeScript", 0, -256, 0, -24, -50, -330
+"c:\Users\henri\OneDrive\Área de Trabalho\meu-obra-main\obra-conectada-main\src\vite-env.d.ts", "TypeScript", 0, 0, 0, -1, -1, -2
+"Total", "-", -25801, -3601, -175, -774, -3161, -33512

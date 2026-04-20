@@ -15,27 +15,42 @@ interface PagamentoItem {
   status: string;
   fornecedor: string | null;
   realStatus: string;
+  grupo_parcelas_id?: string | null;
 }
 
 const statusColors: Record<string, string> = {
   pago: 'bg-success',
   previsto: 'bg-primary',
   atrasado: 'bg-destructive',
+  proximo: 'bg-amber-500',
 };
 
 const statusLabels: Record<string, string> = {
   pago: 'Pago',
   previsto: 'Previsto',
   atrasado: 'Atrasado',
+  proximo: 'Próx. 7 dias',
 };
+
+function getRealStatus(status: string, dataVencimento: string): string {
+  if (status === 'pago' || status === 'atrasado' || status === 'cancelado') return status;
+  try {
+    const hoje = new Date();
+    const d = new Date(dataVencimento);
+    const diff = Math.ceil((d.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff >= 0 && diff <= 7) return 'proximo';
+  } catch { /* ignore */ }
+  return status;
+}
 
 const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 interface Props {
   items: PagamentoItem[];
+  onItemClick?: (id: string) => void;
 }
 
-export default function PagamentosCalendarView({ items }: Props) {
+export default function PagamentosCalendarView({ items, onItemClick }: Props) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const withDates = items.filter(p => p.data_vencimento);
     if (withDates.length > 0) {
@@ -69,6 +84,15 @@ export default function PagamentosCalendarView({ items }: Props) {
       .reduce((s, p) => s + (Number(p.valor_previsto) || 0), 0);
   }, [items, currentMonth]);
 
+  // Sprint 1: meses com vencidos para destaque no cabeçalho
+  const hasOverdueInMonth = useMemo(() => {
+    return items.some(p =>
+      p.data_vencimento &&
+      isSameMonth(parseISO(p.data_vencimento), currentMonth) &&
+      (p.realStatus === 'atrasado' || p.status === 'atrasado')
+    );
+  }, [items, currentMonth]);
+
   const today = new Date();
 
   return (
@@ -80,8 +104,12 @@ export default function PagamentosCalendarView({ items }: Props) {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="text-center">
-            <p className="text-sm font-semibold text-foreground capitalize">
+            <p className={cn(
+              'text-sm font-semibold capitalize',
+              hasOverdueInMonth ? 'text-destructive' : 'text-foreground'
+            )}>
               {format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+              {hasOverdueInMonth && <span className="ml-1.5 text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full">Vencidos</span>}
             </p>
             <p className="text-[10px] text-muted-foreground font-mono">{formatCurrency(monthTotal)}</p>
           </div>
@@ -121,21 +149,30 @@ export default function PagamentosCalendarView({ items }: Props) {
 
                 {dayItems.length > 0 && (
                   <div className="mt-0.5 space-y-0.5">
-                    {dayItems.slice(0, 2).map(p => (
-                      <Tooltip key={p.id}>
-                        <TooltipTrigger asChild>
-                          <div className={`flex items-center gap-0.5 rounded px-0.5 py-px cursor-default ${statusColors[p.realStatus]}/10`}>
-                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColors[p.realStatus]}`} />
-                            <span className="text-[8px] text-foreground truncate leading-tight">{p.descricao}</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs max-w-[200px]">
-                          <p className="font-medium">{p.descricao}</p>
-                          <p>{formatCurrency(Number(p.valor_previsto))} · {statusLabels[p.realStatus]}</p>
-                          {p.fornecedor && <p className="text-muted-foreground">{p.fornecedor}</p>}
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
+                    {dayItems.slice(0, 2).map(p => {
+                      const s = getRealStatus(p.realStatus || p.status, p.data_vencimento);
+                      return (
+                        <Tooltip key={p.id}>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={cn(`flex items-center gap-0.5 rounded px-0.5 py-px ${statusColors[s]}/10`,
+                                onItemClick && 'cursor-pointer hover:opacity-80'
+                              )}
+                              onClick={() => onItemClick?.(p.id)}
+                            >
+                              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColors[s]}`} />
+                              <span className="text-[8px] text-foreground truncate leading-tight">{p.descricao}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs max-w-[200px]">
+                            <p className="font-medium">{p.descricao}</p>
+                            <p>{formatCurrency(Number(p.valor_previsto))} · {statusLabels[s] || s}</p>
+                            {p.fornecedor && <p className="text-muted-foreground">{p.fornecedor}</p>}
+                            {onItemClick && <p className="text-primary">Clique para editar</p>}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
                     {dayItems.length > 2 && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -165,9 +202,10 @@ export default function PagamentosCalendarView({ items }: Props) {
         </div>
 
         {/* Legend */}
-        <div className="flex gap-3 pt-1">
+        <div className="flex gap-3 pt-1 flex-wrap">
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-primary" /> Previsto</div>
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-success" /> Pago</div>
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Próx. 7 dias</div>
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-destructive" /> Atrasado</div>
         </div>
       </div>
