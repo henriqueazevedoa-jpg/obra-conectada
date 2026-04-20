@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 import {
   Plus, CalendarDays, CheckCircle2, Clock, Pencil, Trash2,
   AlertTriangle, Play, Calendar, Filter, ListChecks,
-  LayoutKanban, List, GitBranch, DollarSign,
+  Kanban, List, GitBranch, DollarSign,
 } from 'lucide-react';
 import ObraCalendarView from '@/components/painel/ObraCalendarView';
 import { toast } from '@/hooks/use-toast';
@@ -457,7 +457,7 @@ export default function AgendaPage() {
         <div className="flex rounded-lg border border-border overflow-hidden text-xs">
           {([
             { mode: 'lista' as ViewMode, icon: List, label: 'Lista' },
-            { mode: 'kanban' as ViewMode, icon: LayoutKanban, label: 'Kanban' },
+            { mode: 'kanban' as ViewMode, icon: Kanban, label: 'Kanban' },
             { mode: 'calendario' as ViewMode, icon: Calendar, label: 'Calendário' },
           ]).map(({ mode, icon: Icon, label }) => (
             <button key={mode} onClick={() => setViewMode(mode)}
