@@ -184,17 +184,27 @@ export default function OperacaoMobilePage() {
         ? await uploadFotos(fotosDia, 'diario-fotos', `${obra.id}/${hoje}`)
         : [];
 
-      // Prepara entrada pendente (se aplicável)
-      let entrada_pendente: { tipo: string; foto_urls: string[]; observacao: string | null } | null = null;
+      // Prepara recebimento de material (se aplicável)
+      let material_recebimento: {
+        tipo: string;
+        foto_urls: string[];
+        observacao: string | null;
+        data_recebimento: string;
+      } | null = null;
 
       if (recebeuMaterial && fotoNF) {
         const urlsNF = await uploadFotos([fotoNF], 'diario-fotos', `${obra.id}/nf`);
-        entrada_pendente = {
+        material_recebimento = {
           tipo: 'nota_fiscal',
           foto_urls: urlsNF,
           observacao: obsNF.trim() || null,
+          data_recebimento: hoje,
         };
-      } else if (faltouMaterial && qualMaterial.trim()) {
+      }
+
+      // Pendência de falta de material (continua indo para entrada_pendente)
+      let entrada_pendente: { tipo: string; foto_urls: string[]; observacao: string | null } | null = null;
+      if (faltouMaterial && qualMaterial.trim()) {
         entrada_pendente = {
           tipo: 'outro',
           foto_urls: [],
@@ -219,10 +229,12 @@ export default function OperacaoMobilePage() {
             fotos: urlsFotos,
           },
           entrada_pendente,
+          material_recebimento,
         }),
       });
 
       const data = await res.json();
+
       if (!res.ok || data.error) throw new Error(data.error || `Erro ${res.status}`);
 
       setSuccess(true);

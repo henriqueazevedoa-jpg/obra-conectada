@@ -1,39 +1,14 @@
-import { useState } from 'react';
 import { useEstoque } from '@/contexts/EstoqueContext';
-import { useIADocumentos, DocTipo } from '@/hooks/useIADocumentos';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Package, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import IAInputButton from '@/components/ia/IAInputButton';
-import NfReviewDrawer from '@/components/ia/NfReviewDrawer';
 
 export default function EstoqueQuickView({ obraId }: { obraId: string }) {
-  const { getMateriaisByObra, registrarMovimentacao } = useEstoque();
+  const { getMateriaisByObra } = useEstoque();
   const materiais = getMateriaisByObra(obraId);
 
-  const { state, resultado, startProcessing, confirmarRecebimento, reset, isProcessing } =
-    useIADocumentos(obraId);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const handleFileSelected = async (file: File, tipo: DocTipo) => {
-    setReviewOpen(true);
-    await startProcessing(file, tipo);
-  };
-
-  const handleVoiceReady = async (audioBlob: Blob) => {
-    const file = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
-    setReviewOpen(true);
-    await startProcessing(file, 'audio');
-  };
-
-  const handleConfirm = async (itensRevisados: any[]) => {
-    const ok = await confirmarRecebimento(itensRevisados, 'estoque', registrarMovimentacao);
-    if (ok) { setReviewOpen(false); reset(); }
-  };
-
-  // ── Estoque display ──
   const sorted = [...materiais].sort((a, b) => {
     const aLevel = (a.quantidadeAtual || 0) <= (a.estoqueMinimo || 0) ? 0 : 1;
     const bLevel = (b.quantidadeAtual || 0) <= (b.estoqueMinimo || 0) ? 0 : 1;
@@ -52,7 +27,6 @@ export default function EstoqueQuickView({ obraId }: { obraId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-muted-foreground" />
@@ -63,21 +37,11 @@ export default function EstoqueQuickView({ obraId }: { obraId: string }) {
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {/* IA de Recebimento */}
-          <IAInputButton
-            size="sm"
-            onFileSelected={handleFileSelected}
-            onVoiceReady={handleVoiceReady}
-            disabled={isProcessing}
-          />
-          <Button asChild size="sm" variant="outline" className="h-9 text-xs">
-            <Link to="/estoque">Ver tudo <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
-          </Button>
-        </div>
+        <Button asChild size="sm" variant="outline" className="h-9 text-xs">
+          <Link to="/estoque">Ver tudo <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
+        </Button>
       </div>
 
-      {/* Tabela de materiais */}
       {materiais.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
           <Package className="h-10 w-10 text-muted-foreground/30" />
@@ -129,17 +93,6 @@ export default function EstoqueQuickView({ obraId }: { obraId: string }) {
         Para gerenciar materiais e ver histórico completo, acesse{' '}
         <Link to="/estoque" className="text-primary/80 hover:underline">Estoque completo</Link>.
       </p>
-
-      {/* IA Review Drawer */}
-      <NfReviewDrawer
-        open={reviewOpen}
-        resultado={resultado}
-        materiaisObra={materiais.map(m => ({ id: m.id, nome: m.nome, unidade: m.unidade }))}
-        loading={state === 'uploading' || state === 'processing'}
-        onClose={() => { setReviewOpen(false); reset(); }}
-        onConfirm={handleConfirm}
-        onReprocess={() => { reset(); }}
-      />
     </div>
   );
 }

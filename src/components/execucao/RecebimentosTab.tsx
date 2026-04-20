@@ -4,6 +4,11 @@ import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useObras } from '@/contexts/ObrasContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEstoque } from '@/contexts/EstoqueContext';
+import { useIADocumentos } from '@/hooks/useIADocumentos';
+import type { DocTipo } from '@/hooks/useIADocumentos';
+import IAInputButton from '@/components/ia/IAInputButton';
+import NfReviewDrawer from '@/components/ia/NfReviewDrawer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -93,7 +98,51 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
   const [searchParams, setSearchParams] = useSearchParams();
   const { obras } = useObras();
   const { user } = useAuth();
+  const { getMateriaisByObra, registrarMovimentacao } = useEstoque();
   const obra = obras.find(o => o.id === obraId);
+  const materiais = getMateriaisByObra(obraId);
+
+  // IA de documentos (movido do EstoqueQuickView)
+  const { state: iaState, resultado, startProcessing, confirmarRecebimento, reset: iaReset, isProcessing } =
+    useIADocumentos(obraId);
+  const [iaReviewOpen, setIaReviewOpen] = useState(false);
+
+  const handleIAFile = async (file: File, tipo: DocTipo) => {
+    setIaReviewOpen(true);
+    await startProcessing(file, tipo);
+  };
+
+  const handleIAVoice = async (audioBlob: Blob) => {
+    const file = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
+    setIaReviewOpen(true);
+    await startProcessing(file, 'audio');
+  };
+
+  const handleIAConfirm = async (itensRevisados: any[]) => {
+    // Cria um recebimento via IA
+    await (supabase as any).from('material_recebimentos').insert({
+      obra_id: obraId,
+      company_id: obra?.company_id,
+      origem: 'manual',
+      tipo: 'nota_fiscal',
+      data_recebimento: new Date().toISOString().slice(0, 10),
+      itens: itensRevisados.map((i: any) => ({
+        tempId: crypto.randomUUID(),
+        nome: i.nome || i.material_nome || '',
+        quantidade: String(i.quantidade || ''),
+        unidade: i.unidade || 'un',
+        preco_unitario: String(i.preco_unitario || ''),
+      })),
+      status: 'conferido',
+      processado_por: user?.id || null,
+      dados_ia: { fonte: 'ia', itens_originais: itensRevisados },
+    });
+    // Também atualiza estoque via hook existente
+    await confirmarRecebimento(itensRevisados, 'estoque', registrarMovimentacao);
+    setIaReviewOpen(false);
+    iaReset();
+    fetchRecebimentos();
+  };
 
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -243,9 +292,18 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
             {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="sm" className="gap-1.5 h-8 text-xs" onClick={() => { resetForm(); setDialogOpen(true); }}>
-          <Plus className="h-3.5 w-3.5" /> Registrar Manualmente
-        </Button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* IA de recebimento */}
+          <IAInputButton
+            size="sm"
+            onFileSelected={handleIAFile}
+            onVoiceReady={handleIAVoice}
+            disabled={isProcessing}
+          />
+          <Button size="sm" className="gap-1.5 h-8 text-xs" onClick={() => { resetForm(); setDialogOpen(true); }}>
+            <Plus className="h-3.5 w-3.5" /> Registrar Manualmente
+          </Button>
+        </div>
       </div>
 
       {/* ── Lista ─── */}
@@ -474,6 +532,16 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* ── NF Review Drawer (IA) ─── */}
+      <NfReviewDrawer
+        open={iaReviewOpen}
+        resultado={resultado}
+        materiaisObra={materiais.map(m => ({ id: m.id, nome: m.nome, unidade: m.unidade }))}
+        loading={iaState === 'uploading' || iaState === 'processing'}
+        onClose={() => { setIaReviewOpen(false); iaReset(); }}
+        onConfirm={handleIAConfirm}
+        onReprocess={() => { iaReset(); }}
+      />
     </div>
   );
 }
