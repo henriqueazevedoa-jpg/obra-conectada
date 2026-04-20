@@ -91,8 +91,8 @@ function GestorPainel() {
   const [diarioOpen, setDiarioOpen] = usePersistentPageState<boolean>('painel:diarioOpen', false, selectedObraId);
   const [cronogramaView, setCronogramaView] = usePersistentPageState<'list' | 'gantt'>('painel:cronogramaView', 'list', selectedObraId);
   const [calendarViewMode, setCalendarViewMode] = usePersistentPageState<ViewMode>('painel:calendarViewMode', 'calendario', selectedObraId);
-  const [calendarSources, setCalendarSources] = useState<Set<'agenda' | 'pendencias' | 'pagamentos' | 'diario'>>(
-    new Set(['agenda', 'pendencias', 'pagamentos', 'diario'])
+  const [calendarSources, setCalendarSources] = useState<Set<'agenda' | 'pagamentos' | 'diario'>>(
+    new Set(['agenda', 'pagamentos', 'diario'])
   );
   const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(defaultSectionOrder);
   const [draggedSection, setDraggedSection] = useState<SectionKey | null>(null);
@@ -281,17 +281,16 @@ function GestorPainel() {
                   <ViewModeSwitcher value={calendarViewMode} onChange={setCalendarViewMode} />
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {(['agenda', 'pendencias', 'pagamentos', 'diario'] as const).map(s => {
+                  {(['agenda', 'pagamentos', 'diario'] as const).map(s => {
                     const cfg = {
                       agenda: { icon: CalendarDays, label: 'Agenda', color: 'bg-primary text-primary-foreground' },
-                      pendencias: { icon: ListChecks, label: 'Pendências', color: 'bg-warning text-warning-foreground' },
                       pagamentos: { icon: Wallet, label: 'Pagamentos', color: 'bg-accent text-accent-foreground' },
                       diario: { icon: BookOpen, label: 'Diário', color: 'bg-emerald-500/10 text-emerald-700' }
                     }[s];
                     const Icon = cfg.icon;
                     const active = calendarSources.has(s);
                     return (
-                      <button key={s} onClick={() => setCalendarSources(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; })}
+                      <button key={s} onClick={() => setCalendarSources(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n as Set<'agenda' | 'pagamentos' | 'diario'>; })}
                         className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all border ${active ? 'border-transparent ' + cfg.color : 'border-border text-muted-foreground bg-transparent opacity-50'}`}
                       >
                         <Icon className="h-3 w-3" /> {cfg.label}

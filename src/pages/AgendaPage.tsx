@@ -281,7 +281,7 @@ export default function AgendaPage() {
       .select('id, descricao, data_vencimento, valor')
       .eq('obra_id', obra.id)
       .not('data_vencimento', 'is', null)
-      .eq('status', 'pendente');
+      .not('status', 'in', '("pago","cancelado")');
 
     const agendaItems = (agendaData || []) as AgendaItem[];
 

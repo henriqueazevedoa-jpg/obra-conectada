@@ -10,11 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
-  ChevronLeft, ChevronRight, CalendarDays, ListChecks, Wallet, BookOpen, Calendar,
+  ChevronLeft, ChevronRight, CalendarDays, Wallet, BookOpen, Calendar,
 } from 'lucide-react';
 
 /* ── Types ── */
-export type CalendarEventSource = 'agenda' | 'pendencias' | 'pagamentos' | 'diario';
+export type CalendarEventSource = 'agenda' | 'pagamentos' | 'diario';
 
 export interface CalendarEvent {
   id: string;
@@ -34,26 +34,23 @@ const climaIcons: Record<string, string> = {
 };
 
 const sourceLabels: Record<CalendarEventSource, string> = {
-  agenda: 'Agenda', pendencias: 'Pendências', pagamentos: 'Pagamentos', diario: 'Diário',
+  agenda: 'Agenda', pagamentos: 'Pagamentos', diario: 'Diário',
 };
 
 const sourceColors: Record<CalendarEventSource, string> = {
   agenda: 'bg-primary text-primary-foreground',
-  pendencias: 'bg-warning text-warning-foreground',
   pagamentos: 'bg-accent text-accent-foreground',
   diario: 'bg-success text-success-foreground',
 };
 
 const sourceDotColors: Record<CalendarEventSource, string> = {
   agenda: 'bg-primary',
-  pendencias: 'bg-warning',
   pagamentos: 'bg-violet-500',
   diario: 'bg-success',
 };
 
 const sourceIcons: Record<CalendarEventSource, React.ReactNode> = {
   agenda: <CalendarDays className="h-3 w-3" />,
-  pendencias: <ListChecks className="h-3 w-3" />,
   pagamentos: <Wallet className="h-3 w-3" />,
   diario: <BookOpen className="h-3 w-3" />,
 };
@@ -107,23 +104,6 @@ export default function ObraCalendarView({
               allEvents.push({
                 id: item.id, date: item.data_programada, title: item.titulo,
                 source: 'agenda', status: item.status, isOverdue,
-              });
-            });
-          })
-      );
-    }
-
-    if (sources.includes('pendencias')) {
-      promises.push(
-        supabase.from('pendencias').select('id, titulo, data_limite, status')
-          .eq('obra_id', obraId)
-          .then(({ data }: any) => {
-            (data || []).forEach((item: any) => {
-              if (!item.data_limite) return;
-              const isOverdue = item.status !== 'resolvida' && isBefore(parseISO(item.data_limite), today);
-              allEvents.push({
-                id: item.id, date: item.data_limite, title: item.titulo,
-                source: 'pendencias', status: item.status, isOverdue,
               });
             });
           })
