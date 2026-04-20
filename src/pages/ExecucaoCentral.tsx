@@ -27,10 +27,10 @@ const VALID_TABS: Tab[] = ['diario', 'estoque', 'equipe', 'pedidos', 'recebiment
 
 const TABS_CONFIG = [
   { id: 'diario'        as Tab, label: 'Diário',        icon: <BookOpen className="h-3.5 w-3.5" /> },
-  { id: 'estoque'       as Tab, label: 'Estoque',       icon: <Package className="h-3.5 w-3.5" /> },
-  { id: 'equipe'        as Tab, label: 'Equipe',        icon: <Users className="h-3.5 w-3.5" /> },
   { id: 'pedidos'       as Tab, label: 'Pedidos',       icon: <ShoppingCart className="h-3.5 w-3.5" /> },
   { id: 'recebimentos'  as Tab, label: 'Recebimentos',  icon: <PackagePlus className="h-3.5 w-3.5" /> },
+  { id: 'estoque'       as Tab, label: 'Estoque',       icon: <Package className="h-3.5 w-3.5" /> },
+  { id: 'equipe'        as Tab, label: 'Equipe',        icon: <Users className="h-3.5 w-3.5" /> },
 ];
 
 // ── Icon ──────────────────────────────────────────────────────────────────────
