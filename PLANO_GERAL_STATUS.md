@@ -6,7 +6,7 @@ COMO USAR: Ao iniciar nova sessão, leia este arquivo para saber
 onde o projeto está. Ao concluir um sprint, atualize este arquivo.
 
 ----------------------------------------------------------------
-STATUS ATUAL — Atualizado em: 20/04/2026 (Sessão de Sprint 4)
+STATUS ATUAL — Atualizado em: 20/04/2026 (Sessão de Sprint 5)
 ----------------------------------------------------------------
 
 ✅ CONCLUÍDOS:
@@ -25,41 +25,50 @@ STATUS ATUAL — Atualizado em: 20/04/2026 (Sessão de Sprint 4)
 - PROMPT 8  — Financeiro Sprint 3: Fluxo de Caixa e DRE
 - PROMPT 9  — Execução Sprint 1: Diário (cleanup UI)
 - PROMPT 10 — Execução Sprint 3: Equipe
-    Migration: equipe_colaboradores + equipe_documentos + bucket storage
-    Bloco 1: CRUD completo de membros com foto, função e status
-    Bloco 2: Upload categorizado de documentos com badges de validade
-    Bloco 4: Sub-view Presença com cálculo de dias, filtro de período, CSV export
-    DiarioTab: toggle colapsável para seleção opcional de membros presentes
 - PROMPT 11 — Execução Sprint 4: Agenda (NOVA ARQUITETURA)
-    tabela pendencias DROPADA
-    obra_agenda enriquecida: +responsavel_id, +data_limite, +origem
-    AgendaPage.tsx (nova página autônoma /agenda) com 3 views: Lista, Kanban, Calendário
-    Tipo 'pendencia' absorve funcionalidade da aba Pendências
-    Marcos do Cronograma + Vencimentos Financeiros como itens read-only
-    ExecucaoCentral: abas Agenda e Pendências removidas
-    PendenciasBlock + PainelObraPage migrados para obra_agenda
-    Nav sidebar: Agenda adicionada à seção Canteiro
+- PROMPT 12 — Execução Sprint 5: Pedidos de Material & Recebimentos ✅ 20/04/2026
+    Migration: material_pedidos + material_recebimentos + pagamentos.pedido_id
+    ExecucaoCentral: PageShell + abas Pedidos e Recebimentos (Diário/Pedidos/Recebimentos/Estoque/Equipe)
+    PedidosTab: CRUD + parcelamento mensal/custom + evento Agenda + vínculo recebimento + toggle estoque
+    RecebimentosTab: lista + form manual + drawer revisão + IAInputButton movido do Estoque
+    AgendaPage: pedidos com data_entrega_prevista como eventos read-only
+    OperacaoMobilePage: NF → material_recebimentos (link_publico)
+    Edge Function submit-diario-operacao v2: processa material_recebimento no payload
 
 ❌ PULADO (decisão 20/04/2026):
 - PROMPT 9 — Execução Sprint 2: Pendências → incorporada à Agenda (Sprint 4)
 
 ⏳ PRÓXIMO:
-- PROMPT 12 — EXECUÇÃO SPRINT 5: Pedidos de Material & Recebimentos (ESCOPO ALTERADO)
-
-  ESCOPO ORIGINAL (Entradas NF): SUBSTITUÍDO
-  NOVO ESCOPO:
-    1. Nova tabela: material_pedidos (pedidos de material feitos pelo gestor/engenheiro)
-    2. Nova tabela: material_recebimentos (recibos/NFs chegando do campo via link público)
-    3. ExecucaoCentral: aba "Entradas NF" → substituída por 2 abas:
-       - "Pedidos" — CRUD de pedidos com data_entrega_prevista → evento na Agenda
-       - "Recebimentos" — exibe itens vindos do campo + enriquecimento manual/IA
-    4. Cruzamento pedido ↔ recebimento (manual pelo engenheiro)
-    5. IA de cruzamento automático planejada como Addon opcional (não implementar agora)
-    6. Fonte pública (OperacaoMobilePage) passa a gravar em material_recebimentos
+- PROMPT 14 — CONTATOS: Melhorias
 
 ⬜ FILA (ordem do PLANO_GERAL.txt):
+- PROMPT 15 — Links Públicos Sprint 1
+- PROMPT 16 — Links Públicos Sprint 2
+- PROMPT 17 — Links Públicos Sprint 3
+- PROMPT 18 — Usuários: Atribuição de obras
+- PROMPT 19 — Perfil: Foto + dados profissionais + ART
+
+🔒 ADIADO (fase posterior):
 - PROMPT 13 — Execução Sprint 6: Estoque Global
-- PROMPT 14 — Contatos: Melhorias
+    Motivo: escopo largo (3 blocos: visão consolidada + transferência + pedido centralizado)
+    Pré-requisito: múltiplas obras com dados reais para validação
+    Retomar após: Painel da Obra Sprint 1 (Prompt 20)
+- PROMPT 15 — Links Públicos Sprint 1
+- PROMPT 16 — Links Públicos Sprint 2
+- PROMPT 17 — Links Públicos Sprint 3
+- PROMPT 18 — Usuários: Atribuição de obras
+- PROMPT 19 — Perfil: Foto + dados profissionais + ART
+- PROMPT 20 — Painel da Obra Sprint 1
+- PROMPT 21 — Painel da Obra Sprint 2
+- PROMPT 22 — Painel da Obra Sprint 3
+- PROMPT 23 — Painel da Obra Sprint 4 (IA preditiva)
+- PROMPT 24 — Dashboard Central Sprint 1
+- PROMPT 25 — Dashboard Central Sprint 2
+- PROMPT 26 — Dashboard Central Sprint 3
+- PROMPT 27 — Admin Sprint 1
+- PROMPT 28 — Admin Sprint 2
+- PROMPT 29 — Admin Sprint 3
+- PROMPT 30 — Admin Sprint 4 (FUTURO — não implementar agora)
 - PROMPT 15 — Links Públicos Sprint 1
 - PROMPT 16 — Links Públicos Sprint 2
 - PROMPT 17 — Links Públicos Sprint 3
