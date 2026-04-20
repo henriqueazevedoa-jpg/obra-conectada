@@ -371,7 +371,26 @@ export default function AgendaPage() {
       created_at: '', data_limite: p.data_vencimento, origem: 'financeiro', _readOnly: true,
     }));
 
-    setItems([...agendaItems, ...marcosItems, ...pagamentosItems]);
+    const { data: pedidosData } = await (supabase as any)
+      .from('material_pedidos')
+      .select('id, descricao, fornecedor, data_entrega_prevista, status, valor_estimado')
+      .eq('obra_id', obra.id)
+      .not('data_entrega_prevista', 'is', null)
+      .not('status', 'in', '("cancelado","recebido")');
+
+    const pedidosItems: AgendaItem[] = (pedidosData || []).map((p: any) => ({
+      id: `pedido-${p.id}`, obra_id: obra.id,
+      titulo: `Entrega: ${p.descricao}`,
+      tipo: 'entrega_material' as AgendaTipo,
+      descricao: `${p.fornecedor ? `Fornecedor: ${p.fornecedor}` : ''}${p.valor_estimado ? ` · ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_estimado)}` : ''}`.trim() || null,
+      data_programada: p.data_entrega_prevista,
+      hora_programada: null, data_finalizacao: null, responsavel: null,
+      status: 'programado' as AgendaStatus, prioridade: 'media' as AgendaPrioridade,
+      local: null, alerta_ativo: false, antecedencia_alerta_em_dias: null,
+      created_at: '', data_limite: null, origem: 'pedido', _readOnly: true,
+    }));
+
+    setItems([...agendaItems, ...marcosItems, ...pagamentosItems, ...pedidosItems]);
     setLoading(false);
   }, [obra?.id]);
 

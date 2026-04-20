@@ -7,151 +7,42 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import NoObraState from '@/components/obras/NoObraState';
+import PageShell from '@/components/layout/PageShell';
+import { PageFAB } from '@/components/ui/page-fab';
+import type { PageKPI } from '@/components/layout/PageShell';
 import DiarioTab from '@/components/execucao/DiarioTab';
 import EstoqueQuickView from '@/components/execucao/EstoqueQuickView';
 import EquipeTab from '@/components/execucao/EquipeTab';
-import EntradasPendentesPanel from '@/components/execucao/EntradasPendentesPanel';
+import PedidosTab from '@/components/execucao/PedidosTab';
+import RecebimentosTab from '@/components/execucao/RecebimentosTab';
 import {
-  BookOpen, Package, Users, Hammer,
-  PackagePlus, AlertTriangle, ListChecks,
+  BookOpen, Package, Users, ShoppingCart, PackagePlus, Hammer,
 } from 'lucide-react';
 
-// ─── Tipos locais ──────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'diario' | 'estoque' | 'equipe' | 'entradas';
+type Tab = 'diario' | 'estoque' | 'equipe' | 'pedidos' | 'recebimentos';
+const VALID_TABS: Tab[] = ['diario', 'estoque', 'equipe', 'pedidos', 'recebimentos'];
 
-interface KpiDia {
-  trabalhadores: number;
-  registrosHoje: number;
-  problemasAbertos: number;
-  pendenciasAbertas: number;
-  materiaisCriticos: number;
-}
+const TABS_CONFIG = [
+  { id: 'diario'        as Tab, label: 'Diário',        icon: <BookOpen className="h-3.5 w-3.5" /> },
+  { id: 'estoque'       as Tab, label: 'Estoque',       icon: <Package className="h-3.5 w-3.5" /> },
+  { id: 'equipe'        as Tab, label: 'Equipe',        icon: <Users className="h-3.5 w-3.5" /> },
+  { id: 'pedidos'       as Tab, label: 'Pedidos',       icon: <ShoppingCart className="h-3.5 w-3.5" /> },
+  { id: 'recebimentos'  as Tab, label: 'Recebimentos',  icon: <PackagePlus className="h-3.5 w-3.5" /> },
+];
 
-// ─── KPI Strip ─────────────────────────────────────────────────────────────────
+// ── Icon ──────────────────────────────────────────────────────────────────────
 
-function KpiStrip({ kpi, loading }: { kpi: KpiDia; loading: boolean }) {
-  if (loading) {
-    return (
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="h-14 w-36 shrink-0 animate-pulse rounded-xl bg-muted/50" />
-        ))}
-      </div>
-    );
-  }
-
-  const items = [
-    {
-      icon: Users,
-      label: 'Trabalhadores',
-      value: kpi.trabalhadores,
-      color: 'text-primary/80',
-      bg: 'bg-primary/10',
-    },
-    {
-      icon: BookOpen,
-      label: 'Registros hoje',
-      value: kpi.registrosHoje,
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-500/10',
-    },
-    {
-      icon: AlertTriangle,
-      label: 'Problemas',
-      value: kpi.problemasAbertos,
-      color: kpi.problemasAbertos > 0 ? 'text-red-400' : 'text-muted-foreground',
-      bg: kpi.problemasAbertos > 0 ? 'bg-red-500/10' : 'bg-muted/30',
-    },
-    {
-      icon: ListChecks,
-      label: 'Pendências',
-      value: kpi.pendenciasAbertas,
-      color: kpi.pendenciasAbertas > 0 ? 'text-amber-400' : 'text-muted-foreground',
-      bg: kpi.pendenciasAbertas > 0 ? 'bg-amber-500/10' : 'bg-muted/30',
-    },
-    {
-      icon: Package,
-      label: 'Mat. críticos',
-      value: kpi.materiaisCriticos,
-      color: kpi.materiaisCriticos > 0 ? 'text-orange-400' : 'text-muted-foreground',
-      bg: kpi.materiaisCriticos > 0 ? 'bg-orange-500/10' : 'bg-muted/30',
-    },
-  ];
-
-  return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-      {items.map(({ icon: Icon, label, value, color, bg }) => (
-        <div
-          key={label}
-          className={cn(
-            'flex items-center gap-2.5 shrink-0 rounded-xl px-3 py-2.5 border border-border/60',
-            bg
-          )}
-        >
-          <div className={cn('flex items-center justify-center h-8 w-8 rounded-lg bg-background/50')}>
-            <Icon className={cn('h-4 w-4', color)} />
-          </div>
-          <div>
-            <p className={cn('text-xl font-bold leading-none', color)}>{value}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5 leading-none">{label}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Tab Button ────────────────────────────────────────────────────────────────
-
-function TabButton({
-  id,
-  active,
-  icon: Icon,
-  label,
-  badge,
-  alertBadge,
-  onClick,
-}: {
-  id: Tab;
-  active: boolean;
-  icon: React.ElementType;
-  label: string;
-  badge?: number;
-  /** Red dot count for critical alerts (e.g. falta de material) */
-  alertBadge?: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all duration-150 whitespace-nowrap shrink-0',
-        active
-          ? 'bg-card text-foreground border border-b-card border-border shadow-sm -mb-px z-10'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-      )}
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      <span>{label}</span>
-      {badge !== undefined && badge > 0 && (
-        <Badge className="h-5 min-w-[20px] px-1 text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/30 ml-0.5">
-          {badge}
-        </Badge>
-      )}
-      {alertBadge !== undefined && alertBadge > 0 && (
-        <span className="h-2 w-2 rounded-full bg-red-500 ring-2 ring-background" title={`${alertBadge} falta(s) de material`} />
-      )}
-      {active && (
-        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
-      )}
-    </button>
-  );
-}
+const ExecucaoIcon = (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="1" y="4" width="14" height="10" rx="2" fill="#AFA9EC" />
+    <path d="M5 1 L8 4 L11 1" stroke="#534AB7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <rect x="4" y="7" width="3" height="3" rx="0.5" fill="#534AB7" opacity="0.7" />
+    <rect x="9" y="7" width="3" height="3" rx="0.5" fill="#534AB7" opacity="0.4" />
+  </svg>
+);
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -159,32 +50,25 @@ export default function ExecucaoCentral() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { obras } = useObras();
-  const { selectedObraId, setSelectedObraId } = useObraSelection();
+  const { selectedObraId } = useObraSelection();
   const { getMateriaisByObra } = useEstoque();
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
-  // Tab state from URL
+  // Tab via URL (padrão PageShell)
   const rawTab = searchParams.get('tab') as Tab | null;
-  const activeTab: Tab = rawTab && ['diario', 'estoque', 'equipe', 'entradas'].includes(rawTab)
-    ? rawTab as Tab
-    : 'diario';
-
-  const setTab = (tab: Tab) => {
-    setSearchParams({ tab }, { replace: true });
-  };
+  const activeTab: Tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : 'diario';
+  const setTab = (tab: Tab) => setSearchParams({ tab }, { replace: true });
 
   // KPI state
-  const [kpi, setKpi] = useState<KpiDia>({
-    trabalhadores: 0,
-    registrosHoje: 0,
-    problemasAbertos: 0,
-    pendenciasAbertas: 0,
-    materiaisCriticos: 0,
-  });
   const [kpiLoading, setKpiLoading] = useState(true);
-  const [entradasCount, setEntradasCount] = useState(0);
-  const [faltaMaterialCount, setFaltaMaterialCount] = useState(0);
+  const [trabalhadores, setTrabalhadores] = useState(0);
+  const [registrosHoje, setRegistrosHoje] = useState(0);
+  const [problemasAbertos, setProblemasAbertos] = useState(0);
+  const [pendenciasAbertas, setPendenciasAbertas] = useState(0);
+  const [materiaisCriticos, setMateriaisCriticos] = useState(0);
+  const [recebimentosPendentes, setRecebimentosPendentes] = useState(0);
+  const [pedidosAbertos, setPedidosAbertos] = useState(0);
 
   const fetchKpi = useCallback(async () => {
     if (!obra) return;
@@ -192,37 +76,24 @@ export default function ExecucaoCentral() {
 
     const hoje = format(new Date(), 'yyyy-MM-dd');
 
-    const [{ data: registros }, { data: pendencias }] = await Promise.all([
-      (supabase as any)
-        .from('diario_registros')
-        .select('id, data, trabalhadores, problemas')
-        .eq('obra_id', obra.id),
-      (supabase as any)
-        .from('obra_agenda')
-        .select('id, status')
-        .eq('obra_id', obra.id)
-        .eq('tipo', 'pendencia')
-        .not('status', 'in', '("concluido","cancelado")'),
+    const [{ data: registros }, { data: pendencias }, { data: recebimentos }, { data: pedidos }] = await Promise.all([
+      (supabase as any).from('diario_registros').select('id, data, trabalhadores, problemas').eq('obra_id', obra.id),
+      (supabase as any).from('obra_agenda').select('id').eq('obra_id', obra.id).eq('tipo', 'pendencia').not('status', 'in', '("concluido","cancelado")'),
+      (supabase as any).from('material_recebimentos').select('id').eq('obra_id', obra.id).eq('status', 'pendente'),
+      (supabase as any).from('material_pedidos').select('id').eq('obra_id', obra.id).not('status', 'in', '("recebido","cancelado")'),
     ]);
 
-    const registrosHoje = (registros || []).filter((r: any) => r.data === hoje);
-    const trabalhadores = registrosHoje.reduce((s: number, r: any) => s + (r.trabalhadores || 0), 0);
-    const problemasAbertos = (registros || []).filter((r: any) => r.problemas && r.status !== 'resolvida').length;
-    const pendenciasAbertas = (pendencias || []).length;
+    const hoje_reg = (registros || []).filter((r: any) => r.data === hoje);
+    setTrabalhadores(hoje_reg.reduce((s: number, r: any) => s + (r.trabalhadores || 0), 0));
+    setRegistrosHoje(hoje_reg.length);
+    setProblemasAbertos((registros || []).filter((r: any) => r.problemas && r.status !== 'resolvida').length);
+    setPendenciasAbertas((pendencias || []).length);
+    setRecebimentosPendentes((recebimentos || []).length);
+    setPedidosAbertos((pedidos || []).length);
 
-    // Materiais críticos: qty abaixo do estoque mínimo
     const materiais = obra ? getMateriaisByObra(obra.id) : [];
-    const materiaisCriticos = materiais.filter(m => (m.quantidadeAtual || 0) <= (m.estoqueMinimo || 0)).length;
+    setMateriaisCriticos(materiais.filter(m => (m.quantidadeAtual || 0) <= (m.estoqueMinimo || 0)).length);
 
-    const newKpi = {
-      trabalhadores,
-      registrosHoje: registrosHoje.length,
-      problemasAbertos,
-      pendenciasAbertas,
-      materiaisCriticos,
-    };
-
-    setKpi(newKpi);
     setKpiLoading(false);
   }, [obra?.id]);
 
@@ -237,82 +108,76 @@ export default function ExecucaoCentral() {
     );
   }
 
-  const today = format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR });
+  // ── Tabs com badges ───────────────────────────────────────────────────────
+
+  const tabsWithBadges = TABS_CONFIG.map(t => ({
+    ...t,
+    badge: t.id === 'recebimentos' && recebimentosPendentes > 0 ? recebimentosPendentes : undefined,
+    badgeDanger: t.id === 'recebimentos' && recebimentosPendentes > 0,
+  }));
+
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+
+  const kpis: PageKPI[] = kpiLoading ? [] : [
+    { id: 'trab',     label: 'Trabalhadores',   value: String(trabalhadores),       tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7' },
+    { id: 'reg',      label: 'Registros hoje',  value: String(registrosHoje),       tint: '#EAF3DE', valueColor: '#3B6D11' },
+    { id: 'prob',     label: 'Problemas',       value: String(problemasAbertos),    tint: problemasAbertos > 0 ? '#FCEBEB' : undefined, valueColor: problemasAbertos > 0 ? '#A32D2D' : undefined },
+    { id: 'pend',     label: 'Pendências',      value: String(pendenciasAbertas),   tint: pendenciasAbertas > 0 ? '#FFFBEB' : undefined, valueColor: pendenciasAbertas > 0 ? '#92400E' : undefined },
+    { id: 'pedidos',  label: 'Pedidos ativos',  value: String(pedidosAbertos),      tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7' },
+    { id: 'mats',     label: 'Mat. críticos',   value: String(materiaisCriticos),   tint: materiaisCriticos > 0 ? '#FFF7ED' : undefined, valueColor: materiaisCriticos > 0 ? '#C2410C' : undefined },
+  ];
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in min-h-full">
+    <>
+      <PageShell
+        icon={ExecucaoIcon}
+        title="Execução & Canteiro"
+        tabs={tabsWithBadges}
+        activeTab={activeTab}
+        onTabChange={id => setTab(id as Tab)}
+        kpis={kpis}
+      >
+        <div style={{ height: '100%', position: 'relative', background: 'var(--color-background-primary)' }}>
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <Hammer className="h-5 w-5 text-primary/80" />
-            Execução & Canteiro
-          </h1>
-          <p className="text-sm text-muted-foreground capitalize">
-            {today} · {obra.nome}
-          </p>
-        </div>
-      </div>
-
-      {/* ── KPI Strip ──────────────────────────────────────────────── */}
-      <KpiStrip kpi={kpi} loading={kpiLoading} />
-
-      {/* ── Tab Bar ────────────────────────────────────────────────── */}
-      <div className="flex flex-col">
-        <div className="flex gap-1 overflow-x-auto border-b border-border scrollbar-none">
-          <TabButton
-            id="diario"
-            active={activeTab === 'diario'}
-            icon={BookOpen}
-            label="Diário"
-            onClick={() => setTab('diario')}
-          />
-          <TabButton
-            id="estoque"
-            active={activeTab === 'estoque'}
-            icon={Package}
-            label="Estoque"
-            onClick={() => setTab('estoque')}
-          />
-          <TabButton
-            id="equipe"
-            active={activeTab === 'equipe'}
-            icon={Users}
-            label="Equipe"
-            onClick={() => setTab('equipe')}
-          />
-          <TabButton
-            id="entradas"
-            active={activeTab === 'entradas'}
-            icon={PackagePlus}
-            label="Entradas NF"
-            badge={entradasCount}
-            alertBadge={faltaMaterialCount}
-            onClick={() => setTab('entradas')}
-          />
-        </div>
-
-        {/* ── Tab Content ──────────────────────────────────────────── */}
-        <div className="pt-4">
-          {activeTab === 'diario' && (
+          <div style={{ height: '100%', display: activeTab === 'diario' ? 'block' : 'none' }}>
             <DiarioTab obraId={obra.id} onKpiChange={fetchKpi} />
-          )}
-          {activeTab === 'estoque' && (
+          </div>
+
+          <div style={{ height: '100%', display: activeTab === 'estoque' ? 'block' : 'none' }}>
             <EstoqueQuickView obraId={obra.id} />
-          )}
-          {activeTab === 'equipe' && (
+          </div>
+
+          <div style={{ height: '100%', display: activeTab === 'equipe' ? 'block' : 'none' }}>
             <EquipeTab obraId={obra.id} />
-          )}
-          {activeTab === 'entradas' && (
-            <EntradasPendentesPanel
-              obraId={obra.id}
-              onCountChange={setEntradasCount}
-              onAlertChange={setFaltaMaterialCount}
-            />
-          )}
+          </div>
+
+          <div style={{ height: '100%', display: activeTab === 'pedidos' ? 'block' : 'none' }}>
+            <PedidosTab obraId={obra.id} isActive={activeTab === 'pedidos'} onKpiChange={fetchKpi} />
+          </div>
+
+          <div style={{ height: '100%', display: activeTab === 'recebimentos' ? 'block' : 'none' }}>
+            <RecebimentosTab obraId={obra.id} isActive={activeTab === 'recebimentos'} onCountChange={setRecebimentosPendentes} />
+          </div>
+
         </div>
-      </div>
-    </div>
+      </PageShell>
+
+      {/* FAB mobile contextual */}
+      {activeTab === 'diario' && (
+        <PageFAB label="+ Novo Registro" onClick={() => {
+          setSearchParams({ tab: 'diario', novo: '1' });
+        }} />
+      )}
+      {activeTab === 'pedidos' && (
+        <PageFAB label="+ Novo Pedido" onClick={() => {
+          setSearchParams({ tab: 'pedidos', novo: '1' });
+        }} />
+      )}
+      {activeTab === 'recebimentos' && (
+        <PageFAB label="+ Registrar Recebimento" onClick={() => {
+          setSearchParams({ tab: 'recebimentos', novo: '1' });
+        }} />
+      )}
+    </>
   );
 }
