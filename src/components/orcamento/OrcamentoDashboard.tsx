@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle2, X,
   TrendingUp, ChevronDown, ChevronRight,
   Package, Lock, Loader2, Table2, BarChart2,
-  Lightbulb,
+  Lightbulb, Pencil, ChevronsUpDown, ChevronsDownUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HelpPopover } from '@/components/ui/HelpPopover';
@@ -448,6 +448,280 @@ function CurvaABC({ etapas, onGoCotacaoClasseA }: CurvaABCProps) {
   );
 }
 
+// ── Sub-componente: Accordion de etapas (BLOCO 2) ────────────────────────────
+
+const SESSION_KEY = (obraId: string) => `lastra_orcamento_etapas_expandidas:${obraId}`;
+
+interface EtapasAccordionProps {
+  etapas: OrcamentoEtapa[];
+  obraId: string;
+  onEditWBS: () => void;
+  /** Mapa key→classe para chips ABC nas composições */
+  abcDados: Map<string, 'A' | 'B' | 'C'>;
+}
+
+function EtapasAccordion({ etapas, obraId, onEditWBS, abcDados }: EtapasAccordionProps) {
+  // Inicializar expansão a partir de sessionStorage ou expandir 1ª etapa
+  const [expandedEtapas, setExpandedEtapas] = useState<Set<string>>(() => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY(obraId));
+      if (raw) return new Set(JSON.parse(raw));
+    } catch { /* ignore */ }
+    return etapas.length > 0 ? new Set([etapas[0].id]) : new Set();
+  });
+
+  const [expandedComps, setExpandedComps] = useState<Set<string>>(new Set());
+
+  // Persistir expansão de etapas
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SESSION_KEY(obraId), JSON.stringify(Array.from(expandedEtapas)));
+    } catch { /* ignore */ }
+  }, [expandedEtapas, obraId]);
+
+  const toggleEtapa = (id: string) => {
+    setExpandedEtapas(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleComp = (id: string) => {
+    setExpandedComps(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allExpanded = etapas.length > 0 && etapas.every(e => expandedEtapas.has(e.id));
+  const toggleAll = () => {
+    if (allExpanded) {
+      setExpandedEtapas(new Set());
+      setExpandedComps(new Set());
+    } else {
+      setExpandedEtapas(new Set(etapas.map(e => e.id)));
+    }
+  };
+
+  return (
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+        <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+          <Package className="h-4 w-4 text-muted-foreground" />
+          Etapas do Orçamento
+        </h2>
+        <button
+          onClick={toggleAll}
+          className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {allExpanded
+            ? <><ChevronsDownUp className="h-3.5 w-3.5" /> Recolher tudo</>
+            : <><ChevronsUpDown className="h-3.5 w-3.5" /> Expandir tudo</>}
+        </button>
+      </div>
+
+      {/* Lista de etapas */}
+      <div className="divide-y divide-border">
+        {etapas.map((etapa, i) => {
+          const composicoes = etapa.composicoes || [];
+          const etapaStats = getEtapaStats(etapa);
+          const total = composicoes.reduce((s, c) => s + (c.precoTotal || 0), 0);
+          const pct = etapaStats.cotadoPct;
+          const isEtapaOpen = expandedEtapas.has(etapa.id);
+          const borderColor = pct === 100 ? '#10b981' : pct > 60 ? '#f59e0b' : '#ef4444';
+
+          return (
+            <div key={etapa.id}>
+              {/* ── Linha da Etapa (Nível 0) ───────────────────────────── */}
+              <div
+                className={cn(
+                  'group relative flex items-center gap-3 px-4 py-3 cursor-pointer select-none',
+                  'hover:bg-muted/40 transition-colors',
+                  isEtapaOpen && 'bg-muted/20',
+                )}
+                onClick={() => toggleEtapa(etapa.id)}
+                role="button"
+                aria-expanded={isEtapaOpen}
+              >
+                {/* Barra colorida esquerda */}
+                <span
+                  className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full transition-colors"
+                  style={{ background: borderColor }}
+                />
+
+                {/* Chevron */}
+                <ChevronRight
+                  className={cn(
+                    'h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200',
+                    isEtapaOpen && 'rotate-90',
+                  )}
+                />
+
+                {/* Número */}
+                <span className="shrink-0 h-5 w-5 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                </span>
+
+                {/* Nome + mini barra de progresso */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground truncate">
+                      {etapa.nome || etapa.codigo || 'Sem nome'}
+                    </span>
+                    {etapaStats.insumosSemPreco > 0 && (
+                      <span className="text-[10px] text-red-500 shrink-0">
+                        {etapaStats.insumosSemPreco} sem preço
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 h-[3px] rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden w-40 max-w-full">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, background: borderColor }}
+                    />
+                  </div>
+                </div>
+
+                {/* Meta à direita */}
+                <div className="hidden sm:flex items-center gap-4 shrink-0 text-xs text-muted-foreground">
+                  <span>{composicoes.length} composições</span>
+                  <span className="font-medium" style={{ color: borderColor }}>{pct}% cotado</span>
+                  <span className="font-bold text-foreground tabular-nums">{formatCurrencyShort(total)}</span>
+                </div>
+
+                {/* Botão editar (lápis) — stopPropagation para não togglear */}
+                <button
+                  onClick={e => { e.stopPropagation(); onEditWBS(); }}
+                  className="shrink-0 p-1.5 rounded-md text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Editar na Planilha"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* ── Composições (Nível 1) ──────────────────────────────── */}
+              {isEtapaOpen && (
+                <div className="bg-muted/5 divide-y divide-border/50">
+                  {composicoes.map(comp => {
+                    const isCompOpen = expandedComps.has(comp.id);
+                    const hasInsumos = comp.usaInsumos && comp.insumos && comp.insumos.length > 0;
+                    const abcClasse = abcDados.get(comp.id);
+
+                    return (
+                      <div key={comp.id}>
+                        {/* Linha da composição */}
+                        <div
+                          className={cn(
+                            'flex items-center gap-2 pl-[44px] pr-4 py-2.5',
+                            hasInsumos && 'cursor-pointer hover:bg-muted/30 transition-colors',
+                            isCompOpen && 'bg-muted/20',
+                          )}
+                          onClick={() => hasInsumos && toggleComp(comp.id)}
+                          role={hasInsumos ? 'button' : undefined}
+                          aria-expanded={hasInsumos ? isCompOpen : undefined}
+                        >
+                          {/* Chevron só se tiver insumos */}
+                          <span className="w-4 shrink-0 flex items-center">
+                            {hasInsumos ? (
+                              <ChevronRight
+                                className={cn(
+                                  'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
+                                  isCompOpen && 'rotate-90',
+                                )}
+                              />
+                            ) : (
+                              <span className="inline-block w-3.5" />
+                            )}
+                          </span>
+
+                          {/* Nome composição */}
+                          <span className="flex-1 text-xs text-foreground truncate" title={comp.descricao || comp.codigo}>
+                            {comp.descricao || comp.codigo || 'Composição'}
+                          </span>
+
+                          {/* Chip ABC */}
+                          {abcClasse && (
+                            <span className={cn(
+                              'shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full',
+                              abcClasse === 'A' ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400' :
+                              abcClasse === 'B' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' :
+                              'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
+                            )}>
+                              {abcClasse}
+                            </span>
+                          )}
+
+                          {/* Qtd / Preço / Total */}
+                          <div className="hidden sm:flex items-center gap-3 shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                            {comp.quantidade != null && (
+                              <span>{comp.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {comp.unidade}</span>
+                            )}
+                            {comp.precoUnitario ? (
+                              <span>{formatCurrency(comp.precoUnitario)}/{comp.unidade}</span>
+                            ) : (
+                              <span className="text-red-400">sem preço</span>
+                            )}
+                            <span className="font-medium text-foreground">{formatCurrencyShort(comp.precoTotal || 0)}</span>
+                          </div>
+                        </div>
+
+                        {/* ── Insumos (Nível 2) ──────────────────────────── */}
+                        {isCompOpen && hasInsumos && (
+                          <div className="bg-muted/5 divide-y divide-border/30">
+                            {comp.insumos!.map(ins => {
+                              const semPreco = !ins.precoUnitario || ins.precoUnitario === 0;
+                              return (
+                                <div
+                                  key={ins.id}
+                                  className="flex items-center gap-2 pl-[68px] pr-4 py-2"
+                                >
+                                  <span className="w-4 shrink-0 flex items-center justify-center">
+                                    {semPreco && (
+                                      <AlertTriangle className="h-3 w-3 text-red-500" />
+                                    )}
+                                  </span>
+
+                                  <span
+                                    className="flex-1 text-[11px] text-muted-foreground truncate"
+                                    title={ins.descricao || ins.codigo}
+                                  >
+                                    {ins.descricao || ins.codigo || 'Insumo'}
+                                  </span>
+
+                                  <div className="hidden sm:flex items-center gap-3 shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                                    {ins.quantidade != null && (
+                                      <span>{ins.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {ins.unidade}</span>
+                                    )}
+                                    {ins.precoUnitario ? (
+                                      <span>R$ {ins.precoUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    ) : (
+                                      <span className="text-red-400 font-medium">sem preço</span>
+                                    )}
+                                    <span className="font-medium text-foreground">{formatCurrencyShort(ins.precoTotal || 0)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principal ─────────────────────────────────────────────────────
 
 const DICA_KEY = 'lastra_orcamento_dica_vista';
@@ -512,6 +786,24 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
       : 100;
 
     return { totalGeral, totalInsumos, insumosSemPreco, totalComposicoes, cotadoPct };
+  }, [etapas]);
+
+  // Mapa comp.id → classe ABC para chips no accordion do BLOCO 2
+  const abcDadosBloco2 = useMemo((): Map<string, 'A' | 'B' | 'C'> => {
+    const abc = classificarCurvaABC(etapas);
+    const m = new Map<string, 'A' | 'B' | 'C'>();
+    for (const item of abc) {
+      // key pode ser "compId::insId" (insumo) ou "compId" (composição simples)
+      // Para o accordion queremos mapear pelo compId
+      const compId = item.key.includes('::') ? item.key.split('::')[0] : item.key;
+      // Mantém a pior classe se o compId já foi visto (A > B > C)
+      const existing = m.get(compId);
+      const rank = { A: 0, B: 1, C: 2 };
+      if (!existing || rank[item.classe] < rank[existing]) {
+        m.set(compId, item.classe);
+      }
+    }
+    return m;
   }, [etapas]);
 
   const prevKpisRef = useRef<string>('');
@@ -633,7 +925,7 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            BLOCO 2 — Cards de etapa
+            BLOCO 2 — Etapas accordion
         ════════════════════════════════════════════════════════════════ */}
         {etapas.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center py-12 gap-4 text-center">
@@ -658,64 +950,12 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
             </div>
           </div>
         ) : (
-          <div>
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-              <Package className="h-4 w-4 text-muted-foreground" />
-              Etapas do Orçamento
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              {etapas.map((etapa, i) => {
-                const etapaStats = getEtapaStats(etapa);
-                const total = (etapa.composicoes || []).reduce((s, c) => s + (c.precoTotal || 0), 0);
-                const pct = etapaStats.cotadoPct;
-                const barColor = pct === 100 ? '#10b981' : pct > 60 ? '#f59e0b' : '#ef4444';
-
-                return (
-                  <button
-                    key={etapa.id}
-                    onClick={onEditWBS}
-                    className="group rounded-xl border bg-card p-4 text-left hover:shadow-md hover:border-primary/30 transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="h-6 w-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">
-                            {String(i + 1).padStart(2, '0')}
-                          </span>
-                        </div>
-                        <span className="text-sm font-semibold text-foreground truncate">
-                          {etapa.nome || etapa.codigo || 'Sem nome'}
-                        </span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
-                    </div>
-
-                    <div className="space-y-2">
-                      {/* Barra de progresso */}
-                      <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${pct}%`, background: barColor }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{pct}% cotado</span>
-                        <span className="font-bold text-foreground">{formatCurrencyShort(total)}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                        <span>{(etapa.composicoes || []).length} composições</span>
-                        {etapaStats.insumosSemPreco > 0 && (
-                          <span className="text-red-500">{etapaStats.insumosSemPreco} sem preço</span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <EtapasAccordion
+            etapas={etapas}
+            obraId={obra.id}
+            onEditWBS={onEditWBS}
+            abcDados={abcDadosBloco2}
+          />
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
