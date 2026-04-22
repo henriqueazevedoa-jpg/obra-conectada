@@ -101,7 +101,7 @@ export interface MovimentacaoEstoque {
   obraId: string;
   materialId: string;
   materialNome: string;
-  tipo: 'entrada' | 'saida';
+  tipo: 'entrada' | 'saida' | 'devolucao' | 'perda';
   data: string;
   quantidade: number;
   origemDestino: string;

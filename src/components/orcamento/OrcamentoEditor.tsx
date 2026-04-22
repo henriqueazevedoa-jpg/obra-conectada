@@ -89,7 +89,6 @@ import ImportarSinapiDialog from './ImportarSinapiDialog';
 import CatalogDrawer, { CarrinhoItem } from './CatalogDrawer';
 import QuickStartModal from './QuickStartModal';
 import PasteImportDialog, { PastedComposicao } from './PasteImportDialog';
-import VersaoSeletor from './VersaoSeletor';
 
 import {
   expandirComposicaoSinapi,
@@ -179,6 +178,10 @@ interface Props {
   sinapiConfig?: SinapiConfig;
   /** 3C: Navegar à aba Cotação com item pré-filtrado */
   onGoCotacao?: (descricao: string) => void;
+  /** Sprint 4: versão ativa lifted do OrcamentoCentral */
+  versaoAtiva?: OrcamentoVersao | null;
+  /** Sprint 4: callback quando versão muda */
+  onVersaoChange?: (v: OrcamentoVersao) => void;
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -190,6 +193,8 @@ export default function OrcamentoEditor({
   onBack,
   sinapiConfig: sinapiConfigProp,
   onGoCotacao,
+  versaoAtiva: versaoAtivaProp,
+  onVersaoChange,
 }: Props) {
   const {
     getOrcamento,
@@ -206,11 +211,16 @@ export default function OrcamentoEditor({
     salvarVersao,
   } = useOrcamento();
 
-  // Sprint 4: versão ativa
-  const [versaoAtiva, setVersaoAtiva] = useState<OrcamentoVersao | null>(null);
+  // Sprint 4: versão ativa — usa prop do Central quando disponível
+  const [versaoAtivaInternal, setVersaoAtivaInternal] = useState<OrcamentoVersao | null>(null);
+  const versaoAtiva = versaoAtivaProp !== undefined ? versaoAtivaProp : versaoAtivaInternal;
+  const setVersaoAtiva = (v: OrcamentoVersao) => {
+    setVersaoAtivaInternal(v);
+    onVersaoChange?.(v);
+  };
   useEffect(() => {
     const v = getVersaoAtiva(obraId);
-    if (v) setVersaoAtiva(v);
+    if (v) setVersaoAtivaInternal(v);
   }, [obraId, getVersaoAtiva]);
 
   const { obras } = useObras();
@@ -653,23 +663,7 @@ export default function OrcamentoEditor({
 
         {/* Header movido para OrcamentoCentral (header global) */}
 
-        {/* ── Sprint 4: Seletor de versão ───────────────────────────────── */}
-        {getVersoes(obraId).length > 0 && (
-          <div className="flex items-center gap-2 px-4 md:px-6 py-2 border-b bg-background shrink-0">
-            <span className="text-xs text-muted-foreground font-medium hidden sm:inline">Versão:</span>
-            <VersaoSeletor
-              obraId={obraId}
-              versaoAtiva={versaoAtiva}
-              onVersaoChange={v => {
-                setVersaoAtiva(v);
-                // Trocar etapas para a nova versão
-                const etapasDaVersao = getEtapasDaVersao(v.id);
-                if (etapasDaVersao) setEtapas(etapasDaVersao);
-              }}
-              readOnly={readOnly}
-            />
-          </div>
-        )}
+        {/* Sprint 4: Seletor de versão — renderizado no OrcamentoCentral (acima das abas); omitido aqui para evitar duplicação */}
 
         {/* ── Toolbar de Ações ──────────────────────────────────────────── */}
         {!readOnly && (

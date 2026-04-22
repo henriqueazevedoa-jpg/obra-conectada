@@ -1,8 +1,8 @@
 # 📋 SESSION-TEMPLATE — ObraConectada
 
-**Versão:** 3.0  
+**Versão:** 3.1  
 **Stack:** React 18 + TypeScript + Supabase + Tailwind CSS  
-**Última atualização:** 2026-04-19  
+**Última atualização:** 2026-04-22  
 **Objetivo desta versão:** aumentar drasticamente consistência entre workflows, reduzir retrabalho, preservar aprendizados úteis e melhorar qualidade de execução técnica/visual.
 
 > ⚠️ **ARQUIVOS OBRIGATÓRIOS PARA QUALQUER TAREFA**
@@ -10,8 +10,12 @@
 > 1. `SESSION-TEMPLATE.md` — regras operacionais da sessão.
 > 2. `VISUAL.md` — design system e regras de UI.
 > 3. `PROJECT-MEMORY.md` — memória tática cronológica do projeto.
-> 4. `ARCHITECTURE-DECISIONS.md` — decisões permanentes e restrições arquiteturais.
+> 4. `ARCHITECTURE-DECISIONS.md` — decisões permanentes e restrições.
 > 5. `PATTERNS.md` — receitas e padrões reutilizáveis.
+> 6. `PLANO_GERAL_STATUS.md` — status atual dos prompts (✅/⬜).
+> 7. `PLANO_GERAL.txt` — especificações completas de cada prompt.
+>    **Consultar este arquivo ANTES de pedir spec ao usuário.**
+>    Se o prompt estiver na fila, a spec já está aqui.
 
 ---
 
@@ -83,7 +87,9 @@ Ler sempre:
 3. os registros do `PROJECT-MEMORY.md` relacionados à área da tarefa;
 4. o `ARCHITECTURE-DECISIONS.md` se a tarefa tocar arquitetura, dados, performance, RLS, contextos ou migrações;
 5. o `PATTERNS.md` se a tarefa envolver implementação nova, UI, páginas, fluxos, contexts, Supabase ou componentes reaproveitáveis;
-6. o `VISUAL.md` se qualquer parte da tarefa tocar interface.
+6. o `VISUAL.md` se qualquer parte da tarefa tocar interface;
+7. o `PLANO_GERAL_STATUS.md` para verificar o status do sprint atual e o que já foi concluído;
+8. o `PLANO_GERAL.txt` buscando pelo número do PROMPT correspondente à tarefa — a spec completa está lá. Nunca pedir spec ao usuário se ela puder ser encontrada neste arquivo.
 
 ---
 
@@ -521,7 +527,9 @@ Antes de encerrar qualquer tarefa:
 
 # 18) COMO USAR
 
-1. Carregar este arquivo + `VISUAL.md` + `PROJECT-MEMORY.md` + `ARCHITECTURE-DECISIONS.md` + `PATTERNS.md`.
+1. Carregar este arquivo + `VISUAL.md` + `PROJECT-MEMORY.md`
+   + `ARCHITECTURE-DECISIONS.md` + `PATTERNS.md`
+   + `PLANO_GERAL_STATUS.md` + `PLANO_GERAL.txt`.
 2. Escolher um modo principal.
 3. Descrever a tarefa.
 4. Consultar a memória obrigatória do modo.
@@ -542,5 +550,5 @@ Este sistema existe para produzir um delta real de performance no fluxo de traba
 
 ---
 
-**Versão:** 3.0  
-**Atualizado:** 2026-04-19
+**Versão:** 3.1  
+**Atualizado:** 2026-04-22

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOrcamento } from '@/contexts/OrcamentoContext';
+import type { OrcamentoVersao } from '@/contexts/OrcamentoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
@@ -9,6 +10,8 @@ import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 import OrcamentoEditor from '@/components/orcamento/OrcamentoEditor';
 import OrcamentoDashboard from '@/components/orcamento/OrcamentoDashboard';
 import ExportarOrcamentoDialog from '@/components/orcamento/ExportarOrcamentoDialog';
+import VersaoSeletor from '@/components/orcamento/VersaoSeletor';
+import CotacaoCentral from '@/components/orcamento/CotacaoCentral';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import NoObraState from '@/components/obras/NoObraState';
 import { supabase } from '@/integrations/supabase/untyped';
@@ -17,7 +20,7 @@ import type { PageTab } from '@/components/layout/PageShell';
 
 // ── Tipos e utilitários ──────────────────────────────────────────────────────
 
-type OrcamentoTab = 'overview' | 'wbs';
+type OrcamentoTab = 'overview' | 'wbs' | 'cotacao';
 
 type SinapiRegime = 'SEM_DESONERACAO' | 'COM_DESONERACAO' | 'SEM_ENCARGOS';
 interface SinapiConfig { uf: string; competencia: string; regime: SinapiRegime; }
@@ -55,7 +58,7 @@ export default function OrcamentoCentral() {
   const { user } = useAuth();
   const { obras } = useObras();
   const { selectedObraId } = useObraSelection();
-  const { getOrcamento } = useOrcamento();
+  const { getOrcamento, getVersaoAtiva, getVersoes } = useOrcamento();
 
   const [activeTab, setActiveTab] = usePersistentPageState<OrcamentoTab>(
     'orcamento:tab', 'overview', selectedObraId
@@ -65,6 +68,15 @@ export default function OrcamentoCentral() {
   const navigate = useNavigate();
 
   const [exportOpen, setExportOpen] = useState(false);
+  const [cotacaoSearch, setCotacaoSearch] = useState('');
+
+  // ── Versão ativa — lifted aqui para ser compartilhada entre as duas abas ──
+  const [versaoAtiva, setVersaoAtiva] = useState<OrcamentoVersao | null>(null);
+  useEffect(() => {
+    if (!selectedObraId) { setVersaoAtiva(null); return; }
+    const v = getVersaoAtiva(selectedObraId);
+    if (v) setVersaoAtiva(v); else setVersaoAtiva(null);
+  }, [selectedObraId, getVersaoAtiva]);
 
   // SINAPI config — mantida aqui para passar ao OrcamentoEditor
   const [sinapiConfig, setSinapiConfig] = useState<SinapiConfig>(loadSinapiConfig);
@@ -124,6 +136,7 @@ export default function OrcamentoCentral() {
   const tabs: PageTab[] = [
     { id: 'overview', label: 'Visão Geral' },
     { id: 'wbs',      label: 'Planilha' },
+    { id: 'cotacao',  label: 'Cotação & Preços', badge: itensSemPreco > 0 ? itensSemPreco : undefined, badgeDanger: itensSemPreco > 0 },
   ];
 
   // Sem obra
@@ -146,6 +159,8 @@ export default function OrcamentoCentral() {
     );
   }
 
+  const temVersoes = getVersoes(obra.id).length > 0;
+
   return (
     <PageShell
       icon={OrcamentoIcon}
@@ -154,40 +169,78 @@ export default function OrcamentoCentral() {
       activeTab={activeTab}
       onTabChange={id => setActiveTab(id as OrcamentoTab)}
       actions={[
-        { label: 'Exportar', onClick: () => setExportOpen(true), variant: 'ghost' },
-        ...(activeTab === 'wbs' ? [{
-          label: itensSemPreco > 0 ? `Cotar itens (${itensSemPreco})` : 'Cotar itens',
-          onClick: () => navigate('/cotacao?origem=orcamento'),
-          variant: 'ghost' as const,
-        }] : []),
+        { label: 'Exportar', onClick: () => setExportOpen(true), variant: 'ghost' }
       ]}
     >
-      <div style={{ height: '100%', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
-        {activeTab === 'overview' && (
-          <ErrorBoundary context="Visão Geral">
-            <OrcamentoDashboard
-              obra={obra}
-              onEditWBS={() => setActiveTab('wbs')}
-          onGoCotacao={() => navigate('/cotacao?origem=orcamento')}
-            />
-          </ErrorBoundary>
-        )}
-
-        {activeTab === 'wbs' && (
-          <ErrorBoundary context="Planilha Orçamentária">
-            <OrcamentoEditor
+        {/* ── Faixa de versão — visível em ambas as abas quando há versões ── */}
+        {temVersoes && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 20px',
+            borderBottom: '1px solid hsl(var(--border))',
+            background: 'hsl(var(--background))',
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500 }}>
+              Versão:
+            </span>
+            <VersaoSeletor
               obraId={obra.id}
-              obraNome={obra.nome}
+              versaoAtiva={versaoAtiva}
+              onVersaoChange={v => setVersaoAtiva(v)}
               readOnly={!editing}
-              onBack={() => setActiveTab('overview')}
-              sinapiConfig={sinapiConfig}
-              onGoCotacao={(descricao) => {
-                navigate(`/cotacao?origem=orcamento&q=${encodeURIComponent(descricao)}`);
-              }}
             />
-          </ErrorBoundary>
+          </div>
         )}
+
+        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          {activeTab === 'overview' && (
+            <ErrorBoundary context="Visão Geral">
+              <OrcamentoDashboard
+                obra={obra}
+                onEditWBS={() => setActiveTab('wbs')}
+                onGoCotacao={() => {
+                  setCotacaoSearch('');
+                  setActiveTab('cotacao');
+                }}
+              />
+            </ErrorBoundary>
+          )}
+
+          {activeTab === 'wbs' && (
+            <ErrorBoundary context="Planilha Orçamentária">
+              <OrcamentoEditor
+                obraId={obra.id}
+                obraNome={obra.nome}
+                readOnly={!editing}
+                onBack={() => setActiveTab('overview')}
+                sinapiConfig={sinapiConfig}
+                versaoAtiva={versaoAtiva}
+                onVersaoChange={v => setVersaoAtiva(v)}
+                onGoCotacao={(descricao) => {
+                  setCotacaoSearch(descricao || '');
+                  setActiveTab('cotacao');
+                }}
+              />
+            </ErrorBoundary>
+          )}
+
+          {activeTab === 'cotacao' && (
+            <ErrorBoundary context="Cotação & Preços">
+              <CotacaoCentral
+                obra={obra}
+                onBack={() => setActiveTab('wbs')}
+                contexto="orcamento"
+                initialSearch={cotacaoSearch}
+                onClearInitialSearch={() => setCotacaoSearch('')}
+              />
+            </ErrorBoundary>
+          )}
+        </div>
 
       </div>
 

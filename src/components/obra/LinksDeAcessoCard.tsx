@@ -15,9 +15,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
   Link2, Eye, Wrench, Plus, Copy, Power, PowerOff, Trash2,
-  Loader2, ChevronDown, ChevronUp, Lock, Zap,
+  Loader2, ChevronDown, ChevronUp, Lock, Zap, Clock,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -34,6 +36,7 @@ interface ObraLink {
   ativo: boolean;
   expires_at: string | null;
   views_count: number;
+  last_accessed_at: string | null;
   created_at: string;
 }
 
@@ -215,6 +218,12 @@ function LinkCard({
             <p className="text-[10px] text-muted-foreground">
               {isViz ? 'Visualização' : 'Operação'} · {link.views_count} visualizações
             </p>
+            {link.last_accessed_at && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                <Clock className="h-2.5 w-2.5" />
+                Último acesso: {format(parseISO(link.last_accessed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -458,7 +467,12 @@ export default function LinksDeAcessoCard({ obraId }: { obraId: string }) {
 
             {/* Nome */}
             <div className="space-y-1.5">
-              <Label>{tipo === 'visualizacao' ? 'Rótulo do link' : 'Nome do responsável'} *</Label>
+              <Label>
+                {tipo === 'visualizacao'
+                  ? 'Rótulo do link'
+                  : 'Nome do funcionário / encarregado que usará este link'}
+                {' '}*
+              </Label>
               <Input
                 value={nomeLabel}
                 onChange={e => setNomeLabel(e.target.value)}
@@ -470,6 +484,21 @@ export default function LinksDeAcessoCard({ obraId }: { obraId: string }) {
                   : 'Aparece em todos os registros feitos por este link.'}
               </p>
             </div>
+
+            {/* Vincular a membro da Equipe (operação) */}
+            {tipo === 'operacao' && (
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  Vincular a membro da Equipe
+                  <span className="text-[10px] font-normal text-muted-foreground">(opcional)</span>
+                </Label>
+                <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5">
+                  <p className="text-xs text-muted-foreground">
+                    Disponível após cadastrar membros na aba Equipe da obra.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Permissões — Visualização */}
             {tipo === 'visualizacao' && (

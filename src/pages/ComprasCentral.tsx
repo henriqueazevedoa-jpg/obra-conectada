@@ -10,16 +10,23 @@ import type { PageKPI } from '@/components/layout/PageShell';
 import ListaCompraTab from '@/components/compras/ListaCompraTab';
 import PedidosTab from '@/components/execucao/PedidosTab';
 import RecebimentosTab from '@/components/execucao/RecebimentosTab';
-import { ShoppingCart, PackagePlus, ClipboardList } from 'lucide-react';
+import { ShoppingCart, PackagePlus, ClipboardList, Tags } from 'lucide-react';
 import { useCompany } from '@/contexts/CompanyContext';
+import CotacaoCentral from '@/components/orcamento/CotacaoCentral';
+import { AlertCircle } from 'lucide-react';
+import ChecagemSemanalDrawer from '@/components/compras/ChecagemSemanalDrawer';
+import { getProximaSemanaRange } from '@/lib/dateUtils';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'lista' | 'pedidos' | 'recebimentos';
-const VALID_TABS: Tab[] = ['lista', 'pedidos', 'recebimentos'];
+type Tab = 'lista' | 'cotacao' | 'pedidos' | 'recebimentos';
+const VALID_TABS: Tab[] = ['lista', 'cotacao', 'pedidos', 'recebimentos'];
 
 const TABS_CONFIG = [
   { id: 'lista'        as Tab, label: 'Lista de compra', icon: <ClipboardList className="h-3.5 w-3.5" /> },
+  { id: 'cotacao'      as Tab, label: 'Cotações',      icon: <Tags className="h-3.5 w-3.5" /> },
   { id: 'pedidos'      as Tab, label: 'Pedidos',      icon: <ShoppingCart className="h-3.5 w-3.5" /> },
   { id: 'recebimentos' as Tab, label: 'Recebimentos', icon: <PackagePlus className="h-3.5 w-3.5" /> },
 ];
@@ -51,11 +58,40 @@ export default function ComprasCentral() {
 
   const { company } = useCompany();
 
-  // KPI state
   const [kpiLoading, setKpiLoading] = useState(true);
   const [pedidosAbertos, setPedidosAbertos] = useState(0);
   const [recebimentosPendentes, setRecebimentosPendentes] = useState(0);
   const [materiaisCriticos, setMateriaisCriticos] = useState(0);
+  const [cotacaoSearch, setCotacaoSearch] = useState('');
+  const [cotacaoKpis, setCotacaoKpis] = useState<PageKPI[]>([]);
+
+  // Estado para checagem semanal
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [needsSemanalCheck, setNeedsSemanalCheck] = useState(false);
+
+  const checkSemanalStatus = useCallback(async () => {
+    if (!obra) return;
+    const isFriday = new Date().getDay() === 5;
+    if (!isFriday) {
+      setNeedsSemanalCheck(false);
+      return;
+    }
+
+    const { inicio } = getProximaSemanaRange();
+    const strInicio = format(inicio, 'yyyy-MM-dd');
+
+    const { data } = await (supabase as any).from('checagem_material')
+      .select('id')
+      .eq('obra_id', obra.id)
+      .eq('semana_inicio', strInicio)
+      .limit(1);
+
+    if (!data || data.length === 0) {
+      setNeedsSemanalCheck(true);
+    } else {
+      setNeedsSemanalCheck(false);
+    }
+  }, [obra?.id]);
 
   const fetchKpi = useCallback(async () => {
     if (!obra) return;
@@ -73,9 +109,12 @@ export default function ComprasCentral() {
     setMateriaisCriticos(materiais.filter(m => (m.quantidadeAtual || 0) <= (m.estoqueMinimo || 0)).length);
 
     setKpiLoading(false);
-  }, [obra?.id]);
+  }, [obra?.id, getMateriaisByObra]);
 
-  useEffect(() => { fetchKpi(); }, [fetchKpi]);
+  useEffect(() => { 
+    fetchKpi(); 
+    checkSemanalStatus();
+  }, [fetchKpi, checkSemanalStatus]);
 
   if (!obra) {
     return (
@@ -94,11 +133,13 @@ export default function ComprasCentral() {
   }));
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
-  const kpis: PageKPI[] = kpiLoading ? [] : [
+  const comprasKpis: PageKPI[] = kpiLoading ? [] : [
     { id: 'pedidos', label: 'Pedidos ativos',         value: String(pedidosAbertos),      tint: '#F3F2FD', valueColor: '#3C3489', labelColor: '#534AB7' },
     { id: 'rec',     label: 'Recebimentos pendentes', value: String(recebimentosPendentes), tint: recebimentosPendentes > 0 ? '#FCEBEB' : undefined, valueColor: recebimentosPendentes > 0 ? '#A32D2D' : undefined },
     { id: 'mats',    label: 'Mat. críticos',          value: String(materiaisCriticos),   tint: materiaisCriticos > 0 ? '#FFF7ED' : undefined, valueColor: materiaisCriticos > 0 ? '#C2410C' : undefined },
   ];
+
+  const currentKpis = activeTab === 'cotacao' ? cotacaoKpis : comprasKpis;
 
   return (
     <>
@@ -108,30 +149,78 @@ export default function ComprasCentral() {
         tabs={tabsWithBadges}
         activeTab={activeTab}
         onTabChange={id => setTab(id as Tab)}
-        kpis={kpis}
+        kpis={currentKpis}
       >
-        <div style={{ height: '100%', position: 'relative', background: 'var(--color-background-primary)' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-background-primary)' }}>
+          
+          {needsSemanalCheck && (
+            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-100 p-1.5 rounded-md">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Planejamento da próxima semana</p>
+                  <p className="text-xs text-amber-700">Verifique os materiais necessários para as tarefas da semana que vem.</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="bg-white hover:bg-amber-50 text-amber-900 border-amber-200" onClick={() => setDrawerOpen(true)}>
+                Fazer checagem
+              </Button>
+            </div>
+          )}
 
-          <div style={{ height: '100%', display: activeTab === 'lista' ? 'block' : 'none' }}>
-            <ListaCompraTab
-              obraId={obra.id}
-              companyId={company?.id ?? ''}
-              isActive={activeTab === 'lista'}
-              onKpiChange={fetchKpi}
-            />
+          <div className="flex-1 overflow-hidden relative">
+            <div style={{ height: '100%', display: activeTab === 'lista' ? 'block' : 'none' }}>
+              <ListaCompraTab
+                obraId={obra.id}
+                companyId={company?.id ?? ''}
+                isActive={activeTab === 'lista'}
+                onKpiChange={fetchKpi}
+                onIrParaCotacao={(listaNome) => {
+                  setCotacaoSearch(listaNome || '');
+                  setTab('cotacao');
+                }}
+              />
+            </div>
+
+            <div style={{ height: '100%', display: activeTab === 'cotacao' ? 'flex' : 'none', flexDirection: 'column', overflow: 'hidden' }}>
+              {activeTab === 'cotacao' && (
+                <CotacaoCentral
+                  obra={obra}
+                  onBack={() => setTab('lista')}
+                  contexto="compra"
+                  initialSearch={cotacaoSearch}
+                  onClearInitialSearch={() => setCotacaoSearch('')}
+                  onKpisChange={setCotacaoKpis}
+                />
+              )}
+            </div>
+
+            <div style={{ height: '100%', display: activeTab === 'pedidos' ? 'block' : 'none' }}>
+              <PedidosTab 
+                obraId={obra.id} 
+                isActive={activeTab === 'pedidos'} 
+                onKpiChange={fetchKpi}
+              />
+            </div>
+
+            <div style={{ height: '100%', display: activeTab === 'recebimentos' ? 'block' : 'none' }}>
+              <RecebimentosTab obraId={obra.id} isActive={activeTab === 'recebimentos'} onCountChange={setRecebimentosPendentes} />
+            </div>
           </div>
 
-          <div style={{ height: '100%', display: activeTab === 'pedidos' ? 'block' : 'none' }}>
-            <PedidosTab 
-              obraId={obra.id} 
-              isActive={activeTab === 'pedidos'} 
-              onKpiChange={fetchKpi}
-            />
-          </div>
-
-          <div style={{ height: '100%', display: activeTab === 'recebimentos' ? 'block' : 'none' }}>
-            <RecebimentosTab obraId={obra.id} isActive={activeTab === 'recebimentos'} onCountChange={setRecebimentosPendentes} />
-          </div>
+          <ChecagemSemanalDrawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            obraId={obra.id}
+            onConcluida={() => {
+              checkSemanalStatus();
+              // Se tivermos na lista, forçar update para mostrar a nova lista!
+              // Como ListaCompraTab.tsx usa isActive para data fetching, o setActive('lista') no próximo useEffect deve cobrir, ou onKpiChange().
+              fetchKpi();
+            }}
+          />
 
         </div>
       </PageShell>

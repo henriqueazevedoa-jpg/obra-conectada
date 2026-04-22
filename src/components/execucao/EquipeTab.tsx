@@ -997,7 +997,7 @@ export default function EquipeTab({ obraId }: { obraId: string }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
 
       {/* Sub-tabs: Membros / Presença */}
       <div className="flex rounded-lg border border-border overflow-hidden text-xs w-fit">

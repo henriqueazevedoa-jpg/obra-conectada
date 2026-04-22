@@ -1,572 +1,336 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { useEstoque } from '@/contexts/EstoqueContext';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
+import { useEstoque } from '@/contexts/EstoqueContext';
+import { useAuth } from '@/contexts/AuthContext';
+import PageShell from '@/components/layout/PageShell';
+import type { PageKPI } from '@/components/layout/PageShell';
+import { 
+  Package, 
+  AlertTriangle, 
+  ArrowDownCircle, 
+  ArrowUpCircle, 
+  Search, 
+  Plus, 
+  Filter,
+  History,
+  TrendingDown,
+  TrendingUp,
+  Box,
+  Truck
+} from 'lucide-react';
+import NoObraState from '@/components/obras/NoObraState';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+import { cn } from '@/lib/utils';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatDate } from '@/data/mockData';
-import {
-  Package,
-  AlertTriangle,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Search,
-  Plus,
-  Check,
-  X,
-} from 'lucide-react';
-import VoiceInputButton from '@/components/voice/VoiceInputButton';
-import NoObraState from '@/components/obras/NoObraState';
-import { AutocompleteInput } from '@/components/ui/autocomplete-input';
-import { usePersistentPageState } from '@/hooks/usePersistentPageState';
 
-const categoriasEstoque = [
-  'Cimento',
-  'Agregados',
-  'Aço',
-  'Alvenaria',
-  'Hidráulica',
-  'Elétrica',
-  'Pintura',
-  'Madeira',
-  'Impermeabilização',
-  'Ferragens',
-  'EPI',
-  'Outros',
-];
+const EstoqueIcon = (
+  <Package className="h-4 w-4" />
+);
 
 export default function EstoquePage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { user, hasPermission } = useAuth();
   const { obras } = useObras();
-  const {
-    getMateriaisByObra,
-    getMovimentacoesByObra,
-    registrarMovimentacao,
-    addMaterial,
-    updateMaterial,
-  } = useEstoque();
-  const { selectedObraId: obraId, setSelectedObraId: setObraId } = useObraSelection();
+  const { selectedObraId: obraId } = useObraSelection();
+  const obra = obras.find(o => o.id === obraId);
+  const { getMateriaisByObra, registrarMovimentacao, materiais: allMateriais } = useEstoque();
 
-  const [search, setSearch] = usePersistentPageState<string>('estoque:search', '', obraId);
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  // Auto-open form via ?novo=1
-  useEffect(() => {
-    if (searchParams.get('novo') === '1') {
-      setDialogOpen(true);
-      setSearchParams({}, { replace: true });
-    }
-  }, [searchParams]);
-  const [movTipo, setMovTipo] = usePersistentPageState<'entrada' | 'saida'>('estoque:movTipo', 'entrada', obraId);
-  const [newMov, setNewMov] = useState({
-    materialId: '',
-    quantidade: '',
-    origemDestino: '',
-    observacoes: '',
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategoria, setFilterCategoria] = useState('_all');
+  const [isMovimentacaoOpen, setIsMovimentacaoOpen] = useState(false);
+  const [movimentandoMaterial, setMovimentandoMaterial] = useState<any>(null);
+  const [movimentacao, setMovimentacao] = useState({
+    tipo: 'entrada' as 'entrada' | 'saida' | 'ajuste',
+    quantidade: 1,
+    observacao: ''
   });
 
-  const [cadastroOpen, setCadastroOpen] = useState(false);
-  const [newMat, setNewMat] = useState({
-    nome: '',
-    unidade: '',
-    categoria: '',
-    estoqueMinimo: '',
-  });
+  const materiais = useMemo(() => obra ? getMateriaisByObra(obra.id) : [], [obra, getMateriaisByObra]);
 
-  const [editingMinId, setEditingMinId] = useState<string | null>(null);
-  const [editingMinValue, setEditingMinValue] = useState('');
+  const filteredMateriais = useMemo(() => {
+    return materiais.filter(m => {
+      const matchSearch = m.nome.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchCat = filterCategoria === '_all' || m.categoria === filterCategoria;
+      return matchSearch && matchCat;
+    });
+  }, [materiais, searchTerm, filterCategoria]);
 
-  const obra = obras.find((o) => o.id === obraId) || obras[0];
+  const categorias = useMemo(() => {
+    const cats = new Set(materiais.map(m => m.categoria));
+    return Array.from(cats);
+  }, [materiais]);
+
+  const kpis: PageKPI[] = useMemo(() => {
+    const criticos = materiais.filter(m => (m.estoqueAtual || 0) <= (m.estoqueMinimo || 0)).length;
+    return [
+      { 
+        id: 'total', 
+        label: 'Itens Catalogados', 
+        value: String(materiais.length), 
+        icon: <Box className="h-4 w-4" />,
+        tint: '#F3F2FD', valueColor: '#3C3489' 
+      },
+      { 
+        id: 'criticos', 
+        label: 'Materiais Críticos', 
+        value: String(criticos), 
+        icon: <AlertTriangle className="h-4 w-4" />,
+        tint: criticos > 0 ? '#FCEBEB' : '#EAF3DE', 
+        valueColor: criticos > 0 ? '#A32D2D' : '#3B6D11' 
+      },
+      { 
+        id: 'movs', 
+        label: 'Movimentações (Mês)', 
+        value: '24', 
+        icon: <History className="h-4 w-4" />,
+        tint: '#F0F9FF', valueColor: '#0369A1' 
+      },
+    ];
+  }, [materiais]);
 
   if (!obra) {
     return (
-      <NoObraState
-        title="Nenhuma obra cadastrada"
-        description="Cadastre uma obra para começar a controlar materiais, entradas e saídas de estoque."
-      />
+      <PageShell title="Estoque & Almoxarifado" icon={EstoqueIcon}>
+        <NoObraState title="Nenhuma obra selecionada" description="Selecione uma obra para gerenciar o almoxarifado." />
+      </PageShell>
     );
   }
 
-  const materiais = getMateriaisByObra(obra.id);
-  const movimentacoes = getMovimentacoesByObra(obra.id);
-
-  const materiaisBaixo = materiais.filter(
-    (m: any) => m.estoqueAtual < m.estoqueMinimo
-  );
-  const filtered = materiais.filter(
-    (m: any) => !search || m.nome.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const canMovimentar = hasPermission('estoque:movimentar');
-
-  const handleMovimentar = () => {
-    const material = materiais.find((m: any) => m.id === newMov.materialId);
-    if (!material) return;
-
-    const qty = parseInt(newMov.quantidade) || 0;
-
-    registrarMovimentacao({
-      id: `mv${Date.now()}`,
-      obraId: obra.id,
-      materialId: material.id,
-      materialNome: material.nome,
-      tipo: movTipo,
-      data: new Date().toISOString().split('T')[0],
-      quantidade: qty,
-      origemDestino: newMov.origemDestino,
-      responsavel: user?.name || '',
-      observacoes: newMov.observacoes,
-    });
-
-    setDialogOpen(false);
-    setNewMov({
-      materialId: '',
-      quantidade: '',
-      origemDestino: '',
-      observacoes: '',
-    });
-  };
-
-  const handleCadastrar = () => {
-    addMaterial({
-      id: `m${Date.now()}`,
-      obraId: obra.id,
-      nome: newMat.nome,
-      categoria: newMat.categoria,
-      unidade: newMat.unidade,
-      estoqueAtual: 0,
-      estoqueMinimo: parseInt(newMat.estoqueMinimo) || 0,
-      localizacao: '',
-      observacoes: '',
-    });
-
-    setCadastroOpen(false);
-    setNewMat({
-      nome: '',
-      unidade: '',
-      categoria: '',
-      estoqueMinimo: '',
-    });
-  };
-
-  const handleSaveMin = (id: string) => {
-    updateMaterial(id, { estoqueMinimo: parseInt(editingMinValue) || 0 });
-    setEditingMinId(null);
+  const handleMovimentar = async () => {
+    if (!movimentandoMaterial) return;
+    
+    try {
+      await registrarMovimentacao({
+        obraId: movimentandoMaterial.obraId,
+        materialId: movimentandoMaterial.id,
+        materialNome: movimentandoMaterial.nome,
+        tipo: movimentacao.tipo as 'entrada' | 'saida',
+        data: new Date().toISOString().slice(0, 10),
+        quantidade: movimentacao.quantidade,
+        origemDestino: '',
+        responsavel: '',
+        observacoes: movimentacao.observacao,
+      });
+      
+      toast({
+        title: "Movimentação registrada",
+        description: `${movimentacao.tipo === 'entrada' ? 'Entrada' : 'Saída'} de ${movimentacao.quantidade} ${movimentandoMaterial.unidade} realizada.`
+      });
+      
+      setIsMovimentacaoOpen(false);
+      setMovimentacao({ tipo: 'entrada', quantidade: 1, observacao: '' });
+    } catch (error) {
+      toast({
+        title: "Erro ao registrar",
+        description: "Não foi possível processar a movimentação.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" />
-            Estoque
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Controle de materiais e movimentações da obra
-          </p>
+    <PageShell
+      title="Estoque & Almoxarifado"
+      subtitle={`Gestão física de materiais e insumos da unidade ${obra.nome}`}
+      icon={EstoqueIcon}
+      kpis={kpis}
+    >
+      <div className="h-full flex flex-col gap-6 p-6 overflow-hidden">
+        
+        {/* Toolbar superior */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar material pelo nome..." 
+                className="pl-9 h-10 rounded-xl"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={filterCategoria} onValueChange={setFilterCategoria}>
+              <SelectTrigger className="h-10 w-[160px] rounded-xl">
+                <Filter className="h-3.5 w-3.5 mr-2" />
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Todas Categorias</SelectItem>
+                {categorias.map(cat => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center gap-2 shrink-0">
+             <Button variant="outline" size="sm" className="h-10 rounded-xl gap-2 font-semibold">
+                <Truck className="h-4 w-4" />
+                Novas Entradas
+             </Button>
+             <Button size="sm" className="h-10 rounded-xl bg-primary hover:bg-primary/90 gap-2 font-semibold shadow-lg shadow-primary/20">
+                <Plus className="h-4 w-4" />
+                Novo Material
+             </Button>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Select value={obra.id} onValueChange={setObraId}>
-            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
-              <SelectValue placeholder="Selecione a obra" />
-            </SelectTrigger>
-            <SelectContent>
-              {obras.map((o: any) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.codigo ? `${o.codigo} - ` : ''}{o.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Grade de Materiais */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredMateriais.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-border rounded-3xl bg-muted/5">
+              <Package className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <p className="text-sm text-muted-foreground font-medium">Nenhum material encontrado com esses filtros.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-6">
+              {filteredMateriais.map(item => {
+                const isCritico = (item.estoqueAtual || 0) <= (item.estoqueMinimo || 0);
+                return (
+                  <Card key={item.id} className={cn(
+                    "rounded-2xl border-border/60 hover:border-primary/40 hover:shadow-md transition-all cursor-default group",
+                    isCritico && "bg-orange-50/20 border-orange-200/50"
+                  )}>
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 mb-0.5">{item.categoria}</p>
+                          <h4 className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">{item.nome}</h4>
+                        </div>
+                        <div className={cn(
+                          "h-10 w-10 rounded-xl flex flex-col items-center justify-center shrink-0 border border-border",
+                          isCritico ? "bg-orange-100 text-orange-600 border-orange-200" : "bg-muted/30 text-muted-foreground"
+                        )}>
+                          <span className="text-sm font-bold leading-none">{item.quantidadeAtual || 0}</span>
+                          <span className="text-[9px] uppercase font-medium">{item.unidade}</span>
+                        </div>
+                      </div>
 
-          {canMovimentar && (
-            <div className="flex gap-2">
-              {/* Cadastro manual mantido como fallback mas oculto - materiais são criados via compra de material em Pagamentos */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-end">
+                          <span className="text-[10px] text-muted-foreground">Status do Estoque</span>
+                          <span className={cn("text-[10px] font-bold", isCritico ? "text-orange-600" : "text-green-600")}>
+                            {isCritico ? "ESTOQUE CRÍTICO" : "DENTRO DO NORMAL"}
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                           <div className={cn(
+                             "h-full rounded-full transition-all duration-500",
+                             isCritico ? "bg-orange-500" : "bg-green-500"
+                           )} style={{ width: `${Math.min(((item.estoqueAtual || 0) / (item.estoqueMinimo * 2 || 100)) * 100, 100)}%` }} />
+                        </div>
+                      </div>
 
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Movimentar
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>
-                      Registrar {movTipo === 'entrada' ? 'Entrada' : 'Saída'}
-                    </DialogTitle>
-                  </DialogHeader>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant={movTipo === 'entrada' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setMovTipo('entrada')}
+                      <div className="flex gap-2 pt-2">
+                        <Button 
+                          variant="secondary" 
+                          className="flex-1 h-9 rounded-lg text-xs gap-1.5 font-bold bg-muted/50 hover:bg-muted"
+                          onClick={() => {
+                            setMovimentandoMaterial(item);
+                            setMovimentacao({...movimentacao, tipo: 'entrada'});
+                            setIsMovimentacaoOpen(true);
+                          }}
                         >
+                          <ArrowDownCircle className="h-3.5 w-3.5 text-blue-600" />
                           Entrada
                         </Button>
-                        <Button
-                          type="button"
-                          variant={movTipo === 'saida' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setMovTipo('saida')}
+                        <Button 
+                          variant="secondary" 
+                          className="flex-1 h-9 rounded-lg text-xs gap-1.5 font-bold bg-muted/50 hover:bg-muted"
+                          onClick={() => {
+                            setMovimentandoMaterial(item);
+                            setMovimentacao({...movimentacao, tipo: 'saida'});
+                            setIsMovimentacaoOpen(true);
+                          }}
                         >
+                          <ArrowUpCircle className="h-3.5 w-3.5 text-orange-600" />
                           Saída
                         </Button>
                       </div>
-
-                      <VoiceInputButton
-                        module="estoque"
-                        onResult={(parsed: any) => {
-                          if (parsed.tipo) {
-                            setMovTipo(parsed.tipo === 'saida' ? 'saida' : 'entrada');
-                          }
-
-                          if (parsed.material) {
-                            const mat = materiais.find((m: any) =>
-                              m.nome.toLowerCase().includes(
-                                String(parsed.material).toLowerCase()
-                              )
-                            );
-                            if (mat) {
-                              setNewMov((prev) => ({ ...prev, materialId: mat.id }));
-                            }
-                          }
-
-                          if (parsed.quantidade) {
-                            setNewMov((prev) => ({
-                              ...prev,
-                              quantidade: String(parsed.quantidade),
-                            }));
-                          }
-
-                          if (parsed.origem_destino) {
-                            setNewMov((prev) => ({
-                              ...prev,
-                              origemDestino: parsed.origem_destino,
-                            }));
-                          }
-
-                          if (parsed.observacoes) {
-                            setNewMov((prev) => ({
-                              ...prev,
-                              observacoes: parsed.observacoes,
-                            }));
-                          }
-
-                          setDialogOpen(true);
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium">Material</label>
-                      <AutocompleteInput
-                        suggestions={materiais.map((m: any) => ({
-                          label: m.nome,
-                          value: m.id,
-                          meta: `${m.estoqueAtual} ${m.unidade}`,
-                        }))}
-                        value={materiais.find((m: any) => m.id === newMov.materialId)?.nome || ''}
-                        onChange={(v) => {
-                          const mat = materiais.find((m: any) => m.nome === v);
-                          if (mat) setNewMov({ ...newMov, materialId: mat.id });
-                        }}
-                        onSuggestionSelect={(s) => setNewMov({ ...newMov, materialId: s.value })}
-                        placeholder="Buscar material..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium">Quantidade</label>
-                      <Input
-                        type="number"
-                        value={newMov.quantidade}
-                        onChange={(e) =>
-                          setNewMov({ ...newMov, quantidade: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium">
-                        {movTipo === 'entrada' ? 'Origem' : 'Destino'}
-                      </label>
-                      <Input
-                        value={newMov.origemDestino}
-                        onChange={(e) =>
-                          setNewMov({ ...newMov, origemDestino: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium">Observações</label>
-                      <Textarea
-                        value={newMov.observacoes}
-                        onChange={(e) =>
-                          setNewMov({ ...newMov, observacoes: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleMovimentar}
-                      className="w-full"
-                      disabled={!newMov.materialId || !newMov.quantidade}
-                    >
-                      Registrar {movTipo === 'entrada' ? 'Entrada' : 'Saída'}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
-      </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <Card>
-          <CardContent className="p-3 sm:p-4 text-center">
-            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-primary/30 mx-auto mb-1" />
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Itens</p>
-            <p className="text-lg sm:text-2xl font-bold">{materiais.length}</p>
-          </CardContent>
-        </Card>
+        {/* Modal Movimentação */}
+        <Dialog open={isMovimentacaoOpen} onOpenChange={setIsMovimentacaoOpen}>
+           <DialogContent className="sm:max-w-md rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                   {movimentacao.tipo === 'entrada' ? <TrendingUp className="text-blue-500" /> : <TrendingDown className="text-orange-500" />}
+                   Registrar Movimentação
+                </DialogTitle>
+                <DialogDescription>
+                  {movimentandoMaterial?.nome} ({movimentandoMaterial?.unidade})
+                </DialogDescription>
+              </DialogHeader>
 
-        <Card>
-          <CardContent className="p-3 sm:p-4 text-center">
-            <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-warning/30 mx-auto mb-1" />
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Estoque Baixo
-            </p>
-            <p
-              className={`text-lg sm:text-2xl font-bold ${
-                materiaisBaixo.length > 0 ? 'text-warning' : 'text-foreground'
-              }`}
-            >
-              {materiaisBaixo.length}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3 sm:p-4 text-center">
-            <ArrowDownCircle className="h-5 w-5 sm:h-6 sm:w-6 text-success/30 mx-auto mb-1" />
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Movimentações
-            </p>
-            <p className="text-lg sm:text-2xl font-bold">
-              {movimentacoes.length}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="materiais">
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="materiais" className="flex-1 sm:flex-initial">
-            Materiais
-          </TabsTrigger>
-          <TabsTrigger value="movimentacoes" className="flex-1 sm:flex-initial">
-            Movimentações
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="materiais" className="mt-3 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar material..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 h-10"
-            />
-          </div>
-
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-2">Material</th>
-                  <th className="text-left p-2">Categoria</th>
-                  <th className="text-center p-2">Estoque</th>
-                  <th className="text-center p-2">Mínimo</th>
-                  <th className="text-center p-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((m: any) => (
-                  <tr key={m.id} className="border-b border-border">
-                    <td className="p-2 font-medium">{m.nome}</td>
-                    <td className="p-2 text-muted-foreground">{m.categoria}</td>
-                    <td className="p-2 text-center">
-                      {m.estoqueAtual} {m.unidade}
-                    </td>
-                    <td className="p-2 text-center">
-                      {editingMinId === m.id ? (
-                        <div className="flex items-center justify-center gap-1">
-                          <Input
-                            type="number"
-                            className="h-7 w-16 text-xs text-center"
-                            value={editingMinValue}
-                            onChange={(e) => setEditingMinValue(e.target.value)}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => handleSaveMin(m.id)}
-                          >
-                            <Check className="h-3.5 w-3.5 text-success" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => setEditingMinId(null)}
-                          >
-                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span
-                          className="cursor-pointer hover:underline"
-                          onClick={() => {
-                            setEditingMinId(m.id);
-                            setEditingMinValue(String(m.estoqueMinimo));
-                          }}
-                        >
-                          {m.estoqueMinimo} {m.unidade}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-2 text-center">
-                      {m.estoqueAtual < m.estoqueMinimo ? (
-                        <Badge
-                          variant="secondary"
-                          className="bg-destructive/10 text-destructive border-0"
-                        >
-                          Baixo
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="secondary"
-                          className="bg-success/10 text-success border-0"
-                        >
-                          OK
-                        </Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="sm:hidden space-y-2">
-            {filtered.map((m: any) => (
-              <div
-                key={m.id}
-                className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{m.nome}</p>
-                  <p className="text-xs text-muted-foreground">{m.categoria}</p>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-bold">
-                    {m.estoqueAtual}{' '}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {m.unidade}
-                    </span>
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    mín: {m.estoqueMinimo}
-                  </p>
-                </div>
-
-                {m.estoqueAtual < m.estoqueMinimo ? (
-                  <Badge
-                    variant="secondary"
-                    className="bg-destructive/10 text-destructive border-0 text-[10px] shrink-0"
-                  >
-                    Baixo
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="secondary"
-                    className="bg-success/10 text-success border-0 text-[10px] shrink-0"
-                  >
-                    OK
-                  </Badge>
-                )}
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="movimentacoes" className="mt-3 space-y-2">
-          {movimentacoes.map((mov: any) => (
-            <div
-              key={mov.id}
-              className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-card rounded-lg border border-border"
-            >
-              {mov.tipo === 'entrada' ? (
-                <ArrowDownCircle className="h-5 w-5 text-success shrink-0" />
-              ) : (
-                <ArrowUpCircle className="h-5 w-5 text-warning shrink-0" />
-              )}
-
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{mov.materialNome}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {formatDate(mov.data)} · {mov.origemDestino}
-                </p>
+              <div className="grid gap-6 py-4">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo de Trânsito</Label>
+                      <Select value={movimentacao.tipo} onValueChange={(val: any) => setMovimentacao({...movimentacao, tipo: val})}>
+                         <SelectTrigger className="rounded-xl">
+                            <SelectValue />
+                         </SelectTrigger>
+                         <SelectContent>
+                            <SelectItem value="entrada">Entrada (Compra/Reforço)</SelectItem>
+                            <SelectItem value="saida">Saída (Consumo Obra)</SelectItem>
+                            <SelectItem value="ajuste">Ajuste de Saldo</SelectItem>
+                         </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Quantidade</Label>
+                      <Input 
+                        type="number" 
+                        min="0.01" 
+                        step="0.01" 
+                        className="rounded-xl"
+                        value={movimentacao.quantidade}
+                        onChange={e => setMovimentacao({...movimentacao, quantidade: parseFloat(e.target.value)})}
+                      />
+                    </div>
+                 </div>
+                 <div className="space-y-2">
+                    <Label>Observação / Justificativa</Label>
+                    <Input 
+                      placeholder="Ex: Nota Fiscal #1234 ou Etapa Cimentação" 
+                      className="rounded-xl"
+                      value={movimentacao.observacao}
+                      onChange={e => setMovimentacao({...movimentacao, observacao: e.target.value})}
+                    />
+                 </div>
               </div>
 
-              <Badge
-                variant="secondary"
-                className={`shrink-0 text-xs ${
-                  mov.tipo === 'entrada'
-                    ? 'bg-success/10 text-success border-0'
-                    : 'bg-warning/10 text-warning border-0'
-                }`}
-              >
-                {mov.tipo === 'entrada' ? '+' : '-'}
-                {mov.quantidade}
-              </Badge>
-            </div>
-          ))}
-        </TabsContent>
-      </Tabs>
-    </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                 <Button variant="ghost" onClick={() => setIsMovimentacaoOpen(false)} className="rounded-xl">
+                   Cancelar
+                 </Button>
+                 <Button onClick={handleMovimentar} className="rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                   Confirmar Registro
+                 </Button>
+              </DialogFooter>
+           </DialogContent>
+        </Dialog>
+
+      </div>
+    </PageShell>
   );
 }

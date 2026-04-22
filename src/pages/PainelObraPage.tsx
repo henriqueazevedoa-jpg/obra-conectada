@@ -1,729 +1,397 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useOrcamento } from '@/contexts/OrcamentoContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import { useCustoReal } from '@/contexts/CustoRealContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCronograma } from '@/hooks/useCronograma';
 import { supabase } from '@/integrations/supabase/untyped';
+import {
+  LayoutDashboard, AlertTriangle, CheckCircle2, BookOpen,
+  CalendarDays, Wallet, Package, ArrowRight, Lightbulb, TrendingUp, AlertCircle, PlayCircle, Info, FileSignature
+} from 'lucide-react';
+import PageShell, { PageKPI } from '@/components/layout/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  formatCurrency, formatDate, statusEtapaLabels, climaLabels, statusDiarioLabels
-} from '@/data/mockData';
-import {
-  TrendingUp, AlertTriangle, CheckCircle2, Package, BookOpen,
-  Clock, CalendarDays, DollarSign, Users,
-  LayoutDashboard, Plus, ChevronDown, List, BarChart3, GitBranch, Calendar,
-  ListChecks, Wallet, GripVertical, RotateCcw,
-} from 'lucide-react';
-import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
+import { formatCurrency } from '@/data/mockData';
+import { format, parseISO, isBefore, isAfter, addDays, startOfDay, startOfWeek, endOfWeek, differenceInDays, startOfMonth, endOfMonth, differenceInBusinessDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import ABCTable from '@/components/painel/ABCTable';
-import PrintSectionPicker, { PrintSections, defaultPrintSections } from '@/components/painel/PrintSectionPicker';
-import ResumoExecutivo from '@/components/painel/ResumoExecutivo';
-import SmartCards from '@/components/painel/SmartCards';
-import ObraHeader from '@/components/painel/ObraHeader';
-import AcoesPrioritarias from '@/components/painel/AcoesPrioritarias';
-import CostPieChart from '@/components/painel/CostPieChart';
-import GanttEditorChart from '@/components/gantt/GanttEditorChart';
-import CronogramaPagamentos from '@/components/painel/CronogramaPagamentos';
-import NoObraState from '@/components/obras/NoObraState';
-import ObraCalendarView from '@/components/painel/ObraCalendarView';
-import PainelUnifiedListView from '@/components/painel/PainelUnifiedListView';
-import ViewModeSwitcher, { ViewMode } from '@/components/painel/ViewModeSwitcher';
 import LinksDeAcessoCard from '@/components/obra/LinksDeAcessoCard';
-import { usePersistentPageState } from '@/hooks/usePersistentPageState';
+import NoObraState from '@/components/obras/NoObraState';
 
-interface DiarioRow {
-  id: string; data: string; clima: string; trabalhadores: number;
-  servicos_executados: string | null; problemas: string | null;
-  observacoes: string | null; status: string; usuario_nome: string;
-}
-
-function computePercentual(cat: any): number {
-  if (cat.percentualCronograma != null) return cat.percentualCronograma;
-  if (!cat.usaComposicoes || cat.composicoes.length === 0) return 0;
-  const totalPeso = cat.composicoes.reduce((s: number, c: any) => s + (c.pesoCronograma ?? 0), 0);
-  if (totalPeso === 0) {
-    const done = cat.composicoes.filter((c: any) => c.concluida).length;
-    return Math.round((done / cat.composicoes.length) * 100);
-  }
-  const done = cat.composicoes.filter((c: any) => c.concluida).reduce((s: number, c: any) => s + (c.pesoCronograma ?? 0), 0);
-  return Math.round((done / totalPeso) * 100);
-}
-
-function computeStatus(cat: any): string {
-  if (cat.statusCronograma) return cat.statusCronograma;
-  if ((cat.percentualCronograma ?? 0) >= 100) return 'concluida';
-  if (cat.dataInicioReal) {
-    if (cat.dataFimPrevista && !cat.dataFimReal && isAfter(new Date(), parseISO(cat.dataFimPrevista))) return 'atrasada';
-    return 'em_andamento';
-  }
-  if (cat.dataFimPrevista && isAfter(new Date(), parseISO(cat.dataFimPrevista))) return 'atrasada';
-  return 'nao_iniciada';
-}
-
-type SectionKey = 'identificacao' | 'kpis' | 'acoesPrioritarias' | 'resumoExecutivo' | 'visaoGeral' | 'estoqueCritico' | 'cronogramaPagamentos' | 'cronograma' | 'custosEtapa' | 'curvaABC' | 'diario';
-
-const defaultSectionOrder: SectionKey[] = [
-  'identificacao', 'kpis', 'acoesPrioritarias', 'resumoExecutivo', 'visaoGeral', 'estoqueCritico',
-  'cronogramaPagamentos', 'cronograma', 'custosEtapa', 'curvaABC', 'diario',
-];
-
-function GestorPainel() {
+export default function PainelObraPage() {
   const { obras } = useObras();
-  const { selectedObraId, setSelectedObraId } = useObraSelection();
+  const { selectedObraId } = useObraSelection();
   const navigate = useNavigate();
-  const { getOrcamento } = useOrcamento();
-  const { getMateriaisByObra } = useEstoque();
-  const { getItensByObra: getCustoItensByObra } = useCustoReal();
-  const [printSections, setPrintSections] = useState<PrintSections>(defaultPrintSections);
-  const [diarioRegistros, setDiarioRegistros] = useState<DiarioRow[]>([]);
-  const [pagamentosAtrasados, setPagamentosAtrasados] = useState<{ count: number; valor: number }>({ count: 0, valor: 0 });
-  const [pendenciasAlta, setPendenciasAlta] = useState(0);
-  const [diarioOpen, setDiarioOpen] = usePersistentPageState<boolean>('painel:diarioOpen', false, selectedObraId);
-  const [cronogramaView, setCronogramaView] = usePersistentPageState<'list' | 'gantt'>('painel:cronogramaView', 'list', selectedObraId);
-  const [calendarViewMode, setCalendarViewMode] = usePersistentPageState<ViewMode>('painel:calendarViewMode', 'calendario', selectedObraId);
-  const [calendarSources, setCalendarSources] = useState<Set<'agenda' | 'pagamentos' | 'diario'>>(
-    new Set(['agenda', 'pagamentos', 'diario'])
-  );
-  const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(defaultSectionOrder);
-  const [draggedSection, setDraggedSection] = useState<SectionKey | null>(null);
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
+  const { getOrcamento } = useOrcamento();
+  const { getMateriaisByObra } = useEstoque();
+  const { getItensByObra: getCustoItens } = useCustoReal();
+  const { tarefas, impedimentos, stats, loading: loadingCronograma } = useCronograma(obra?.id);
+
+  // States
+  const [pagamentos, setPagamentos] = useState<any[]>([]);
+  const [diarios, setDiarios] = useState<any[]>([]);
+  const [contratos, setContratos] = useState<any[]>([]);
+  const [loadingExtras, setLoadingExtras] = useState(true);
+
   useEffect(() => {
-    if (!obra) return;
-    supabase.from('diario_registros').select('*').eq('obra_id', obra.id)
-      .order('data', { ascending: false }).limit(10)
-      .then(({ data }) => { if (data) setDiarioRegistros(data as DiarioRow[]); });
-
-    const today = startOfDay(new Date()).toISOString().slice(0, 10);
-    supabase.from('pagamentos').select('id, valor_previsto, status, data_vencimento')
-      .eq('obra_id', obra.id)
-      .then(({ data }) => {
-        const pags = (data || []) as any[];
-        const atrasados = pags.filter(p =>
-          p.status === 'atrasado' ||
-          (p.status === 'previsto' && p.data_vencimento && p.data_vencimento < today)
-        );
-        setPagamentosAtrasados({
-          count: atrasados.length,
-          valor: atrasados.reduce((s: number, p: any) => s + (Number(p.valor_previsto) || 0), 0),
-        });
-      });
-
-    (supabase as any).from('obra_agenda').select('id, prioridade, status')
-      .eq('obra_id', obra.id)
-      .eq('tipo', 'pendencia')
-      .not('status', 'in', '("concluido","cancelado")')
-      .then(({ data }: { data: any[] | null }) => {
-        const pends = data || [];
-        setPendenciasAlta(pends.filter((p: any) => p.prioridade === 'alta').length);
-      });
+    if (!obra?.id) return;
+    setLoadingExtras(true);
+    Promise.all([
+      supabase.from('pagamentos').select('id, status, data_vencimento, valor_previsto, descricao').eq('obra_id', obra.id),
+      supabase.from('diario_registros').select('id, data, status').eq('obra_id', obra.id).order('data', { ascending: false }),
+      supabase.from('contratos').select('id, descricao, data_inicio, data_fim, valor_total, obra_contratos_periodos(id, data_referencia, status_medicao)').eq('obra_id', obra.id)
+    ]).then(([resPag, resDia, resCont]) => {
+      setPagamentos(resPag.data || []);
+      setDiarios(resDia.data || []);
+      setContratos(resCont.data || []);
+      setLoadingExtras(false);
+    });
   }, [obra?.id]);
 
-  const handleObraSelectChange = (value: string) => {
-    if (value === '__nova_obra__') navigate('/obras?nova=1');
-    else setSelectedObraId(value);
-  };
-
   if (!obra) {
-    return <NoObraState title="Nenhuma obra cadastrada" description="Cadastre uma obra para visualizar o painel executivo consolidado." />;
+    return <NoObraState title="Nenhuma obra cadastrada" description="Transite em obras para visualizar o painel executivo." />;
   }
 
+  // Helpers
+  const hoje = startOfDay(new Date());
+  const strHoje = format(hoje, 'yyyy-MM-dd');
+
+  // Cálculos Básicos
   const orcamento = getOrcamento(obra.id);
-  const etapas = orcamento?.etapas || [];
-  const totalPrevisto = etapas.reduce((s, c) => s + c.precoTotal, 0);
-  const custoItens = getCustoItensByObra(obra.id);
-  const totalRealizado = custoItens.reduce((s, i) => s + i.valor, 0);
+  const etapasOrcamento = orcamento?.etapas || [];
+  const totalPrevisto = etapasOrcamento.reduce((s, c) => s + c.precoTotal, 0);
+  const custos = getCustoItens(obra.id);
+  const totalRealizado = custos.reduce((s, i) => s + i.valor, 0);
+
   const materiaisObra = getMateriaisByObra(obra.id);
-  const materiaisBaixo = materiaisObra.filter(m => m.estoqueAtual < m.estoqueMinimo);
-  const registrosPendentes = diarioRegistros.filter(d => d.status === 'pendente');
-  const registrosAprovados = diarioRegistros.filter(d => d.status === 'aprovado');
+  const materiaisCriticos = materiaisObra.filter(m => m.estoqueAtual < m.estoqueMinimo);
+  const impedimentosAbertos = impedimentos.filter(i => !i.resolvido);
 
-  const today = new Date();
-  const concluidas = etapas.filter(c => computeStatus(c) === 'concluida');
-  const emAndamento = etapas.filter(c => computeStatus(c) === 'em_andamento');
-  const atrasadas = etapas.filter(c => computeStatus(c) === 'atrasada');
-  const naoIniciadas = etapas.filter(c => computeStatus(c) === 'nao_iniciada');
+  const filterPagamentos = (fn: (p: any) => boolean) => pagamentos.filter(fn);
 
-  const andamentoReal = etapas.length > 0
-    ? Math.round(etapas.reduce((s, c) => s + computePercentual(c), 0) / etapas.length)
-    : obra.percentualAndamento;
+  // --- HOJE NA OBRA (Variáveis Base) ---
+  const tarefasAtrasadas = tarefas.filter(t => t.data_fim && t.percentual_concluido < 100 && isBefore(parseISO(t.data_fim), hoje));
+  const vencidos = filterPagamentos(p => p.status === 'atrasado' || (p.status === 'previsto' && p.data_vencimento && isBefore(parseISO(p.data_vencimento), hoje)));
+  const diarioHojePreenchido = diarios.some(d => d.data === strHoje);
 
-  const andamentoPlanejado = (() => {
-    if (etapas.length === 0) return 0;
-    const withDates = etapas.filter(c => c.dataFimPrevista);
-    if (withDates.length === 0) return 0;
-    const shouldBeDone = withDates.filter(c => new Date(c.dataFimPrevista!) <= today).length;
-    return Math.round((shouldBeDone / etapas.length) * 100);
-  })();
+  let urgencyLevel: 'green' | 'amber' | 'red' = 'green';
+  const hasUrgenciasAbertas = tarefasAtrasadas.length > 0 || !diarioHojePreenchido || materiaisCriticos.length > 0;
+  const hasBloqueios = impedimentosAbertos.length > 0 || vencidos.length > 0;
+  if (hasBloqueios) urgencyLevel = 'red';
+  else if (hasUrgenciasAbertas) urgencyLevel = 'amber';
 
-  const previstoAcumulado = etapas.length === 0 || totalPrevisto === 0 ? 0 :
-    etapas.reduce((sum, cat) => sum + cat.precoTotal * (computePercentual(cat) / 100), 0);
+  const urgenceBg = urgencyLevel === 'red' ? 'bg-red-50 border-red-200' : urgencyLevel === 'amber' ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200';
+  const urgenceIconColor = urgencyLevel === 'red' ? 'text-red-500' : urgencyLevel === 'amber' ? 'text-amber-500' : 'text-emerald-500';
 
-  // Índices calculados para SmartCards
-  const produtividade = andamentoPlanejado > 0
-    ? Math.round((andamentoReal / andamentoPlanejado) * 100)
-    : undefined;
+  // --- TRÍPTICO TEMPORAL ---
+  // Esta Semana
+  const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 });
+  const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 });
+  const etapasFinalizandoSemana = tarefas.filter(t => t.data_fim && t.percentual_concluido < 100 &&
+    isAfter(parseISO(t.data_fim), hoje) && isBefore(parseISO(t.data_fim), addDays(fimSemana, 1)));
+  const pagamentosSemana = filterPagamentos(p => p.status === 'previsto' && p.data_vencimento &&
+    isAfter(parseISO(p.data_vencimento), hoje) && isBefore(parseISO(p.data_vencimento), addDays(fimSemana, 1)));
+  const diariosSemanaCount = diarios.filter(d => isAfter(parseISO(d.data), addDays(inicioSemana, -1)) && isBefore(parseISO(d.data), addDays(fimSemana, 1))).length;
 
-  const indiceQualidade = diarioRegistros.length > 0
-    ? Math.round((registrosAprovados.length / diarioRegistros.length) * 100)
-    : undefined;
+  // Este Mês
+  const inicioMes = startOfMonth(hoje);
+  const fimMes = endOfMonth(hoje);
+  const etapasIniciandoMes = tarefas.filter(t => t.data_inicio && (t.percentual_concluido || 0) === 0 &&
+    isAfter(parseISO(t.data_inicio), addDays(inicioMes, -1)) && isBefore(parseISO(t.data_inicio), addDays(fimMes, 1)));
+  const contratosAtivosSemMedicao = contratos.filter(c => {
+    const purs = c.obra_contratos_periodos || [];
+    if (purs.length === 0) return true;
+    const last = [...purs].sort((a: any, b: any) => new Date(b.data_referencia).getTime() - new Date(a.data_referencia).getTime())[0];
+    return differenceInDays(hoje, parseISO(last.data_referencia)) >= 25 && last.status_medicao !== 'concluida';
+  });
 
-  const handlePrint = () => {
-    document.querySelectorAll('[data-print-section]').forEach(el => {
-      const section = el.getAttribute('data-print-section') as keyof PrintSections;
-      if (section && !printSections[section]) {
-        (el as HTMLElement).classList.add('print-section-hidden');
-      } else {
-        (el as HTMLElement).classList.remove('print-section-hidden');
-      }
+  // --- INTELIGÊNCIA DECISIONAL ---
+  const alertas = [];
+
+  // Alerta 1: Desvio de prazo com causa
+  if (tarefasAtrasadas.length > 0 && impedimentosAbertos.length > 0) {
+    alertas.push({
+      id: 'alerta1', type: 'atraso', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', icon: AlertTriangle,
+      title: `⚠ Etapa(s) atrasada(s) — ${impedimentosAbertos.length} impedimento(s) podem ser a causa.`,
+      action: 'Ver impedimentos', link: '/cronograma?tab=impedimentos'
     });
-    setTimeout(() => window.print(), 100);
-  };
+  }
 
-  // Drag handlers
-  const handleDragStart = (key: SectionKey) => setDraggedSection(key);
-  const handleDragOver = (e: React.DragEvent, key: SectionKey) => {
-    e.preventDefault();
-    if (!draggedSection || draggedSection === key) return;
-    setSectionOrder(prev => {
-      const newOrder = [...prev];
-      const fromIdx = newOrder.indexOf(draggedSection);
-      const toIdx = newOrder.indexOf(key);
-      newOrder.splice(fromIdx, 1);
-      newOrder.splice(toIdx, 0, draggedSection);
-      return newOrder;
-    });
-  };
-  const handleDragEnd = () => setDraggedSection(null);
-
-  const renderSection = (key: SectionKey) => {
-    if (!printSections[key]) return null;
-
-    const dragProps = {
-      draggable: true,
-      onDragStart: () => handleDragStart(key),
-      onDragOver: (e: React.DragEvent) => handleDragOver(e, key),
-      onDragEnd: handleDragEnd,
-      className: `transition-opacity ${draggedSection === key ? 'opacity-50' : ''}`,
-    };
-
-    const dragHandle = (
-      <div className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground print:hidden">
-        <GripVertical className="h-4 w-4" />
-      </div>
-    );
-
-    switch (key) {
-      case 'identificacao':
-        return <div key={key} {...dragProps} data-print-section="identificacao"><ObraHeader obra={obra} /></div>;
-
-      case 'kpis':
-        return (
-          <div key={key} {...dragProps} data-print-section="kpis">
-            <SmartCards
-              totalPrevisto={totalPrevisto} totalRealizado={totalRealizado}
-              previstoAcumulado={previstoAcumulado} andamentoReal={andamentoReal}
-              andamentoPlanejado={andamentoPlanejado} etapasAtrasadas={atrasadas.length}
-              materiaisBaixo={materiaisBaixo.length} registrosPendentes={registrosPendentes.length}
-              pagamentosAtrasados={pagamentosAtrasados.count}
-              produtividade={produtividade}
-              indiceQualidade={indiceQualidade}
-              totalDiarios={diarioRegistros.length}
-            />
-          </div>
-        );
-
-      case 'acoesPrioritarias':
-        return (
-          <div key={key} {...dragProps}>
-            <AcoesPrioritarias
-              pagamentosAtrasados={pagamentosAtrasados.count}
-              pagamentosAtrasadosValor={pagamentosAtrasados.valor}
-              materiaisBaixo={materiaisBaixo.map(m => ({ nome: m.nome, estoqueAtual: m.estoqueAtual, unidade: m.unidade }))}
-              pendenciasAlta={pendenciasAlta}
-              etapasAtrasadas={atrasadas.map(c => ({ nome: c.nome }))}
-              registrosPendentes={registrosPendentes.length}
-            />
-          </div>
-        );
-
-      case 'resumoExecutivo':
-        return (
-          <div key={key} {...dragProps} data-print-section="resumoExecutivo">
-            <ResumoExecutivo obraId={obra.id} totalPrevisto={totalPrevisto} totalRealizado={totalRealizado}
-              andamentoReal={andamentoReal} andamentoPlanejado={andamentoPlanejado} />
-          </div>
-        );
-
-      case 'visaoGeral':
-        return (
-          <div key={key} {...dragProps} data-print-section="visaoGeral">
-            <Card className="shadow-card">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    {dragHandle}
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" /> Visão Geral da Obra
-                    </CardTitle>
-                  </div>
-                  <ViewModeSwitcher value={calendarViewMode} onChange={setCalendarViewMode} />
-                </div>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {(['agenda', 'pagamentos', 'diario'] as const).map(s => {
-                    const cfg = {
-                      agenda: { icon: CalendarDays, label: 'Agenda', color: 'bg-primary text-primary-foreground' },
-                      pagamentos: { icon: Wallet, label: 'Pagamentos', color: 'bg-accent text-accent-foreground' },
-                      diario: { icon: BookOpen, label: 'Diário', color: 'bg-emerald-500/10 text-emerald-700' }
-                    }[s];
-                    const Icon = cfg.icon;
-                    const active = calendarSources.has(s);
-                    return (
-                      <button key={s} onClick={() => setCalendarSources(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n as Set<'agenda' | 'pagamentos' | 'diario'>; })}
-                        className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all border ${active ? 'border-transparent ' + cfg.color : 'border-border text-muted-foreground bg-transparent opacity-50'}`}
-                      >
-                        <Icon className="h-3 w-3" /> {cfg.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="max-h-[420px] overflow-y-auto">
-                  {calendarViewMode === 'calendario' ? (
-                    <ObraCalendarView obraId={obra.id} sources={[...calendarSources]} fetchFromDb={true} compact embedded />
-                  ) : (
-                    <PainelUnifiedListView obraId={obra.id} activeSources={calendarSources} />
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        );
-
-      case 'estoqueCritico':
-        if (materiaisBaixo.length === 0) return null;
-        return (
-          <div key={key} {...dragProps} data-print-section="estoqueCritico">
-            <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  {dragHandle}
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Package className="h-4 w-4" /> Materiais com Estoque Baixo
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {materiaisBaixo.map(m => (
-                    <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-destructive/5">
-                      <div><p className="text-sm font-medium text-foreground">{m.nome}</p><p className="text-xs text-muted-foreground">{m.categoria}</p></div>
-                      <div className="text-right"><p className="text-sm font-semibold text-destructive">{m.estoqueAtual} {m.unidade}</p><p className="text-xs text-muted-foreground">Mín: {m.estoqueMinimo} {m.unidade}</p></div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        );
-
-      case 'cronogramaPagamentos':
-        return (
-          <div key={key} {...dragProps} data-print-section="cronogramaPagamentos">
-            <CronogramaPagamentos obraId={obra.id} />
-          </div>
-        );
-
-      case 'cronograma':
-        return (
-          <div key={key} {...dragProps} data-print-section="cronograma">
-            <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    {dragHandle}
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" /> Resumo do Cronograma
-                    </CardTitle>
-                  </div>
-                  <div className="flex border border-border rounded-md print:hidden">
-                    <Button variant={cronogramaView === 'list' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-r-none gap-1 text-xs" onClick={() => setCronogramaView('list')}>
-                      <List className="h-3 w-3" /> Lista
-                    </Button>
-                    <Button variant={cronogramaView === 'gantt' ? 'default' : 'ghost'} size="sm" className="h-7 rounded-l-none gap-1 text-xs" onClick={() => setCronogramaView('gantt')}>
-                      <BarChart3 className="h-3 w-3" /> Gantt
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-4 gap-3 mb-4">
-                  <div className="text-center p-2 rounded-lg bg-success/10"><p className="text-xl font-bold text-success">{concluidas.length}</p><p className="text-[10px] text-muted-foreground">Concluídas</p></div>
-                  <div className="text-center p-2 rounded-lg bg-primary/10"><p className="text-xl font-bold text-primary">{emAndamento.length}</p><p className="text-[10px] text-muted-foreground">Em Andamento</p></div>
-                  <div className="text-center p-2 rounded-lg bg-destructive/10"><p className="text-xl font-bold text-destructive">{atrasadas.length}</p><p className="text-[10px] text-muted-foreground">Atrasadas</p></div>
-                  <div className="text-center p-2 rounded-lg bg-muted"><p className="text-xl font-bold text-muted-foreground">{naoIniciadas.length}</p><p className="text-[10px] text-muted-foreground">Não Iniciadas</p></div>
-                </div>
-                {cronogramaView === 'gantt' ? (
-                  <GanttEditorChart categorias={etapas} />
-                ) : (
-                  <div className="space-y-2">
-                    {etapas.map(c => {
-                      const status = computeStatus(c);
-                      const pct = computePercentual(c);
-                      return (
-                        <div key={c.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors print:p-1">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            {status === 'concluida' ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> :
-                             status === 'atrasada' ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0" /> :
-                             status === 'em_andamento' ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> :
-                             <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
-                            <span className="text-sm text-foreground truncate">{c.nome}</span>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <div className="w-20"><Progress value={pct} className="h-1.5" /></div>
-                            <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
-                            <Badge variant="secondary" className={
-                              status === 'concluida' ? 'bg-success/10 text-success border-0' :
-                              status === 'atrasada' ? 'bg-destructive/10 text-destructive border-0' :
-                              status === 'em_andamento' ? 'bg-primary/10 text-primary border-0' :
-                              'bg-muted text-muted-foreground border-0'
-                            }>{statusEtapaLabels[status]}</Badge>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {etapas.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada no orçamento.</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        );
-
-      case 'custosEtapa':
-        return (
-          <div key={key} {...dragProps} data-print-section="custosEtapa">
-            <CostPieChart categorias={etapas} custoItens={custoItens} />
-          </div>
-        );
-
-      case 'curvaABC':
-        return (
-          <div key={key} {...dragProps} data-print-section="curvaABC">
-            <ABCTable categorias={etapas} custoItens={custoItens} />
-          </div>
-        );
-
-      case 'diario':
-        return (
-          <div key={key} {...dragProps} data-print-section="diario">
-            <Collapsible open={diarioOpen} onOpenChange={setDiarioOpen}>
-              <Card className="shadow-card print:shadow-none print:border print:break-inside-avoid">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {dragHandle}
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <BookOpen className="h-4 w-4" /> Diário de Obra
-                        <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-[10px] ml-1">
-                          {diarioRegistros.length}
-                        </Badge>
-                      </CardTitle>
-                    </div>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 print:hidden">
-                        <ChevronDown className={`h-4 w-4 transition-transform ${diarioOpen ? 'rotate-180' : ''}`} />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-0">
-                  {diarioRegistros.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum registro no diário desta obra.</p>
-                  )}
-                  {diarioRegistros.slice(0, 3).map(r => (
-                    <DiarioItem key={r.id} r={r} />
-                  ))}
-                  <CollapsibleContent className="space-y-3">
-                    {diarioRegistros.slice(3, 8).map(r => (
-                      <DiarioItem key={r.id} r={r} />
-                    ))}
-                  </CollapsibleContent>
-                  {diarioRegistros.length > 3 && !diarioOpen && (
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-xs text-primary w-full print:hidden">
-                        Ver mais {diarioRegistros.length - 3} registro(s)
-                      </Button>
-                    </CollapsibleTrigger>
-                  )}
-                </CardContent>
-              </Card>
-            </Collapsible>
-          </div>
-        );
-
-      default:
-        return null;
+  // Alerta 2: Correlação financeira via categorias / orçado
+  const catCustos: Record<string, number> = {};
+  custos.forEach(c => { if (c.etapaNome) catCustos[c.etapaNome] = (catCustos[c.etapaNome] || 0) + c.valor; });
+  for (const cat of etapasOrcamento) {
+    if (catCustos[cat.nome] && cat.precoTotal > 0 && (catCustos[cat.nome] / cat.precoTotal) >= 0.85 && (catCustos[cat.nome] / cat.precoTotal) < 1.0) {
+      alertas.push({
+        id: 'alerta2', type: 'financeiro', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', icon: Wallet,
+        title: `⚠ Etapa "${cat.nome}": custo real atingiu ${Math.round((catCustos[cat.nome] / cat.precoTotal) * 100)}%+ do previsto.`,
+        action: 'Ver custos', link: '/financeiro?tab=custo-real'
+      });
+      break; 
     }
-  };
-
-  return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <LayoutDashboard className="h-5 w-5 text-primary" />
-            Painel da Obra
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Central de controle e decisão</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Select value={selectedObraId} onValueChange={handleObraSelectChange}>
-            <SelectTrigger className="w-full sm:w-[260px] h-9 text-sm">
-              <SelectValue placeholder="Selecionar obra..." />
-            </SelectTrigger>
-            <SelectContent>
-              {obras.map(o => (
-                <SelectItem key={o.id} value={o.id}>{o.codigo ? `${o.codigo} - ` : ''}{o.nome}</SelectItem>
-              ))}
-              <SelectItem value="__nova_obra__" className="text-primary font-medium">+ Criar Nova Obra</SelectItem>
-            </SelectContent>
-          </Select>
-          {JSON.stringify(sectionOrder) !== JSON.stringify(defaultSectionOrder) && (
-            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground" onClick={() => setSectionOrder(defaultSectionOrder)} title="Resetar posição dos cards">
-              <RotateCcw className="h-3.5 w-3.5" /> Resetar
-            </Button>
-          )}
-          <PrintSectionPicker sections={printSections} onChange={setPrintSections} onPrint={handlePrint} />
-        </div>
-      </div>
-
-      {/* Print header */}
-      <div className="hidden print:block mb-6">
-        <h1 className="text-xl font-bold text-foreground">Panorama Geral da Obra</h1>
-        <p className="text-sm text-muted-foreground">{obra.codigo} — {obra.nome}</p>
-        <p className="text-xs text-muted-foreground">Emitido em {format(today, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-        <Separator className="mt-2" />
-      </div>
-
-      {/* Links de Acesso — visível apenas para gestor, oculto na impressão */}
-      {obra && (
-        <Card className="shadow-card print:hidden">
-          <CardContent className="pt-4">
-            <LinksDeAcessoCard obraId={obra.id} />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Draggable sections */}
-      {sectionOrder.map(key => renderSection(key))}
-
-      {/* Rodapé print */}
-      <div className="hidden print:block text-center text-xs text-muted-foreground mt-8 pt-4 border-t border-border">
-        <p>Panorama Geral gerado em {format(today, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-        <p>{obra.codigo} — {obra.nome}</p>
-      </div>
-    </div>
-  );
-}
-
-function DiarioItem({ r }: { r: DiarioRow }) {
-  return (
-    <div className="border-b border-border pb-3 last:border-0">
-      <div className="flex items-center gap-2 mb-1 flex-wrap">
-        <p className="text-sm font-medium text-foreground">{formatDate(r.data)}</p>
-        <span className="text-xs">{climaLabels[r.clima as keyof typeof climaLabels]}</span>
-        <span className="text-xs text-muted-foreground">· {r.usuario_nome}</span>
-        <span className="text-xs text-muted-foreground">· {r.trabalhadores} trab.</span>
-        <Badge variant="secondary" className={
-          r.status === 'aprovado' ? 'bg-success/10 text-success border-0 text-[10px]' :
-          r.status === 'pendente' ? 'bg-warning/10 text-warning border-0 text-[10px]' :
-          'bg-destructive/10 text-destructive border-0 text-[10px]'
-        }>{statusDiarioLabels[r.status as keyof typeof statusDiarioLabels] || r.status}</Badge>
-      </div>
-      {r.servicos_executados && (<p className="text-sm text-muted-foreground line-clamp-1">{r.servicos_executados}</p>)}
-      {r.problemas && (<p className="text-xs text-destructive mt-1">⚠️ {r.problemas}</p>)}
-    </div>
-  );
-}
-
-function FuncionarioPainel() {
-  const { obras } = useObras();
-  const { getOrcamento } = useOrcamento();
-  const { user } = useAuth();
-  const obra = obras[0];
-  const [diarioRegistros, setDiarioRegistros] = useState<DiarioRow[]>([]);
-
-  useEffect(() => {
-    if (!obra) return;
-    supabase.from('diario_registros').select('*').eq('obra_id', obra.id)
-      .order('data', { ascending: false }).limit(10)
-      .then(({ data }) => { if (data) setDiarioRegistros(data as DiarioRow[]); });
-  }, [obra?.id]);
-
-  const meusRegistros = diarioRegistros.filter(d => d.usuario_nome === user?.name);
-  const orcamento = obra ? getOrcamento(obra.id) : null;
-  const etapas = orcamento?.etapas || [];
-  const etapasAndamento = etapas.filter(c => c.statusCronograma === 'em_andamento');
-
-  if (!obra) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Nenhuma obra disponível.</div>;
   }
 
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Painel da Obra</h1>
-        <p className="text-muted-foreground text-sm">Bem-vindo de volta, {user?.name || 'Funcionário'}</p>
-      </div>
-      <Card className="shadow-card">
-        <CardContent className="p-4">
-          <h3 className="font-semibold text-foreground">{obra.nome}</h3>
-          <p className="text-sm text-muted-foreground">{obra.endereco}</p>
-          <div className="mt-3 space-y-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progresso</span>
-              <span className="font-medium text-foreground">{obra.percentualAndamento}%</span>
-            </div>
-            <Progress value={obra.percentualAndamento} className="h-2" />
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-2 gap-3">
-        <Link to="/diario"><Button className="w-full h-auto py-4 flex-col gap-2"><BookOpen className="h-5 w-5" /><span className="text-xs">Novo Diário</span></Button></Link>
-        <Link to="/estoque"><Button variant="outline" className="w-full h-auto py-4 flex-col gap-2"><Package className="h-5 w-5" /><span className="text-xs">Estoque</span></Button></Link>
-      </div>
-      {etapasAndamento.length > 0 && (
-        <Card className="shadow-card">
-          <CardHeader className="pb-3"><CardTitle className="text-base">Etapas em Andamento</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {etapasAndamento.map(e => (
-              <div key={e.id} className="space-y-1">
-                <div className="flex justify-between text-sm"><span className="font-medium text-foreground">{e.nome}</span><span className="text-muted-foreground">{e.percentualCronograma || 0}%</span></div>
-                <Progress value={e.percentualCronograma || 0} className="h-1.5" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-      <Card className="shadow-card">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Meus Registros Recentes</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {meusRegistros.slice(0, 4).map(d => (
-            <div key={d.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
-              <div><p className="text-sm font-medium text-foreground">{formatDate(d.data)}</p><p className="text-xs text-muted-foreground line-clamp-1">{d.servicos_executados}</p></div>
-              <Badge variant="secondary" className={d.status === 'aprovado' ? 'bg-success/10 text-success border-0' : 'bg-warning/10 text-warning border-0'}>{statusDiarioLabels[d.status as keyof typeof statusDiarioLabels]}</Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function ClientePainel() {
-  const { obras } = useObras();
-  const { getOrcamento } = useOrcamento();
-  const obra = obras[0];
-  const [diarioRegistros, setDiarioRegistros] = useState<DiarioRow[]>([]);
-
-  useEffect(() => {
-    if (!obra) return;
-    supabase.from('diario_registros').select('*').eq('obra_id', obra.id)
-      .order('data', { ascending: false }).limit(10)
-      .then(({ data }) => { if (data) setDiarioRegistros(data as DiarioRow[]); });
-  }, [obra?.id]);
-
-  const orcamento = obra ? getOrcamento(obra.id) : null;
-  const etapas = orcamento?.etapas || [];
-  const totalPrevisto = etapas.reduce((s, c) => s + c.precoTotal, 0);
-  const registrosAprovados = diarioRegistros.filter(d => d.status === 'aprovado');
-  const proximasEtapas = etapas.filter(c => c.statusCronograma === 'em_andamento' || c.statusCronograma === 'nao_iniciada').slice(0, 3);
-
-  if (!obra) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Nenhuma obra disponível.</div>;
+  // Alerta 3: BM não gerado
+  if (contratosAtivosSemMedicao.length > 0) {
+    alertas.push({
+      id: 'alerta3', type: 'contrato', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', icon: FileSignature,
+      title: `💡 Medição de contrato(s) com mais de 25d sem emissão no sistema.`,
+      action: 'Gerar medição', link: '/contratos'
+    });
   }
 
+  // Alerta 4: Inatividade no diário
+  const diasSemDiario = diarios.length > 0 ? differenceInBusinessDays(hoje, parseISO(diarios[0].data)) : 999;
+  if (diasSemDiario >= 3) {
+    alertas.push({
+      id: 'alerta4', type: 'diario', color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: Info,
+      title: `💡 O diário de obra não recebe registros há ${diasSemDiario === 999 ? 'vários' : diasSemDiario} dias úteis.`,
+      action: 'Registrar hoje', link: '/diario'
+    });
+  }
+
+  const sortedAlertas = alertas.slice(0, 4);
+
+  // --- KPIS CALCULAÇÃO ---
+  const activeTarefas = tarefas.filter(t => t.data_fim);
+  const scheduledDone = activeTarefas.filter(t => isBefore(parseISO(t.data_fim!), hoje)).length;
+  const andamentoPlanejado = activeTarefas.length > 0 ? (scheduledDone / activeTarefas.length) * 100 : 0;
+  const andamentoReal = stats.progressoGeral;
+
+  let spiVal = andamentoPlanejado > 0 ? andamentoReal / andamentoPlanejado : 1.0;
+  let spiColor = spiVal >= 0.9 ? '#10b981' : spiVal >= 0.7 ? '#f59e0b' : '#ef4444';
+
+  let diasFaltantes = 0;
+  let maxData = '';
+  tarefas.forEach(t => { if (t.data_fim && t.data_fim > maxData) maxData = t.data_fim; });
+  if (maxData) {
+    diasFaltantes = differenceInDays(parseISO(maxData), hoje);
+  }
+
+  const pctFinanceiro = totalPrevisto > 0 ? Math.round((totalRealizado / totalPrevisto) * 100) : 0;
+
+  const shellKpis: PageKPI[] = [
+    {
+      id: 'kpi-avanco', label: 'Avanço Realizado', value: `${andamentoReal}%`, icon: <LayoutDashboard size={18} className="text-primary" />,
+      main: true, tint: '#fdfbfe', valueColor: 'var(--color-primary)', labelColor: '#6b7280',
+    },
+    {
+      id: 'kpi-spi', label: 'SPI (Efic. de Prazo)', value: spiVal.toFixed(2), icon: <TrendingUp size={18} style={{ color: spiColor }} />,
+      tint: '#fafafa', valueColor: spiColor, labelColor: '#6b7280',
+      sublabel: spiVal >= 0.9 ? 'Cronograma em dia' : 'Obra levemente atrasada'
+    },
+    {
+      id: 'kpi-fin', label: 'Custo vs Orçado', value: `${pctFinanceiro}%`, icon: <Wallet size={18} className="text-slate-500" />,
+      tint: '#fafafa', valueColor: pctFinanceiro > 100 ? '#ef4444' : '#334155', labelColor: '#6b7280',
+    },
+    {
+      id: 'kpi-prazo', label: 'Entrega Final', value: maxData ? format(parseISO(maxData), 'dd/MMM/yy', { locale: ptBR }) : 'N/D', icon: <CalendarDays size={18} className="text-sky-600" />,
+      tint: '#f0f9ff', valueColor: '#0284c7', labelColor: '#0369a1', sublabel: diasFaltantes < 0 ? `${Math.abs(diasFaltantes)} dias de atraso global` : `${diasFaltantes} dias restantes`
+    }
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Minha Obra</h1>
-        <p className="text-muted-foreground text-sm">Acompanhe o andamento da sua obra</p>
-      </div>
-      <Card className="shadow-card">
-        <CardContent className="p-5">
-          <h3 className="text-lg font-semibold text-foreground">{obra.nome}</h3>
-          <p className="text-sm text-muted-foreground mb-4">{obra.endereco}</p>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progresso Geral</span>
-              <span className="text-lg font-bold text-primary">{obra.percentualAndamento}%</span>
-            </div>
-            <Progress value={obra.percentualAndamento} className="h-3" />
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="shadow-card"><CardContent className="p-4 text-center"><p className="text-xs text-muted-foreground">Previsto</p><p className="text-base font-bold text-foreground">{formatCurrency(totalPrevisto)}</p></CardContent></Card>
-        <Card className="shadow-card"><CardContent className="p-4 text-center"><p className="text-xs text-muted-foreground">Andamento</p><p className="text-base font-bold text-foreground">{obra.percentualAndamento}%</p></CardContent></Card>
-      </div>
-      {proximasEtapas.length > 0 && (
-        <Card className="shadow-card">
-          <CardHeader className="pb-3"><CardTitle className="text-base">Próximas Etapas</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {proximasEtapas.map(e => (
-              <div key={e.id} className="flex items-center justify-between">
-                <div><p className="text-sm font-medium text-foreground">{e.nome}</p><p className="text-xs text-muted-foreground">{e.dataInicioPrevista ? formatDate(e.dataInicioPrevista) : '—'} → {e.dataFimPrevista ? formatDate(e.dataFimPrevista) : '—'}</p></div>
-                <Badge variant="secondary" className={e.statusCronograma === 'em_andamento' ? 'bg-primary/10 text-primary border-0' : 'bg-muted text-muted-foreground border-0'}>{e.statusCronograma ? statusEtapaLabels[e.statusCronograma] : 'Não iniciada'}</Badge>
+    <PageShell
+      title="Painel da Obra"
+      subtitle="Cockpit executivo e inteligência de acompanhamento"
+      icon={<LayoutDashboard className="h-5 w-5" />}
+      kpis={shellKpis}
+    >
+      {(loadingExtras || loadingCronograma) ? (
+        <div className="h-[200px] flex items-center justify-center animate-pulse text-muted-foreground"><p>Calculando inteligência e consolidando dados da obra...</p></div>
+      ) : (
+        <div className="max-w-[1280px] w-full mx-auto space-y-6 pb-20 animate-fade-in mt-1 overflow-y-auto h-full px-4 sm:px-6">
+          
+          {/* Hoje na Obra */}
+          <section className={`border rounded-xl px-5 py-4 ${urgenceBg} shrink-0 shadow-sm transition-colors`}>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+              <div className="flex-1">
+                <h3 className="text-base font-semibold flex items-center gap-2 text-foreground">
+                  {urgencyLevel === 'green' ? <CheckCircle2 className={`h-5 w-5 ${urgenceIconColor}`} /> : <AlertCircle className={`h-5 w-5 ${urgenceIconColor}`} />}
+                  {urgencyLevel === 'green' ? '✓ Obra em dia' : 'Itens que precisam da sua atenção:'}
+                </h3>
+                
+                <div className="flex flex-wrap items-center gap-2 mt-4">
+                  {tarefasAtrasadas.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => navigate('/cronograma')} className="border-orange-200 bg-white hover:bg-orange-50 text-orange-700 h-8 font-medium">
+                      ⚠ {tarefasAtrasadas.length} etapa(s) atrasada(s)
+                    </Button>
+                  )}
+                  {impedimentosAbertos.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => navigate('/cronograma?tab=impedimentos')} className="border-red-200 bg-white hover:bg-red-50 text-red-700 h-8 font-medium">
+                      ⛔ {impedimentosAbertos.length} impedimento(s) aberto(s)
+                    </Button>
+                  )}
+                  {vencidos.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => navigate('/financeiro?tab=pagamentos')} className="border-red-200 bg-white hover:bg-red-50 text-red-700 h-8 font-medium">
+                      💰 {vencidos.length} pagamento(s) vencido(s)
+                    </Button>
+                  )}
+                  {!diarioHojePreenchido && (
+                    <Button variant="outline" size="sm" onClick={() => navigate('/diario')} className="border-amber-200 bg-white hover:bg-amber-50 text-amber-700 h-8 font-medium">
+                      📋 Diário não preenchido hoje
+                    </Button>
+                  )}
+                  {materiaisCriticos.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => navigate('/estoque')} className="border-amber-200 bg-white hover:bg-amber-50 text-amber-700 h-8 font-medium">
+                      📦 {materiaisCriticos.length} material(is) crítico(s)
+                    </Button>
+                  )}
+                  {urgencyLevel === 'green' && (
+                    <p className="text-sm text-emerald-800">Sem ocorrências ou bloqueios detectados para o dia atual.</p>
+                  )}
+                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-      <Card className="shadow-card">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Últimas Atualizações</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {registrosAprovados.slice(0, 4).map(d => (
-            <div key={d.id} className="border-b border-border pb-3 last:border-0">
-              <div className="flex items-center gap-2 mb-1"><p className="text-sm font-medium text-foreground">{formatDate(d.data)}</p><span className="text-xs text-muted-foreground">{climaLabels[d.clima as keyof typeof climaLabels]}</span></div>
-              <p className="text-sm text-muted-foreground">{d.servicos_executados}</p>
-              {d.problemas && <p className="text-xs text-destructive mt-1">⚠ {d.problemas}</p>}
             </div>
-          ))}
-        </CardContent>
-      </Card>
+          </section>
 
-      {/* Links de Acesso */}
-      {obra && (
-        <Card className="shadow-card">
-          <CardContent className="pt-4">
-            <LinksDeAcessoCard obraId={obra.id} />
-          </CardContent>
-        </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 space-y-6">
+              
+              {/* Intel Decisional */}
+              {sortedAlertas.length > 0 && (
+                <section>
+                  <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Lightbulb className="h-4 w-4" /> Inteligência Decisional</h4>
+                  <div className="grid gap-3">
+                    {sortedAlertas.map((alt, i) => (
+                      <div key={alt.id + i} className={`flex items-center justify-between p-3 rounded-lg border ${alt.bg} ${alt.border}`}>
+                        <div className="flex items-center gap-3">
+                          <alt.icon className={`h-4 w-4 ${alt.color}`} />
+                          <span className="text-sm font-medium text-foreground">{alt.title}</span>
+                        </div>
+                        <Button variant="ghost" size="sm" className={`text-xs h-7 shrink-0 hover:${alt.bg} ${alt.color}`} onClick={() => navigate(alt.link)}>
+                          {alt.action} <ArrowRight className="h-3 w-3 ml-1" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Tríptico */}
+              <section>
+                <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><PlayCircle className="h-4 w-4" /> Próximas Ações e Saúde</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-stretch">
+                  <Card className="shadow-none border-border bg-card/60">
+                    <CardHeader className="p-3 pb-2 border-b"><CardTitle className="text-xs uppercase font-bold text-muted-foreground">Contexto diário (Hoje)</CardTitle></CardHeader>
+                    <CardContent className="p-3 space-y-4 pt-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Status Diário de Obra</p>
+                        <Badge variant="outline" className={`font-medium ${diarioHojePreenchido ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                          {diarioHojePreenchido ? 'Preenchido' : 'Pendente Preenchimento'}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Impedimentos Ativos</p>
+                        <Link to="/cronograma?tab=impedimentos" className="text-sm font-semibold hover:underline text-foreground">
+                          {impedimentosAbertos.length} bloqueio(s) registrado(s)
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="shadow-none border-border bg-card/60">
+                    <CardHeader className="p-3 pb-2 border-b"><CardTitle className="text-xs uppercase font-bold text-muted-foreground">Esta Semana</CardTitle></CardHeader>
+                    <CardContent className="p-3 space-y-4 pt-4">
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-0.5">Entregas de Cronograma</p>
+                        <p className="text-sm font-semibold">{etapasFinalizandoSemana.length} etapa(s) previstas para fim</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-0.5">Obrigações Financeiras</p>
+                        <p className="text-sm font-semibold">{pagamentosSemana.length} boletos / pagamentos</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-0.5">Aderência de Diário</p>
+                        <p className="text-sm font-semibold">{diariosSemanaCount} dias úteis com registro</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="shadow-none border-border bg-card/60">
+                    <CardHeader className="p-3 pb-2 border-b"><CardTitle className="text-xs uppercase font-bold text-muted-foreground">Este Mês</CardTitle></CardHeader>
+                    <CardContent className="p-3 space-y-4 pt-4">
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-0.5">Gestão de Empreiteiros</p>
+                        <p className="text-sm font-semibold">{contratosAtivosSemMedicao.length} contratos sem medição recente</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-0.5">Kick-off de Etapas</p>
+                        <p className="text-sm font-semibold">{etapasIniciandoMes.length} etapa(s) para iniciar este mês</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </section>
+
+              {/* Semáforo Financeiro */}
+              <section>
+                <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Wallet className="h-4 w-4" /> Semáforo Financeiro</h4>
+                <Card className="shadow-sm border-border bg-white overflow-hidden">
+                  <div className="flex flex-col md:flex-row">
+                    <div className="flex-1 p-5 border-b md:border-b-0 md:border-r border-border min-w-0">
+                      <p className="text-xs text-muted-foreground mb-1">Custo Total Orçado (Teto)</p>
+                      <p className="text-xl font-bold font-mono text-slate-700">{formatCurrency(totalPrevisto)}</p>
+                    </div>
+                    <div className="flex-1 p-5 border-b md:border-b-0 md:border-r border-border min-w-0">
+                      <p className="text-xs text-muted-foreground mb-1">Custo Real Executado</p>
+                      <p className="text-xl font-bold text-primary font-mono">{formatCurrency(totalRealizado)}</p>
+                    </div>
+                    <div className="flex-1 p-5 min-w-0 bg-muted/30">
+                      <p className="text-xs text-muted-foreground mb-1">Percentual Executado Mão/Material</p>
+                      <p className={`text-xl font-bold font-mono ${pctFinanceiro > 100 ? 'text-red-600' : 'text-emerald-600'}`}>{pctFinanceiro}%</p>
+                    </div>
+                  </div>
+                  <div className="px-5 pb-5 pt-2">
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                      <span>Consumo da base orçamentária global</span>
+                      <span>{pctFinanceiro > 100 ? 'Orçamento estourado' : 'Dentro do previsto'}</span>
+                    </div>
+                    <Progress value={Math.min(pctFinanceiro, 100)} className={`h-2 ${pctFinanceiro > 100 && '[&>div]:bg-red-500'}`} />
+                  </div>
+                </Card>
+              </section>
+            </div>
+
+            {/* Sidebar Acesso Rápido */}
+            <div className="lg:col-span-4 space-y-4">
+              <section>
+                <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 mt-1 flex items-center gap-1.5"><ArrowRight className="h-4 w-4" /> Acesso Rápido</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="h-[72px] flex-col justify-center items-center gap-1.5 shadow-sm border-dashed hover:border-primary hover:text-primary transition-colors hover:bg-primary/5" onClick={() => navigate('/diario')}>
+                    <BookOpen className="h-5 w-5" />
+                    <span className="text-[11px] font-medium">+ Novo Diário</span>
+                  </Button>
+                  <Button variant="outline" className="h-[72px] flex-col justify-center items-center gap-1.5 shadow-sm border-dashed hover:border-primary hover:text-primary transition-colors hover:bg-primary/5" onClick={() => navigate('/cronograma')}>
+                    <TrendingUp className="h-5 w-5" />
+                    <span className="text-[11px] font-medium">Progresso</span>
+                  </Button>
+                  <Button variant="outline" className="h-[72px] flex-col justify-center items-center gap-1.5 shadow-sm border-dashed hover:border-primary hover:text-primary transition-colors hover:bg-primary/5" onClick={() => navigate('/financeiro?tab=pagamentos&adicionar=1')}>
+                    <Wallet className="h-5 w-5" />
+                    <span className="text-[11px] font-medium">Registrar Pgto</span>
+                  </Button>
+                  <Button variant="outline" className="h-[72px] flex-col justify-center items-center gap-1.5 shadow-sm border-dashed hover:border-primary hover:text-primary transition-colors hover:bg-primary/5" onClick={() => navigate('/estoque')}>
+                    <Package className="h-5 w-5" />
+                    <span className="text-[11px] font-medium">+ Estoque</span>
+                  </Button>
+                </div>
+              </section>
+
+              <div className="pt-2">
+                <LinksDeAcessoCard obraId={obra.id} />
+              </div>
+            </div>
+          </div>
+
+        </div>
       )}
-    </div>
+    </PageShell>
   );
-}
-
-export default function PainelObraPage() {
-  const { user } = useAuth();
-  if (!user) return null;
-  if (user.role === 'gestor') return <GestorPainel />;
-  if (user.role === 'funcionario') return <FuncionarioPainel />;
-  return <ClientePainel />;
 }

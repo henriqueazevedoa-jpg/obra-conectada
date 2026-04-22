@@ -9,6 +9,10 @@ import { useIADocumentos } from '@/hooks/useIADocumentos';
 import type { DocTipo } from '@/hooks/useIADocumentos';
 import IAInputButton from '@/components/ia/IAInputButton';
 import NfReviewDrawer from '@/components/ia/NfReviewDrawer';
+import { useCompany } from '@/contexts/CompanyContext';
+import { normalizeText } from '@/lib/normalizeText';
+import { usePrecoHistorico } from '@/hooks/usePrecoHistorico';
+import { enviarNotificacaoDedup } from '@/lib/notificationDedup';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -98,6 +102,8 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
   const [searchParams, setSearchParams] = useSearchParams();
   const { obras } = useObras();
   const { user } = useAuth();
+  const { company } = useCompany();
+  const { registrarPrecoEmLote } = usePrecoHistorico();
   const { getMateriaisByObra, registrarMovimentacao } = useEstoque();
   const obra = obras.find(o => o.id === obraId);
   const materiais = getMateriaisByObra(obraId);
@@ -119,6 +125,7 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
   };
 
   const handleIAConfirm = async (itensRevisados: any[]) => {
+    const dataRec = new Date().toISOString().slice(0, 10);
     // Cria um recebimento via IA
     await (supabase as any).from('material_recebimentos').insert({
       obra_id: obraId,
@@ -139,10 +146,45 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
     });
     // Também atualiza estoque via hook existente
     await confirmarRecebimento(itensRevisados, 'estoque', registrarMovimentacao);
+
+    // Alimentar histórico de preços (feedback positivo 360°)
+    const validItens = itensRevisados.map(i => ({
+      tempId: '',
+      nome: i.nome || i.material_nome || '',
+      unidade: i.unidade || 'un',
+      preco_unitario: String(i.preco_unitario || ''),
+      quantidade: String(i.quantidade || ''),
+    }));
+    await alimentarHistoricoPrecos(validItens, null, dataRec);
+
     setIaReviewOpen(false);
     iaReset();
     fetchRecebimentos();
   };
+
+  async function alimentarHistoricoPrecos(itensR: ItemRec[], fornecedorNome: string | null, dataDoc: string) {
+    const payload = itensR
+      .filter(i => i.nome.trim() && i.preco_unitario)
+      .map(item => {
+        const formatado = String(item.preco_unitario).replace(',', '.');
+        const preco = parseFloat(formatado);
+        if (isNaN(preco) || preco <= 0) return null;
+        return {
+          obra_id: obraId,
+          nome_material: item.nome.trim(),
+          unidade: item.unidade || 'un',
+          fornecedor_nome: fornecedorNome?.trim() || null,
+          preco_unitario: preco,
+          origem: 'compra',
+          data_referencia: dataDoc
+        };
+      })
+      .filter(x => x !== null) as any;
+
+    if (payload.length > 0) {
+      await registrarPrecoEmLote(payload);
+    }
+  }
 
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,10 +223,29 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
       .order('data_recebimento', { ascending: false });
     const list = (data || []) as Recebimento[];
     setRecebimentos(list);
-    const pendentes = list.filter(r => r.status === 'pendente').length;
-    onCountChange?.(pendentes);
+    const pendentes = list.filter(r => r.status === 'pendente');
+    onCountChange?.(pendentes.length);
+    
+    // Verifica notificações pendentes silenciosamente
+    if (company?.id && pendentes.length > 0) {
+      pendentes.forEach(p => {
+        enviarNotificacaoDedup({
+          company_id: company.id,
+          obra_id: obraId,
+          tipo: 'recebimento_pendente',
+          titulo: 'Novo Recebimento Pendente',
+          mensagem: p.fornecedor ? `Documento pendente de conferência de ${p.fornecedor}.` : 'Novo documento pendente de conferência aguardando validação do almoxarife.',
+          prioridade: 'importante',
+          acao_url: `/execucao?tab=recebimentos`,
+          acao_label: 'Conferir Recebimento',
+          metadataKey: 'recebimento_id',
+          metadataValue: p.id,
+        }, 3); // bloqueia dup do mesmo documento por 3 dias
+      });
+    }
+    
     setLoading(false);
-  }, [obraId]);
+  }, [obraId, company?.id, onCountChange]);
 
   useEffect(() => { if (isActive) fetchRecebimentos(); }, [fetchRecebimentos, isActive]);
 
@@ -236,6 +297,10 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
         status: 'conferido',
         processado_por: user?.id || null,
       });
+
+      // Alimentar histórico de preços
+      await alimentarHistoricoPrecos(validItens, form.fornecedor, form.data_recebimento);
+
       toast({ title: 'Recebimento registrado!' });
       setDialogOpen(false);
       resetForm();
@@ -259,6 +324,10 @@ export default function RecebimentosTab({ obraId, isActive = true, onCountChange
         processado_por: user?.id || null,
         updated_at: new Date().toISOString(),
       }).eq('id', reviewId);
+
+      // Alimentar histórico
+      await alimentarHistoricoPrecos(validItens, reviewForm.fornecedor, reviewForm.data_recebimento);
+
       toast({ title: 'Recebimento conferido!' });
       setReviewId(null);
       fetchRecebimentos();

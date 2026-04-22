@@ -42,15 +42,22 @@ import ContatosPage from "@/pages/ContatosPage";
 import RelatoriosPage from "@/pages/RelatoriosPage";
 import VisualizacaoPublicaPage from "@/pages/public/VisualizacaoPublicaPage";
 import OperacaoMobilePage from "@/pages/public/OperacaoMobilePage";
+import BoletimPublicoPage from "@/pages/public/BoletimPublicoPage";
 
 import AdminLayout from "@/pages/admin/AdminLayout";
+import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
 import AdminCompaniesPage from "@/pages/admin/AdminCompaniesPage";
 import AdminPlansPage from "@/pages/admin/AdminPlansPage";
 import AdminAddonsPage from "@/pages/admin/AdminAddonsPage";
+import AdminCompanyDetailPage from "@/pages/admin/AdminCompanyDetailPage";
 
 import NotFound from "@/pages/NotFound";
 import CotacaoPublicaPage from "@/pages/CotacaoPublicaPage";
 import BibliotecaPage from "@/pages/BibliotecaPage";
+import PlaceholderPage from "@/pages/PlaceholderPage";
+import DashboardPage from "@/pages/DashboardPage";
+import ConfiguracoesPage from "@/pages/ConfiguracoesPage";
+import ContratosPage from "@/pages/ContratosPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -164,7 +171,7 @@ function AppRoutes() {
         <Route path="obras" element={<ObrasPage />} />
         <Route path="painel" element={<PainelObraPage />} />
         <Route path="orcamento" element={<OrcamentoPage />} />
-        <Route path="cotacao" element={<CotacaoPage />} />
+        <Route path="cotacao" element={<Navigate to="/orcamento?tab=cotacao" replace />} />
         <Route path="custo-real" element={<Navigate to="/financeiro?tab=custo-real" replace />} />
         <Route path="cronograma" element={<CronogramaPage />} />
         {/* Central de Execução — Diário, Estoque, Equipe */}
@@ -172,10 +179,11 @@ function AppRoutes() {
         {/* Central de Compras — Pedidos e Recebimentos */}
         <Route path="compras" element={<ComprasCentral />} />
         {/* Redirects para compatibilidade com links antigos */}
-        <Route path="diario" element={<Navigate to="/execucao?tab=diario" replace />} />
+        <Route path="diario" element={<DiarioPage />} />
         <Route path="pendencias" element={<Navigate to="/agenda" replace />} />
         <Route path="agenda" element={<AgendaPage />} />
-        <Route path="estoque" element={<Navigate to="/execucao?tab=estoque" replace />} />
+        <Route path="estoque" element={<EstoquePage />} />
+        <Route path="equipe" element={<EquipePage />} />
         <Route path="pedidos" element={<Navigate to="/compras?tab=pedidos" replace />} />
         <Route path="recebimentos" element={<Navigate to="/compras?tab=recebimentos" replace />} />
         {/* Central Financeira */}
@@ -188,15 +196,20 @@ function AppRoutes() {
         <Route path="fornecedores" element={<Navigate to="/contatos" replace />} />
         {/* Insumos → Orçamento */}
         <Route path="insumos" element={<Navigate to="/orcamento" replace />} />
-        <Route path="usuarios" element={<EquipePage />} />
+        <Route path="usuarios" element={<Navigate to="/equipe" replace />} />
         <Route path="documentos" element={<DocumentosPage />} />
         <Route path="biblioteca" element={<BibliotecaPage />} />
         <Route path="perfil" element={<PerfilPage />} />
+        {/* Rotas stub — implementadas nos próximos sprints */}
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="contratos" element={<ContratosPage />} />
+        <Route path="configuracoes" element={<ConfiguracoesPage />} />
       </Route>
 
       {/* ── Rotas Públicas (sem autenticação) ───────────────────────── */}
       <Route path="/v/:token" element={<VisualizacaoPublicaPage />} />
       <Route path="/o/:token" element={<OperacaoMobilePage />} />
+      <Route path="/bm/:token" element={<BoletimPublicoPage />} />
       <Route
         path="/admin"
         element={
@@ -205,8 +218,10 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/admin/companies" replace />} />
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboardPage />} />
         <Route path="companies" element={<AdminCompaniesPage />} />
+        <Route path="companies/:id" element={<AdminCompanyDetailPage />} />
         <Route path="plans" element={<AdminPlansPage />} />
         <Route path="addons" element={<AdminAddonsPage />} />
       </Route>

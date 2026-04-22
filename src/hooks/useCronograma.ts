@@ -1,8 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/untyped';
-import { addDays, differenceInDays, format, parseISO } from 'date-fns';
+import { addDays, differenceInDays, format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { useCompany } from '@/contexts/CompanyContext';
+import { enviarNotificacaoDedup } from '@/lib/notificationDedup';
 
 export type TipoTarefa = 'PADRAO' | 'MARCO' | 'RESUMO';
 export type StatusTarefa = 'nao_iniciada' | 'em_andamento' | 'concluida' | 'atrasada';
@@ -33,8 +35,31 @@ export interface CronogramaTarefa {
   nota?: string | null;
   peso_orcamento: number;
   pode_editar_datas: boolean;
+  dias_impedidos: number;
+  quantidade_prevista: number | null;
+  quantidade_executada: number;
+  unidade: string | null;
+  amdahl_p: number | null;
+  amdahl_f: number | null;
+  duracao_sugerida_dias: number | null;
+  amdahl_grupo_id?: string | null;
+  amdahl_equipe?: number | null;
+  amdahl_confianca?: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CronogramaImpedimento {
+  id: string;
+  obra_id: string;
+  tarefa_id: string;
+  tipo: 'climatico' | 'projeto' | 'material' | 'mao_de_obra' | 'financeiro' | 'outros';
+  descricao: string;
+  data_inicio: string;
+  data_fim?: string | null;
+  resolvido: boolean;
+  impacto_financeiro: number;
+  created_at: string;
 }
 
 export interface CronogramaDependencia {
@@ -49,11 +74,12 @@ export interface CronogramaDependencia {
 interface CronogramaData {
   tarefas: CronogramaTarefa[];
   dependencias: CronogramaDependencia[];
+  impedimentos: CronogramaImpedimento[];
 }
 
 // ── Fetch function ────────────────────────────────────────────────────────────
 async function fetchCronograma(obraId: string): Promise<CronogramaData> {
-  const [{ data: t }, { data: d }] = await Promise.all([
+  const [{ data: t }, { data: d }, { data: imp }] = await Promise.all([
     supabase
       .from('cronograma_tarefas')
       .select('*')
@@ -63,15 +89,22 @@ async function fetchCronograma(obraId: string): Promise<CronogramaData> {
       .from('cronograma_dependencias')
       .select('*')
       .eq('obra_id', obraId),
+    supabase
+      .from('cronograma_impedimentos')
+      .select('*')
+      .eq('obra_id', obraId)
+      .order('created_at', { ascending: false }),
   ]);
   return {
     tarefas: (t as CronogramaTarefa[]) || [],
     dependencias: (d as CronogramaDependencia[]) || [],
+    impedimentos: (imp as CronogramaImpedimento[]) || [],
   };
 }
 
 export function useCronograma(obraId: string | undefined) {
   const queryClient = useQueryClient();
+  const { company } = useCompany();
 
   const { data, isLoading: loading, isFetching: saving, refetch } = useQuery({
     queryKey: ['cronograma', obraId],
@@ -81,6 +114,32 @@ export function useCronograma(obraId: string | undefined) {
 
   const tarefas = data?.tarefas ?? [];
   const dependencias = data?.dependencias ?? [];
+  const impedimentos = data?.impedimentos ?? [];
+
+  // Verificação de notificações automáticas
+  useEffect(() => {
+    if (!company?.id || !obraId || tarefas.length === 0) return;
+    const hoje = startOfDay(new Date());
+
+    const atrasadas = tarefas.filter(t => 
+      t.data_fim && t.percentual_concluido < 100 && isBefore(parseISO(t.data_fim), hoje) && t.status !== 'concluida'
+    );
+
+    atrasadas.forEach(t => {
+      enviarNotificacaoDedup({
+        company_id: company.id,
+        obra_id: obraId,
+        tipo: 'etapa_atrasada',
+        titulo: 'Etapa Atrasada',
+        mensagem: `A etapa "${t.nome}" deveria ter sido concluída dia ${format(parseISO(t.data_fim!), 'dd/MM')} e está com ${t.percentual_concluido}% de progresso.`,
+        prioridade: 'importante',
+        acao_url: `/cronograma`,
+        acao_label: 'Ver Cronograma',
+        metadataKey: 'tarefa_id',
+        metadataValue: t.id,
+      }, 7); // Janela longa (não notifica a mesma etapa todo dia, apenas uma vez por semana)
+    });
+  }, [tarefas, company?.id, obraId]);
 
   // Helper — revalidate after mutations
   const invalidate = useCallback(() => {
@@ -256,11 +315,41 @@ export function useCronograma(obraId: string | undefined) {
   const hasBaseline = tarefas.some(t => !!t.baseline_inicio);
   const baselineLocked = tarefas.every(t => t.baseline_locked);
 
+  // ─── IMPEDIMENTOS ──────────────────────────────────────────────────────────
+  const addImpedimento = useCallback(async (payload: Omit<CronogramaImpedimento, 'id' | 'created_at'>) => {
+    const { data: row, error } = await supabase
+      .from('cronograma_impedimentos')
+      .insert(payload)
+      .select()
+      .single();
+    if (error) { toast({ title: 'Erro ao registrar impedimento', description: error.message, variant: 'destructive' }); return; }
+    invalidate();
+    return row as CronogramaImpedimento;
+  }, [invalidate]);
+
+  const updateImpedimento = useCallback(async (id: string, changes: Partial<CronogramaImpedimento>) => {
+    const { data: row, error } = await supabase
+      .from('cronograma_impedimentos')
+      .update(changes)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) { toast({ title: 'Erro ao atualizar impedimento', description: error.message, variant: 'destructive' }); return; }
+    invalidate();
+    return row as CronogramaImpedimento;
+  }, [invalidate]);
+
+  const deleteImpedimento = useCallback(async (id: string) => {
+    await supabase.from('cronograma_impedimentos').delete().eq('id', id);
+    invalidate();
+  }, [invalidate]);
+
   return {
-    tarefas, dependencias, loading,
+    tarefas, dependencias, impedimentos, loading,
     saving: false, // mantido na API por compatibilidade
     addTarefa, updateTarefa, deleteTarefa,
     addDependencia, removeDependencia,
+    addImpedimento, updateImpedimento, deleteImpedimento,
     applyDateCascade,
     saveBaseline, unlockBaseline,
     addPercentual,

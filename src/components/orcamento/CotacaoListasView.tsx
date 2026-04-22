@@ -14,6 +14,44 @@ import { cn } from '@/lib/utils';
 import { useCotacaoListas, CotacaoLista, ListaStatus } from '@/hooks/useCotacaoListas';
 import type { CotacaoCategoria } from '@/hooks/useCotacaoCategorias';
 import { inferirCategoriaObj } from '@/utils/cotacaoCategorias';
+import { DndContext, DragEndEvent, DragStartEvent, useDroppable, useDraggable, DragOverlay, closestCenter } from '@dnd-kit/core';
+
+// ── DnD Wrappers ───────────────────────────────────────────────────────────────
+
+function DroppableLista({ lista, isSelected, statusMeta, children, className, onClick }: any) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: lista.id,
+    data: { type: 'lista', lista }
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      onClick={onClick}
+      className={cn(className, isOver && 'ring-2 ring-primary ring-inset bg-primary/10 shadow-md')}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DraggableItem({ item, children, className }: any) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: item.key,
+    data: { type: 'item', item }
+  });
+
+  return (
+    <tr
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn(className, isDragging ? 'opacity-50 select-none bg-muted' : 'cursor-grab active:cursor-grabbing hover:bg-muted/50')}
+    >
+      {children}
+    </tr>
+  );
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -75,6 +113,9 @@ export default function CotacaoListasView({ itens, obraId, companyId, categorias
   const renomearRef = useRef<HTMLInputElement>(null);
   const [showModelos, setShowModelos] = useState(false);
   const [salvandoModeloId, setSalvandoModeloId] = useState<string | null>(null);
+
+  // DnD state
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const selectedLista = listas.find(l => l.id === selectedListaId) ?? null;
@@ -175,6 +216,27 @@ export default function CotacaoListasView({ itens, obraId, companyId, categorias
     });
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    setActiveDragId(event.active.id as string);
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    if (active.data.current?.type === 'item' && over.data.current?.type === 'lista') {
+      const itemKey = active.id as string;
+      const listaId = over.id as string;
+      
+      if (!keysEmListas.has(itemKey)) {
+        await adicionarItens(listaId, [itemKey]);
+      }
+    }
+  }
+
+  const activeItemData = activeDragId ? itensSemPreco.find(i => i.key === activeDragId) : null;
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -250,10 +312,11 @@ export default function CotacaoListasView({ itens, obraId, companyId, categorias
         </div>
       )}
 
-      {/* ── Conteúdo 2 colunas ──────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* ── Conteúdo 2 colunas com Drag & Drop ──────────────── */}
+      <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="flex flex-1 overflow-hidden">
 
-        {/* Coluna esquerda — Lista de listas */}
+          {/* Coluna esquerda — Lista de listas */}
         <div className="w-[40%] border-r flex flex-col overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-32 text-muted-foreground text-sm gap-2">
@@ -283,8 +346,10 @@ export default function CotacaoListasView({ itens, obraId, companyId, categorias
                   const isSelected = lista.id === selectedListaId;
                   const statusMeta = STATUS_LABELS[lista.status];
                   return (
-                    <div
+                    <DroppableLista
                       key={lista.id}
+                      lista={lista}
+                      isSelected={isSelected}
                       onClick={() => setSelectedListaId(isSelected ? null : lista.id)}
                       className={cn(
                         'group relative rounded-lg border p-3 cursor-pointer transition-all',
@@ -380,7 +445,7 @@ export default function CotacaoListasView({ itens, obraId, companyId, categorias
                       {isSelected && (
                         <ChevronRight className="absolute right-2 bottom-3 h-3.5 w-3.5 text-primary/60" />
                       )}
-                    </div>
+                    </DroppableLista>
                   );
                 })}
               </div>
@@ -391,11 +456,44 @@ export default function CotacaoListasView({ itens, obraId, companyId, categorias
         {/* Coluna direita — Itens da lista selecionada */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {!selectedLista ? (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-8">
-              <Package className="h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                Selecione uma lista para ver os itens
-              </p>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b shrink-0 bg-muted/10">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Itens sem preço (Avulsos)</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Arraste itens para suas listas na esquerda
+                </span>
+              </div>
+              <ScrollArea className="flex-1 bg-muted/5">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-background border-b z-10">
+                    <tr>
+                      <th className="text-left px-4 py-2 text-muted-foreground font-semibold uppercase tracking-wider">Item</th>
+                      <th className="text-center px-3 py-2 text-muted-foreground font-semibold uppercase tracking-wider w-20">Un</th>
+                      <th className="text-center px-3 py-2 text-muted-foreground font-semibold uppercase tracking-wider w-20">Qtd</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itensSemPreco.filter(i => !keysEmListas.has(i.key)).map((item, idx) => (
+                      <DraggableItem key={item.key} item={item} className={cn('border-b transition-colors bg-background', idx % 2 === 0 ? '' : 'bg-muted/30')}>
+                        <td className="px-4 py-2 font-medium flex items-center gap-2 text-sm">
+                           <span className="cursor-grab text-muted-foreground/40 hover:text-foreground">⋮⋮</span>
+                           {item.descricao}
+                        </td>
+                        <td className="px-3 py-2 text-center text-muted-foreground">{item.unidade || '—'}</td>
+                        <td className="px-3 py-2 text-center text-muted-foreground">
+                          {item.quantidade != null ? item.quantidade : '—'}
+                        </td>
+                      </DraggableItem>
+                    ))}
+                    {itensSemPreco.filter(i => !keysEmListas.has(i.key)).length === 0 && (
+                       <tr><td colSpan={3} className="text-center py-12 text-muted-foreground">Nenhum item avulso faltando organizar!</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </ScrollArea>
             </div>
           ) : (
             <>
@@ -455,7 +553,19 @@ export default function CotacaoListasView({ itens, obraId, companyId, categorias
             </>
           )}
         </div>
-      </div>
+
+        {/* Overlay Drag */}
+        <DragOverlay>
+           {activeItemData ? (
+             <div className="bg-background border shadow-xl rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2 opacity-90">
+               <span className="text-muted-foreground">⋮⋮</span>
+               {activeItemData.descricao}
+             </div>
+           ) : null}
+        </DragOverlay>
+
+        </div>
+      </DndContext>
 
       {/* ── Dialog Nova Lista ─────────────────────────────────── */}
       <Dialog open={showNovaLista} onOpenChange={setShowNovaLista}>

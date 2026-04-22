@@ -8,7 +8,7 @@ export interface DiarioReportSections {
   cabecalho: boolean;
   clima: boolean;
   servicos: boolean;
-  materiais: boolean;
+  materiais_faltantes: boolean;
   observacoes: boolean;
   problemas: boolean;
   fotos: boolean;
@@ -18,7 +18,7 @@ export const defaultDiarioReportSections: DiarioReportSections = {
   cabecalho: true,
   clima: true,
   servicos: true,
-  materiais: true,
+  materiais_faltantes: true,
   observacoes: true,
   problemas: true,
   fotos: true,
@@ -28,7 +28,7 @@ export const fotoOnlyReportSections: DiarioReportSections = {
   cabecalho: true,
   clima: false,
   servicos: false,
-  materiais: false,
+  materiais_faltantes: false,
   observacoes: false,
   problemas: false,
   fotos: true,
@@ -38,7 +38,7 @@ const sectionLabels: Record<keyof DiarioReportSections, string> = {
   cabecalho: 'Cabeçalho (Obra / Data)',
   clima: 'Clima / Trabalhadores',
   servicos: 'Serviços Executados',
-  materiais: 'Materiais Utilizados',
+  materiais_faltantes: 'Materiais Faltantes',
   observacoes: 'Observações',
   problemas: 'Problemas Ocorridos',
   fotos: 'Fotos com Legenda',

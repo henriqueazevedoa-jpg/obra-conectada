@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from './AuthContext';
+import { useCompany } from './CompanyContext';
+import { enviarNotificacaoDedup } from '@/lib/notificationDedup';
 import type { Material, MovimentacaoEstoque } from '@/data/mockData';
 
 interface EstoqueContextType {
@@ -48,6 +50,7 @@ function dbToMovimentacao(row: any): MovimentacaoEstoque {
 
 export function EstoqueProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { company } = useCompany();
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,9 +94,32 @@ export function EstoqueProvider({ children }: { children: React.ReactNode }) {
       responsavel: mov.responsavel || null,
       observacoes: mov.observacoes || null,
     });
+
+    const materialDb = materiais.find(m => m.id === mov.materialId);
+    if (materialDb && company?.id) {
+      let novoEstoque = materialDb.estoqueAtual;
+      if (mov.tipo === 'entrada' || mov.tipo === 'devolucao') novoEstoque += mov.quantidade;
+      else if (mov.tipo === 'saida' || mov.tipo === 'perda') novoEstoque -= mov.quantidade;
+
+      if (novoEstoque <= materialDb.estoqueMinimo && (mov.tipo === 'saida' || mov.tipo === 'perda')) {
+        enviarNotificacaoDedup({
+          company_id: company.id,
+          obra_id: mov.obraId,
+          tipo: 'estoque_critico',
+          titulo: 'Estoque Crítico Alcançado',
+          mensagem: `O material ${materialDb.nome} agora está em nível crítico (${novoEstoque} ${materialDb.unidade}).`,
+          prioridade: 'importante',
+          acao_url: `/execucao?tab=estoque`,
+          acao_label: 'Ver Estoque',
+          metadataKey: 'material_id',
+          metadataValue: materialDb.id,
+        }, 3); // dedup de 3 dias
+      }
+    }
+
     // Refetch to get updated estoque_atual from trigger
     await fetchEstoque();
-  }, [fetchEstoque]);
+  }, [fetchEstoque, materiais, company?.id]);
 
   const addMaterial = useCallback(async (material: Omit<Material, 'id'> & { id?: string }) => {
     await (supabase.from('materiais') as any).insert({

@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { X, Pencil, Link2, Users, DollarSign, Plus, Trash2, AlertTriangle, Search, CheckCircle2, Loader2 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { X, Pencil, Link2, Users, DollarSign, Plus, Trash2, AlertTriangle, Search, CheckCircle2, Loader2, Calculator, ChevronDown, ChevronUp, Settings, RotateCcw } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/untyped';
+import { useCompany } from '@/contexts/CompanyContext';
 import { CronogramaTarefa, CronogramaDependencia, TipoDep, TipoTarefa } from '@/hooks/useCronograma';
 import { RecursoObra, CronogramaAlocacao } from '@/hooks/useRecursos';
 import { useOrcamentoParaCronograma } from '@/hooks/useOrcamentoParaCronograma';
+import { useAmdahlSugestao } from '@/hooks/useAmdahlSugestao';
+import { adicionarDiasUteis } from '@/lib/amdahl';
 
 type DrawerTab = 'geral' | 'dependencias' | 'recursos' | 'orcamento';
 
@@ -47,6 +51,244 @@ function DatePickerField({ label, value, onChange }: { label: string; value?: st
         />
       </PopoverContent>
     </Popover>
+  );
+}
+
+function ConfidenceDots({ level }: { level: number }) {
+  return (
+    <div style={{ display: 'flex', gap: 3 }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <div
+          key={i}
+          style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: i <= level ? '#534AB7' : 'rgba(83,74,183,0.15)',
+            flexShrink: 0,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EstimativaPanel({ tarefa, onUpdate }: { tarefa: CronogramaTarefa, onUpdate: (id: string, changes: Partial<CronogramaTarefa>) => void }) {
+  const { company } = useCompany();
+  const companyId = company?.id;
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [grupos, setGrupos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [equipe, setEquipe] = useState(tarefa.amdahl_equipe || 1);
+  const [grupoId, setGrupoId] = useState(tarefa.amdahl_grupo_id || '__none__');
+  const [p, setP] = useState(tarefa.amdahl_p ?? 0.8);
+  const [f, setF] = useState(tarefa.amdahl_f ?? 0.05);
+
+  const { calendar, feriados, feriadosRecorrentes, obterSugestao } = useAmdahlSugestao();
+
+  const handleToggle = () => {
+    if (!isOpen && companyId) {
+      setLoading(true);
+      supabase.from('amdahl_grupos')
+        .select('*')
+        .or(`company_id.is.null,company_id.eq.${companyId}`)
+        .order('nome')
+        .then(res => {
+          setGrupos(res.data || []);
+          setLoading(false);
+        });
+    }
+    setIsOpen(!isOpen);
+  };
+
+  const handleGrupoChange = (v: string) => {
+    setGrupoId(v);
+    if (v !== '__none__') {
+      const g = grupos.find(x => x.id === v);
+      if (g) {
+        setP(g.amdahl_p ?? 0.8);
+        setF(g.amdahl_f ?? 0.05);
+      }
+    }
+  };
+
+  const handleRestore = () => {
+    if (grupoId !== '__none__') {
+      const g = grupos.find(x => x.id === grupoId);
+      if (g) {
+        setP(g.amdahl_p ?? 0.8);
+        setF(g.amdahl_f ?? 0.05);
+      }
+    }
+  };
+
+  const isCustomizado = grupoId !== '__none__' && grupos.length > 0 && (() => {
+    const g = grupos.find(x => x.id === grupoId);
+    if (!g) return false;
+    return p !== g.amdahl_p || f !== g.amdahl_f;
+  })();
+
+  let duracaoBase = 14;
+  let baseConfianca = 3;
+  if (tarefa.quantidade_prevista != null && tarefa.quantidade_prevista > 0) {
+    duracaoBase = tarefa.duracao_dias > 0 ? tarefa.duracao_dias : 14;
+    baseConfianca = 4;
+  } else {
+    duracaoBase = tarefa.duracao_dias > 0 ? tarefa.duracao_dias : 14;
+    baseConfianca = 3;
+  }
+  const confianca = grupoId !== '__none__' ? baseConfianca : 1;
+
+  const params = { p, f };
+  const sugestao = isOpen && calendar ? obterSugestao(duracaoBase, equipe) : null;
+  // Temporary fix for obterSugestao locally if calendar not ready
+  const localSugestao = (() => {
+    const fatorParalelo = (1 - p) + (p / equipe);
+    const overhead = 1 + f * ((equipe - 1) / equipe);
+    const durSugerida = duracaoBase * fatorParalelo * overhead;
+    return { duracaoSugeridaDias: durSugerida };
+  })();
+
+  const diasUteisSugeridos = Math.max(1, Math.ceil(sugestao?.duracaoSugeridaDias || localSugestao.duracaoSugeridaDias));
+
+  const dataInicioRef = tarefa.data_inicio ? parseISO(tarefa.data_inicio) : new Date();
+  
+  const dataFimSugeridaFormated = calendar
+    ? format(adicionarDiasUteis(dataInicioRef, diasUteisSugeridos - 1, calendar, feriados, feriadosRecorrentes), 'dd/MM/yyyy')
+    : '--/--/----';
+
+  const onAplicar = () => {
+    if (calendar) {
+      const dataFim = format(adicionarDiasUteis(dataInicioRef, diasUteisSugeridos - 1, calendar, feriados, feriadosRecorrentes), 'yyyy-MM-dd');
+      onUpdate(tarefa.id, { 
+        duracao_dias: diasUteisSugeridos, 
+        data_fim: dataFim, 
+        duracao_sugerida_dias: diasUteisSugeridos,
+        amdahl_p: p,
+        amdahl_f: f,
+        amdahl_equipe: equipe,
+        amdahl_grupo_id: grupoId === '__none__' ? null : grupoId,
+        amdahl_confianca: confianca
+      });
+      setIsOpen(false);
+    }
+  };
+
+  const confidenceTitleIcon = tarefa.amdahl_grupo_id ? (tarefa.amdahl_confianca || 3) : 0;
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden mt-4">
+      <button 
+        onClick={handleToggle}
+        className="w-full bg-muted/30 p-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-2 text-primary font-medium text-[11px] uppercase tracking-wider">
+          <Calculator className="w-3.5 h-3.5" />
+          Estimativa de Duração
+        </div>
+        <div className="flex items-center gap-3">
+          {confidenceTitleIcon > 0 && <ConfidenceDots level={confidenceTitleIcon} />}
+          {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="p-3 bg-card space-y-4">
+          <div className="space-y-3">
+             <div className="relative">
+               <label className="text-[10px] text-muted-foreground mb-1 block">Perfil de Serviço</label>
+               <Select value={grupoId} onValueChange={handleGrupoChange} disabled={loading}>
+                 <SelectTrigger className="h-8 text-xs w-full"><SelectValue /></SelectTrigger>
+                 <SelectContent style={{ maxHeight: 200 }}>
+                   <SelectItem value="__none__"><span className="italic text-muted-foreground">Selecionar perfil...</span></SelectItem>
+                   {grupos.map((g) => (
+                     <SelectItem key={g.id} value={g.id} className="text-xs">{g.nome}</SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+               {tarefa.amdahl_grupo_id && tarefa.amdahl_grupo_id === grupoId && (
+                 <Badge variant="outline" className="absolute top-0 right-0 py-0 text-[8px] bg-blue-50 text-blue-700 border-blue-200">
+                   vínculo anterior
+                 </Badge>
+               )}
+             </div>
+
+             <div className="bg-muted/20 p-2 rounded-md border border-border flex items-center justify-between">
+               <div className="flex gap-4 text-[10px] text-muted-foreground">
+                 <span>Paralelismo (P): <strong>{(p*100).toFixed(0)}%</strong></span>
+                 <span>Coordenação (F): <strong>{(f*100).toFixed(0)}%</strong></span>
+               </div>
+               <div className="flex items-center gap-2">
+                 {isCustomizado && (
+                   <Button variant="ghost" size="icon" onClick={handleRestore} className="h-5 w-5 text-muted-foreground hover:text-amber-600" title="Restaurar padrão do perfil">
+                     <RotateCcw className="h-3 w-3" />
+                   </Button>
+                 )}
+                 <Popover>
+                   <PopoverTrigger asChild>
+                     <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-muted"><Settings className="h-3 w-3" /></Button>
+                   </PopoverTrigger>
+                   <PopoverContent align="end" className="w-[280px] p-3">
+                     <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-semibold text-foreground mb-2 flex justify-between">
+                            <span>Paralelismo</span>
+                            <span>{(p*100).toFixed(0)}%</span>
+                          </label>
+                          <input type="range" min={0} max={1} step={0.01} value={p} onChange={e => setP(Number(e.target.value))} className="w-full h-1.5 accent-primary" />
+                          <div className="flex justify-between text-[9px] text-muted-foreground mt-1 font-medium">
+                            <span>Uma equipe por vez</span>
+                            <span>Várias simultâneas</span>
+                          </div>
+                        </div>
+                        <Separator />
+                        <div>
+                          <label className="text-xs font-semibold text-foreground mb-2 flex justify-between">
+                            <span>Coordenação (Overhead)</span>
+                            <span>{(f*100).toFixed(0)}%</span>
+                          </label>
+                          <input type="range" min={0} max={0.5} step={0.01} value={f} onChange={e => setF(Number(e.target.value))} className="w-full h-1.5 accent-orange-500" />
+                          <div className="flex justify-between text-[9px] text-muted-foreground mt-1 font-medium">
+                            <span>Sem interferência</span>
+                            <span>Alta interferência</span>
+                          </div>
+                        </div>
+                     </div>
+                   </PopoverContent>
+                 </Popover>
+               </div>
+             </div>
+
+             <div>
+               <label className="text-[10px] text-muted-foreground mb-1 block">Tamanho da Equipe</label>
+               <Select value={String(equipe)} onValueChange={v => setEquipe(Number(v))}>
+                 <SelectTrigger className="h-8 text-xs w-full"><SelectValue /></SelectTrigger>
+                 <SelectContent>
+                   {[1,2,3,4,5,6,7,8].map(n => (
+                     <SelectItem key={n} value={String(n)} className="text-xs">{n} {n === 1 ? 'pessoa/frente' : 'pessoas/frentes'}</SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             </div>
+          </div>
+
+          <div className="p-3 bg-muted/40 rounded-lg space-y-3">
+             <div className="flex justify-between items-center text-xs">
+               <span className="text-muted-foreground font-medium">Estimativa: <strong className="text-primary text-[13px]">{diasUteisSugeridos} dias</strong></span>
+               <ConfidenceDots level={confianca} />
+             </div>
+             
+             <div className="flex justify-between items-center text-xs">
+               <span className="text-muted-foreground">Data fim sugerida:</span>
+               <span className="font-semibold text-foreground">{dataFimSugeridaFormated}</span>
+             </div>
+             
+             <Button onClick={onAplicar} className="w-full h-8 text-xs mt-1 bg-primary hover:bg-primary/90 gap-1.5" size="sm">
+               <CheckCircle2 className="w-3.5 h-3.5" /> Aplicar Estimativa
+             </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -217,9 +459,45 @@ export default function TaskDetailDrawer({
 
             <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
               <p><span className="font-medium text-foreground">Duração:</span> {duracao} dia{duracao !== 1 ? 's' : ''}</p>
+              {tarefa.duracao_sugerida_dias && <p className="text-[10px] text-primary">Estimativa de duração: {tarefa.duracao_sugerida_dias.toFixed(1)} dias</p>}
               {tarefa.is_critico && <p className="text-orange-600 font-medium">⚠ Esta tarefa está no Caminho Crítico</p>}
               {tarefa.baseline_locked && <p className="text-emerald-600">🔒 Baseline travado — edição livre das datas reais</p>}
             </div>
+
+            {tarefa.tipo_tarefa === 'PADRAO' && (
+              <>
+                <Separator />
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Qtd. Prevista (Física)</label>
+                    <Input
+                      type="number" min="0" step="0.01"
+                      value={tarefa.quantidade_prevista || ''}
+                      onChange={e => onUpdate(tarefa.id, { quantidade_prevista: e.target.value ? Number(e.target.value) : null })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Unidade</label>
+                    <Input
+                      value={tarefa.unidade || ''}
+                      onChange={e => onUpdate(tarefa.id, { unidade: e.target.value })}
+                      placeholder="Ex: m², un"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {(tarefa.quantidade_prevista ?? 0) > 0 && (
+                  <div className="bg-muted/20 border border-border rounded-lg p-3 flex justify-between text-xs">
+                    <span className="text-muted-foreground">Executado: <strong className="text-foreground">{tarefa.quantidade_executada || 0}</strong> {tarefa.unidade}</span>
+                    <span className="text-muted-foreground">Saldo: <strong className="text-foreground">{(tarefa.quantidade_prevista ?? 0) - (tarefa.quantidade_executada || 0)}</strong> {tarefa.unidade}</span>
+                  </div>
+                )}
+                
+                <EstimativaPanel tarefa={tarefa} onUpdate={onUpdate} />
+              </>
+            )}
           </div>
         )}
 

@@ -3,6 +3,7 @@ import { OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { normalizeText } from '@/lib/normalizeText';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -423,6 +424,21 @@ export default function CotacaoDrawer({
 
       onPrecosAdded();
       toast({ title: `✅ ${itensComValor.length} preço${itensComValor.length !== 1 ? 's' : ''} salvo${itensComValor.length !== 1 ? 's' : ''} para "${fornPrecoFinal}"!` });
+
+      // Alimentar banco de preços históricos (best-effort — não bloqueia em erro)
+      const historicoRows = itensComValor.map(i => ({
+        company_id: company?.id,
+        obra_id: obraId,
+        descricao_insumo: i.descricao,
+        descricao_normalizada: normalizeText(i.descricao),
+        unidade: i.unidade ?? null,
+        fornecedor_nome: fornPrecoFinal,
+        preco_unitario: parseFloat(valores[i.key]),
+        origem: 'cotacao',
+        data_referencia: new Date().toISOString().split('T')[0],
+      }));
+      (supabase as any).from('preco_historico').insert(historicoRows);
+
       // Reset apenas os valores, mantém o carrinho visível
       setValores({});
     } catch {

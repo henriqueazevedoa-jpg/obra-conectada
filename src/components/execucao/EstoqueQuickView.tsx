@@ -10,15 +10,15 @@ export default function EstoqueQuickView({ obraId }: { obraId: string }) {
   const materiais = getMateriaisByObra(obraId);
 
   const sorted = [...materiais].sort((a, b) => {
-    const aLevel = (a.quantidadeAtual || 0) <= (a.estoqueMinimo || 0) ? 0 : 1;
-    const bLevel = (b.quantidadeAtual || 0) <= (b.estoqueMinimo || 0) ? 0 : 1;
+    const aLevel = (a.estoqueAtual || 0) <= (a.estoqueMinimo || 0) ? 0 : 1;
+    const bLevel = (b.estoqueAtual || 0) <= (b.estoqueMinimo || 0) ? 0 : 1;
     return aLevel - bLevel;
   });
 
-  const criticos = materiais.filter(m => (m.quantidadeAtual || 0) <= (m.estoqueMinimo || 0)).length;
+  const criticos = materiais.filter(m => (m.estoqueAtual || 0) <= (m.estoqueMinimo || 0)).length;
 
   const getStatus = (m: typeof materiais[0]) => {
-    const qty = m.quantidadeAtual || 0;
+    const qty = m.estoqueAtual || 0;
     const min = m.estoqueMinimo || 0;
     if (qty <= 0) return { label: 'Esgotado', color: 'bg-red-500/15 text-red-400 border-red-500/30' };
     if (qty <= min) return { label: 'Crítico', color: 'bg-amber-500/15 text-amber-400 border-amber-500/30' };
@@ -26,20 +26,15 @@ export default function EstoqueQuickView({ obraId }: { obraId: string }) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Package className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">{materiais.length} materiais</span>
-          {criticos > 0 && (
-            <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">
-              <AlertTriangle className="h-3 w-3 mr-1" />{criticos} crítico{criticos !== 1 ? 's' : ''}
-            </Badge>
-          )}
-        </div>
-        <Button asChild size="sm" variant="outline" className="h-9 text-xs">
-          <Link to="/estoque">Ver tudo <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
-        </Button>
+    <div className="space-y-4 p-4">
+      <div className="flex items-center gap-2">
+        <Package className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">{materiais.length} materiais</span>
+        {criticos > 0 && (
+          <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">
+            <AlertTriangle className="h-3 w-3 mr-1" />{criticos} crítico{criticos !== 1 ? 's' : ''}
+          </Badge>
+        )}
       </div>
 
       {materiais.length === 0 ? (
@@ -68,13 +63,13 @@ export default function EstoqueQuickView({ obraId }: { obraId: string }) {
                   return (
                     <tr key={m.id} className={cn(
                       'hover:bg-muted/20 transition-colors',
-                      (m.quantidadeAtual || 0) <= (m.estoqueMinimo || 0) && 'bg-amber-500/5'
+                      (m.estoqueAtual || 0) <= (m.estoqueMinimo || 0) && 'bg-amber-500/5'
                     )}>
                       <td className="px-4 py-3">
                         <span className="font-medium text-foreground">{m.nome}</span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-sm">
-                        {(m.quantidadeAtual || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                        {(m.estoqueAtual || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{m.unidade}</td>
                       <td className="px-4 py-3 text-center">

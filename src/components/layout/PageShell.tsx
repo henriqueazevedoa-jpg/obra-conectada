@@ -72,11 +72,12 @@ export interface PageAction {
 }
 
 export interface PageShellProps {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title: string;
-  tabs: PageTab[];
-  activeTab: string;
-  onTabChange: (id: string) => void;
+  subtitle?: string;
+  tabs?: PageTab[];
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
   /** Ações no header (desktop). Em mobile ficam como ícones ou via PageFAB. */
   actions?: PageAction[];
   /** Ações ao lado dos KPI cards. Renderiza na L2, à direita dos cards. */
@@ -248,14 +249,16 @@ function SplitButton({ action }: { action: PageAction }) {
 // ─── PageShell ───────────────────────────────────────────────────────────────
 
 export default function PageShell({
-  icon, title,
-  tabs, activeTab, onTabChange,
+  icon, title, subtitle,
+  tabs = [], activeTab, onTabChange,
   actions = [],
   kpiActions,
   kpis,
   toolbar,
   children,
 }: PageShellProps) {
+  const [kpisCollapsed, setKpisCollapsed] = React.useState(false);
+
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -298,13 +301,25 @@ export default function PageShell({
             }}>
               {icon}
             </div>
-            <span style={{
-              fontSize: 15, fontWeight: 500,
-              color: 'var(--color-text-primary)',
-              whiteSpace: 'nowrap',
-            }}>
-              {title}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <span style={{
+                fontSize: 15, fontWeight: 500,
+                color: 'var(--color-text-primary)',
+                whiteSpace: 'nowrap',
+              }}>
+                {title}
+              </span>
+              {subtitle && (
+                <span style={{
+                  fontSize: 11, fontWeight: 400,
+                  color: 'var(--color-text-secondary)',
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1.3,
+                }}>
+                  {subtitle}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Abas — underline roxo na ativa */}
@@ -314,12 +329,12 @@ export default function PageShell({
             padding: '0 4px 0 16px',
             minWidth: 0, overflow: 'hidden',
           }}>
-            {tabs.map(tab => {
+            {tabs && tabs.length > 0 && tabs.map(tab => {
               const isAct = tab.id === activeTab;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => onTabChange(tab.id)}
+                  onClick={() => onTabChange?.(tab.id)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     fontSize: 13,
@@ -363,15 +378,15 @@ export default function PageShell({
             })}
           </div>
 
-          {/* Ações desktop */}
-          {actions.length > 0 && (
+          {/* Ações desktop e toggle de KPIs */}
+          {(actions.length > 0 || (kpis && kpis.length > 0)) && (
             <div style={{
               display: 'flex', alignItems: 'center',
               gap: 8, flexShrink: 0,
               paddingLeft: 16,
               borderLeft: '1px solid var(--color-border-tertiary)',
             }}>
-              {actions.map((action, i) => {
+              {actions?.map((action, i) => {
                 if (action.variant === 'ghost') {
                   return (
                     <button
@@ -423,6 +438,28 @@ export default function PageShell({
                 }
                 return null;
               })}
+              
+              {kpis && kpis.length > 0 && (
+                <>
+                  <div style={{ width: 1, height: 20, background: 'var(--color-border-tertiary)', margin: '0 4px' }} />
+                  <button
+                    onClick={() => setKpisCollapsed(!kpisCollapsed)}
+                    title={kpisCollapsed ? "Expandir KPIs" : "Recolher KPIs"}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      height: 28, width: 28,
+                      background: 'transparent',
+                      color: 'var(--color-text-secondary)',
+                      border: 'none', borderRadius: 6,
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-background-secondary)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                  >
+                    <ChevronDown style={{ width: 16, height: 16, transform: kpisCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -444,13 +481,26 @@ export default function PageShell({
           }}>
             {icon}
           </div>
-          <span style={{
-            fontSize: 15, fontWeight: 500,
-            color: 'var(--color-text-primary)',
-            flex: 1,
-          }}>
-            {title}
-          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{
+              fontSize: 15, fontWeight: 500,
+              color: 'var(--color-text-primary)',
+              display: 'block',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {title}
+            </span>
+            {subtitle && (
+              <span style={{
+                fontSize: 10, fontWeight: 400,
+                color: 'var(--color-text-secondary)',
+                display: 'block', whiteSpace: 'nowrap',
+                overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {subtitle}
+              </span>
+            )}
+          </div>
 
           {/* Em mobile: apenas ghost actions aparecem — primary/split vai via PageFAB */}
           {actions.filter(a => a.variant === 'ghost').map((action, i) => (
@@ -475,6 +525,22 @@ export default function PageShell({
               </svg>
             </button>
           ))}
+          
+          {kpis && kpis.length > 0 && (
+            <button
+              onClick={() => setKpisCollapsed(!kpisCollapsed)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                height: 32, width: 32,
+                border: '0.5px solid var(--color-border-secondary)',
+                background: 'transparent', borderRadius: 6,
+                cursor: 'pointer', color: 'var(--color-text-secondary)',
+                flexShrink: 0,
+              }}
+            >
+              <ChevronDown style={{ width: 16, height: 16, transform: kpisCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+            </button>
+          )}
         </div>
 
         {/* ── L1 MOBILE: linha 2 — abas em scroll horizontal ────────── */}
@@ -497,12 +563,12 @@ export default function PageShell({
             gap: 0,
             minWidth: 'max-content',
           }}>
-            {tabs.map(tab => {
+            {tabs && tabs.length > 0 && tabs.map(tab => {
               const isAct = tab.id === activeTab;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => onTabChange(tab.id)}
+                  onClick={() => onTabChange?.(tab.id)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
                     fontSize: 12, fontWeight: isAct ? 500 : 400,
@@ -542,7 +608,7 @@ export default function PageShell({
         </div>
 
         {/* ── L2 — KPI Row + Actions ───────────────────────────────────── */}
-        {(kpis && kpis.length > 0) || (kpiActions && kpiActions.length > 0) ? (
+        {!kpisCollapsed && ((kpis && kpis.length > 0) || (kpiActions && kpiActions.length > 0)) ? (
           <div
             style={{
               display: 'flex',

@@ -23,7 +23,7 @@ import {
   Search, X, ArrowUpDown, ArrowUp, ArrowDown,
   Sparkles, CheckSquare, Square, UserPlus, PenLine, Send,
   ClipboardPaste, ShoppingBag, TrendingUp, Package, CircleDot, BarChart2,
-  MoreHorizontal, Brain, Tags,
+  MoreHorizontal, Brain, Tags, ShoppingCart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -39,7 +39,10 @@ import {
 import { useSinapiAssistente } from '@/hooks/useSinapiAssistente';
 import SinapiReviewDrawer from '@/components/orcamento/SinapiReviewDrawer';
 import CotacaoListasView from '@/components/orcamento/CotacaoListasView';
-import CotacaoCotarView from '@/components/orcamento/CotacaoCotarView';
+import { usePrecoHistorico, ModoSugestao } from '@/hooks/usePrecoHistorico';
+import { normalizeText } from '@/lib/normalizeText';
+import { useCotacaoListas } from '@/hooks/useCotacaoListas';
+import { PageKPI } from '@/components/layout/PageShell';
 
 interface CotacaoCentralProps {
   obra: { id: string; nome: string };
@@ -52,6 +55,7 @@ interface CotacaoCentralProps {
   /** 3C: busca inicial vinda do semáforo da Planilha Orçamentária */
   initialSearch?: string;
   onClearInitialSearch?: () => void;
+  onKpisChange?: (kpis: PageKPI[]) => void;
 }
 
 /** Insumo consolidado para o mapa */
@@ -187,9 +191,9 @@ function extrairItens(etapas: OrcamentoEtapa[]): MapaItem[] {
 // Componente principal
 // ────────────────────────────────────────────────────────────────────────────
 
-// 'listas' = ① Montar Listas | 'cotar' = ② Cotar | 'comparativo' = ③ Comparar e Decidir
-// 'mapa' e 'links' preservados como alias internos para evitar regressões nos branches existentes
-type ActiveView = 'listas' | 'cotar' | 'mapa' | 'links' | 'comparativo';
+// 'listas' = Listas | 'comparativo' = Comparativo (mapa de preços) | 'links' = Histórico de Links
+// 'mapa' e 'cotar' são mantidos como alias para evitar regressões em chamadas internas
+type ActiveView = 'listas' | 'comparativo' | 'links' | 'mapa' | 'cotar';
 
 export default function CotacaoCentral({
   obra, onBack,
@@ -198,17 +202,24 @@ export default function CotacaoCentral({
   itensExternos,
   initialSearch = '',
   onClearInitialSearch,
+  onKpisChange,
 }: CotacaoCentralProps) {
   const { getOrcamento, saveOrcamento } = useOrcamento();
   const { user } = useAuth();
   const { company } = useCompany();
+  const {
+    registrarPrecoEmLote,
+    carregarHistorico,
+    getSugestao,
+    getFornecedoresHistorico,
+  } = usePrecoHistorico();
   const etapas = useMemo(() => getOrcamento(obra.id)?.etapas ?? [], [getOrcamento, obra.id]);
   const itens = useMemo(
     () => itensExternos && itensExternos.length > 0 ? itensExternos : extrairItens(etapas),
     [itensExternos, etapas]
   );
 
-  const [view, setView] = useState<ActiveView>('mapa');
+  const [view, setView] = useState<ActiveView>('listas');
   const [links, setLinks] = useState<CotacaoLink[]>([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
 
@@ -271,13 +282,13 @@ export default function CotacaoCentral({
 
   // 3C: Sincroniza busca quando initialSearch muda (semáforo clicado na planilha)
   useEffect(() => {
-    if (initialSearch) {
+    if (initialSearch && contexto === 'orcamento') {
       setSearch(initialSearch);
-      setView('mapa');
+      setView('comparativo');
       onClearInitialSearch?.();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialSearch]);
+  }, [initialSearch, contexto]);
 
   // A2b: Carrega fornecedores cadastrados para autocomplete
   useEffect(() => {
@@ -324,16 +335,25 @@ export default function CotacaoCentral({
   const loadLinks = useCallback(async () => {
     setLoadingLinks(true);
     try {
-      const { data } = await supabase
+      let query = supabase
         .from('cotacao_links')
         .select('*')
         .eq('obra_id', obra.id)
         .order('created_at', { ascending: false });
+        
+      if (contexto === 'orcamento') {
+        // Links antigos podiam não ter o contexto explícito no banco
+        query = query.or('contexto.eq.orcamento,contexto.is.null');
+      } else {
+        query = query.eq('contexto', contexto);
+      }
+      
+      const { data } = await query;
       if (data) setLinks(data as unknown as CotacaoLink[]);
     } finally {
       setLoadingLinks(false);
     }
-  }, [obra.id]);
+  }, [obra.id, contexto]);
 
   const loadFornecedoresManuais = useCallback(async () => {
     setLoadingManuais(true);
@@ -573,7 +593,7 @@ export default function CotacaoCentral({
     const cellKey = `${itemKey}::${fornId}`;
     setSavingManualCell(cellKey);
     try {
-      await (supabase as any)
+      const { error } = await (supabase as any)
         .from('cotacao_precos_manuais')
         .upsert({
           obra_id: obra.id,
@@ -583,6 +603,22 @@ export default function CotacaoCentral({
           preco_unitario: value,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'obra_id,fornecedor_nome,item_key' });
+
+      if (!error) {
+        // Alimentar banco de preços históricos (best-effort)
+        const item = itens.find(i => i.key === itemKey);
+        (supabase as any).from('preco_historico').insert({
+          company_id: company?.id,
+          obra_id: obra.id,
+          descricao_insumo: item?.descricao ?? itemKey,
+          descricao_normalizada: normalizeText(item?.descricao ?? itemKey),
+          unidade: item?.unidade ?? null,
+          fornecedor_nome: fornNome,
+          preco_unitario: value,
+          origem: 'cotacao',
+          data_referencia: new Date().toISOString().split('T')[0],
+        });
+      }
 
       // Atualizar estado local sem reload completo
       setFornecedoresManuais(prev => prev.map(f =>
@@ -767,6 +803,35 @@ export default function CotacaoCentral({
       }));
 
       await saveOrcamento({ obraId: obra.id, etapas: updatedEtapas });
+
+      // Registrar preços adotados no histórico
+      const historicoPayload = keysToApply.map(key => {
+        // Encontrar descrição e unidade procurando em comp ou insumo
+        let desc = '';
+        let und = '';
+        const itemMapa = itensFiltrados.find(i => i.key === key) || itens.find(i => i.key === key);
+        if (itemMapa) {
+          desc = itemMapa.descricao;
+          und = itemMapa.unidade;
+        }
+
+        const adopted = adoptedPrices[key];
+        if (!desc || !adopted) return null;
+
+        return {
+          obra_id: obra.id,
+          nome_material: desc,
+          unidade: und,
+          fornecedor_nome: todosFornecedores.find(f => f.id === adopted.fornId)?.nome || null,
+          preco_unitario: adopted.preco,
+          origem: 'cotacao'
+        };
+      }).filter(x => x !== null) as any;
+
+      if (historicoPayload.length > 0) {
+        await registrarPrecoEmLote(historicoPayload);
+      }
+
       toast({ title: `✅ ${keysToApply.length} preço${keysToApply.length !== 1 ? 's' : ''} adotado${keysToApply.length !== 1 ? 's' : ''} aplicado${keysToApply.length !== 1 ? 's' : ''} ao orçamento!` });
       clearMapaSelection();
     } finally {
@@ -826,6 +891,33 @@ export default function CotacaoCentral({
       }));
 
       await saveOrcamento({ obraId: obra.id, etapas: updatedEtapas });
+
+      // Registrar melhores preços aplicados no histórico
+      const historicoPayload = withBest.map(key => {
+        let desc = '';
+        let und = '';
+        const itemMapa = itensFiltrados.find(i => i.key === key) || itens.find(i => i.key === key);
+        if (itemMapa) {
+          desc = itemMapa.descricao;
+          und = itemMapa.unidade;
+        }
+        const best = getMelhorPreco(key);
+        if (!desc || !best) return null;
+
+        return {
+          obra_id: obra.id,
+          nome_material: desc,
+          unidade: und,
+          fornecedor_nome: best.fornecedorNome || null,
+          preco_unitario: best.preco,
+          origem: 'cotacao'
+        };
+      }).filter(x => x !== null) as any;
+
+      if (historicoPayload.length > 0) {
+        await registrarPrecoEmLote(historicoPayload);
+      }
+
       toast({ title: `✅ ${withBest.length} preço${withBest.length !== 1 ? 's' : ''} aplicado${withBest.length !== 1 ? 's' : ''} ao orçamento!` });
       clearMapaSelection();
     } finally {
@@ -947,6 +1039,24 @@ export default function CotacaoCentral({
         .from('cotacao_precos_manuais')
         .upsert(dbRows, { onConflict: 'obra_id,fornecedor_nome,item_key' });
       if (error) throw error;
+
+      // Alimentar banco de preços históricos (best-effort)
+      const historicoRows = matched.map(m => {
+        const item = itens.find(i => i.key === m.itemKey);
+        return {
+          company_id: company?.id,
+          obra_id: obra.id,
+          descricao_insumo: item?.descricao ?? m.itemKey,
+          descricao_normalizada: normalizeText(item?.descricao ?? m.itemKey),
+          unidade: item?.unidade ?? null,
+          fornecedor_nome: nome,
+          preco_unitario: m.preco,
+          origem: 'cotacao',
+          data_referencia: new Date().toISOString().split('T')[0],
+        };
+      });
+      (supabase as any).from('preco_historico').insert(historicoRows);
+
       await loadFornecedoresManuais();
       setPastePrecoOpen(false);
       setPastePrecoText('');
@@ -1056,11 +1166,132 @@ ${fornBlocks}
       .finally(() => setLoadingHistorico(false));
   }, [showHistoricoCol, itens, obra.id, company]);
 
+  // ── Hook Banco de Preços Históricos ─────────────────────────────────────────────
+  const [modoSugestao, setModoSugestao] = useState<ModoSugestao>('ultimo');
+  const [fornecedorSugestao, setFornecedorSugestao] = useState<string>('');
+
+  // Carregar histórico quando itens mudam
+  useEffect(() => {
+    if (itens.length > 0) {
+      carregarHistorico(itens.map(i => i.descricao));
+    }
+  }, [itens, carregarHistorico]);
+
+  // ── Listas para aba Listas ─────────────────────────────────────────────────
+  const {
+    listas: listasHook,
+    criarLista: criarListaHook,
+  } = useCotacaoListas(obra.id, (company as any)?.id);
+
+  const [listaSelecionada, setListaSelecionada] = useState<string | null>(null);
+  const [listasCompra, setListasCompra] = useState<any[]>([]);
+
+  const [loadingListas, setLoadingListas] = useState(contexto === 'compra');
+  useEffect(() => {
+    if (contexto !== 'compra') return;
+    setLoadingListas(true);
+    (supabase as any)
+      .from('lista_compra')
+      .select('*, itens:lista_compra_itens(*)')
+      .eq('obra_id', obra.id)
+      .eq('status', 'em_cotacao')
+      .then(({ data }: any) => { 
+        if (data) {
+          setListasCompra(data);
+          // Se tiver busca inicial, tenta selecionar a lista pelo nome
+          if (initialSearch) {
+            const match = data.find((l: any) => l.nome.toLowerCase().includes(initialSearch.toLowerCase()));
+            if (match) {
+              setListaSelecionada(match.id);
+            } else if (data.length > 0 && !listaSelecionada) {
+              setListaSelecionada(data[0].id);
+            }
+            onClearInitialSearch?.();
+          } else if (data.length > 0 && !listaSelecionada) {
+            setListaSelecionada(data[0].id);
+          }
+        }
+        setLoadingListas(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obra.id, contexto, initialSearch]);
+
+  // Itens sem lista (contexto orçamento)
+  const itensSemLista = useMemo(() => {
+    const keysEmLista = new Set(listasHook.flatMap(l => l.item_keys ?? []));
+    return itens.filter(i =>
+      !keysEmLista.has(i.key) &&
+      (!i.precoAtual || i.precoAtual === 0) &&
+      i.fonteReferencia !== 'SINAPI'
+    );
+  }, [itens, listasHook]);
+
+  // Itens ativos da lista de compra selecionada
+  const itensCompraAtivos = useMemo(() => {
+    if (contexto !== 'compra' || !listaSelecionada) return [];
+    const lista = listasCompra.find(l => l.id === listaSelecionada);
+    if (!lista?.itens) return [];
+    return lista.itens.map((i: any) => ({
+      key: i.id,
+      descricao: i.nome,
+      unidade: i.unidade ?? 'un',
+      quantidade: i.quantidade,
+      precoAtual: i.preco_unitario,
+      etapaNome: lista.nome,
+      etapaId: '',
+      fonteReferencia: undefined,
+    })) as MapaItem[];
+  }, [contexto, listaSelecionada, listasCompra]);
+
+  // Itens da lista selecionada
+  const itensListaSelecionada = useMemo(() => {
+    if (!listaSelecionada) return [];
+    if (listaSelecionada === '__sem_lista__') return itensSemLista;
+    if (contexto === 'compra') return itensCompraAtivos;
+    const lista = listasHook.find(l => l.id === listaSelecionada);
+    if (!lista) return [];
+    const keys = new Set(lista.item_keys ?? []);
+    return itens.filter(i => keys.has(i.key));
+  }, [listaSelecionada, itensSemLista, listasHook, itens, contexto, itensCompraAtivos]);
+
   // ── Fornecedores existentes para o CotacaoDrawer (inclui especialidades) ──
   const fornecedoresExistentesDrawer = useMemo(() =>
     todosFornecedores.map(f => ({ id: f.id, nome: f.nome, especialidades: f.especialidades ?? [] })),
     [todosFornecedores]
   );
+
+  // ── Emite KPIs para o pai (se desejado) ──
+  useEffect(() => {
+    if (!onKpisChange) return;
+    if (itens.length === 0) {
+      onKpisChange([]);
+      return;
+    }
+    onKpisChange([
+      { id: 'sem_preco', label: 'Sem preço', value: String(itensSemPreco.length), tint: itensSemPreco.length > 0 ? '#FCEBEB' : '#F3F2FD', valueColor: itensSemPreco.length > 0 ? '#A32D2D' : '#3C3489' },
+      { id: 'cotados', label: 'Cotados', value: `${pctCotado}%`, tint: '#F3F2FD', valueColor: '#3C3489' },
+      { id: 'forns', label: 'Fornecedores', value: String(todosFornecedores.length), tint: '#F3F2FD', valueColor: '#3C3489' }
+    ]);
+  }, [itens.length, itensSemPreco.length, pctCotado, todosFornecedores.length, onKpisChange]);
+
+  const isCompraEmptyState = !loadingListas && contexto === 'compra' && listasCompra.length === 0;
+
+  if (isCompraEmptyState) {
+    return (
+      <div className="flex flex-col h-full bg-background overflow-hidden relative">
+        <div className="flex flex-col items-center justify-center flex-1 gap-3 text-center px-4">
+          <ShoppingBag className="h-10 w-10 text-muted-foreground/30" />
+          <p className="text-sm font-medium text-foreground">Nenhuma lista de compra ativa</p>
+          <p className="text-xs text-muted-foreground">
+            Crie uma lista de compra na aba Compras para cotar os itens aqui.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/compras?tab=lista'}>
+            Ir para Compras
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
@@ -1104,24 +1335,11 @@ ${fornBlocks}
         </div>
       )}
 
-      {/* ════ Empty state — contexto compra sem itens externos ══════════════ */}
-      {contexto === 'compra' && (!itensExternos || itensExternos.length === 0) && (
-        <div className="flex flex-col items-center justify-center h-64 gap-3 text-center px-4">
-          <ShoppingBag className="h-10 w-10 text-muted-foreground/30" />
-          <p className="text-sm font-medium text-foreground">Nenhuma lista de compra ativa</p>
-          <p className="text-xs text-muted-foreground">
-            Crie uma lista de compra na aba Compras para cotar os itens aqui.
-          </p>
-          <Button variant="outline" size="sm" onClick={() => window.location.href = '/compras?tab=lista'}>
-            Ir para Compras
-          </Button>
-        </div>
-      )}
-
+      {/* Empty state movido para o topo do componente como Early Return */}
       {/* ════════════════════════════════════════════════════════════════════
            ZONA 1 — KPIs compactos
           ════════════════════════════════════════════════════════════════════ */}
-      {itens.length > 0 && !(contexto === 'compra' && (!itensExternos || itensExternos.length === 0)) && (
+      {!onKpisChange && itens.length > 0 && (
         <div className="px-4 md:px-6 pt-3 pb-2 shrink-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {/* Sem preço */}
@@ -1169,44 +1387,28 @@ ${fornBlocks}
            ────────────────────────────────────────────────── */}
         <div className="flex items-stretch h-full">
           {([
-            { id: 'listas', label: '① Montar Listas',      step: 1 },
-            { id: 'cotar',  label: '② Cotar',               step: 2 },
-            { id: 'mapa',   label: '③ Comparar e Decidir',  step: 3 },
-
-          ] as const).map((etapa, idx) => {
-            const stepOrder: ActiveView[] = ['listas', 'cotar', 'mapa'];
-            const currentIdx = stepOrder.indexOf(view as any) >= 0 ? stepOrder.indexOf(view as any) : 0;
-            const etapaIdx = stepOrder.indexOf(etapa.id as ActiveView);
-            const isActive = view === etapa.id || (etapa.id === 'mapa' && view === 'comparativo');
-            const isCompleted = etapaIdx < currentIdx;
-
+            { id: 'listas'      as ActiveView, label: 'Listas' },
+            { id: 'comparativo' as ActiveView, label: 'Comparativo' },
+            { id: 'links'       as ActiveView, label: 'Links' },
+          ]).map(aba => {
+            const isActive = view === aba.id ||
+              (aba.id === 'comparativo' && view === 'mapa');
             return (
-              <>
-                {idx > 0 && (
-                  <div key={`sep-${etapa.id}`} className="flex items-center px-1 text-muted-foreground/30">
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </div>
+              <button
+                key={aba.id}
+                onClick={() => setView(aba.id)}
+                className={cn(
+                  'relative flex items-center px-3 text-xs font-medium transition-colors whitespace-nowrap h-full',
+                  isActive
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
-                <button
-                  key={etapa.id}
-                  onClick={() => setView(etapa.id as ActiveView)}
-                  className={cn(
-                    'relative flex items-center gap-1.5 px-3 text-xs font-medium transition-colors whitespace-nowrap h-full',
-                    isActive
-                      ? 'text-primary'
-                      : isCompleted
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {isCompleted && <Check className="h-3 w-3 shrink-0" />}
-                  {etapa.label}
-                  {/* Underline ativo */}
-                  {isActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-sm" />
-                  )}
-                </button>
-              </>
+              >
+                {aba.label}
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-sm" />
+                )}
+              </button>
             );
           })}
         </div>
@@ -1215,19 +1417,107 @@ ${fornBlocks}
         <div className="w-px h-5 bg-border shrink-0 mx-3" />
 
         {/* ──────────────────────────────────────────────────
-             Grupo B — Ações primárias
+             Grupo B — Ações primárias e Contextuais
            ────────────────────────────────────────────────── */}
         <div className="flex items-center gap-1.5">
 
-          {/* Botão primário: Inserir Preços */}
-          <Button
-            onClick={() => { setCotacaoDrawerMode('precos'); setCotacaoDrawerOpen(true); }}
-            size="sm"
-            className="h-7 text-xs gap-1.5"
-          >
-            <PenLine className="h-3.5 w-3.5" />
-            Inserir Preços
-          </Button>
+          {/* Botão contextual: Comparativo (+ Fornecedor) */}
+          {view === 'comparativo' && (
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 border-primary/25 text-primary hover:bg-primary/8 dark:border-indigo-800 dark:text-primary/80 dark:hover:bg-indigo-950/30"
+                onClick={() => { setShowAddFornecedor(v => !v); setTimeout(() => addFornecedorInputRef.current?.focus(), 50); }}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                + Fornecedor
+              </Button>
+              {showAddFornecedor && (
+                <div className="absolute right-0 top-full mt-1 z-20 w-72 rounded-lg border bg-card shadow-lg p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <p className="text-xs font-medium text-foreground">Adicionar fornecedor ao mapa</p>
+                  <div className="relative">
+                    <Input
+                      ref={addFornecedorInputRef}
+                      value={novoFornecedorNome}
+                      onChange={e => {
+                        const v = e.target.value;
+                        setNovoFornecedorNome(v);
+                        if (v.trim().length >= 1) {
+                          const q = normalize(v.trim());
+                          setFornSugestoes(
+                            fornecedoresDB.filter(f =>
+                              normalize(f.nome).includes(q) &&
+                              !fornecedoresManuais.some(m => m.nome.toLowerCase() === f.nome.toLowerCase())
+                            ).slice(0, 5)
+                          );
+                        } else {
+                          setFornSugestoes([]);
+                        }
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleAddFornecedorManual();
+                        if (e.key === 'Escape') { setShowAddFornecedor(false); setFornSugestoes([]); }
+                      }}
+                      placeholder="Nome ou buscar cadastrado..."
+                      className="h-8 text-sm"
+                    />
+                    {fornSugestoes.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-0.5 z-30 rounded-md border bg-popover shadow-md overflow-hidden">
+                        {fornSugestoes.map(f => (
+                          <button
+                            key={f.id}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors flex items-center gap-2"
+                            onClick={() => {
+                              setNovoFornecedorNome(f.nome);
+                              setFornSugestoes([]);
+                              setTimeout(() => addFornecedorInputRef.current?.focus(), 50);
+                            }}
+                          >
+                            <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="truncate">{f.nome}</span>
+                            {f.cnpj && <span className="text-muted-foreground shrink-0">{f.cnpj}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleAddFornecedorManual} disabled={loadingManuais}>
+                      {loadingManuais ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Adicionar'}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowAddFornecedor(false); setFornSugestoes([]); }}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Botão contextual: Links (Novo Link) */}
+          {view === 'links' && !showNewLink && (
+            <Button
+              onClick={() => setShowNewLink(true)}
+              className="gap-1.5 h-7 text-xs"
+              size="sm"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Novo Link
+            </Button>
+          )}
+
+          {/* Botão primário: Inserir Preços (Oculto na view de Links) */}
+          {view !== 'links' && (
+            <Button
+              onClick={() => { setCotacaoDrawerMode('precos'); setCotacaoDrawerOpen(true); }}
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+            >
+              <PenLine className="h-3.5 w-3.5" />
+              Inserir Preços
+            </Button>
+          )}
 
           {/* Dropdown secundário: demais ações */}
           <DropdownMenu>
@@ -1279,80 +1569,8 @@ ${fornBlocks}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* + Fornecedor — mantido como terceiro elemento separado */}
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 border-primary/25 text-primary hover:bg-primary/8 dark:border-indigo-800 dark:text-primary/80 dark:hover:bg-indigo-950/30"
-              onClick={() => { setShowAddFornecedor(v => !v); setTimeout(() => addFornecedorInputRef.current?.focus(), 50); }}
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              + Fornecedor
-            </Button>
-
-            {showAddFornecedor && (
-              <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-lg border bg-card shadow-lg p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
-                <p className="text-xs font-medium text-foreground">Adicionar fornecedor ao mapa</p>
-                <div className="relative">
-                  <Input
-                    ref={addFornecedorInputRef}
-                    value={novoFornecedorNome}
-                    onChange={e => {
-                      const v = e.target.value;
-                      setNovoFornecedorNome(v);
-                      if (v.trim().length >= 1) {
-                        const q = normalize(v.trim());
-                        setFornSugestoes(
-                          fornecedoresDB.filter(f =>
-                            normalize(f.nome).includes(q) &&
-                            !fornecedoresManuais.some(m => m.nome.toLowerCase() === f.nome.toLowerCase())
-                          ).slice(0, 5)
-                        );
-                      } else {
-                        setFornSugestoes([]);
-                      }
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleAddFornecedorManual();
-                      if (e.key === 'Escape') { setShowAddFornecedor(false); setFornSugestoes([]); }
-                    }}
-                    placeholder="Nome ou buscar cadastrado..."
-                    className="h-8 text-sm"
-                  />
-                  {fornSugestoes.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-0.5 z-30 rounded-md border bg-popover shadow-md overflow-hidden">
-                      {fornSugestoes.map(f => (
-                        <button
-                          key={f.id}
-                          className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors flex items-center gap-2"
-                          onClick={() => {
-                            setNovoFornecedorNome(f.nome);
-                            setFornSugestoes([]);
-                            setTimeout(() => addFornecedorInputRef.current?.focus(), 50);
-                          }}
-                        >
-                          <Users className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span className="truncate">{f.nome}</span>
-                          {f.cnpj && <span className="text-muted-foreground shrink-0">{f.cnpj}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleAddFornecedorManual} disabled={loadingManuais}>
-                    {loadingManuais ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Adicionar'}
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowAddFornecedor(false); setFornSugestoes([]); }}>
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
+
 
         {/* ──────────────────────────────────────────────────
              Grupo C — Indicador SINAPI (sempre visível) + overflow
@@ -1435,46 +1653,173 @@ ${fornBlocks}
       {/* ── Views ──────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden">
 
-        {/* ── ETAPA 1: MONTAR LISTAS ─────────────────────────────────────────── */}
+        {/* ── ABA LISTAS ──────────────────────────────────────────────────── */}
         {view === 'listas' && (
-          <CotacaoListasView
-            itens={itens}
-            obraId={obra.id}
-            companyId={(company as any)?.id}
-            categorias={categorias}
-            fornecedores={fornecedoresDB}
-          />
+          <div className="flex h-full overflow-hidden">
+            {/* Painel esquerdo — seletor de listas */}
+            <div className="w-64 shrink-0 border-r flex flex-col overflow-hidden bg-muted/5">
+              <div className="px-3 py-2 border-b shrink-0">
+                <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Listas</p>
+              </div>
+              <div className="flex-1 overflow-y-auto py-1">
+                {/* Entrada "Sem lista" */}
+                {contexto === 'orcamento' && (
+                  <button
+                    onClick={() => setListaSelecionada('__sem_lista__')}
+                    className={cn(
+                      'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/30',
+                      listaSelecionada === '__sem_lista__' && 'bg-primary/8 dark:bg-indigo-950/20'
+                    )}
+                  >
+                    <Package className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">Sem lista</p>
+                      <p className="text-[10px] text-muted-foreground">{itensSemLista.length} itens sem preço</p>
+                    </div>
+                  </button>
+                )}
+                {/* Listas de cotação (contexto orçamento) */}
+                {contexto === 'orcamento' && listasHook.map(lista => (
+                  <button
+                    key={lista.id}
+                    onClick={() => setListaSelecionada(lista.id)}
+                    className={cn(
+                      'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/30',
+                      listaSelecionada === lista.id && 'bg-primary/8 dark:bg-indigo-950/20'
+                    )}
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary/60" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{lista.nome}</p>
+                      <p className="text-[10px] text-muted-foreground">{lista.item_keys?.length ?? 0} itens</p>
+                    </div>
+                  </button>
+                ))}
+                {/* Listas de compra ativas (contexto compra) */}
+                {contexto === 'compra' && listasCompra.map((lista: any) => (
+                  <button
+                    key={lista.id}
+                    onClick={() => setListaSelecionada(lista.id)}
+                    className={cn(
+                      'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/30',
+                      listaSelecionada === lista.id && 'bg-primary/8 dark:bg-indigo-950/20'
+                    )}
+                  >
+                    <ShoppingBag className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary/60" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{lista.nome}</p>
+                      <p className="text-[10px] text-muted-foreground">{lista.itens?.length ?? 0} itens</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Painel direito — itens da lista selecionada + histórico */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {!listaSelecionada ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-8 text-muted-foreground">
+                  <FileSpreadsheet className="h-10 w-10 opacity-20" />
+                  <p className="text-sm">Selecione uma lista à esquerda para ver os itens</p>
+                </div>
+              ) : (
+                <>
+                  {/* Header painel direito */}
+                  <div className="flex items-center gap-3 px-4 py-2.5 border-b shrink-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {listaSelecionada === '__sem_lista__' ? 'Itens sem lista' :
+                          listasHook.find(l => l.id === listaSelecionada)?.nome ??
+                          listasCompra.find((l: any) => l.id === listaSelecionada)?.nome ?? ''}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{itensListaSelecionada.length} itens</p>
+                    </div>
+                    {/* Seletor modo sugestão */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-muted-foreground hidden sm:block">Sugestão:</span>
+                      <Select value={modoSugestao} onValueChange={v => setModoSugestao(v as ModoSugestao)}>
+                        <SelectTrigger className="h-6 text-[11px] w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ultimo" className="text-xs">Último preço</SelectItem>
+                          <SelectItem value="menor" className="text-xs">Menor preço</SelectItem>
+                          <SelectItem value="media" className="text-xs">Média</SelectItem>
+                          <SelectItem value="fornecedor" className="text-xs">Por fornecedor</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {modoSugestao === 'fornecedor' && (
+                        <Select value={fornecedorSugestao} onValueChange={setFornecedorSugestao}>
+                          <SelectTrigger className="h-6 text-[11px] w-32">
+                            <SelectValue placeholder="Fornecedor..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getFornecedoresHistorico().map(f => (
+                              <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Lista de itens */}
+                  <div className="flex-1 overflow-y-auto divide-y divide-border/30">
+                    {itensListaSelecionada.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground py-12">
+                        <Package className="h-8 w-8 opacity-20" />
+                        <p className="text-sm">Nenhum item nesta lista.</p>
+                      </div>
+                    ) : itensListaSelecionada.map(item => {
+                      const sugestao = getSugestao(item.descricao, modoSugestao, fornecedorSugestao || undefined);
+                      const temPreco = !!(item.precoAtual && item.precoAtual > 0);
+                      return (
+                        <div key={item.key} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/10 group">
+                          {/* Dot status */}
+                          <span className={cn(
+                            'shrink-0 h-2 w-2 rounded-full',
+                            temPreco ? 'bg-emerald-500' : 'bg-red-400'
+                          )} />
+                          {/* Descrição + etapa */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-foreground leading-snug truncate">{item.descricao}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground">{item.etapaNome} · {item.unidade || '—'}</span>
+                              {/* Chip de sugestão histórica */}
+                              {sugestao && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-[10px] font-medium text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                                  <TrendingUp className="h-2.5 w-2.5 shrink-0" />
+                                  {sugestao.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                  {sugestao.fornecedor && <span className="opacity-70 hidden sm:inline"> · {sugestao.fornecedor}</span>}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Preço atual */}
+                          <div className="text-right shrink-0">
+                            {temPreco ? (
+                              <span className="text-xs text-emerald-600 font-medium">
+                                {item.precoAtual!.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-red-400">sem preço</span>
+                            )}
+                            {item.quantidade && (
+                              <p className="text-[9px] text-muted-foreground">Qtd: {item.quantidade}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )}
 
-        {/* ── ETAPA 2: COTAR ─────────────────────────────────────────────────── */}
-        {view === 'cotar' && (
-          <CotacaoCotarView
-            obraId={obra.id}
-            companyId={(company as any)?.id}
-            links={links as any}
-            itens={itens}
-            onEnviarLink={(itemKeys) => {
-              // Pre-selects items and opens the existing link creation form in 'links' view
-              setSelectedKeys(new Set(itemKeys));
-              setView('links');
-              setShowNewLink(true);
-            }}
-            onInserirPrecos={(itemKeys) => {
-              // Pre-selects items and opens CotacaoDrawer in precos mode
-              setSelectedMapaKeys(new Set(itemKeys));
-              setCotacaoDrawerMode('precos');
-              setCotacaoDrawerOpen(true);
-            }}
-            onVerLinks={() => setView('links')}
-            onRunSinapiAssistente={handleRunSinapiAssistente}
-            sinapiRunning={sinapiAssistente.running}
-            sinapiProgress={sinapiAssistente.progress}
-            onGoToListas={() => setView('listas')}
-          />
-        )}
-
-        {/* ── MAPA DE PREÇOS ────────────────────────────────────────────────── */}
-        {view === 'mapa' && (
+        {/* ── ABA COMPARATIVO (Mapa de Preços) ───────────────────────────── */}
+        {(view === 'mapa' || view === 'comparativo') && (
           <div className="h-full overflow-auto">
             {itens.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-8">
@@ -2185,16 +2530,80 @@ ${fornBlocks}
                   </div>
                 </div>
 
+                {/* ── Sticky Bottom Bar: Saving e Checkout ───────────── */}
+                {todosFornecedores.length > 0 && adoptedCount > 0 && (() => {
+                  let valorTotalAdotado = 0;
+                  let valorTotalReferencia = 0;
+                  
+                  // Computar savings
+                  Object.entries(adoptedPrices).forEach(([k, val]) => {
+                    const item = itens.find(i => i.key === k);
+                    if (item && item.quantidade) {
+                      const refPreco = (item.precoAtual && item.precoAtual > 0) ? item.precoAtual : item.sinapiPreco;
+                      if (refPreco && refPreco > 0) {
+                        valorTotalReferencia += (refPreco * item.quantidade);
+                        valorTotalAdotado += (val.preco * item.quantidade);
+                      } else {
+                        valorTotalAdotado += (val.preco * item.quantidade); // sem referência
+                      }
+                    }
+                  });
+                  
+                  const saving = valorTotalReferencia - valorTotalAdotado;
+                  const savingPct = valorTotalReferencia > 0 ? (saving / valorTotalReferencia) * 100 : 0;
+                  const isGain = saving > 0;
+                  const isLoss = saving < 0;
+
+                  return (
+                    <div className="sticky bottom-4 mx-auto w-full animate-in slide-in-from-bottom flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 mt-6 rounded-xl shadow-xl border bg-background/95 backdrop-blur-md z-40 relative overflow-hidden">
+                      {isGain && <div className="absolute inset-0 bg-emerald-500/5 dark:bg-emerald-500/10" />}
+                      {isLoss && <div className="absolute inset-0 bg-red-500/5 dark:bg-red-500/10" />}
+                      
+                      <div className="flex items-center gap-5 sm:gap-8 relative">
+                        <div className="flex flex-col">
+                          <span className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider mb-0.5">Total Adotado</span>
+                          <span className="text-2xl font-bold leading-none tracking-tight">{formatCurrency(valorTotalAdotado)}</span>
+                          <span className="text-xs text-muted-foreground mt-1">
+                            {adoptedCount} {adoptedCount === 1 ? 'item adotado' : 'itens adotados'} de {itens.length}
+                          </span>
+                        </div>
+                        
+                        {(isGain || isLoss) && (
+                          <div className={cn("flex flex-col pl-5 sm:pl-8 border-l", isGain ? "text-emerald-600 dark:text-emerald-500 border-emerald-500/20" : "text-red-600 dark:text-red-500 border-red-500/20")}>
+                            <span className="text-[11px] uppercase font-bold tracking-wider mb-0.5">{isGain ? "Economia Gerada" : "Perda vs Orçamento"}</span>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-2xl font-bold leading-none tracking-tight">{isGain ? "+" : ""}{formatCurrency(saving)}</span>
+                              <Badge className={cn("h-5 px-1.5 border-0 font-bold", isGain ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400")}>
+                                {isGain ? "+" : ""}{savingPct.toFixed(1)}%
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        size="lg"
+                        className={cn(
+                          "relative shadow-md gap-2 font-bold px-8 h-12 w-full sm:w-auto transition-all", 
+                          isGain && !applyingBest ? "bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] active:scale-[0.98]" : ""
+                        )}
+                        onClick={applyAdoptedPrecos}
+                        disabled={applyingBest}
+                      >
+                        {applyingBest ? <RefreshCw className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
+                        {contexto === 'orcamento' ? 'Aplicar ao Orçamento' : 'Gerar Pedido de Compra'}
+                      </Button>
+                    </div>
+                  );
+                })()}
+
                 {/* CTA para adicionar fornecedor se não há nenhum */}
                 {todosFornecedores.length === 0 && (
                   <div className="mt-4 flex items-center gap-3 p-4 rounded-xl border border-dashed border-primary/25 bg-primary/8/50 dark:bg-indigo-950/20 dark:border-indigo-800">
                     <Users className="h-5 w-5 text-primary shrink-0" />
                     <p className="text-sm text-primary dark:text-primary/60">
-                      Adicione fornecedores ao mapa clicando em <strong>"+ Fornecedor"</strong> para comparar preços, ou crie <strong>Links de Cotação</strong> para enviar aos fornecedores.
+                      Adicione fornecedores ao mapa ou crie links de cotação para começar a comparar preços.
                     </p>
-                    <Button size="sm" variant="outline" className="shrink-0 border-primary/60 text-primary hover:bg-primary/12" onClick={() => setView('links')}>
-                      Criar link <ChevronRight className="h-3 w-3 ml-1" />
-                    </Button>
                   </div>
                 )}
               </div>
@@ -2235,57 +2644,62 @@ ${fornBlocks}
                 </div>
 
                 {/* Seleção de itens */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-muted-foreground">Selecionar itens para cotação</label>
-                    <div className="flex gap-2">
-                      <button className="text-[11px] text-primary hover:underline" onClick={() => setSelectedKeys(new Set(itens.map((i) => i.key)))}>
-                        Todos
-                      </button>
-                      <button className="text-[11px] text-primary hover:underline" onClick={() => setSelectedKeys(new Set(itens.filter((i) => !i.precoAtual).map((i) => i.key)))}>
-                        Sem preço
-                      </button>
-                      <button className="text-[11px] text-muted-foreground hover:underline" onClick={() => setSelectedKeys(new Set())}>
-                        Limpar
-                      </button>
-                    </div>
-                  </div>
+                {(() => {
+                  const itensSelectContext = contexto === 'compra' ? itensListaSelecionada : itens;
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-medium text-muted-foreground">Selecionar itens para cotação</label>
+                        <div className="flex gap-2">
+                          <button className="text-[11px] text-primary hover:underline" onClick={() => setSelectedKeys(new Set(itensSelectContext.map((i) => i.key)))}>
+                            Todos
+                          </button>
+                          <button className="text-[11px] text-primary hover:underline" onClick={() => setSelectedKeys(new Set(itensSelectContext.filter((i) => !i.precoAtual).map((i) => i.key)))}>
+                            Sem preço
+                          </button>
+                          <button className="text-[11px] text-muted-foreground hover:underline" onClick={() => setSelectedKeys(new Set())}>
+                            Limpar
+                          </button>
+                        </div>
+                      </div>
 
-                  <div className="border rounded-lg overflow-hidden max-h-52 overflow-y-auto">
-                    {itens.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground">Nenhum insumo encontrado no orçamento.</div>
-                    ) : (
-                      itens.map((item) => (
-                        <label
-                          key={item.key}
-                          className="flex items-center gap-2.5 px-3 py-2 border-b last:border-0 hover:bg-muted/20 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedKeys.has(item.key)}
-                            onChange={(e) => {
-                              setSelectedKeys((prev) => {
-                                const next = new Set(prev);
-                                if (e.target.checked) next.add(item.key);
-                                else next.delete(item.key);
-                                return next;
-                              });
-                            }}
-                            className="h-3.5 w-3.5 accent-primary"
-                          />
-                          <span className="text-xs flex-1 truncate">{item.descricao}</span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">{item.unidade}</span>
-                          {item.precoAtual ? (
-                            <span className="text-[10px] text-emerald-600 shrink-0">{formatCurrency(item.precoAtual)}</span>
-                          ) : (
-                            <span className="text-[10px] text-red-400 shrink-0">sem preço</span>
-                          )}
-                        </label>
-                      ))
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">{selectedKeys.size} de {itens.length} itens selecionados</p>
-                </div>
+                      <div className="border rounded-lg overflow-hidden max-h-52 overflow-y-auto">
+                        {itensSelectContext.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-muted-foreground">Nenhum insumo encontrado.</div>
+                        ) : (
+                          itensSelectContext.map((item) => (
+                            <label
+                              key={item.key}
+                              className="flex items-center gap-2.5 px-3 py-2 border-b last:border-0 hover:bg-muted/20 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedKeys.has(item.key)}
+                                onChange={(e) => {
+                                  setSelectedKeys((prev) => {
+                                    const next = new Set(prev);
+                                    if (e.target.checked) next.add(item.key);
+                                    else next.delete(item.key);
+                                    return next;
+                                  });
+                                }}
+                                className="h-3.5 w-3.5 accent-primary"
+                              />
+                              <span className="text-xs flex-1 truncate">{item.descricao}</span>
+                              <span className="text-[10px] text-muted-foreground shrink-0">{item.unidade}</span>
+                              {item.precoAtual ? (
+                                <span className="text-[10px] text-emerald-600 shrink-0">{formatCurrency(item.precoAtual)}</span>
+                              ) : (
+                                <span className="text-[10px] text-red-400 shrink-0">sem preço</span>
+                              )}
+                            </label>
+                          ))
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">{selectedKeys.size} de {itensSelectContext.length} itens selecionados</p>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex gap-2 justify-end pt-1">
                   <Button variant="outline" size="sm" onClick={() => { setShowNewLink(false); setSelectedKeys(new Set()); }} className="text-xs">
@@ -2492,7 +2906,7 @@ ${fornBlocks}
       obraId={obra.id}
       obraNome={obra.nome}
       etapas={etapas}
-      itens={itens}
+      itens={contexto === 'compra' ? itensListaSelecionada : itens}
       fornecedoresExistentes={fornecedoresExistentesDrawer}
       onLinksCreated={loadLinks}
       onPrecosAdded={loadFornecedoresManuais}

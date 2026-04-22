@@ -16,6 +16,7 @@ import { useOrcamento } from '@/contexts/OrcamentoContext';
 import { useCustoReal } from '@/contexts/CustoRealContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
+import { enviarNotificacaoDedup } from '@/lib/notificationDedup';
 import { Card, CardContent } from '@/components/ui/card';
 
 import { Badge } from '@/components/ui/badge';
@@ -405,6 +406,52 @@ export default function PagamentosTab({ obraId, isActive = true, onPagamentoChan
       ));
     }
   }, [pagamentos.length]);
+
+  // Alertas de notificações automáticas (deduplicadas em database)
+  useEffect(() => {
+    if (!company?.id || !obraId || pagamentos.length === 0) return;
+    const hoje = startOfDay(new Date());
+    const daquiA3Dias = addDays(hoje, 3);
+
+    // 1) Atrasados
+    const atrasados = pagamentos.filter(p => p.status === 'atrasado' || (p.status === 'previsto' && isBefore(parseISO(p.data_vencimento), hoje)));
+    atrasados.forEach(p => {
+      enviarNotificacaoDedup({
+        company_id: company.id,
+        obra_id: obraId,
+        tipo: 'pagamento_atrasado',
+        titulo: 'Pagamento Atrasado',
+        mensagem: `O pagamento "${p.descricao}" no valor de ${formatCurrency(p.valor_previsto)} está em atraso.`,
+        prioridade: 'critica',
+        acao_url: `/financeiro?tab=pagamentos&search=${p.id}`,
+        acao_label: 'Ver Pagamento',
+        metadataKey: 'pagamento_id',
+        metadataValue: p.id,
+      }, 1);
+    });
+
+    // 2) Vencendo
+    const vencendo = pagamentos.filter(p => {
+      if (p.status !== 'previsto') return false;
+      const d = parseISO(p.data_vencimento);
+      return d >= hoje && d <= daquiA3Dias;
+    });
+    
+    vencendo.forEach(p => {
+      enviarNotificacaoDedup({
+        company_id: company.id,
+        obra_id: obraId,
+        tipo: 'pagamento_vencendo',
+        titulo: 'Pagamento Vencendo',
+        mensagem: `O pagamento "${p.descricao}" de ${formatCurrency(p.valor_previsto)} vence dia ${format(parseISO(p.data_vencimento), 'dd/MM')}.`,
+        prioridade: 'importante',
+        acao_url: `/financeiro?tab=pagamentos&search=${p.id}`,
+        acao_label: 'Ver Pagamento',
+        metadataKey: 'pagamento_id',
+        metadataValue: p.id,
+      }, 2); // Dedup previne repetição pelos próximos 2 dias
+    });
+  }, [pagamentos, company?.id, obraId]);
 
   const totalItens = itensCompra.reduce((sum, item) => {
     return sum + (parseFloat(item.quantidade) || 0) * (parseFloat(item.preco_unitario) || 0);

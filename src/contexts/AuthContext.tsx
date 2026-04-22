@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { supabase } from '@/integrations/supabase/untyped';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
-export type UserRole = 'gestor' | 'funcionario' | 'cliente' | 'admin';
+export type UserRole = 'gestor' | 'engenheiro' | 'admin' | 'funcionario';
 
 export interface User {
   id: string;
@@ -10,6 +10,8 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
+  avatar_url?: string | null;
+  obras_ids?: string[];
 }
 
 interface AuthContextType {
@@ -20,6 +22,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   hasPermission: (action: string) => boolean;
+  modulePermissions: Record<string, boolean>;
+  hasModulePermission: (modulo: string) => boolean;
+  loadModulePermissions: (userId: string, role: string) => Promise<void>;
 }
 
 const rolePermissions: Record<UserRole, string[]> = {
@@ -37,17 +42,16 @@ const rolePermissions: Record<UserRole, string[]> = {
     'estoque:view', 'estoque:edit', 'estoque:movimentar',
     'relatorios:view', 'usuarios:manage',
   ],
-  funcionario: [
-    'dashboard:operacional', 'obras:view',
-    'cronograma:view',
-    'diario:create', 'diario:view_own',
-    'estoque:view', 'estoque:movimentar',
+  engenheiro: [
+    'dashboard:operacional', 'obras:view', 'obras:create', 'obras:edit',
+    'orcamento:view', 'orcamento:edit',
+    'cronograma:view', 'cronograma:edit',
+    'diario:create', 'diario:view_own', 'diario:view',
+    'estoque:view', 'estoque:movimentar', 'estoque:edit',
   ],
-  cliente: [
-    'dashboard:resumo', 'obras:view',
-    'orcamento:view_resumo', 'cronograma:view',
-    'diario:view_aprovados',
-    'relatorios:view_resumo',
+  funcionario: [
+    'diario:create', 'diario:view_own',
+    'estoque:view',
   ],
 };
 
@@ -56,6 +60,47 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [modulePermissions, setModulePermissions] = useState<Record<string, boolean>>({});
+
+  const fallbackModulePermissions = (role: UserRole): Record<string, boolean> => {
+    const allModules = [
+      'financeiro_pagamentos', 'financeiro_custo_real', 'financeiro_fluxo_caixa', 'financeiro_dre',
+      'financeiro_recebiveis', 'contratos', 'equipe_gestao', 'relatorios_exportar',
+      'relatorios_cliente', 'diario_aprovar', 'configuracoes_obra'
+    ];
+    const map: Record<string, boolean> = {};
+
+    if (role === 'admin' || role === 'gestor') {
+      allModules.forEach(m => map[m] = true);
+    } else if (role === 'engenheiro') {
+      allModules.forEach(m => map[m] = true);
+      map['financeiro_fluxo_caixa'] = false;
+      map['financeiro_dre'] = false;
+      map['financeiro_recebiveis'] = false;
+    } else {
+      allModules.forEach(m => map[m] = false);
+      map['diario_aprovar'] = true;
+    }
+    return map;
+  };
+
+  const loadModulePermissions = useCallback(async (userId: string, role: string) => {
+    const { data } = await supabase
+      .from('user_module_permissions')
+      .select('modulo, permitido')
+      .eq('user_id', userId);
+
+    const fallbacks = fallbackModulePermissions(role as UserRole);
+    if (!data || data.length === 0) {
+      setModulePermissions(fallbacks);
+      return;
+    }
+    const newMap = { ...fallbacks };
+    data.forEach((dbPerm: any) => {
+      newMap[dbPerm.modulo] = dbPerm.permitido;
+    });
+    setModulePermissions(newMap);
+  }, []);
 
   const buildUser = async (su: SupabaseUser): Promise<User> => {
     const { data: profile } = await supabase
@@ -66,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: roleData } = await supabase
       .from('user_roles')
-      .select('role')
+      .select('role, obras_ids')
       .eq('user_id', su.id)
       .maybeSingle();
 
@@ -75,7 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: profile?.nome || su.user_metadata?.nome || su.email?.split('@')[0] || '',
       email: su.email || '',
       role: (roleData?.role as UserRole) || 'gestor',
-      avatar: undefined,
+      avatar_url: profile?.avatar_url,
+      obras_ids: roleData?.obras_ids || [],
     };
   };
 
@@ -85,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           setTimeout(async () => {
             const appUser = await buildUser(session.user);
+            await loadModulePermissions(appUser.id, appUser.role);
             setUser(appUser);
             setLoading(false);
           }, 0);
@@ -98,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const appUser = await buildUser(session.user);
+        await loadModulePermissions(appUser.id, appUser.role);
         setUser(appUser);
       }
       setLoading(false);
@@ -126,13 +174,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const userRole = user?.role;
   const hasPermission = useCallback((action: string) => {
-    if (!user) return false;
-    return rolePermissions[user.role]?.includes(action) || false;
-  }, [user]);
+    if (!userRole) return false;
+    return rolePermissions[userRole]?.includes(action) || false;
+  }, [userRole]);
+
+  const hasModulePermission = useCallback((modulo: string) => {
+    if (!userRole) return false;
+    if (userRole === 'gestor' || userRole === 'admin') return true;
+    return !!modulePermissions[modulo];
+  }, [userRole, modulePermissions]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, isAuthenticated: !!user, hasPermission }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, isAuthenticated: !!user, hasPermission, modulePermissions, hasModulePermission, loadModulePermissions }}>
       {children}
     </AuthContext.Provider>
   );

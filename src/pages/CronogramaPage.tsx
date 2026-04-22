@@ -9,9 +9,17 @@ import {
   CalendarDays, AlertTriangle, CheckCircle2, Clock, Plus,
   Save, ChevronDown, ChevronRight, BarChart3, List, Pencil,
   Lock, Unlock, MoreHorizontal, Trash2, Link2, Users, TrendingUp, Loader2,
+  ClipboardCheck, Wand2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator,
@@ -21,10 +29,27 @@ import NoObraState from '@/components/obras/NoObraState';
 import TaskDetailDrawer from '@/components/cronograma/TaskDetailDrawer';
 import GanttCanvasPanel, { computeCriticalPath } from '@/components/cronograma/GanttCanvasPanel';
 import CurvaS from '@/components/cronograma/CurvaS';
+import MedicaoTab from '@/components/cronograma/MedicaoTab';
 import PageShell from '@/components/layout/PageShell';
 import type { PageKPI, PageAction } from '@/components/layout/PageShell';
+import DrawerEstimarDuracoes, { EstimaUpdate } from '@/components/cronograma/DrawerEstimarDuracoes';
 
-// ─── Status Config ───────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type MainTab = 'planejamento' | 'impedimentos' | 'medicao';
+type SubView = 'split' | 'list' | 'curvs';
+
+const SUBVIEW_KEY = 'lastra_cronograma_subview';
+
+function readSavedSubView(): SubView {
+  try {
+    const saved = localStorage.getItem(SUBVIEW_KEY);
+    if (saved === 'split' || saved === 'list' || saved === 'curvs') return saved;
+  } catch {}
+  return 'split';
+}
+
+// ─── Status Config ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode; bar: string }> = {
   nao_iniciada: { label: 'Não Iniciada', color: 'text-[#888780]', icon: <Clock className="h-3.5 w-3.5" style={{ color: '#888780' }} />,        bar: 'bg-[#888780]' },
@@ -41,7 +66,7 @@ function computeStatusTarefa(t: CronogramaTarefa): string {
   return 'nao_iniciada';
 }
 
-// ─── WBS Row ─────────────────────────────────────────────────────────────────
+// ─── WBS Row ──────────────────────────────────────────────────────────────────
 
 interface WBSRowProps {
   tarefa: CronogramaTarefa;
@@ -108,6 +133,19 @@ function WBSRow({ tarefa, children, isExpanded, isSelected, isCritico, isDraggin
           <span className="text-[10px] text-muted-foreground w-6">{tarefa.percentual_concluido}%</span>
         </div>
       </div>
+      {tarefa.dias_impedidos > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center justify-center h-4 px-1 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0 cursor-help">
+              <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+              <span className="text-[9px] font-bold">{tarefa.dias_impedidos}d</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-[10px]">
+            Obra impedida por {tarefa.dias_impedidos} dias nesta etapa
+          </TooltipContent>
+        </Tooltip>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded hover:bg-muted transition-opacity" onClick={e => e.stopPropagation()}>
@@ -181,6 +219,48 @@ const AddTaskInline = forwardRef<AddTaskInlineHandle, { onAdd: (nome: string, ti
   }
 );
 
+// ─── SubView Toggle ───────────────────────────────────────────────────────────
+
+interface SubViewToggleProps {
+  value: SubView;
+  onChange: (v: SubView) => void;
+}
+
+function SubViewToggle({ value, onChange }: SubViewToggleProps) {
+  const options: { id: SubView; label: string; icon: React.ReactNode }[] = [
+    { id: 'list',  label: 'Lista',   icon: <List style={{ width: 12, height: 12 }} /> },
+    { id: 'split', label: 'Gantt',   icon: <BarChart3 style={{ width: 12, height: 12 }} /> },
+    { id: 'curvs', label: 'Curva S', icon: <TrendingUp style={{ width: 12, height: 12 }} /> },
+  ];
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '2px', background: 'var(--color-background-tertiary,rgba(0,0,0,0.06))', borderRadius: 8 }}>
+      {options.map(opt => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            onClick={() => onChange(opt.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              height: 26, padding: '0 9px',
+              borderRadius: 6, border: active ? '1px solid rgba(83,74,183,0.2)' : '1px solid transparent',
+              background: active ? 'var(--color-background-secondary)' : 'transparent',
+              color: active ? '#534AB7' : 'var(--color-text-secondary)',
+              fontSize: 11, fontWeight: active ? 600 : 500,
+              cursor: 'pointer', transition: 'all 0.12s',
+              boxShadow: active ? '0 1px 3px rgba(83,74,183,0.12)' : 'none',
+            }}
+          >
+            {opt.icon}
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Ícone ────────────────────────────────────────────────────────────────────
 
 const CronogramaIcon = (
@@ -197,28 +277,65 @@ const CronogramaIcon = (
 export default function CronogramaPage() {
   const { obras } = useObras();
   const { selectedObraId } = useObraSelection();
-  const { tarefas, dependencias, loading, saving, addTarefa, updateTarefa, deleteTarefa, addDependencia, removeDependencia, applyDateCascade, saveBaseline, unlockBaseline, stats } = useCronograma(selectedObraId);
+  const { tarefas, dependencias, impedimentos, loading, saving, addTarefa, updateTarefa, deleteTarefa, addDependencia, removeDependencia, addImpedimento, updateImpedimento, deleteImpedimento, applyDateCascade, saveBaseline, unlockBaseline, stats, refresh } = useCronograma(selectedObraId);
   const { recursos, alocacoes, addAlocacao, removeAlocacao, getAlocacoesDaTarefa, recursosSupelalocados } = useRecursos(selectedObraId);
   const { byEtapa: financeiroByEtapa } = useGanttFinanceiro(selectedObraId);
 
+  const [isAddingImpedimento, setIsAddingImpedimento] = useState(false);
+  const [newImpedimento, setNewImpedimento] = useState<any>({
+    tarefa_id: '',
+    tipo: 'climatico',
+    descricao: '',
+    data_inicio: new Date().toISOString().split('T')[0],
+    impacto_financeiro: 0
+  });
+
   const obra = obras.find(o => o.id === selectedObraId);
-  const [viewMode, setViewMode] = useState<'split' | 'gantt' | 'list' | 'curvs' | 'recursos'>('split');
+
+  // ── State: dois estados separados ─────────────────────────────────────────
+  const [mainTab, setMainTab] = useState<MainTab>('planejamento');
+  const [subView, setSubView] = useState<SubView>(readSavedSubView);
+
+  const handleSubViewChange = useCallback((sv: SubView) => {
+    setSubView(sv);
+    try { localStorage.setItem(SUBVIEW_KEY, sv); } catch {}
+  }, []);
+
   const [selectedTarefaId, setSelectedTarefaId] = useState<string | null>(null);
   const [drawerTarefa, setDrawerTarefa] = useState<CronogramaTarefa | null>(null);
+  const [drawerEstimarOpen, setDrawerEstimarOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const addTaskRef = useRef<AddTaskInlineHandle>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
 
+  const handleAplicarEstimativas = useCallback(async (updates: EstimaUpdate[]) => {
+    for (const u of updates) {
+      await updateTarefa(u.id, {
+        data_fim: u.data_fim,
+        ...(u.amdahl_p !== undefined ? { amdahl_p: u.amdahl_p } : {}),
+        ...(u.amdahl_f !== undefined ? { amdahl_f: u.amdahl_f } : {}),
+        ...(u.duracao_sugerida_dias !== undefined ? { duracao_sugerida_dias: u.duracao_sugerida_dias } : {}),
+      });
+    }
+  }, [updateTarefa]);
+
   const triggerAddTask = useCallback((tipo: TipoTarefa = 'PADRAO') => {
-    if (viewMode !== 'list') setViewMode('list');
+    // Garante estar na sub-view Lista e na aba Planejamento
+    if (mainTab !== 'planejamento') setMainTab('planejamento');
+    if (subView !== 'list') handleSubViewChange('list');
     requestAnimationFrame(() => {
       listScrollRef.current?.scrollTo({ top: listScrollRef.current.scrollHeight, behavior: 'smooth' });
       setTimeout(() => addTaskRef.current?.activate(tipo), 80);
     });
-  }, [viewMode]);
+  }, [mainTab, subView, handleSubViewChange]);
 
   const toggleExpand = useCallback((id: string) => {
-    setExpandedIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }, []);
 
   const rootTarefas = useMemo(() => tarefas.filter(t => !t.parent_tarefa_id).sort((a, b) => a.ordem - b.ordem), [tarefas]);
@@ -296,13 +413,13 @@ export default function CronogramaPage() {
     }] : []),
   ] : [];
 
-  // ── Ações header: apenas Exportar (ghost) ─────────────────────────────────
+  // ── Ações header ──────────────────────────────────────────────────────────
   const headerActions: PageAction[] = [
     { label: 'Exportar', variant: 'ghost', onClick: () => {} },
   ];
 
-  // ── L3a — Toolbar de página (+ Tarefa + ⋯ Baseline) ──────────────────────
-  const pageToolbar = obra ? (
+  // ── Toolbar planejamento (+ Tarefa + SubViewToggle + Baseline) ─────────────
+  const planejamentoToolbar = obra ? (
     <>
       {/* Split button Tarefa */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -352,7 +469,32 @@ export default function CronogramaPage() {
         </DropdownMenu>
       </div>
 
+      {/* Estimar Durações */}
+      <button
+        onClick={() => setDrawerEstimarOpen(true)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          height: 30, padding: '0 11px',
+          background: 'rgba(83,74,183,0.08)',
+          border: '1px solid rgba(83,74,183,0.2)',
+          borderRadius: 6, fontSize: 11, fontWeight: 600,
+          color: '#534AB7', cursor: 'pointer', whiteSpace: 'nowrap',
+          transition: 'background 0.12s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(83,74,183,0.14)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(83,74,183,0.08)')}
+      >
+        <Wand2 style={{ width: 11, height: 11 }}/>
+        Estimar Durações
+      </button>
+
       <div style={{ flex: 1 }}/>
+
+      {/* SubView Toggle */}
+      <SubViewToggle value={subView} onChange={handleSubViewChange} />
+
+      {/* Divider */}
+      <div style={{ width: 1, height: 20, background: 'var(--color-border-secondary)', flexShrink: 0 }} />
 
       {/* Baseline */}
       <DropdownMenu>
@@ -381,13 +523,23 @@ export default function CronogramaPage() {
     </>
   ) : undefined;
 
-  // ── Abas ──────────────────────────────────────────────────────────────────
+  // ── Abas do PageShell (3 abas principais) ─────────────────────────────────
   const tabs = [
-    { id: 'split',    label: 'Gantt',    icon: <BarChart3 style={{ width: 13, height: 13 }}/> },
-    { id: 'list',     label: 'Lista',    icon: <List style={{ width: 13, height: 13 }}/> },
-    { id: 'curvs',    label: 'Curva S',  icon: <TrendingUp style={{ width: 13, height: 13 }}/> },
-    { id: 'recursos', label: 'Recursos', icon: <Users style={{ width: 13, height: 13 }}/> },
+    { id: 'planejamento',  label: 'Planejamento',  icon: <BarChart3 style={{ width: 13, height: 13 }}/> },
+    { id: 'impedimentos',  label: 'Impedimentos',  icon: <AlertTriangle style={{ width: 13, height: 13 }}/> },
+    { id: 'medicao',       label: 'Acompanhamento', icon: <ClipboardCheck style={{ width: 13, height: 13 }}/> },
   ];
+
+  // ── Toolbar condicional por aba ────────────────────────────────────────────
+  const activeToolbar = mainTab === 'impedimentos' ? (
+    <button
+      onClick={() => setIsAddingImpedimento(true)}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 transition-colors"
+    >
+      <Plus className="h-3.5 w-3.5" />
+      Registrar Impedimento
+    </button>
+  ) : mainTab === 'planejamento' ? planejamentoToolbar : undefined;
 
   return (
     <TooltipProvider>
@@ -395,11 +547,11 @@ export default function CronogramaPage() {
       icon={CronogramaIcon}
       title="Cronograma"
       tabs={tabs}
-      activeTab={viewMode}
-      onTabChange={id => setViewMode(id as typeof viewMode)}
+      activeTab={mainTab}
+      onTabChange={id => setMainTab(id as MainTab)}
       actions={headerActions}
       kpis={kpis}
-      toolbar={pageToolbar}
+      toolbar={activeToolbar}
     >
       {!obra ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -408,123 +560,268 @@ export default function CronogramaPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
-          {/* L3b — Toolbar do Gantt (só na view Gantt) */}
-          {(viewMode === 'split' || viewMode === 'gantt') && (
-            <div id="gantt-toolbar-portal" style={{
-              flexShrink: 0,
-              background: 'var(--color-background-secondary)',
-              borderBottom: '0.5px solid var(--color-border-secondary)',
-            }}/>
-          )}
+          {/* ── ABA PLANEJAMENTO ──────────────────────────────────────── */}
+          <div style={{ display: mainTab === 'planejamento' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
 
-          {/* Conteúdo — views sempre montadas */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {/* Toolbar do Gantt (portal, só quando gantt/split) */}
+            {(subView === 'split') && (
+              <div id="gantt-toolbar-portal" style={{
+                flexShrink: 0,
+                background: 'var(--color-background-secondary)',
+                borderBottom: '0.5px solid var(--color-border-secondary)',
+              }}/>
+            )}
 
-            {/* Lista */}
-            <div ref={listScrollRef} className="absolute inset-0 flex flex-col overflow-y-auto" style={{ display: viewMode === 'list' ? 'flex' : 'none' }}>
-              <div className="grid grid-cols-[16px_16px_8px_1fr_36px_70px] gap-1 px-2 py-1.5 border-b border-border bg-muted/50 shrink-0">
-                <span/><span/><span/>
-                <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Tarefa</span>
-                <span className="text-[9px] font-semibold text-muted-foreground text-right">Dur.</span>
-                <span className="text-[9px] font-semibold text-muted-foreground">Progresso</span>
-              </div>
-              {loading && <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground"/></div>}
-              {!loading && tarefas.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center px-6">
-                  <BarChart3 className="h-10 w-10 text-muted-foreground/30"/>
-                  <p className="text-sm text-muted-foreground">Nenhuma tarefa cadastrada.</p>
-                  <p className="text-xs text-muted-foreground/70">Use o botão "+ Tarefa" para começar.</p>
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+
+              {/* Lista */}
+              <div ref={listScrollRef} className="absolute inset-0 flex flex-col overflow-y-auto" style={{ display: subView === 'list' ? 'flex' : 'none' }}>
+                <div className="grid grid-cols-[16px_16px_8px_1fr_36px_70px] gap-1 px-2 py-1.5 border-b border-border bg-muted/50 shrink-0">
+                  <span/><span/><span/>
+                  <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Tarefa</span>
+                  <span className="text-[9px] font-semibold text-muted-foreground text-right">Dur.</span>
+                  <span className="text-[9px] font-semibold text-muted-foreground">Progresso</span>
                 </div>
-              )}
-              {rootTarefas.map(tarefa => (
-                <div key={tarefa.id}>
-                  <WBSRow
-                    tarefa={tarefa} children={childrenOf(tarefa.id)}
-                    isExpanded={expandedIds.has(tarefa.id)} isSelected={selectedTarefaId === tarefa.id}
-                    isCritico={criticalIds.has(tarefa.id)} isDragging={dragId === tarefa.id} isDragOver={dragOverId === tarefa.id}
-                    onToggle={() => toggleExpand(tarefa.id)} onSelect={() => setSelectedTarefaId(tarefa.id)}
-                    onUpdate={updateTarefa} onDelete={deleteTarefa} onOpenDrawer={setDrawerTarefa}
-                    onDragStart={() => setDragId(tarefa.id)} onDragOver={() => setDragOverId(tarefa.id)}
-                    onDrop={() => { if (dragId) reorderRootTarefas(dragId, tarefa.id); setDragId(null); setDragOverId(null); }}
-                    financeiroTotal={financeiroByEtapa?.[tarefa.id]?.totalPrevisto}
-                  />
-                  {expandedIds.has(tarefa.id) && childrenOf(tarefa.id).map(child => (
+                {loading && <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground"/></div>}
+                {!loading && tarefas.length === 0 && (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center px-6">
+                    <BarChart3 className="h-10 w-10 text-muted-foreground/30"/>
+                    <p className="text-sm text-muted-foreground">Nenhuma tarefa cadastrada.</p>
+                    <p className="text-xs text-muted-foreground/70">Use o botão "+ Tarefa" para começar.</p>
+                  </div>
+                )}
+                {rootTarefas.map(tarefa => (
+                  <div key={tarefa.id}>
                     <WBSRow
-                      key={child.id} tarefa={child} isExpanded={false}
-                      isSelected={selectedTarefaId === child.id} isCritico={criticalIds.has(child.id)}
-                      onToggle={() => {}} onSelect={() => setSelectedTarefaId(child.id)}
+                      tarefa={tarefa} children={childrenOf(tarefa.id)}
+                      isExpanded={expandedIds.has(tarefa.id)} isSelected={selectedTarefaId === tarefa.id}
+                      isCritico={criticalIds.has(tarefa.id)} isDragging={dragId === tarefa.id} isDragOver={dragOverId === tarefa.id}
+                      onToggle={() => toggleExpand(tarefa.id)} onSelect={() => setSelectedTarefaId(tarefa.id)}
                       onUpdate={updateTarefa} onDelete={deleteTarefa} onOpenDrawer={setDrawerTarefa}
+                      onDragStart={() => setDragId(tarefa.id)} onDragOver={() => setDragOverId(tarefa.id)}
+                      onDrop={() => { if (dragId) reorderRootTarefas(dragId, tarefa.id); setDragId(null); setDragOverId(null); }}
+                      financeiroTotal={financeiroByEtapa?.[tarefa.id]?.totalPrevisto}
                     />
-                  ))}
-                </div>
-              ))}
-              {!loading && <AddTaskInline ref={addTaskRef} onAdd={(nome, tipo) => addTarefa({ nome, nivel: 1, tipo_tarefa: tipo })} loading={saving}/>}
-            </div>
-
-            {/* Gantt */}
-            <div className="absolute inset-0 overflow-hidden" style={{ display: (viewMode === 'split' || viewMode === 'gantt') ? 'block' : 'none' }}>
-              <GanttCanvasPanel
-                tarefas={tarefas} dependencias={dependencias}
-                selectedId={selectedTarefaId} onSelectTarefa={setSelectedTarefaId}
-                onOpenDrawer={setDrawerTarefa} childrenOf={childrenOf}
-                onUpdateDates={(id, start, end) => {
-                  updateTarefa(id, { data_inicio: start, data_fim: end, duracao_dias: differenceInDays(parseISO(end), parseISO(start)) + 1 });
-                  applyDateCascade(id, start, end);
-                }}
-                onAddDependencia={addDependencia}
-                toolbarPortalId="gantt-toolbar-portal"
-              />
-            </div>
-
-            {/* Curva S */}
-            <div className="absolute inset-0 overflow-auto px-5 py-5" style={{ display: viewMode === 'curvs' ? 'block' : 'none' }}>
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-4 w-4 text-primary"/>
-                <span className="text-sm font-semibold text-foreground">Curva S — Avanço Planejado vs. Realizado</span>
+                    {expandedIds.has(tarefa.id) && childrenOf(tarefa.id).map(child => (
+                      <WBSRow
+                        key={child.id} tarefa={child} isExpanded={false}
+                        isSelected={selectedTarefaId === child.id} isCritico={criticalIds.has(child.id)}
+                        onToggle={() => {}} onSelect={() => setSelectedTarefaId(child.id)}
+                        onUpdate={updateTarefa} onDelete={deleteTarefa} onOpenDrawer={setDrawerTarefa}
+                      />
+                    ))}
+                  </div>
+                ))}
+                {!loading && <AddTaskInline ref={addTaskRef} onAdd={(nome, tipo) => addTarefa({ nome, nivel: 1, tipo_tarefa: tipo })} loading={saving}/>}
               </div>
-              <CurvaS tarefas={tarefas}/>
-            </div>
 
-            {/* Recursos */}
-            <div className="absolute inset-0 overflow-auto px-5 py-5" style={{ display: viewMode === 'recursos' ? 'block' : 'none' }}>
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="h-4 w-4 text-primary"/>
-                <span className="text-sm font-semibold text-foreground">Alocação de Recursos</span>
-                <Badge variant="secondary" className="text-[10px]">{recursos.length} recursos</Badge>
+              {/* Gantt */}
+              <div className="absolute inset-0 overflow-hidden" style={{ display: subView === 'split' ? 'block' : 'none' }}>
+                <GanttCanvasPanel
+                  tarefas={tarefas} dependencias={dependencias}
+                  selectedId={selectedTarefaId} onSelectTarefa={setSelectedTarefaId}
+                  onOpenDrawer={setDrawerTarefa} childrenOf={childrenOf}
+                  onUpdateDates={(id, start, end) => {
+                    updateTarefa(id, { data_inicio: start, data_fim: end, duracao_dias: differenceInDays(parseISO(end), parseISO(start)) + 1 });
+                    applyDateCascade(id, start, end);
+                  }}
+                  onAddDependencia={addDependencia}
+                />
               </div>
-              {recursos.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-                  <Users className="h-10 w-10 text-muted-foreground/30"/>
-                  <p className="text-sm text-muted-foreground">Nenhum recurso cadastrado.</p>
-                  <p className="text-xs text-muted-foreground/70">Cadastre equipes e equipamentos nas tarefas via painel de detalhes.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recursos.map(rec => {
-                    const overloaded = recursosSupelalocados().has(rec.id);
-                    const myAlocacoes = alocacoes.filter(a => a.recurso_id === rec.id);
-                    const totalUso = myAlocacoes.reduce((s, a) => s + a.quantidade, 0);
-                    const pct = Math.round((totalUso / rec.capacidade_diaria) * 100);
-                    return (
-                      <div key={rec.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
-                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: rec.cor }}/>
-                        <span className="text-sm text-foreground w-48 truncate">{rec.nome}</span>
-                        <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
-                          <div className={cn('h-full rounded-full transition-all', overloaded ? 'bg-[#A32D2D]' : 'bg-[#534AB7]')} style={{ width: `${Math.min(pct, 100)}%` }}/>
-                        </div>
-                        <span className={cn('text-xs w-14 text-right font-medium', overloaded ? 'text-[#A32D2D]' : 'text-muted-foreground')}>
-                          {pct}%{overloaded ? ' ⚠' : ''}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
 
+              {/* Curva S */}
+              <div className="absolute inset-0 overflow-auto px-5 py-5" style={{ display: subView === 'curvs' ? 'block' : 'none' }}>
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="h-4 w-4 text-primary"/>
+                  <span className="text-sm font-semibold text-foreground">Curva S — Avanço Planejado vs. Realizado</span>
+                </div>
+                <CurvaS tarefas={tarefas}/>
+              </div>
+
+            </div>
           </div>
+
+          {/* ── ABA IMPEDIMENTOS ──────────────────────────────────────── */}
+          <div className="absolute inset-0 overflow-auto px-5 py-5" style={{ display: mainTab === 'impedimentos' ? 'block' : 'none' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <AlertTriangle className="h-4 w-4 text-amber-500"/>
+                <span>Gestão de Impedimentos</span>
+                <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/5 border-amber-500/20">
+                  {impedimentos.length} registros
+                </Badge>
+              </div>
+            </div>
+
+            {impedimentos.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-20 text-center border border-dashed border-border rounded-2xl bg-muted/10">
+                <div className="h-12 w-12 bg-amber-500/10 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-amber-500/40"/>
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">Nenhum impedimento registrado.</p>
+                <p className="text-xs text-muted-foreground/70 max-w-xs">Registre paralisações por chuva, falta de material ou projetos para calcular o impacto no cronograma.</p>
+                <button
+                  onClick={() => setIsAddingImpedimento(true)}
+                  className="mt-2 px-4 py-2 bg-amber-600/10 text-amber-600 hover:bg-amber-600/20 rounded-lg text-xs font-semibold transition-colors"
+                >
+                  + Registrar primeiro impedimento
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {impedimentos.map(imp => {
+                  const tarefa = tarefas.find(t => t.id === imp.tarefa_id);
+                  return (
+                    <div key={imp.id} className="flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                           <Badge variant="outline" className="text-[9px] uppercase font-bold text-slate-500">{imp.tipo}</Badge>
+                           <span className="text-sm font-semibold text-foreground truncate">{tarefa?.nome || 'Tarefa removida'}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{imp.descricao}</p>
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1">
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3"/> Início: {parseISO(imp.data_inicio).toLocaleDateString()}</span>
+                          {imp.data_fim && <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-600"/> Resolvido: {parseISO(imp.data_fim).toLocaleDateString()}</span>}
+                          {!imp.data_fim && <span className="flex items-center gap-1 text-amber-600"><AlertTriangle className="h-3 w-3"/> Em aberto</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 md:border-l md:pl-4 border-border shrink-0">
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] text-muted-foreground uppercase font-medium">Impacto</span>
+                          <span className="text-sm font-bold text-foreground">
+                            {imp.data_fim
+                              ? differenceInDays(parseISO(imp.data_fim), parseISO(imp.data_inicio)) + 1
+                              : differenceInDays(new Date(), parseISO(imp.data_inicio)) + 1} dias
+                          </span>
+                        </div>
+                        {!imp.resolvido && (
+                           <button
+                             onClick={() => updateImpedimento(imp.id, { resolvido: true, data_fim: new Date().toISOString().split('T')[0] })}
+                             className="px-3 py-1.5 bg-green-600/10 text-green-600 hover:bg-green-600 text-xs font-medium rounded-lg transition-colors hover:text-white"
+                           >
+                             Resolver
+                           </button>
+                        )}
+                        <button onClick={() => deleteImpedimento(imp.id)} className="p-2 text-muted-foreground/40 hover:text-destructive transition-colors">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── ABA ACOMPANHAMENTO (Medição) ───────────────────────────── */}
+          <div className="absolute inset-0 overflow-hidden" style={{ display: mainTab === 'medicao' ? 'flex' : 'none', flexDirection: 'column' }}>
+            <MedicaoTab
+              obraId={obra.id}
+              tarefas={tarefas}
+              hasBaseline={stats.hasBaseline}
+              saveBaseline={saveBaseline}
+              onMedicaoConfirmada={() => refresh()}
+            />
+          </div>
+
         </div>
       )}
+
+      {/* Modal Novo Impedimento */}
+      <Dialog open={isAddingImpedimento} onOpenChange={setIsAddingImpedimento}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Registrar Impedimento
+            </DialogTitle>
+            <DialogDescription>
+              Relate uma causa que impeça ou atrase a execução desta tarefa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="tarefa">Tarefa Impactada</Label>
+              <Select value={newImpedimento.tarefa_id} onValueChange={(val) => setNewImpedimento({...newImpedimento, tarefa_id: val})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a tarefa..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tarefas.filter(t => t.tipo_tarefa === 'PADRAO').map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tipo">Tipo</Label>
+                <Select value={newImpedimento.tipo} onValueChange={(val) => setNewImpedimento({...newImpedimento, tipo: val})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="climatico">Climático</SelectItem>
+                      <SelectItem value="material">Falta de Material</SelectItem>
+                      <SelectItem value="mao_de_obra">Falta de Mão de Obra</SelectItem>
+                      <SelectItem value="projeto">Definição de Projeto</SelectItem>
+                      <SelectItem value="financeiro">Fluxo de Caixa</SelectItem>
+                      <SelectItem value="outros">Outros</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="data_inicio">Data Início</Label>
+                <Input
+                  type="date"
+                  id="data_inicio"
+                  value={newImpedimento.data_inicio}
+                  onChange={(e) => setNewImpedimento({...newImpedimento, data_inicio: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="descricao">Descrição / Detalhes</Label>
+              <Textarea
+                id="descricao"
+                placeholder="Ex: Chuva intensa impediu concretagem da laje..."
+                value={newImpedimento.descricao}
+                onChange={(e) => setNewImpedimento({...newImpedimento, descricao: e.target.value})}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setIsAddingImpedimento(false)}
+              className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={async () => {
+                if (!newImpedimento.tarefa_id || !newImpedimento.descricao) return;
+                await addImpedimento({
+                  ...newImpedimento,
+                  obra_id: selectedObraId!,
+                  resolvido: false,
+                  impacto_financeiro: 0
+                });
+                setIsAddingImpedimento(false);
+                setNewImpedimento({
+                  tarefa_id: '',
+                  tipo: 'climatico',
+                  descricao: '',
+                  data_inicio: new Date().toISOString().split('T')[0],
+                  impacto_financeiro: 0
+                });
+              }}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700"
+            >
+              Salvar Registro
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {drawerTarefa && (
         <TaskDetailDrawer
@@ -536,6 +833,16 @@ export default function CronogramaPage() {
           onUpdate={(id, changes) => { updateTarefa(id, changes); setDrawerTarefa(prev => prev ? { ...prev, ...changes } : null); }}
           onAddDependencia={addDependencia} onRemoveDependencia={removeDependencia}
           onAddAlocacao={addAlocacao} onRemoveAlocacao={removeAlocacao}
+        />
+      )}
+
+      {obra && (
+        <DrawerEstimarDuracoes
+          open={drawerEstimarOpen}
+          onOpenChange={setDrawerEstimarOpen}
+          tarefas={tarefas}
+          obraId={obra.id}
+          onAplicar={handleAplicarEstimativas}
         />
       )}
     </PageShell>

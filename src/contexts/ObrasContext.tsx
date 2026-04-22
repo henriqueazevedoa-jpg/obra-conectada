@@ -52,6 +52,8 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
 
   const userId = user?.id;
   const companyId = company?.id;
+  const userRole = user?.role;
+  const userObrasIds = user?.obras_ids?.join(',') || '';
 
   const fetchObras = useCallback(async () => {
     if (!userId || !companyId) {
@@ -62,11 +64,24 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('obras')
       .select('*')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
+
+    // Restrição de acesso (Dono vs Gestor de Obra e outros)
+    if (userRole !== 'admin' && userRole !== 'gestor') {
+      const parsedObrasIds = userObrasIds ? userObrasIds.split(',') : [];
+      if (parsedObrasIds.length === 0) {
+        setObras([]);
+        setLoading(false);
+        return;
+      }
+      query = query.in('id', parsedObrasIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Erro ao buscar obras:', error);
@@ -77,7 +92,7 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
 
     setObras((data || []).map(dbToObra));
     setLoading(false);
-  }, [userId, companyId]);
+  }, [userId, companyId, userRole, userObrasIds]);
 
   useEffect(() => {
     fetchObras();

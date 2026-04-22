@@ -13,3 +13,17 @@ export function normalizeMaterialName(name: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 }
+
+/**
+ * Normalize text for price history lookups:
+ * - remove accents (NFD decomposition)
+ * - lowercase
+ * - trim
+ */
+export function normalizeText(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}

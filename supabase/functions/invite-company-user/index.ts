@@ -9,6 +9,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      console.error("Missing auth header");
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -28,16 +29,17 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !user) {
+      console.error("getUser error:", userError, "user:", user);
       return new Response(JSON.stringify({ error: "Usuário inválido" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { nome, email, role } = await req.json();
+    const { nome, email, role, obras } = await req.json();
 
-    if (!email || !role || !["gestor", "funcionario", "cliente"].includes(role)) {
-      return new Response(JSON.stringify({ error: "Dados inválidos" }), {
+    if (!email || !role || !["engenheiro"].includes(role)) {
+      return new Response(JSON.stringify({ error: "Dado inválido ou cargo indisponível pra convite direto" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -60,7 +62,7 @@ Deno.serve(async (req) => {
     // Check plan limit
     const { data: limitCheck } = await supabaseAdmin.rpc("check_plan_limit", {
       _company_id: profile.company_id,
-      _resource: role === "gestor" ? "gestores" : role === "funcionario" ? "funcionarios" : "clientes",
+      _resource: 'engenheiros',
     });
 
     if (limitCheck && !limitCheck.allowed) {
@@ -86,6 +88,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Prepare obras_ids
+    let obras_ids: string[] = [];
+    if (Array.isArray(obras) && obras.length > 0) {
+      obras_ids = obras;
+    }
+
     // Create invite record
     const { error: insertError } = await supabaseAdmin
       .from("company_user_invites")
@@ -94,6 +102,7 @@ Deno.serve(async (req) => {
         nome: nome || "",
         email: email.toLowerCase(),
         role,
+        obras_ids,
         status: "pending",
         invited_by: user.id,
       });

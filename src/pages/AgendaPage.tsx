@@ -29,8 +29,7 @@ import ObraCalendarView from '@/components/painel/ObraCalendarView';
 import { toast } from '@/hooks/use-toast';
 import NoObraState from '@/components/obras/NoObraState';
 import PageShell from '@/components/layout/PageShell';
-import { PageFAB } from '@/components/ui/page-fab';
-import type { PageKPI } from '@/components/layout/PageShell';
+import type { PageAction, PageKPI } from '@/components/layout/PageShell';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -516,7 +515,6 @@ export default function AgendaPage() {
     );
   }
 
-  // ── Toolbar (igual ao Financeiro — passada para PageShell) ──────────────────
   const toolbar = activeTab !== 'calendario' ? (
     <FilterBar
       search={search} onSearch={setSearch}
@@ -524,6 +522,11 @@ export default function AgendaPage() {
       filterTipo={filterTipo} onFilterTipo={setFilterTipo}
     />
   ) : undefined;
+
+  const headerActions: PageAction[] = [
+    { label: '+ Nova Pendência', variant: 'outline', onClick: () => openCreate('pendencia') },
+    { label: '+ Novo Evento', variant: 'primary', onClick: () => openCreate() },
+  ];
 
   return (
     <>
@@ -534,6 +537,7 @@ export default function AgendaPage() {
         activeTab={activeTab}
         onTabChange={id => setTab(id as Tab)}
         kpis={kpis}
+        actions={headerActions}
         toolbar={toolbar}
       >
         <div style={{ height: '100%', position: 'relative', background: 'var(--color-background-primary)' }}>
@@ -596,18 +600,6 @@ export default function AgendaPage() {
 
         </div>
       </PageShell>
-
-      {/* FAB mobile */}
-      <PageFAB
-        label="+ Novo Evento"
-        onClick={() => openCreate()}
-        items={[{
-          label: '+ Nova Pendência',
-          description: 'Tarefa com prazo e prioridade',
-          onClick: () => openCreate('pendencia'),
-          icon: <ListChecks style={{ width: 14, height: 14, color: '#534AB7' }} />,
-        }]}
-      />
 
       {/* ── Dialog Criar/Editar ─── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

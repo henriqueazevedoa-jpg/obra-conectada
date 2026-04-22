@@ -36,7 +36,10 @@ const statusColors: Record<string, string> = {
 };
 const addonStatusLabels: Record<string, string> = { inactive: 'Inativo', trial: 'Trial', active: 'Ativo', expired: 'Expirado' };
 
+import { useNavigate } from 'react-router-dom';
+
 export default function AdminCompaniesPage() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<AdminCompany[]>([]);
   const [plans, setPlans] = useState<AdminPlan[]>([]);
   const [addonCatalog, setAddonCatalog] = useState<AddonCatalogItem[]>([]);
@@ -165,7 +168,10 @@ export default function AdminCompaniesPage() {
                       {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm" className="h-8" onClick={() => setEditCompanyId(c.id)}>
+                  <Button variant="outline" size="sm" className="h-8" onClick={() => navigate(`/admin/companies/${c.id}`)}>
+                    Abrir Detalhes
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Overrides e Limites" onClick={() => setEditCompanyId(c.id)}>
                     <Settings className="h-3.5 w-3.5" />
                   </Button>
                 </div>

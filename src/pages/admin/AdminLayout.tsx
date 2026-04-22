@@ -1,9 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
-import { Building2, CreditCard, Puzzle, Shield, ArrowLeft } from 'lucide-react';
+import { Building2, CreditCard, Puzzle, Shield, ArrowLeft, LayoutDashboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const adminLinks = [
+  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/admin/companies', label: 'Empresas', icon: Building2 },
   { to: '/admin/plans', label: 'Planos', icon: CreditCard },
   { to: '/admin/addons', label: 'Add-ons', icon: Puzzle },

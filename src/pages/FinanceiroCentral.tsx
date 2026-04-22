@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import NoObraState from '@/components/obras/NoObraState';
@@ -8,22 +9,23 @@ import CustoRealTab from '@/components/financeiro/CustoRealTab';
 import FluxoCaixaTab from '@/components/financeiro/FluxoCaixaTab';
 import DRETab from '@/components/financeiro/DRETab';
 import FinanceiroDashboard from '@/components/financeiro/FinanceiroDashboard';
+import RecebiveisTab from '@/components/financeiro/RecebiveisTab';
 import PageShell from '@/components/layout/PageShell';
-import { PageFAB } from '@/components/ui/page-fab';
 import type { PageAction, PageKPI } from '@/components/layout/PageShell';
 import { Receipt } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type Tab = 'dashboard' | 'pagamentos' | 'custo-real' | 'fluxo-caixa' | 'dre';
-const VALID_TABS: Tab[] = ['dashboard', 'pagamentos', 'custo-real', 'fluxo-caixa', 'dre'];
+type Tab = 'dashboard' | 'pagamentos' | 'custo-real' | 'fluxo-caixa' | 'dre' | 'recebiveis';
+const VALID_TABS: Tab[] = ['dashboard', 'pagamentos', 'custo-real', 'fluxo-caixa', 'dre', 'recebiveis'];
 
 const TABS_CONFIG = [
-  { id: 'dashboard'   as Tab, label: 'Dashboard'      },
-  { id: 'pagamentos'  as Tab, label: 'Pagamentos'     },
-  { id: 'custo-real'  as Tab, label: 'Custo real'     },
-  { id: 'fluxo-caixa' as Tab, label: 'Fluxo de caixa' },
-  { id: 'dre'         as Tab, label: 'DRE'            },
+  { id: 'dashboard'   as Tab, label: 'Dashboard' },
+  { id: 'pagamentos'  as Tab, label: 'Pagamentos',     moduloPermissao: 'financeiro_pagamentos' },
+  { id: 'custo-real'  as Tab, label: 'Custo real',     moduloPermissao: 'financeiro_custo_real' },
+  { id: 'fluxo-caixa' as Tab, label: 'Fluxo de caixa', moduloPermissao: 'financeiro_fluxo_caixa' },
+  { id: 'dre'         as Tab, label: 'DRE',            moduloPermissao: 'financeiro_dre' },
+  { id: 'recebiveis'  as Tab, label: 'Recebíveis',     moduloPermissao: 'financeiro_recebiveis' },
 ];
 
 const FinanceiroIcon = (
@@ -43,7 +45,21 @@ export default function FinanceiroCentral() {
 
   const rawTab = searchParams.get('tab') as Tab | null;
   const activeTab: Tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : 'dashboard';
-  const setTab = (tab: Tab) => setSearchParams({ tab }, { replace: true });
+  const setTab = useCallback((tab: Tab) => setSearchParams({ tab }, { replace: true }), [setSearchParams]);
+
+  const { hasModulePermission } = useAuth();
+  
+  const visibleTabs = useMemo(() => 
+    TABS_CONFIG.filter(tab => tab.moduloPermissao ? hasModulePermission(tab.moduloPermissao) : true),
+  [hasModulePermission]);
+
+
+
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.find(t => t.id === activeTab)) {
+      setTab(visibleTabs[0].id);
+    }
+  }, [activeTab, visibleTabs, setTab]);
 
   const obra = obras.find(o => o.id === selectedObraId) || obras[0];
 
@@ -92,41 +108,7 @@ export default function FinanceiroCentral() {
     { label: 'Exportar', variant: 'ghost', onClick: () => {}, tooltip: 'Exportar relatório financeiro' },
   ];
 
-  // ── FAB mobile — por aba ─────────────────────────────────────────────────
-  const mobileFAB = (() => {
-    if (activeTab === 'dashboard') {
-      return (
-        <PageFAB
-          label="+ Novo pagamento"
-          onClick={handleNovoPagamento}
-          items={[{
-            label: '+ Registrar custo',
-            description: 'Despesa direta por etapa',
-            onClick: handleRegistrarCusto,
-            icon: <Receipt style={{ width: 14, height: 14, color: '#534AB7' }} />,
-          }]}
-        />
-      );
-    }
-    if (activeTab === 'pagamentos') {
-      return (
-        <PageFAB
-          label="+ Novo pagamento"
-          onClick={handleNovoPagamento}
-        />
-      );
-    }
-    if (activeTab === 'custo-real') {
-      return (
-        <PageFAB
-          label="+ Registrar custo"
-          onClick={handleRegistrarCusto}
-          icon={<Receipt style={{ width: 20, height: 20 }} />}
-        />
-      );
-    }
-    return null;
-  })();
+  // ── Mensagens mobile adaptáveis ao Shell (opcional, como os FABs foram preteridos) ────────
 
   if (!obra) {
     return (
@@ -142,7 +124,7 @@ export default function FinanceiroCentral() {
       <PageShell
         icon={FinanceiroIcon}
         title="Financeiro"
-        tabs={TABS_CONFIG}
+        tabs={visibleTabs}
         activeTab={activeTab}
         onTabChange={id => setTab(id as Tab)}
         actions={headerActions}
@@ -165,11 +147,11 @@ export default function FinanceiroCentral() {
           <div style={{ height: '100%', display: activeTab === 'dre'         ? 'block' : 'none' }}>
             <DRETab         obraId={obra.id} isActive={activeTab === 'dre'}         onKpisReady={handleKpisReady} />
           </div>
+          <div style={{ height: '100%', display: activeTab === 'recebiveis'  ? 'block' : 'none' }}>
+            <RecebiveisTab  obraId={obra.id} isActive={activeTab === 'recebiveis'}  onKpisReady={handleKpisReady} />
+          </div>
         </div>
       </PageShell>
-
-      {/* FAB mobile — renderizado fora do PageShell para posicionamento fixed correto */}
-      {mobileFAB}
     </>
   );
 }

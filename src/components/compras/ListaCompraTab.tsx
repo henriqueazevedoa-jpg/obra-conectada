@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/untyped';
-import { ShoppingCart, Plus, AlertTriangle, Tags, Trash2, X } from 'lucide-react';
+import { ShoppingCart, Plus, AlertTriangle, Tags, Trash2, X, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -43,9 +43,9 @@ interface Sugestao {
 
 interface Props {
   obraId: string;
-  companyId: string;
   isActive?: boolean;
   onKpiChange?: () => void;
+  onIrParaCotacao?: (listaNome?: string) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -66,7 +66,7 @@ function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 }
 
-export default function ListaCompraTab({ obraId, companyId, isActive = true, onKpiChange }: Props) {
+export default function ListaCompraTab({ obraId, companyId, isActive = true, onKpiChange, onIrParaCotacao }: Props) {
   const navigate = useNavigate();
 
   const [listas, setListas] = useState<ListaCompra[]>([]);
@@ -89,7 +89,6 @@ export default function ListaCompraTab({ obraId, companyId, isActive = true, onK
           .from('lista_compra')
           .select('*, itens:lista_compra_itens(*)')
           .eq('obra_id', obraId)
-          .in('status', ['aberta', 'em_cotacao'])
           .order('created_at', { ascending: false }),
 
         (supabase as any)
@@ -312,7 +311,69 @@ export default function ListaCompraTab({ obraId, companyId, isActive = true, onK
       .update({ status: 'em_cotacao', updated_at: new Date().toISOString() })
       .eq('id', listaAtiva);
     
-    navigate(`/cotacao?origem=compra&listaId=${listaAtiva}`);
+    if (onIrParaCotacao) {
+      const nome = listas.find(l => l.id === listaAtiva)?.nome;
+      onIrParaCotacao(nome);
+    } else {
+      navigate(`/cotacao?origem=compra&listaId=${listaAtiva}`);
+    }
+  };
+
+  const handleDeleteLista = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Deseja realmente deletar esta lista?')) return;
+    await (supabase as any).from('lista_compra').delete().eq('id', id);
+    setListas(prev => prev.filter(l => l.id !== id));
+    if (listaAtiva === id) setListaAtiva(null);
+    onKpiChange?.();
+  };
+
+  const handleDuplicateLista = async (lista: ListaCompra, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Create new list
+    const { data: nova } = await (supabase as any)
+      .from('lista_compra')
+      .insert({
+        obra_id: obraId,
+        company_id: companyId,
+        nome: `${lista.nome} (Cópia)`,
+        status: 'aberta',
+      })
+      .select()
+      .single();
+
+    if (!nova) return;
+
+    // Duplicate items
+    if (lista.itens && lista.itens.length > 0) {
+      const novosItens = lista.itens.filter(i => i.nome.trim()).map(i => ({
+        lista_id: nova.id,
+        obra_id: obraId,
+        nome: i.nome,
+        quantidade: i.quantidade,
+        unidade: i.unidade,
+        preco_unitario: i.preco_unitario,
+        fornecedor_sugerido: i.fornecedor_sugerido,
+        origem: i.origem,
+        origem_ref_id: i.origem_ref_id
+      }));
+
+      if (novosItens.length > 0) {
+        const { data: itensDB } = await (supabase as any)
+          .from('lista_compra_itens')
+          .insert(novosItens)
+          .select();
+        
+        nova.itens = itensDB || [];
+      }
+    } else {
+      nova.itens = [];
+    }
+    
+    setListas(prev => [nova, ...prev]);
+    setListaAtiva(nova.id);
+    onKpiChange?.();
   };
 
   if (loading && listas.length === 0) {
@@ -388,8 +449,12 @@ export default function ListaCompraTab({ obraId, companyId, isActive = true, onK
                   {statusLabels[lista.status]}
                 </Badge>}
               </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mt-1 min-h-[20px]">
                 <span>{(lista.itens || []).filter(i => i.nome.trim() !== '').length} itens</span>
+                <div className="hidden group-hover:flex items-center gap-1 bg-background/80 rounded-md">
+                  <button onClick={(e) => handleDuplicateLista(lista, e)} className="p-1 hover:text-foreground text-muted-foreground transition-colors" title="Duplicar lista"><Copy className="h-3.5 w-3.5" /></button>
+                  <button onClick={(e) => handleDeleteLista(lista.id, e)} className="p-1 hover:text-red-500 text-muted-foreground transition-colors" title="Deletar lista"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
               </div>
             </button>
           ))}

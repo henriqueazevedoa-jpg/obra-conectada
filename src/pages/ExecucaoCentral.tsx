@@ -9,7 +9,6 @@ import { useObras } from '@/contexts/ObrasContext';
 import { useEstoque } from '@/contexts/EstoqueContext';
 import NoObraState from '@/components/obras/NoObraState';
 import PageShell from '@/components/layout/PageShell';
-import { PageFAB } from '@/components/ui/page-fab';
 import type { PageKPI } from '@/components/layout/PageShell';
 import DiarioTab from '@/components/execucao/DiarioTab';
 import EstoqueQuickView from '@/components/execucao/EstoqueQuickView';
@@ -132,13 +131,6 @@ export default function ExecucaoCentral() {
 
         </div>
       </PageShell>
-
-      {/* FAB mobile contextual — apenas Diário */}
-      {activeTab === 'diario' && (
-        <PageFAB label="+ Novo Registro" onClick={() => {
-          setSearchParams({ tab: 'diario', novo: '1' });
-        }} />
-      )}
     </>
   );
 }

@@ -31,6 +31,7 @@ export interface Company {
   telefone: string;
   plan_id: string | null;
   status: string;
+  logo_url?: string | null;
   addons: CompanyAddon[];
 }
 
@@ -74,6 +75,8 @@ interface CompanyContextType {
     telefone?: string;
     planSlug?: string;
   }) => Promise<{ success: boolean; error?: string }>;
+  isImpersonating: boolean;
+  stopImpersonating: () => void;
 }
 
 const CompanyContext = createContext<CompanyContextType | null>(null);
@@ -90,6 +93,13 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [plansLoading, setPlansLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [planFeatures, setPlanFeatures] = useState<PlanFeatures>({ ...DEFAULT_PLAN_FEATURES });
+  const [isImpersonating, setIsImpersonating] = useState(false);
+
+  const stopImpersonating = useCallback(() => {
+    localStorage.removeItem('lastra_impersonated_company_id');
+    setIsImpersonating(false);
+    window.location.href = '/admin/companies';
+  }, []);
 
   const resetCompanyState = useCallback(() => {
     setCompany(null);
@@ -183,7 +193,22 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (!profile?.company_id) {
+      let targetCompanyId = profile?.company_id;
+
+      // Impersonation logic
+      const impersonatedId = localStorage.getItem('lastra_impersonated_company_id');
+      if (impersonatedId && user.role === 'admin') {
+        targetCompanyId = impersonatedId;
+        setIsImpersonating(true);
+      } else {
+        setIsImpersonating(false);
+        if (impersonatedId) {
+          // Cleanup invalid state just in case
+          localStorage.removeItem('lastra_impersonated_company_id');
+        }
+      }
+
+      if (!targetCompanyId) {
         // ── DEV MODE: Tenta auto-criar empresa em vez de ir pro onboarding ───
         console.info('[DEV] Usuário sem empresa. Tentando auto-criar...');
         const created = await autoCreateCompany(user.id, user.email);
@@ -202,7 +227,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       const { data: companyData, error: companyError } = await supabase
         .from('companies')
         .select('*')
-        .eq('id', profile.company_id)
+        .eq('id', targetCompanyId)
         .maybeSingle();
 
       if (companyError || !companyData) {
@@ -367,9 +392,6 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
       await fetchCompany();
       return { success: true };
-
-      await fetchCompany();
-      return { success: true };
     },
     [fetchCompany]
   );
@@ -390,6 +412,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         checkLimit,
         refreshCompany: fetchCompany,
         completeOnboarding,
+        isImpersonating,
+        stopImpersonating,
       }}
     >
       {children}

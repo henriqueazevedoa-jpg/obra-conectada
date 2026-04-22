@@ -1,18 +1,38 @@
 ================================================================
-OBRACONECTADA — PROMPTS PARA O ANTIGRAVITY
-Ordem de implementação — copiar e colar diretamente
+OBRACONECTADA (LASTRA) — PLANO GERAL DE IMPLEMENTAÇÃO
+Versão consolidada — atualizado em 21/04/2026
 ================================================================
 
+INSTRUÇÕES GERAIS PARA O AGENTE
+================================================================
+
+Antes de qualquer sprint:
+1. Inspecionar TODOS os arquivos listados na seção "INSPECIONAR"
+2. Reportar o estado atual encontrado
+3. Só então começar a implementação
+4. Nunca tomar decisões de arquitetura não descritas aqui
+5. Se encontrar ambiguidade, parar e perguntar
+6. Atualizar PLANO_GERAL_STATUS.md ao final de cada sprint
+
+Stack: React 18 + TypeScript + Vite + Tailwind + shadcn/ui + Supabase
+Padrão de página: PageShell (ver FinanceiroCentral.tsx como referência)
+Padrão de abas: useSearchParams com VALID_TABS array
+Padrão de conteúdo: display block/none com isActive prop
+Padrão de KPIs: calculados no pai, passados via onKpisReady callback
+
+================================================================
+FASE 1 — FUNDAÇÃO (CONCLUÍDA)
+================================================================
 
 ----------------------------------------------------------------
-PROMPT 1 — COTAÇÃO: Correção do bug do stepper
+PROMPT 1 — COTAÇÃO: Correção do bug do stepper [CONCLUÍDO]
 ----------------------------------------------------------------
 
 A migração para o layout com stepper quebrou a exibição dos itens na tabela da Etapa 3 (Comparar e Decidir) da aba Cotação & Preços. Inspecionar o componente da tabela e identificar o que parou de funcionar após a mudança de layout. Corrigir sem alterar a lógica de negócio. Reportar o que foi encontrado antes de fazer qualquer alteração.
 
 
 ----------------------------------------------------------------
-PROMPT 2 — COTAÇÃO: Regras de filtragem da tabela
+PROMPT 2 — COTAÇÃO: Regras de filtragem da tabela [CONCLUÍDO]
 ----------------------------------------------------------------
 
 Implementar as regras de filtragem da tabela na aba Cotação & Preços.
@@ -30,1062 +50,1910 @@ O assistente de vínculo SINAPI não deve processar insumos de origem SINAPI nem
 
 
 ----------------------------------------------------------------
-PROMPT 3 — CRONOGRAMA: Especificação completa de melhorias
+PROMPT 3 — CRONOGRAMA: Especificação completa de melhorias [CONCLUÍDO]
 ----------------------------------------------------------------
 
 ANTES DE COMEÇAR
 
 Inspecionar os seguintes arquivos antes de qualquer alteração: CronogramaPage.tsx, GanttCanvasPanel.tsx, GanttBar.tsx, GanttEditorChart, useGanttDependencies.ts, useCronograma.ts. Não alterar nada além do especificado. Implementar por blocos na ordem abaixo, reportando cada bloco antes de avançar.
 
----
-
 BLOCO 1 — Correções de bugs
-
 1.1 Backward pass do caminho crítico
-
-Em GanttCanvasPanel.tsx, função computeCriticalPath(), linha 119: remover a linha morta que sobrescreve imediatamente o valor calculado. Corrigir o backward pass para que o cálculo de LF de cada tarefa use corretamente o mínimo dos LF dos sucessores sem sobreposição de lógica. Verificar se após a correção o conjunto de tarefas marcadas como críticas muda — reportar antes e depois.
-
 1.2 Linhas de dependência — geometria
 
-Em GanttCanvasPanel.tsx, função DependencyArrows (linhas 146–203): a linha parte sempre do fim da barra antecessora independente do tipo. Corrigir para usar a mesma lógica já implementada corretamente em GanttDependencyArrows.tsx:
-
-FS → origem no fim da barra antecessora, destino no início da barra sucessora
-SS → origem no início da barra antecessora, destino no início da barra sucessora
-
-Manter o tracejado para SS que já existe. FF e SF permanecem sem correção geométrica — adicionar tooltip na linha de dependência quando o tipo for FF ou SF: "Tipo FF/SF registrado mas não afeta o posicionamento das barras nesta versão."
-
----
-
 BLOCO 2 — Melhorias visuais
-
 2.1 Baseline — padronizar os dois renderers
-
-GanttCanvasPanel.tsx: alterar a renderização da barra de baseline. Posição atual: y = BAR_OFFSET_Y + 14, fill #cbd5e1, opacity 0.6, height 6. Nova posição: y = BAR_OFFSET_Y + BAR_H + 4 (4px abaixo da barra real, não sobreposta). Nova cor: #1E3A5F. Nova opacidade: 0.85. Nova altura: 4px.
-
-GanttBar.tsx: alinhar ao mesmo padrão. Baseline deve aparecer abaixo da barra real com os mesmos valores acima. Remover o comportamento atual onde a barra real desce quando há baseline — manter a barra real sempre na mesma posição e colocar a baseline abaixo.
-
-Resultado esperado: em obras com atraso, o gap visual entre a barra real (mais curta ou deslocada) e a baseline (onde deveria estar) deve ser imediatamente perceptível sem precisar olhar para o SPI.
-
 2.2 SPI — melhoria e tooltip
-
-Em CronogramaPage.tsx, função de cálculo do SPI (linhas 227–234): o campo peso_orcamento existe nas tarefas mas é ignorado. Atualizar o cálculo para usar peso_orcamento quando disponível em todas as tarefas. Quando disponível, calcular SPI como BCWP / BCWS usando os pesos financeiros. Quando não disponível, manter o cálculo atual como fallback.
-
-Adicionar cor semântica ao indicador de SPI no cabeçalho: verde quando ≥ 1.0, âmbar quando entre 0.8 e 0.99, vermelho quando abaixo de 0.8.
-
-Adicionar tooltip ao hover no SPI: "Índice de Desempenho de Prazo — compara o progresso real com o planejado até hoje. 1.0 = no prazo · acima de 1.0 = adiantado · abaixo de 1.0 = atrasado. Calculado com base em [peso financeiro das tarefas / contagem de tarefas — usar o que estiver ativo]."
-
 2.3 KPIs — reordenação e cor semântica
-
-Reordenar os três blocos de KPI no cabeçalho: Atrasadas primeiro, depois Progresso Geral, depois Concluídas.
-
-Bloco Atrasadas: quando valor = 0, fundo verde sutil com texto verde. Quando valor > 0, fundo vermelho, texto vermelho, peso visual maior que os outros dois blocos.
-
 2.4 Tooltip nas barras do Gantt
-
-Adicionar tooltip ao hover em cada barra do Gantt mostrando: nome da tarefa, status atual (Em andamento / Concluída / Atrasada / Não iniciada), data de início e fim previstas, percentual de conclusão, e duração em dias. Aplicar nos dois renderers.
-
 2.5 Drawer de detalhes — separação de datas
 
-Na aba Geral do drawer de detalhes da tarefa, adicionar dois labels de seção separando os grupos: "Datas planejadas" acima de Início Previsto e Fim Previsto. "Baseline — referência original" acima de Baseline Início e Baseline Fim. Adicionar ícone de informação ao lado do label com tooltip: "O baseline é uma fotografia do planejamento original travado. Serve para comparar o plano inicial com as datas reais ao longo da execução."
-
----
-
 BLOCO 3 — Navegação e posicionamento
-
 3.1 Modo Fit como padrão
-
-O Gantt deve inicializar sempre no modo Fit — calculando automaticamente o zoom e posição para que todas as tarefas da obra caibam na tela sem scroll horizontal. Lógica: pegar a data de início da tarefa mais antiga e a data de fim da tarefa mais recente, calcular o zoom necessário para que esse intervalo caiba na largura disponível do painel do Gantt, aplicar esse zoom e posicionar no início.
-
 3.2 Botões de posicionamento rápido
 
-Adicionar dois botões ao lado do seletor de escala existente:
-
-Fit → recalcula e aplica o zoom automático. Fica ativo por padrão ao abrir a página.
-Ativo → centraliza nas tarefas em andamento hoje com zoom no nível de semanas e contexto de duas semanas antes e depois.
-
-Layout da toolbar após a mudança: [Hoje] [Fit] [Ativo]    Dias · Sem. · Meses · Trim.
-
----
-
 BLOCO 4 — Criação de tarefas
-
 4.1 Handle de arrastar vertical
-
-Adicionar handle de arrastar (ícone ⠿ ou equivalente) na coluna mais à esquerda de cada linha de tarefa na view Lista. O handle deve ser visível permanentemente. Permitir arrastar verticalmente para reordenar tarefas dentro do mesmo nível hierárquico. A reordenação deve persistir no banco.
-
 4.2 Separar arrastar de editar no Gantt
-
-Manter o corpo da barra para arrastar horizontalmente com cursor de mão. Adicionar ícone de edição (lápis) que aparece ao hover no lado direito da barra, fora da área de arrastar. Clique no ícone abre o drawer de detalhes.
-
 4.3 Botões diretos para Marco e Agrupador
 
-No input de criação de nova tarefa, adicionar dois botões compactos ao lado: [◆ Marco] e [≡ Agrupador].
-
-Ao clicar em [◆ Marco]: criar tarefa com tipo Marco (Milestone). Pedir apenas uma data (não início e fim separados). Renderizar como diamante ◆ no Gantt nessa data, sem barra. Campo de conclusão: sim/não (não percentual).
-
-Ao clicar em [≡ Agrupador]: criar tarefa do tipo Resumo com comportamento de agrupador — sem duração própria, sem percentual, datas calculadas pelo menor início e maior fim dos filhos.
-
----
-
 BLOCO 5 — Views alternativas
-
-5.1 Toolbar de views
-
-Adicionar grupo de ícones de view no canto superior direito: [Gantt] [Lista] [Curva S] [Recursos]
-
-View Gantt → comportamento atual, padrão.
-View Lista → exibe apenas a lista de tarefas sem o painel do Gantt. Mantém todas as colunas existentes.
-View Curva S → substitui o painel atual onde a Curva S aparece sobreposta. Ocupa a área inteira do conteúdo. Preservar o gráfico existente de Avanço Planejado vs. Realizado.
-View Recursos → mapa de alocação por recurso e período. Linhas = recursos cadastrados. Colunas = semanas ou meses conforme a escala atual. Células mostram percentual de alocação. Célula em vermelho quando > 100% (sobrecarga). Célula em verde quando entre 50% e 100%.
-
----
+5.1 Toolbar de views: Gantt, Lista, Curva S, Recursos
 
 BLOCO 6 — Barras de composição (Fase 1)
-
-Composições dentro de uma etapa podem opcionalmente ter datas definidas, gerando sub-barras no Gantt.
-
-Ativar datas numa composição: na linha da composição na view Lista, adicionar botão discreto "Definir período" visível no hover.
-
-Quando datas definidas: renderizar sub-barra recuada 16px para direita em relação à barra da etapa pai, com altura menor (14px vs 22px da etapa), cor mais clara da mesma família de cor da etapa.
-
-Validação: sub-barra não pode ultrapassar os limites da barra pai. Se ultrapassar, exibir aviso inline: "Período fora do intervalo da etapa — ajuste as datas."
-
-Datas da etapa pai: quando todas as composições filhas tiverem datas definidas, oferecer opção "Calcular datas da etapa automaticamente".
-
-Esta fase não afeta o cálculo do caminho crítico nem do SPI — as sub-barras são visuais apenas.
-
-FF e SF: tipos existem no banco mas não afetam posicionamento. Adicionar tooltip "Tipo FF/SF registrado mas não afeta o posicionamento das barras nesta versão."
+Sub-barras recuadas para composições com datas definidas.
 
 
 ----------------------------------------------------------------
-PROMPT 4 — FINANCEIRO SPRINT 0: Correção estrutural
+PROMPT 4 — FINANCEIRO SPRINT 0: Correção estrutural [CONCLUÍDO]
 ----------------------------------------------------------------
 
-Antes de começar inspecionar os arquivos: FinanceiroCentral.tsx, PagamentosTab.tsx, CustoRealTab.tsx, FluxoCaixaTab.tsx, DRETab.tsx e o schema atual das tabelas pagamentos e custo_real_itens. A migration da tabela custo_real_itens já foi aplicada manualmente no Supabase — verificar os campos existentes antes de criar qualquer coisa.
+Antes de começar inspecionar: FinanceiroCentral.tsx, PagamentosTab.tsx, CustoRealTab.tsx, FluxoCaixaTab.tsx, DRETab.tsx e schema de pagamentos e custo_real_itens.
 
-1. Tabela pagamentos — campos novos
-
-Adicionar os seguintes campos nullable via migration: fornecedor_id uuid referenciando a tabela de fornecedores existente, etapa_id uuid referenciando a tabela de etapas do orçamento, valor_pago numeric nullable. Manter os campos existentes fornecedor texto e etapa_orcamento texto como fallback — não remover nem migrar dados agora.
-
-2. Expor categoria_id no frontend
-
-O campo categoria_id já existe na tabela pagamentos mas não é usado na interface. Verificar para qual tabela ele aponta. Expor no modal de Novo Pagamento como campo "Categoria de custo indireto" — visível apenas quando o campo etapa estiver vazio. Opções sugeridas: Taxas e licenças, Despesas de canteiro, Administração, Imprevisto, Outro.
-
-3. Verificar PagamentosPage legada
-
-Existe uma página em /pagamentos separada do FinanceiroCentral. Verificar se está acessível por alguma rota ativa. Se for legado sem uso, remover o componente e a rota. Reportar antes de remover.
+1. Tabela pagamentos — campos novos: fornecedor_id, etapa_id, valor_pago
+2. Expor categoria_id no frontend como "Categoria de custo indireto"
+3. Verificar e remover PagamentosPage legada se sem uso
 
 
 ----------------------------------------------------------------
-PROMPT 5 — FINANCEIRO SPRINT 1: Pagamentos
+PROMPT 5 — FINANCEIRO SPRINT 1: Pagamentos [CONCLUÍDO]
 ----------------------------------------------------------------
 
-Implementar após Sprint 0 aplicado e confirmado.
-
-1. Modal de Novo Pagamento — fornecedor
-
-O campo fornecedor atual é texto livre. Substituir por campo de busca que consulta a tabela de fornecedores da obra. Manter campo de texto livre como fallback com opção "+ Novo fornecedor". Ao salvar, persistir fornecedor_id quando selecionado da tabela, texto livre quando digitado manualmente.
-
-2. Modal de Novo Pagamento — vínculo com etapa
-
-O campo etapa_orcamento atual é texto livre. Substituir por dropdown que lista as etapas reais da obra via etapa_id FK. Manter texto livre como fallback. Adicionar campo composição logo abaixo do campo etapa — dropdown das composições da etapa selecionada, opcional.
-
-3. Modal de Novo Pagamento — valor pago
-
-Adicionar campo "Valor pago" abaixo do campo "Valor total" — visível apenas quando o usuário marcar o pagamento como pago ou quando estiver editando um pagamento existente com status pago. Quando preenchido, usar valor_pago como custo realizado. Quando null, usar valor_previsto como hoje.
-
-4. Modal de Novo Pagamento — custos indiretos
-
-Quando o campo etapa estiver vazio, exibir campo "Categoria de custo indireto" com as opções definidas no Sprint 0. Tooltip: "Pagamentos sem vínculo com etapa são classificados como custos indiretos e aparecem separados no comparativo financeiro."
-
-5. KPIs do cabeçalho — hierarquia visual
-
-Diferenciar os cards: Vencido com fundo vermelho sutil quando valor > 0. Próx. 30 dias com fundo âmbar sutil quando valor > 0. Total da Obra e Pago em estilo neutro. % Execução com barra de progresso visual abaixo do número. Tooltip em % Execução: "Percentual do valor total de pagamentos já realizado. Baseado em pagamentos marcados como pagos vs. valor total previsto."
-
-Cards de KPI dentro da aba Pagamentos: adicionar label "Este mês" para deixar o escopo claro.
-
-6. View Timeline — abastecer
-
-Cada pagamento aparece como evento posicionado na data de vencimento. Parcelamentos aparecem como série de eventos conectados visualmente. Cores semânticas: pago = verde, pendente = cinza, vencido = vermelho, próx. 7 dias = âmbar. Ao clicar no evento, abre o drawer de detalhes do pagamento.
-
-7. View Calendário — abastecer
-
-Cada pagamento aparece na célula do dia de vencimento com valor e descrição resumida. Parcelamentos aparecem em múltiplas células. Mês com pagamentos vencidos tem destaque visual no cabeçalho. Ao clicar no evento, abre drawer de detalhes.
+1. Modal de Novo Pagamento — fornecedor com busca em tabela
+2. Modal de Novo Pagamento — vínculo com etapa real via FK
+3. Modal de Novo Pagamento — campo valor pago
+4. Modal de Novo Pagamento — custos indiretos quando sem etapa
+5. KPIs do cabeçalho — hierarquia visual semântica
+6. View Timeline — abastecer com pagamentos
+7. View Calendário — abastecer com pagamentos
 
 
 ----------------------------------------------------------------
-PROMPT 6 — FINANCEIRO SPRINT 2: Custo Real
+PROMPT 6 — FINANCEIRO SPRINT 2: Custo Real [CONCLUÍDO]
 ----------------------------------------------------------------
 
-Implementar após Sprint 1 confirmado.
-
-1. Fonte de dados
-
-A aba Custo Real hoje usa apenas pagamentos com status pago. Passar a usar as duas fontes: pagamentos com status pago vinculados à obra e lançamentos da tabela custo_real_itens. Verificar campos existentes em custo_real_itens após a migration aplicada antes de implementar.
-
-2. Layout da aba
-
-Manter os 4 KPI cards existentes (Orçado / Realizado / Desvio / % Executado). Adicionar linha de "Custos indiretos" separada nos KPIs: valor total de pagamentos sem etapa + lançamentos de custo_real_itens sem etapa.
-
-A tabela accordion existente deve passar a mostrar os dois tipos de lançamento aninhados: pagamentos pagos vinculados à etapa e lançamentos de custo_real_itens vinculados à etapa. Diferenciar visualmente com badge "Pagamento" ou "Lançamento".
-
-3. Botão de novo lançamento
-
-Adicionar botão "Registrar custo" na aba. Modal simplificado com campos: descrição, categoria (Material / Mão de obra / Serviço / Equipamento / Outro), etapa (dropdown), composição (dropdown opcional), quantidade (opcional), valor unitário (opcional), valor total (obrigatório), fornecedor, data, observações. Ao salvar, persiste em custo_real_itens com origem = 'manual'.
-
-4. Geração automática de custo_real_itens via pagamento
-
-Quando um pagamento é marcado como pago e tem etapa_id preenchido, criar automaticamente um registro em custo_real_itens com origem = 'pagamento_vinculado' e pagamento_id referenciando o pagamento. O lançamento automático não aparece para edição manual, só para leitura no comparativo.
-
-5. Comparativo Previsto vs. Realizado
-
-Por etapa: valor orçado vs. soma dos lançamentos reais. Delta em valor absoluto e percentual. Cor semântica: verde se realizado ≤ orçado, vermelho se realizado > orçado. Custos indiretos aparecem como linha separada abaixo das etapas.
+1. Fonte de dados: pagamentos pagos + custo_real_itens
+2. Layout da aba com ambas as fontes
+3. Botão "Registrar custo" com modal
+4. Geração automática via pagamento pago com etapa_id
+5. Comparativo Previsto vs. Realizado por etapa
 
 
 ----------------------------------------------------------------
-PROMPT 7 — FINANCEIRO SPRINT 3: Fluxo de Caixa e DRE
+PROMPT 7 — FINANCEIRO SPRINT 3: Fluxo de Caixa e DRE [CONCLUÍDO]
 ----------------------------------------------------------------
-
-Implementar após Sprint 2 confirmado.
 
 FLUXO DE CAIXA
-
-A estrutura atual está boa — preservar janela de 12 meses, barras previsto + realizado e linha de saldo acumulado.
-
-Linha de projeção: além dos pagamentos futuros cadastrados, calcular projeção baseada na média de gastos dos últimos 3 meses. Renderizar como linha tracejada diferenciada. Tooltip: "Projeção estimada baseada no ritmo dos últimos 3 meses — não considera compromissos futuros cadastrados."
-
-Alerta de saldo negativo: quando o saldo acumulado projetado ficar negativo em algum mês futuro, destacar a coluna com fundo âmbar e badge: "Atenção: saldo projetado negativo em [mês]."
-
-Toggle para incluir ou excluir custos indiretos da projeção — visível no canto superior direito do gráfico.
-
-Tabela mensal abaixo do gráfico: preservar estrutura atual. Adicionar coluna "Indiretos" quando toggle ativo.
+- Linha de projeção baseada nos últimos 3 meses
+- Alerta de saldo negativo projetado
+- Toggle custos indiretos
 
 DRE
-
-Preservar estrutura atual de linhas.
-
-Integração com BDI: quando BDI estiver configurado no orçamento (Sprint 1.5 da planilha), adicionar linha de Receita esperada (preço de venda = custo direto + BDI) separada do custo direto.
-
-Custos indiretos: separar na estrutura do DRE como linha própria abaixo dos custos diretos. Mostrar detalhamento por categoria (Taxas / Canteiro / Administração / Imprevisto).
-
-Margem por etapa: abaixo do DRE consolidado, adicionar tabela de margem por etapa com orçado, realizado e desvio percentual.
-
-Nota sobre receita: deixar comentário no código indicando que a fonte de receita deve migrar para o módulo de contratos e medições quando implementado.
+- Integração com BDI quando configurado
+- Custos indiretos como linha separada por categoria
+- Margem por etapa abaixo do consolidado
 
 
 ----------------------------------------------------------------
-PROMPT 8 — EXECUÇÃO SPRINT 1: Diário
+PROMPT 8 — EXECUÇÃO SPRINT 1: Diário [CONCLUÍDO]
 ----------------------------------------------------------------
 
-Remover duplicação do campo "Fotos" no formulário — aparece duas vezes, manter apenas uma ocorrência. Nenhuma outra alteração no Diário — o formulário está bem estruturado e o vínculo com estoque e cronograma já funciona.
-
-
-----------------------------------------------------------------
-PROMPT 9 — EXECUÇÃO SPRINT 2: Pendências
-----------------------------------------------------------------
-
-1. Adicionar campo Responsável no formulário de nova pendência — busca na tabela de membros da Equipe da obra. Quando Equipe não estiver cadastrada, aceitar texto livre como fallback.
-
-2. Adicionar campo de vínculo com etapa do cronograma — dropdown das etapas da obra, opcional.
-
-3. Pendência com data limite vencida: KPI "Pendências" no cabeçalho ganha destaque vermelho quando valor > 0.
-
-Registrado para implementação futura: quando Pendência for resolvida, gerar Milestone no Cronograma — implementar junto com a integração Agenda/Cronograma.
-
-
-----------------------------------------------------------------
-PROMPT 10 — EXECUÇÃO SPRINT 3: Equipe (construir do zero)
-----------------------------------------------------------------
-
-A aba Equipe hoje redireciona para a página de usuários da conta — comportamento incorreto. Construir do zero como módulo independente.
-
-CADASTRO DE MEMBROS
-
-Nome, função, contato (telefone e WhatsApp clicável), foto opcional. Membro pode ou não ter conta no sistema — um pedreiro contratado não precisa de login.
-
-DOCUMENTOS POR MEMBRO
-
-Upload de arquivos categorizados: Contrato de trabalho, RG, CPF, CTPS, ASO (Atestado de Saúde Ocupacional), Outros. Cada documento tem data de emissão e data de validade opcionais. Quando a data de validade estiver a menos de 30 dias do vencimento, exibir badge de alerta no membro. Quando vencida, badge vermelho.
-
-VÍNCULO COM DIÁRIO
-
-O campo "Trabalhadores" do Diário passa a referenciar membros cadastrados na Equipe em vez de ser um número solto. O gestor seleciona quais membros estavam presentes no dia. Quando nenhum membro cadastrado, aceitar número manual como hoje.
-
-CONTROLE DE PRESENÇA (Pro/Enterprise)
-
-Relatório de presença por membro e por período, calculado automaticamente a partir dos registros do Diário onde o membro foi selecionado. Exportação em PDF ou CSV.
-
-
-----------------------------------------------------------------
-PROMPT 11 — EXECUÇÃO SPRINT 4: Agenda
-----------------------------------------------------------------
-
-A estrutura atual está boa. Adicionar integrações com outros módulos:
-
-Pendências: quando uma pendência tem data limite definida, gerar evento na Agenda automaticamente com tipo "Pendência" e link para o registro original.
-
-Cronograma: Milestones do Cronograma aparecem na Agenda como eventos não editáveis — origem identificada como "Cronograma". Ao clicar, navega para o Cronograma no milestone correspondente.
-
-Pagamentos: vencimentos de pagamentos aparecem na Agenda como eventos não editáveis — origem identificada como "Financeiro". Ao clicar, navega para o Financeiro no pagamento correspondente.
-
-Estas três integrações são a base para o Calendário consolidado do Painel da obra. Registrado para quando chegar no Painel.
-
-
-----------------------------------------------------------------
-PROMPT 12 — EXECUÇÃO SPRINT 5: Entradas NF
-----------------------------------------------------------------
-
-Verificar se o fluxo completo está implementado: funcionário registra foto de NF pelo link de operação → aparece em Entradas NF como pendente → gestor aprova ou rejeita.
-
-Quando aprovada: gerar automaticamente item em custo_real_itens com origem = 'entrada_nf' e atualizar o estoque da obra com os materiais da NF. Verificar se esse vínculo já existe antes de implementar.
-
-Quando rejeitada: registrar motivo da rejeição. Notificação para o funcionário que enviou — via sistema ou WhatsApp se número cadastrado.
-
-
-----------------------------------------------------------------
-PROMPT 13 — EXECUÇÃO SPRINT 6: Estoque Global
-----------------------------------------------------------------
-
-Página separada acessível pelo menu lateral. As duas convivem: aba de estoque = visão da obra atual, página global = visão consolidada de todas as obras.
-
-VISÃO CONSOLIDADA
-
-Tabela com todos os materiais de todas as obras da empresa. Colunas: material, categoria, obra, quantidade atual, unidade, estoque mínimo, status (crítico/normal/sem mínimo definido). Filtros por obra, categoria, status. Destaque vermelho para materiais críticos (quantidade ≤ mínimo definido).
-
-Card de resumo no topo: total de materiais monitorados, quantidade de itens críticos em toda a empresa, obras com algum item crítico.
-
-TRANSFERÊNCIA ENTRE OBRAS
-
-Botão "Transferir material" abre modal: selecionar material, quantidade, obra de origem (com saldo visível), obra de destino. Ao confirmar: gerar saída na obra origem com tipo 'transferencia' e entrada na obra destino com tipo 'transferencia_recebida'. Ambos os registros referenciam o mesmo ID de transferência para rastreabilidade. Registrar data, responsável e observação opcional.
-
-PEDIDO CENTRALIZADO DE COMPRA
-
-O gestor seleciona materiais de uma ou mais obras → sistema agrupa por fornecedor sugerido (baseado no histórico de compras) → gestor revisa e ajusta → gera pedido.
-
-O pedido centralizado tem: número sequencial, fornecedor, lista de itens com obra de destino de cada item, valor total estimado, status (rascunho / enviado / recebido / parcial).
-
-Ao marcar como recebido: cada item gera automaticamente uma entrada de estoque na obra de destino correspondente. Se recebimento for parcial, gestor informa quantidade recebida por item.
-
-Integração com Cotação: um pedido centralizado pode ser convertido em lista de cotação — os itens do pedido viram itens da lista.
-
-
-----------------------------------------------------------------
-PROMPT 14 — CONTATOS: Melhorias
-----------------------------------------------------------------
-
-Antes de começar inspecionar a tabela de contatos no banco e verificar: campos de especialidade existentes, se existe vínculo com a tabela de fornecedores usada na Cotação.
-
-1. Chips de filtro por tipo (Cliente, Fornecedor de Material, Mão de Obra, Parceiro, Projetista, Outro) devem aparecer sempre na toolbar, mesmo quando o contador está zerado.
-
-2. Campo Especialidade: se o Sprint de Cotação já tiver rodado, conectar com as categorias de cotação (cotacao_categorias). Se não, manter texto livre e criar migration de conversão para depois. O campo de especialidades preenchido aqui deve alimentar a sugestão automática de itens na aba Cotação.
-
-3. No drawer de detalhes do contato, adicionar seção "Obras relacionadas" — em quais obras este contato aparece como fornecedor vinculado em pagamentos ou cotações. Leitura apenas.
-
-4. Ícones de ação rápida (telefone e WhatsApp) no hover do card na listagem, sem precisar abrir o drawer.
-
-
-----------------------------------------------------------------
-PROMPT 15 — LINKS PÚBLICOS SPRINT 1: Ajustes no fluxo
-----------------------------------------------------------------
-
-1. No modal de criação de Link de Operação, alterar label "Nome do responsável" para "Nome do funcionário / encarregado que usará este link".
-
-2. Adicionar campo opcional "Vincular a membro da Equipe" — quando Equipe estiver implementada (Sprint 10), o responsável pode ser selecionado da lista em vez de texto livre.
-
-3. Adicionar data e hora da última abertura do link no card de gerenciamento, abaixo do contador de visualizações.
-
-
-----------------------------------------------------------------
-PROMPT 16 — LINKS PÚBLICOS SPRINT 2: Página de visualização
-----------------------------------------------------------------
-
-Avaliar após seed de dados implementado e obras com dados reais. A página precisa de polish visual para impressionar o cliente final — é a vitrine do sistema. Verificar o que está sendo exibido em cada aba (Diário, Painel, Relatório, Cronograma, Financeiro) e refinar conforme o estado real das abas correspondentes no sistema principal.
-
-
-----------------------------------------------------------------
-PROMPT 17 — LINKS PÚBLICOS SPRINT 3: Migração
-----------------------------------------------------------------
-
-Implementar junto com o Sprint do Painel (Prompt 20).
-
-Migrar os Links de Acesso do Dashboard Central (/painel) para o Painel da Obra (/relatorios). Atualizar todos os componentes que referenciam o local atual dos links. Verificar se existem rotas ou componentes que dependem da localização atual antes de migrar.
-
-
-----------------------------------------------------------------
-PROMPT 18 — USUÁRIOS: Atribuição de obras + Configurações da empresa
-----------------------------------------------------------------
-
-Implementar após Admin Sprint 2 (Prompt 27) confirmado.
-
-SEÇÃO: CONFIGURAÇÕES DA EMPRESA (topo — visível apenas para o Dono)
-
-Mover as configurações de orçamento que hoje estão na página de Perfil para cá: Critério de preço histórico (Último preço usado / Menor preço / Média simples / Média ponderada). Adicionar campo BDI global padrão (%) quando Sprint 1.5 da Planilha estiver implementado. Campos editáveis: nome da empresa, CNPJ, cidade, segmento.
-
-SEÇÃO: MEMBROS
-
-KPIs no topo: Gestores, Funcionários de campo, Clientes — com limite do plano visível (ex: "2/3 gestores"). Tabela de membros com colunas: Nome, Email, Tipo de acesso (Dono / Gestor / Funcionário de campo), Obras atribuídas, Status. Tipo de acesso com badge colorido por tipo. Card de cada membro expansível mostrando obras atribuídas com opção de adicionar/remover.
-
-CONVIDAR GESTOR
-
-Botão "Convidar" abre modal com: email, nome, tipo de acesso, obras atribuídas (multi-select das obras da empresa). Gestor recebe email de convite. Ao aceitar, cria senha e acessa apenas as obras atribuídas.
-
-MODO DEMO
-
-Remover completamente do menu lateral. Para usuários em trial: banner discreto no topo com botão "Explorar com dados de exemplo" — clona as obras demo. Banner some após o usuário criar a primeira obra real ou fechar manualmente. Para o admin da plataforma: acessível via página Admin apenas.
-
-
-----------------------------------------------------------------
-PROMPT 19 — PERFIL: Foto + dados profissionais + ART + miniatura
-----------------------------------------------------------------
-
-Implementar após Admin Sprint 2 (Prompt 27) confirmado.
-
-DADOS PESSOAIS (editáveis)
-
-Foto de perfil: círculo clicável que abre seletor de arquivo. Armazenado no Supabase Storage. Aparece como miniatura no rodapé do menu lateral — foto se existir, iniciais se não existir. Nome completo, email, telefone/WhatsApp, senha (com confirmação).
-
-DADOS PROFISSIONAIS (editáveis)
-
-Cargo / Função: campo de texto ou select (Engenheiro Civil, Arquiteto, Técnico em Edificações, Mestre de Obras, Outro). Conselho de classe: select (CREA / CAU / Outro). Número do registro profissional. Especialidade: texto livre. Assinatura digital: upload de imagem PNG com fundo transparente — usada automaticamente em relatórios PDF.
-
-ARTs e RRTs
-
-Lista de ARTs cadastradas — cada uma com: número da ART, tipo (Execução / Projeto / Fiscalização / Outro), obra vinculada (dropdown das obras da empresa), data de emissão, data de validade, arquivo PDF. Botão "+ Nova ART". Badge âmbar quando vencimento < 30 dias, badge vermelho quando vencida. ART vinculada a uma obra é puxada automaticamente nos relatórios daquela obra.
-
-LEITURA (não editável)
-
-Obras vinculadas e empresa/plano atual.
-
-REMOVIDO DO PERFIL
-
-Configurações do Orçamento — movidas para Configurações da Empresa na página Usuários. Link "Perfil" removido do menu lateral — acessar apenas clicando no avatar/nome no rodapé do menu.
-
-
-----------------------------------------------------------------
-PROMPT 20 — PAINEL DA OBRA SPRINT 1: Estrutura e alertas
-----------------------------------------------------------------
-
-Antes de implementar executar as renomeações necessárias:
-- Página atual /painel → Dashboard Central
-- Página atual /relatorios → Painel da Obra
-Atualizar labels no menu lateral, breadcrumbs e todas as referências internas. Verificar todas as rotas e redirects antes de prosseguir.
-
-ZONA DE ALERTAS ATIVOS
-
-Topo da página, sempre visível. Cada alerta tem ícone de severidade, descrição curta e link direto para a página onde a ação deve ser tomada. Quando não há alertas, exibir banner verde "Tudo em ordem — nenhuma ação necessária".
-
-Alertas possíveis:
-- Pagamentos vencidos → link para Financeiro
-- SPI abaixo de 0.8 → link para Cronograma
-- Materiais críticos no estoque → link para Estoque
-- Pendências vencidas → link para Execução
-- Orçamento estourado em alguma etapa → link para Financeiro
-- Diário sem registro há mais de 3 dias úteis → link para Execução
-
-QUATRO KPIs PRINCIPAIS
-
-Progresso físico percentual com barra visual. SPI com cor semântica (verde ≥ 1.0, âmbar 0.8-0.99, vermelho < 0.8). Orçamento executado em valor e percentual. Desvio de prazo em dias (positivo = adiantado, negativo = atrasado).
-
-
-----------------------------------------------------------------
-PROMPT 21 — PAINEL DA OBRA SPRINT 2: Seções expansíveis
-----------------------------------------------------------------
-
-Implementar após Sprint 1 confirmado.
-
-Abaixo dos KPIs, seções de análise em cards expansíveis que o usuário pode colapsar. Ordem padrão:
-
-1. Cronograma por etapa: mini-Gantt simplificado com status visual de cada etapa. Não interativo — link "Ver cronograma completo".
-2. Execução financeira: tabela de etapas com orçado vs. realizado e delta percentual. Linha separada para custos indiretos.
-3. Curva S: gráfico de avanço planejado vs. realizado. Reaproveitar componente do Cronograma.
-4. Curva ABC: top itens por valor. Reaproveitar componente do Orçamento.
-5. Distribuição de custos: gráfico de pizza por categoria de pagamento. Reaproveitar componente do DRE.
-6. Calendário consolidado: visão mensal unificando agenda, pagamentos, pendências e registros de diário. Cada tipo com cor e ícone distintos. Ao clicar no evento, navega para o registro original. Este componente é novo.
-7. Últimas fotos: galeria dos últimos 7 dias de registros do diário.
-8. Feed de atividade: lista cronológica reversa dos últimos registros do sistema para esta obra. Máximo 20 itens.
-
-
-----------------------------------------------------------------
-PROMPT 22 — PAINEL DA OBRA SPRINT 3: Personalização e exportação
-----------------------------------------------------------------
-
-Implementar após Sprint 2 confirmado.
-
-REORGANIZAÇÃO MANUAL
-
-Handle de arrastar em cada card de seção. Preferência salva por usuário. Botão "Restaurar ordem padrão" no menu de opções da página.
-
-SELEÇÃO DE CONTEÚDO PARA EXPORTAÇÃO
-
-Toolbar no topo com botão "Configurar relatório" que abre painel lateral com checkboxes de cada seção. A seleção persiste entre sessões.
-
-EXPORTAR PDF
-
-Gera relatório com capa (dados da obra, data de geração, logotipo da empresa quando disponível), seguida das seções selecionadas na ordem atual. Reaproveitar o gerador de PDF existente — não recriar, apenas extender.
-
-IMPRIMIR
-
-Abre janela de impressão do browser com as seções selecionadas formatadas para papel A4.
-
-
-----------------------------------------------------------------
-PROMPT 23 — PAINEL DA OBRA SPRINT 4: Análise preditiva com IA
-----------------------------------------------------------------
-
-Implementar após Sprint 3 confirmado.
-
-Seção "Inteligência da Obra" no final da página. Disponível após 30 dias de dados ativos. Quando dados insuficientes: card com placeholder "Análise disponível após 30 dias de uso" com barra de progresso mostrando quantos dias faltam.
-
-INSIGHTS AUTOMÁTICOS
-
-Previsão de término: com base no SPI atual, calcular data provável de conclusão. Comparar com data contratual. Desvio em dias com cor semântica.
-
-Risco de estouro por etapa: para etapas ainda não concluídas, comparar ritmo atual de gastos com orçado restante. Alertar quando projeção sugere estouro acima de 10%.
-
-Anomalia de custo: detectar quando o custo de qualquer categoria na semana atual está mais de 30% acima da média das últimas 4 semanas.
-
-Previsão de necessidade de caixa: cruzar cronograma de etapas futuras com histórico de desembolso. Projetar necessidade de caixa mês a mês para os próximos 90 dias. Alertar quando projeção indica deficit.
-
-Sugestão de momento de compra: para insumos com histórico de preço em NFs, detectar quando o preço atual está abaixo da média histórica. Sugerir compra antecipada com estimativa de economia.
-
-Score de saúde da obra: número único de 0 a 100 calculado a partir de cinco componentes com pesos iguais — prazo (baseado no SPI), orçamento (desvio percentual), pendências (abertas vs. resolvidas), diário (frequência de registros), estoque (materiais críticos).
-
-DISTRIBUIÇÃO DOS INSIGHTS PARA OUTRAS PÁGINAS
-
-Cada insight aparece também na página mais relevante como banner discreto colapsável com link "Ver análise completa" apontando para o Painel da Obra. Não recriar os cálculos — ler do mesmo dado já calculado.
-
-- Score de saúde → badge no topo da página Execução & Canteiro
-- Previsão de término → banner abaixo do SPI no Cronograma
-- Risco de estouro → badge na etapa em risco no Financeiro Custo Real
-- Anomalia de custo → alerta inline no Financeiro Custo Real
-- Previsão de caixa → seção de projeção no Financeiro Fluxo de Caixa
-- Sugestão de compra → card por material no Estoque
-
-
-----------------------------------------------------------------
-PROMPT 24 — DASHBOARD CENTRAL SPRINT 1: Estrutura principal
-----------------------------------------------------------------
-
-Implementar após Painel da Obra Sprint 1 (Prompt 20) confirmado.
-
-Esta página não tem contexto de obra específica — o seletor de obra no topbar some nesta página.
-
-TOPO — ALERTAS CRÍTICOS
-
-Alertas de qualquer obra da empresa no formato "Obra X — 3 pagamentos vencidos" com link direto para a obra. Ordenados por severidade. Colapsável quando o gestor já viu.
-
-KPIs CONSOLIDADOS
-
-Quatro cards: obras ativas com contagem de em atraso destacada em vermelho, valor total em obras, total pago no mês corrente, SPI médio ponderado entre obras ativas.
-
-CARDS POR OBRA
-
-Uma linha por obra com: nome, status, progresso com barra visual, SPI com cor semântica, alerta de destaque quando existe algo crítico, score de saúde quando disponível. Clique no card navega para o Painel daquela obra. Ordenação padrão: obras com alertas críticos primeiro, depois por score de saúde crescente.
-
-DOIS PERFIS DE ACESSO
-
-Dono vê todas as obras e todos os dados. Gestor vê apenas as obras às quais foi atribuído — sem KPIs consolidados da empresa.
-
-
-----------------------------------------------------------------
-PROMPT 25 — DASHBOARD CENTRAL SPRINT 2: Análises consolidadas
-----------------------------------------------------------------
-
-Implementar após Sprint 1 confirmado.
-
-FLUXO DE CAIXA CONSOLIDADO
-
-Soma dos fluxos de todas as obras ativas num único gráfico de barras mensal. Permite visualizar pressão de caixa global da empresa nos próximos 90 dias. Toggle para ver por obra individualmente sobreposto.
-
-DISTRIBUIÇÃO DE INVESTIMENTO ENTRE OBRAS
-
-Gráfico de pizza mostrando quanto do orçamento total está alocado em cada obra.
-
-BENCHMARK ENTRE OBRAS
-
-Tabela comparando obras do mesmo tipo (residencial, comercial, etc.) com custo por m², SPI e desvio de orçamento. Disponível quando existem ao menos duas obras do mesmo tipo.
-
-
-----------------------------------------------------------------
-PROMPT 26 — DASHBOARD CENTRAL SPRINT 3: Inteligência consolidada
-----------------------------------------------------------------
-
-Implementar após Sprint 2 confirmado.
-
-SUGESTÃO DE COMPRA EM LOTE
-
-Detectar quando duas ou mais obras têm necessidade do mesmo insumo nos próximos 60 dias. Calcular economia potencial de compra centralizada. Botão "Criar pedido centralizado" navega para o Estoque Global com os itens pré-selecionados.
-
-PREVISÃO DE NECESSIDADE DE CAIXA CONSOLIDADA
-
-Soma das previsões individuais de cada obra. Destacar meses com pressão de caixa acima da capacidade histórica da empresa.
-
-SCORE DE SAÚDE CONSOLIDADO
-
-Média ponderada dos scores de todas as obras ativas com indicador de tendência (melhorando ou piorando em relação à semana anterior).
-
-
-----------------------------------------------------------------
-PROMPT 27 — ADMIN SPRINT 1: Correções e completude
-----------------------------------------------------------------
-
-Inspecionar os arquivos da página Admin antes de qualquer alteração. Não alterar nada além do especificado.
-
-PLANOS — TORNAR EDITÁVEL
-
-Os valores de limite por plano (obras, gestores, funcionários, clientes) estão fixos no código. Transformar em campos editáveis persistidos no banco. Adicionar campos de preço por plano — mensal e anual. Adicionar campo de descrição curta. Botão de salvar com confirmação — uma mudança de limite afeta todas as empresas naquele plano.
-
-EMPRESAS — INFORMAÇÕES EXPANDIDAS
-
-Expandir o card de empresa para mostrar: data de cadastro, data do último acesso de qualquer usuário da empresa, plano atual com data de início, histórico de mudanças de plano, MRR calculado pelo plano × 1, status de pagamento (em dia / inadimplente / trial / manual).
-
-PÁGINA DE DETALHES DA EMPRESA /admin/companies/:id
-
-Criar página dedicada com as seguintes seções: dados cadastrais, uso atual vs. limites com barras de progresso, histórico de atividade, add-ons ativos, notas internas (campo de texto livre para acompanhamento manual), ações disponíveis (mudar plano, suspender conta, resetar senha do admin, impersonar empresa).
-
-IMPERSONAR EMPRESA
-
-Botão "Acessar como esta empresa" que abre o sistema com o contexto daquela empresa. Banner vermelho fixo no topo: "Você está acessando como [empresa] — Sair". Registrar log de cada impersonação com data, hora e duração.
-
-
-----------------------------------------------------------------
-PROMPT 28 — ADMIN SPRINT 2: Dois perfis de acesso
-----------------------------------------------------------------
-
-ANTES DE IMPLEMENTAR
-
-Verificar estrutura atual da tabela de profiles — especialmente o campo role. Verificar se existe algum sistema de permissões já implementado. Mapear quais queries e componentes usam o role atual para não quebrar nada. Reportar antes de qualquer alteração.
-
-PERFIL 1 — DONO DA EMPRESA (admin da company)
-
-Um por empresa. Acesso total a tudo. Vê o Dashboard Central com todas as obras. Vê dados financeiros consolidados. Gerencia usuários da empresa. Gerencia plano e add-ons.
-
-PERFIL 2 — GESTOR DE OBRA
-
-Múltiplos por empresa — limitado pelo plano. Acesso restrito às obras às quais foi atribuído. Não vê o Dashboard Central — entra direto no Painel da obra atribuída. Não vê dados financeiros de outras obras. Não gerencia usuários nem plano.
-
-ATRIBUIÇÃO VIA PÁGINA USUÁRIOS
-
-O Dono atribui gestores a obras pela página Usuários. Um gestor pode estar em múltiplas obras simultaneamente. Com uma obra: vai direto para ela. Com múltiplas: vê lista para selecionar.
-
-IMPACTO NAS QUERIES
-
-Todas as queries filtradas por company_id precisam também filtrar por obra quando o usuário for gestor. Implementar em etapas: primeiro criar a estrutura de perfis, depois aplicar os filtros gradualmente por módulo. Esta é a parte mais delicada — implementar com cautela e reportar cada módulo ajustado.
-
-
-----------------------------------------------------------------
-PROMPT 29 — ADMIN SPRINT 3: Dashboard de analytics
-----------------------------------------------------------------
-
-Implementar após Sprint 2 confirmado.
-
-MÉTRICAS DE NEGÓCIO
-
-MRR (Monthly Recurring Revenue): soma dos planos ativos × preço. Gráfico de linha com evolução mês a mês. ARR projetado (MRR × 12). MRR por plano: quanto vem do Start, Pro e Enterprise separadamente. Churn do mês: empresas que cancelaram ou foram suspensas.
-
-MÉTRICAS DE PRODUTO
-
-DAU/MAU: verificar se existe tabela de logs ou activity feed antes de implementar. Obras criadas por período (gráfico de barras mensal). Feature mais usada: qual módulo tem mais acessos. Funil de onboarding: quantas empresas completaram cada etapa.
-
-MÉTRICAS DE SAÚDE
-
-Empresas por plano (pizza). Empresas em trial com data de expiração. Empresas inativas: cadastradas há mais de 14 dias sem nenhuma ação. Potencial de upgrade: empresas no Start no limite de obras ou usuários.
-
-LAYOUT
-
-KPIs no topo: MRR atual, total de empresas ativas, DAU do dia, churn do mês. Gráficos com período selecionável (7 dias, 30 dias, 90 dias, 12 meses). Tabela de empresas ordenável por MRR, data de cadastro, último acesso, plano.
-
-
-----------------------------------------------------------------
-PROMPT 30 — ADMIN SPRINT 4: Integração de cobrança (futuro)
-----------------------------------------------------------------
-
-NÃO IMPLEMENTAR AGORA. Retomar quando os primeiros clientes estiverem pagando manualmente e o gateway estiver escolhido (recomendado: Iugu ou Asaas).
-
-O que será necessário quando chegar a hora:
-- Webhook do gateway atualizando status de pagamento por empresa automaticamente
-- Página de histórico de faturas por empresa
-- Notificação automática de inadimplência
-- Fluxo de cancelamento com período de graça
+Remover duplicação do campo "Fotos" no formulário. Nenhuma outra alteração.
 
 
 ================================================================
-PROMPT 31 — LANDING PAGE: Atualização completa
+FASE 2 — EXECUÇÃO E CANTEIRO (PARCIALMENTE CONCLUÍDA)
 ================================================================
 
-A landing page atual tem a estrutura de webhook nos links de plano — preservar integralmente. O fluxo após pagamento redireciona para onboarding — preservar. Atualizar apenas o conteúdo e o visual para refletir o produto atual.
+----------------------------------------------------------------
+PROMPT 9 — EXECUÇÃO SPRINT 2: Pendências [PULADO]
+----------------------------------------------------------------
 
-INSTRUÇÃO GERAL
+Incorporada à Agenda (Sprint 4). Não implementar separadamente.
 
-Inspecionar o código atual da landing antes de qualquer alteração. Identificar onde estão os links de plano com webhook, o formulário de cadastro e qualquer lógica de redirecionamento. Não alterar nada dessa estrutura — apenas o conteúdo e o layout das seções.
 
----
+----------------------------------------------------------------
+PROMPT 10 — EXECUÇÃO SPRINT 3: Equipe [CONCLUÍDO]
+----------------------------------------------------------------
 
-NOMENCLATURA DO SISTEMA
+Construída do zero como módulo independente.
+- Cadastro de membros com foto, função, contato
+- Documentos por membro com controle de validade
+- Vínculo com Diário para presença
+- Controle de presença calculado a partir do Diário
 
-Usar a seguinte nomenclatura em toda a landing:
-- Conta principal da empresa: "Administrador"
-- Conta de engenheiro/responsável pela obra: "Responsável"
-- Funcionários de campo: acessam via link de operação, sem conta no sistema
-- Clientes: acessam via link de visualização, sem conta no sistema
 
----
+----------------------------------------------------------------
+PROMPT 11 — EXECUÇÃO SPRINT 4: Agenda [CONCLUÍDO]
+----------------------------------------------------------------
 
-SEÇÃO 1 — Hero
+Integrações com Pendências, Cronograma (Milestones) e
+Pagamentos (vencimentos) como eventos não editáveis.
 
-Headline principal focada na dor combinada com a solução:
-"Chega de obra no Excel e no WhatsApp. Gerencie tudo em um só lugar."
 
-Subtítulo destacando o diferencial do link público:
-"Orçamento, cronograma, diário de campo e relatório para o cliente — tudo integrado. Seu cliente acompanha a obra em tempo real, sem precisar de login."
+----------------------------------------------------------------
+PROMPT 12 — EXECUÇÃO SPRINT 5: Entradas NF [CONCLUÍDO]
+----------------------------------------------------------------
 
-CTA primário: botão "Testar grátis por 14 dias" sem cartão — leva para o onboarding.
-CTA secundário: link discreto "Ver planos e preços" que rola a página até a seção de planos.
+Fluxo NF via link de operação → pendente → aprovação →
+custo_real_itens + atualização de estoque.
 
-Visual de apoio: usar print real do Dashboard Central com KPIs e cards de obras.
 
----
+----------------------------------------------------------------
+PROMPT 13 — EXECUÇÃO SPRINT 6: Estoque Global [ADIADO]
+----------------------------------------------------------------
 
-SEÇÃO 2 — Problema
+Motivo: escopo largo, pré-requisito de múltiplas obras com dados reais.
+Retomar após Dashboards estarem funcionando.
 
-Três cards lado a lado mostrando a realidade atual do gestor de obras:
+Conteúdo quando retomar:
+1. Visão consolidada: tabela todos os materiais de todas as obras
+2. Transferência entre obras com rastreabilidade
+3. Pedido centralizado de compra por fornecedor
 
-Card 1: "Planilhas que ninguém consegue ler"
-Ícone de planilha. Texto: "Orçamento no Excel, cronograma em outro arquivo, diário no caderno. Cada atualização é um retrabalho."
 
-Card 2: "WhatsApp não é sistema"
-Ícone de celular. Texto: "O cliente manda mensagem a qualquer hora. Você responde foto por foto. Nenhum registro organizado."
+----------------------------------------------------------------
+PROMPT 14 — CONTATOS: Melhorias [CONCLUÍDO]
+----------------------------------------------------------------
 
-Card 3: "Relatórios que consomem horas"
-Ícone de documento. Texto: "Montar uma apresentação para o cliente ou para o banco leva o dia inteiro. E ainda fica desatualizado."
-
----
-
-SEÇÃO 3 — Solução (features principais)
-
-Seis blocos com layout alternado: imagem à esquerda, texto à direita — depois inverte.
-
-REGRA DE IMAGENS: alguns blocos usam print real do sistema, outros descrevem o resultado sem mostrar a interface. Seguir exatamente as instruções por bloco abaixo.
-
-Bloco 1: Cronograma com SPI automático
-[USAR PRINT REAL do cronograma com SPI, baseline e Curva S visíveis]
-"Acompanhe o índice de desempenho de prazo em tempo real. Veja de relance se a obra está no ritmo, adiantada ou atrasada — com baseline e Curva S integrados."
-
-Bloco 2: Curva ABC integrada ao orçamento
-[USAR PRINT REAL da Curva ABC mostrando a distribuição de custos]
-"Identifique quais insumos concentram 80% do custo da obra. A Curva ABC é calculada automaticamente a partir do seu orçamento — sem planilhas separadas."
-
-Bloco 3: Link para o cliente sem login
-[USAR PRINT REAL do link público de visualização]
-"Gere um link personalizado para o cliente acompanhar o andamento — progresso, fotos, cronograma e financeiro. Ele vê só o que você permitir, sem precisar criar conta."
-
-Bloco 4: Diário de campo mobile
-[USAR PRINT REAL da tela de registro do link de operação no celular]
-"O mestre de obras registra o dia pelo celular, sem precisar de conta. Clima, trabalhadores, materiais recebidos e fotos — tudo chega para você em tempo real."
-
-Bloco 5: Cotação com comparativo de fornecedores
-[NÃO mostrar print — descrever o resultado]
-Sem imagem. Usar ícone ilustrativo.
-"Monte listas de cotação por categoria, envie para fornecedores e receba as respostas. O sistema compara os preços automaticamente com referência SINAPI para você decidir com dados — não com achismo."
-
-Bloco 6: Relatório em PDF com um clique
-[USAR PRINT REAL do relatório PDF gerado]
-"Gere relatórios profissionais para o cliente, banco ou fiscalização com capa, dados da obra e seções configuráveis. Leva 30 segundos."
-
----
-
-SEÇÃO 4 — Trial
-
-Banner de destaque com fundo levemente colorido (não branco):
-
-"Comece grátis por 14 dias — sem cartão de crédito"
-
-Subtítulo: "Acesso completo ao plano Pro. Cancele quando quiser."
-
-Botão CTA: "Criar conta gratuita" — mesmo destino do CTA do hero (onboarding).
-
-Três itens de reassurance abaixo do botão:
-- ✓ Sem cartão de crédito
-- ✓ Acesso a todas as funcionalidades por 14 dias
-- ✓ Suporte por WhatsApp incluso
-
----
-
-SEÇÃO 5 — Planos
-
-Três cards: Start, Pro, Enterprise. Preservar os links de webhook existentes em cada botão de plano — não alterar as URLs nem a lógica de redirecionamento.
-
-REGRA DE OBRAS: os limites de obras se referem a obras ATIVAS simultaneamente. Obras finalizadas ficam armazenadas para consulta sem ocupar slot do plano. Deixar isso claro com tooltip ou nota abaixo dos limites: "Obras finalizadas ficam armazenadas para sempre sem ocupar seu limite."
-
-Start — para autônomos e pequenas construtoras
-Preço: R$ 127/mês ou R$ 1.270/ano
-2 obras ativas simultâneas
-1 Responsável adicional (Administrador + 1)
-Funcionalidades incluídas: Orçamento com SINAPI, Cronograma, Financeiro, Execução & Canteiro, Links públicos (Visualização + Operação), Documentos, Contatos
-Não inclui: Assistente IA, BDI por etapa, múltiplos orçamentos, análise preditiva, estoque global entre obras
-Botão: "Assinar Start"
-
-Pro — para construtoras em crescimento
-Preço: R$ 297/mês ou R$ 2.970/ano
-Badge "Mais popular" em destaque
-5 obras ativas simultâneas
-3 Responsáveis adicionais
-Tudo do Start mais: BDI por etapa, múltiplos orçamentos por obra, Assistente IA (100 mensagens/mês), estoque global entre obras, análise preditiva básica, relatório PDF customizável, pedido centralizado de compra
-Botão: "Assinar Pro"
-
-Enterprise — para médias construtoras
-Preço: R$ 697/mês ou R$ 6.970/ano
-Obras ativas ilimitadas
-Responsáveis ilimitados
-Tudo do Pro mais: Assistente IA ilimitado com modelo avançado, Dashboard Central com analytics completo, análise preditiva completa (sugestão de compra em lote, benchmark entre obras), suporte prioritário por WhatsApp, onboarding assistido
-Botão: "Falar com a equipe"
-
-Add-ons disponíveis (mostrar abaixo dos cards como lista discreta):
-- Obra ativa extra: R$ 29/mês por obra adicional além do limite do plano
-- Responsável extra: R$ 19/mês por Responsável adicional
-- Mensagens IA extra (Pro): R$ 39/mês por 200 mensagens adicionais
-- Integração WhatsApp: R$ 49/mês (em breve)
-
-Abaixo dos cards: link "Começar com 14 dias grátis →" que leva para o onboarding sem escolher plano ainda.
-
----
-
-SEÇÃO 6 — Rodapé
-
-Links: Termos de uso, Política de privacidade, Contato (email ou WhatsApp).
-Texto: "© 2026 ObraConectada. Todos os direitos reservados."
+1. Chips de filtro sempre visíveis
+2. Campo Especialidade conectado com cotacao_categorias
+3. Seção "Obras relacionadas" no drawer
+4. Ícones de ação rápida no hover (telefone e WhatsApp)
 
 
 ================================================================
-PROMPT 32 — ONBOARDING: Fluxo de primeiro acesso
+FASE 3 — LINKS PÚBLICOS E USUÁRIOS (CONCLUÍDA)
 ================================================================
 
-O onboarding é acionado após o cadastro via landing page (trial) ou após pagamento de um plano. Verificar no código atual como o redirecionamento pós-cadastro e pós-pagamento está implementado antes de qualquer alteração.
+----------------------------------------------------------------
+PROMPT 15 — LINKS PÚBLICOS SPRINT 1: Ajustes no fluxo [CONCLUÍDO]
+----------------------------------------------------------------
 
-INSTRUÇÃO GERAL
+1. Label renomeada para "Nome do funcionário / encarregado"
+2. Campo "Vincular a membro da Equipe" opcional
+3. Data e hora do último acesso no card
 
-Inspecionar o fluxo atual de cadastro e verificar: existe alguma página de onboarding já implementada? O usuário vai direto para o sistema após cadastro? Reportar antes de implementar.
 
----
+----------------------------------------------------------------
+PROMPT 16 — LINKS PÚBLICOS SPRINT 2: Página de visualização [CONCLUÍDO]
+----------------------------------------------------------------
 
-ESTRUTURA GERAL
+Polish visual alinhado ao VISUAL.md.
+Abas Financeiro e Relatório com empty states.
 
-Stepper de 3 etapas no topo da página, idêntico ao padrão visual do Cronograma. Fundo limpo sem menu lateral — o menu lateral só aparece após o onboarding ser concluído ou pulado. Logo do ObraConectada no topo esquerdo. Botão "Pular configuração" discreto no canto superior direito em todas as etapas — leva direto para o Dashboard Central.
 
----
+----------------------------------------------------------------
+PROMPT 17 — LINKS PÚBLICOS SPRINT 3: Migração [CONCLUÍDO]
+----------------------------------------------------------------
 
-ETAPA 1 — Dados da empresa
+LinksDeAcessoCard movido de /painel para /relatorios.
 
-Título: "Vamos configurar sua conta"
-Subtítulo: "Essas informações aparecem nos seus relatórios e documentos."
 
-Campos:
-- Nome da empresa (obrigatório)
-- CNPJ (opcional — pode preencher depois)
-- Cidade (obrigatório)
-- Segmento principal: select com opções Residencial, Comercial, Industrial, Infraestrutura, Reformas e Manutenção, Outro
+----------------------------------------------------------------
+PROMPT 18 — USUÁRIOS: Aceite de convites + Configurações [CONCLUÍDO]
+----------------------------------------------------------------
 
-Botão "Continuar →"
+Trigger handle_new_user + transição company_user_invites → user_roles.
+CRUD de gestores/admins com seleção real de obras.
 
-Ao avançar: salvar os dados da empresa no banco. Se a empresa já tiver dados preenchidos (cadastro via pagamento), pré-preencher os campos.
 
----
+----------------------------------------------------------------
+PROMPT 19 — USUÁRIOS: Atribuição de obras [CONCLUÍDO]
+----------------------------------------------------------------
 
-ETAPA 2 — Primeira obra ou demo
-
-Título: "Como quer começar?"
-
-Dois cards lado a lado:
-
-Card A — "Criar minha primeira obra"
-Ícone de construção. Texto: "Comece com um projeto real e explore o sistema com seus dados."
-Ao selecionar: exibir formulário inline abaixo dos cards com campos:
-- Nome da obra (obrigatório)
-- Endereço (opcional)
-- Data de início (opcional)
-- Tipo: select (Residencial, Comercial, Reforma, Outro)
-Botão "Criar obra e continuar →"
-
-Card B — "Explorar com dados de exemplo"
-Ícone de lupa. Texto: "Veja como o sistema funciona com obras fictícias já preenchidas. Você pode criar suas obras reais depois."
-Ao selecionar: clonar as obras demo para a conta do usuário. Mostrar loading discreto com texto "Preparando seus dados de exemplo...". Após concluir, avançar automaticamente para a Etapa 3.
-
-Abaixo dos cards: link discreto "Prefiro começar com uma obra vazia →" que cria uma obra em branco com nome "Minha primeira obra" e avança para a Etapa 3.
-
----
-
-ETAPA 3 — Convidar equipe (opcional)
-
-Título: "Sua equipe já pode acessar"
-Subtítulo: "Convide gestores para colaborar nas suas obras. Você pode fazer isso depois também."
-
-Campo de email com botão "+ Adicionar" que permite adicionar múltiplos emails antes de enviar. Lista dos emails adicionados com opção de remover cada um. Ao enviar: criar convites pendentes para cada email e exibir confirmação.
-
-Botão primário: "Enviar convites e ir para o sistema →"
-Botão secundário: "Pular por agora →" — ambos levam para o Dashboard Central ou Painel da obra criada.
-
----
-
-PÓS-ONBOARDING
-
-Ao entrar no sistema pela primeira vez após o onboarding:
-
-Se criou obra real: ir direto para o Painel daquela obra.
-Se escolheu demo: ir para o Dashboard Central.
-Se pulou tudo: ir para o Dashboard Central.
-
-Exibir banner de boas-vindas discreto no topo da primeira página (não modal, não bloqueia uso):
-"Bem-vindo ao ObraConectada! Próximos passos: [criar orçamento] · [adicionar cronograma] · [compartilhar link com o cliente]"
-
-O banner some após 7 dias ou quando o usuário clicar no X.
-
----
-
-TRIAL — CONTROLE DE ACESSO
-
-Usuários em trial têm acesso completo ao plano Pro por 14 dias. No dia 10, exibir banner âmbar no topo: "Sua avaliação gratuita termina em 4 dias. Escolha um plano para continuar →". No dia 14, se não escolheu plano: exibir tela de bloqueio suave com opções de plano — o usuário não perde os dados, apenas não consegue criar novos registros até escolher um plano.
-
+Edge Function + user_roles com obras_ids.
+ObrasContext filtrando por obras_ids para func/cliente.
+Seletores UI no Modal de Edição/Convite.
 
 
 ================================================================
-PROMPT 33 — ASSISTENTE IA: Guia contextual do sistema
+FASE 4 — COTAÇÃO/COMPRAS REFORMULADA
 ================================================================
+
+NOTA: Sprints 20-23 reformulam o módulo de Cotação e Compras
+que existe hoje. Executar em sequência. Prompts completos abaixo.
+
+----------------------------------------------------------------
+PROMPT 20 — COTAÇÃO SPRINT 1: Restaurar aba no Orçamento
+----------------------------------------------------------------
 
 ANTES DE COMEÇAR
+Inspecionar: OrcamentoCentral.tsx, App.tsx (rota /cotacao).
+Verificar se existe redirect de /cotacao implementado.
 
-Inspecionar: como o topbar está implementado, onde ficam os ícones de notificação e perfil, se existe algum sistema de feature flags ou controle de plano já implementado. Verificar também se já existe alguma integração com a API Claude no projeto. Reportar antes de implementar.
+OBJETIVO
+A Cotação volta a ser uma aba dentro do Orçamento.
+A rota /cotacao deve redirecionar para /orcamento?tab=cotacao.
 
----
+PASSO 1 — Redirect em App.tsx
+Em App.tsx, garantir:
+import { Navigate } from 'react-router-dom';
+<Route path="/cotacao" element={<Navigate to="/orcamento?tab=cotacao" replace />} />
 
-POSICIONAMENTO NA INTERFACE
+PASSO 2 — Adicionar aba Cotação ao OrcamentoCentral
+Em OrcamentoCentral.tsx, localizar VALID_TABS e TABS_CONFIG.
+Adicionar:
+- 'cotacao' ao VALID_TABS
+- { id: 'cotacao', label: 'Cotação' } ao TABS_CONFIG
 
-Adicionar ícone ✨ na barra superior entre as notificações e o avatar do usuário. O ícone abre um painel lateral deslizante de 380px pela direita — não um modal. O painel não bloqueia o conteúdo principal — o usuário continua usando o sistema com o painel aberto.
+Adicionar bloco de conteúdo:
+<div style={{ height:'100%', display: activeTab==='cotacao' ? 'block' : 'none' }}>
+  <CotacaoCentralTab obraId={obra.id} isActive={activeTab==='cotacao'} />
+</div>
 
----
+PASSO 3 — Criar CotacaoCentralTab
+Criar src/components/orcamento/CotacaoCentralTab.tsx.
+Este componente encapsula o conteúdo atual de CotacaoCentral.tsx
+mas recebe obraId e isActive como props.
 
-CONTROLE DE ACESSO POR PLANO
+VALIDAÇÃO
+- [ ] /cotacao redireciona para /orcamento?tab=cotacao
+- [ ] Aba Cotação aparece no Orçamento
+- [ ] Conteúdo atual da Cotação funciona dentro da aba
+- [ ] Zero erros TypeScript
 
-Verificar o plano da empresa antes de renderizar o ícone:
 
-Start: ícone não aparece. Nenhuma funcionalidade de IA disponível.
-Pro: ícone aparece. Limite de 100 mensagens por mês por empresa. Quando 80% do limite atingido, exibir badge âmbar no ícone com tooltip "Você usou 80 de 100 mensagens este mês". Quando limite atingido, painel abre mas exibe mensagem de upgrade em vez do chat.
-Enterprise: ícone aparece. Sem limite de mensagens.
+----------------------------------------------------------------
+PROMPT 21 — COTAÇÃO SPRINT 2: Reestruturar CotacaoCentral
+----------------------------------------------------------------
 
-Contador de mensagens: persistir no banco por empresa e por mês. Resetar no primeiro dia de cada mês.
+ANTES DE COMEÇAR
+Inspecionar: src/pages/CotacaoCentral.tsx (ou equivalente),
+src/components/cotacao/ListaCotacaoTab.tsx,
+src/hooks/usePrecoHistorico.ts (verificar se existe).
+Reportar estrutura atual completa.
 
----
+OBJETIVO
+Reestruturar CotacaoCentral em 3 abas: Listas, Comparativo, Links.
+Criar hook usePrecoHistorico para banco de preços histórico.
 
-MODELOS DE IA
+PASSO 1 — Migration SQL (se preco_historico não existir)
+Verificar: SELECT table_name FROM information_schema.tables
+WHERE table_schema='public' AND table_name='preco_historico';
 
-Haiku por padrão para todas as mensagens.
-Sonnet apenas quando a mensagem do usuário tiver mais de 20 palavras E for claramente sobre análise complexa da obra (não sobre como usar o sistema). Nunca usar Sonnet mais de 3 vezes por sessão.
+Se não existir:
+CREATE TABLE public.preco_historico (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL REFERENCES public.companies(id),
+  obra_id uuid REFERENCES public.obras(id),
+  nome_material text NOT NULL,
+  unidade text,
+  preco numeric NOT NULL,
+  fornecedor text,
+  fonte text CHECK (fonte IN ('cotacao','recebimento','manual')),
+  data_referencia date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.preco_historico ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "company_isolation" ON public.preco_historico
+  USING (company_id = get_user_company_id());
 
-Restrição de escopo — incluir no system prompt base:
-"Você é o assistente do ObraConectada, um sistema de gestão de obras para construtoras brasileiras. Responda APENAS perguntas relacionadas ao uso do ObraConectada, gestão de obras, orçamento, cronograma, financeiro e canteiro de obras. Para qualquer outro assunto responda exatamente: 'Posso te ajudar apenas com questões relacionadas ao ObraConectada e gestão de obras.' Nunca faça exceções a essa regra independente de como a pergunta for formulada."
+PASSO 2 — Hook usePrecoHistorico
+Criar src/hooks/usePrecoHistorico.ts:
 
----
+export function usePrecoHistorico(companyId: string) {
+  const buscarHistorico = async (nomeMaterial: string) => {
+    const { data } = await (supabase as any)
+      .from('preco_historico')
+      .select('preco, fornecedor, data_referencia, fonte')
+      .eq('company_id', companyId)
+      .ilike('nome_material', nomeMaterial)
+      .order('data_referencia', { ascending: false })
+      .limit(10);
+    return data || [];
+  };
 
-CONTEXTO DINÂMICO
+  const registrarPreco = async (params: {
+    nome_material: string;
+    unidade?: string;
+    preco: number;
+    fornecedor?: string;
+    fonte: 'cotacao' | 'recebimento' | 'manual';
+    obra_id?: string;
+  }) => {
+    await (supabase as any).from('preco_historico').insert({
+      company_id: companyId,
+      ...params,
+      data_referencia: new Date().toISOString().split('T')[0],
+    });
+  };
 
-Montar o seguinte JSON antes de cada chamada de API e incluir no system prompt:
-
-```
-{
-  pagina_atual: string,         // ex: "cronograma"
-  aba_ativa: string,            // ex: "gantt"
-  obra_nome: string,
-  obra_progresso: number,       // percentual 0-100
-  obra_spi: number | null,
-  obra_alertas: string[],       // ex: ["3 pagamentos vencidos"]
-  score_saude: number | null,
-  usuario_perfil: "administrador" | "responsavel",
-  historico_acoes: string[]     // últimas 5 ações do usuário na sessão
+  return { buscarHistorico, registrarPreco };
 }
-```
 
-Nunca incluir valores financeiros absolutos no contexto — apenas percentuais e flags. Isso protege dados sensíveis e reduz tokens consumidos.
+PASSO 3 — Reestruturar CotacaoCentral em 3 abas
+type CotacaoView = 'listas' | 'comparativo' | 'links';
 
----
+Aba LISTAS: conteúdo atual de gerenciamento de listas de cotação.
+  - Renomear/apagar lista via menu de contexto (não duplo-clique)
+  - Botão "Apagar" com confirmação no menu de cada lista
+  - Histórico de preços recebidos por item ao lado do comparativo
+  - Navegação interna: clicar em lista → abre a lista em drawer
 
-TRIGGERS PROATIVOS
+Aba COMPARATIVO: tabela comparativa de preços recebidos.
+  - Filtro por lista
+  - Badge de preço histórico ao lado de cada preço recebido
+  - Indicador quando preço > 20% acima do histórico (em âmbar)
 
-Implementar exatamente 3 triggers. Não adicionar outros sem aprovação.
+Aba LINKS: gerenciamento de links de cotação enviados a fornecedores.
+  - Links pendentes de resposta
+  - Links respondidos com data
+  - Copiar link, reenviar, arquivar
 
-TRIGGER 1 — Primeiro acesso a uma página
-Condição: usuário acessa uma página pela primeira vez (flag por usuário no banco, nunca mais dispara para aquela página).
-Páginas que disparam: todas exceto Dashboard Central e perfil.
-Comportamento: aparece como chip flutuante discreto no canto inferior direito da tela — NÃO abre o painel completo. Texto: "Quer um guia rápido sobre [nome da página]?" com dois botões: "Sim" (abre o painel com a explicação) e "Não" (fecha e nunca mais aparece para aquela página).
-Some automaticamente após 8 segundos se o usuário não interagir.
-Some imediatamente ao qualquer clique, scroll ou tecla pressionada fora do chip.
+VALIDAÇÃO
+- [ ] 3 abas funcionais
+- [ ] Renomear e apagar lista funcionam
+- [ ] usePrecoHistorico retorna dados do banco
+- [ ] Zero erros TypeScript
 
-TRIGGER 2 — Primeiro uso de feature complexa
-Condição: usuário abre pela primeira vez: aba Cotação, BDI no orçamento, múltiplos orçamentos, links públicos, análise preditiva.
-Comportamento: igual ao Trigger 1 — chip flutuante, não painel completo.
-Texto: "Essa funcionalidade tem um fluxo específico. Quer um guia rápido?"
-Some após 8 segundos ou ao primeiro clique/scroll fora.
-Flag por usuário no banco — nunca mais dispara para aquela feature.
 
-TRIGGER 3 — Usuário inativo 45 segundos em página complexa
-Condição: usuário sem nenhuma interação (clique, scroll, tecla) por 45 segundos nas páginas: Cotação e Cronograma apenas.
-Não dispara se o usuário já dispensou o assistente naquela sessão.
-Não dispara se o usuário já usou o assistente naquela sessão.
-Comportamento: chip flutuante com texto "Posso ajudar com algo?"
-Some imediatamente ao qualquer clique, scroll ou tecla — inclusive fora do chip.
-Não volta a aparecer naquela sessão após ser dispensado.
+----------------------------------------------------------------
+PROMPT 22 — COMPRAS SPRINT 1: ComprasCentral 4 abas
+----------------------------------------------------------------
 
----
+ANTES DE COMEÇAR
+Inspecionar: src/pages/ComprasCentral.tsx,
+src/components/compras/ListaCompraTab.tsx,
+src/components/compras/PedidosTab.tsx,
+src/components/compras/RecebimentosTab.tsx.
+Reportar estrutura atual.
 
-DINÂMICA DE REJEIÇÃO — ZERO FRICÇÃO
+OBJETIVO
+ComprasCentral passa a ter 4 abas: Lista, Cotação, Pedidos, Recebimentos.
+Corrigir bugs na ListaCompraTab.
 
-Qualquer uma das ações abaixo fecha ou dispensa o assistente imediatamente sem confirmação:
+PASSO 1 — Adicionar aba Cotação ao ComprasCentral
+Em ComprasCentral.tsx adicionar 'cotacao' ao VALID_TABS e TABS_CONFIG.
+A aba Cotação em Compras aponta para o mesmo CotacaoCentralTab
+criado no PROMPT 20, mas filtrado para a obra atual.
 
-Para chips proativos (Triggers 1, 2 e 3):
-- Clicar em qualquer lugar fora do chip
-- Scroll na página
-- Pressionar qualquer tecla
-- Some automaticamente após 8 segundos
-- Clicar no botão "Não" do chip
+PASSO 2 — Corrigir ListaCompraTab
+Bugs a corrigir:
+a) Renomear lista: hoje só funciona com duplo-clique.
+   Adicionar botão "Renomear" explícito no menu de contexto da lista.
+b) Apagar lista: não existe hoje.
+   Adicionar "Apagar lista" com AlertDialog de confirmação.
+c) "Ir para cotação": hoje navega para URL externa.
+   Corrigir para navegar internamente: setSearchParams({tab:'cotacao'})
+   ou navegar para /orcamento?tab=cotacao.
+d) Histórico de preços: ao lado de cada item da lista,
+   mostrar badge com o último preço pago se existir em preco_historico.
 
-Para o painel aberto (manual ou via "Sim" no chip):
-- Clicar em qualquer lugar fora do painel
-- Pressionar Esc
-- Clicar no X do painel
-- O painel NÃO fecha automaticamente — o usuário abriu, ele decide quando fechar
-- O painel NÃO fecha ao scroll ou tecla — só ao clique fora ou Esc
+PASSO 3 — Navegação interna entre Lista e Cotação
+Quando usuário clica em "Cotar esta lista", navegar para a aba
+Cotação passando o ID da lista como parâmetro na URL.
 
----
+VALIDAÇÃO
+- [ ] 4 abas no ComprasCentral
+- [ ] Renomear lista funciona com botão explícito
+- [ ] Apagar lista funciona com confirmação
+- [ ] "Ir para cotação" navega internamente
+- [ ] Badge de preço histórico nos itens
+- [ ] Zero erros TypeScript
 
-ESTRUTURA DO PAINEL
 
-Cabeçalho: "Assistente ObraConectada" com ícone ✨ e botão X para fechar.
-Área de mensagens: histórico da conversa atual com scroll.
-Campo de input: texto livre com botão enviar. Placeholder: "Pergunte sobre o sistema ou sobre esta obra..."
-Rodapé: contador de mensagens restantes no mês (apenas para plano Pro). Ex: "72 mensagens restantes este mês."
+----------------------------------------------------------------
+PROMPT 23 — COMPRAS SPRINT 2: Alimentar preco_historico
+----------------------------------------------------------------
 
-Histórico de conversa: mantido apenas durante a sessão. Não persiste entre sessões — cada nova sessão começa do zero.
+ANTES DE COMEÇAR
+Inspecionar: src/components/compras/RecebimentosTab.tsx,
+src/hooks/usePrecoHistorico.ts (criado no PROMPT 21).
+Reportar: onde ocorre a confirmação de recebimentos conferidos.
 
----
+OBJETIVO
+Quando um recebimento é conferido/aprovado, registrar
+automaticamente os preços em preco_historico.
 
-BASE DE CONHECIMENTO NO SYSTEM PROMPT
+PASSO 1 — Localizar o ponto de aprovação de recebimento
+Identificar a função que muda status do recebimento para
+'conferido' ou equivalente.
 
-Incluir no system prompt, além do contexto dinâmico:
+PASSO 2 — Chamar registrarPreco após aprovação
+Após o update de status do recebimento para conferido:
 
-1. Descrição de cada página e suas funcionalidades principais
-2. Fluxos de trabalho recomendados (ex: orçamento → cotação → cronograma → execução)
-3. Definições dos termos técnicos usados no sistema (SPI, BDI, baseline, curva ABC, curva S, milestone, custo real)
-4. Perguntas frequentes compiladas após os primeiros clientes reais — atualizar o system prompt com base no suporte real
+const { registrarPreco } = usePrecoHistorico(company?.id ?? '');
 
-O system prompt completo deve ser mantido como arquivo de configuração separado no projeto — não hardcodado no componente — para facilitar atualizações sem deploy.
+for (const item of recebimento.itens) {
+  if (item.preco_unitario && item.preco_unitario > 0) {
+    await registrarPreco({
+      nome_material: item.nome,
+      unidade: item.unidade,
+      preco: item.preco_unitario,
+      fornecedor: recebimento.fornecedor,
+      fonte: 'recebimento',
+      obra_id: obraId,
+    });
+  }
+}
 
----
+VALIDAÇÃO
+- [ ] Conferir recebimento registra preços no banco
+- [ ] Histórico aparece nos badges da ListaCompraTab
+- [ ] Zero erros TypeScript
 
-REGISTRADO PARA FUTURO
-
-Histórico de conversas persistido por usuário — implementar quando houver demanda real.
-Sugestões proativas baseadas em dados da obra ("Detectei que o SPI está em 0.79 — quer dicas para recuperar o prazo?") — implementar após análise preditiva estiver funcionando.
-Feedback por mensagem (👍 👎) para melhorar o system prompt com base em respostas ruins reportadas.
 
 ================================================================
-FIM DOS PROMPTS
-Total: 33 prompts na ordem de implementação
+FASE 5 — NOTIFICAÇÕES, DIÁRIO REFORMULADO E CHECAGEM
+================================================================
+
+NOTA: Estes sprints adicionam infraestrutura de notificações
+em tempo real, reformulam o Diário e criam checagem semanal.
+Sprint A deve rodar antes dos demais desta fase.
+Sprint B deve rodar antes de CRON-3 (Cronograma).
+
+----------------------------------------------------------------
+PROMPT 24 — NOTIFICAÇÕES SPRINT A: Infraestrutura
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/components/NotificationCenter.tsx,
+src/App.tsx (rotas), src/integrations/supabase/untyped.ts.
+Reportar: estrutura atual do NotificationCenter (tem dados
+estáticos hoje — UI pronta, dados fake).
+
+PASSO 1 — Migration SQL
+create table public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id),
+  obra_id uuid references public.obras(id),
+  user_id uuid references auth.users(id),
+  tipo text not null check (tipo in (
+    'pagamento_vencendo','pagamento_atrasado','fluxo_negativo',
+    'material_faltante','estoque_critico','recebimento_pendente',
+    'pedido_sem_resposta','etapa_atrasada','medicao_pendente',
+    'diario_nao_preenchido','item_urgente_diario',
+    'checagem_semanal','contrato_medicao_vencendo'
+  )),
+  prioridade text not null default 'informativa'
+    check (prioridade in ('critica','importante','informativa')),
+  titulo text not null,
+  mensagem text,
+  lida boolean not null default false,
+  acao_url text,
+  acao_label text,
+  metadata jsonb default '{}',
+  created_at timestamptz default now()
+);
+create index on public.notifications(company_id, lida, created_at desc);
+alter table public.notifications enable row level security;
+create policy "company_isolation" on public.notifications
+  using (company_id = get_user_company_id());
+create policy "insert_own" on public.notifications
+  for insert with check (company_id = get_user_company_id());
+create policy "update_own" on public.notifications
+  for update using (company_id = get_user_company_id());
+
+PASSO 2 — Criar src/lib/createNotification.ts
+import { supabase } from '@/integrations/supabase/untyped';
+export interface NotificationPayload {
+  company_id: string; obra_id?: string; user_id?: string;
+  tipo: string; prioridade?: 'critica'|'importante'|'informativa';
+  titulo: string; mensagem?: string;
+  acao_url?: string; acao_label?: string;
+  metadata?: Record<string, unknown>;
+}
+export async function createNotification(p: NotificationPayload): Promise<void> {
+  try {
+    await (supabase as any).from('notifications').insert({
+      ...p, prioridade: p.prioridade ?? 'informativa',
+    });
+  } catch (err) { console.warn('[createNotification]', err); }
+}
+
+PASSO 3 — Criar src/hooks/useNotifications.ts
+Hook com: fetchNotifications, markAsRead, markAllAsRead, dismiss.
+Realtime subscription via supabase.channel para INSERT na tabela.
+Expor: notifications[], unreadCount, loading.
+
+PASSO 4 — Atualizar NotificationCenter.tsx
+Manter TODA a UI existente (sino, badge, painel, backdrop).
+Substituir dados estáticos por useNotifications().
+Adicionar função de mapeamento tipo → display:
+  'material_faltante','estoque_critico','item_urgente_diario',
+  'etapa_atrasada','fluxo_negativo' → 'alerta'
+  'pagamento_vencendo','pagamento_atrasado' → 'pagamento'
+  'recebimento_pendente','medicao_pendente',
+  'diario_nao_preenchido','checagem_semanal' → 'prazo'
+  resto → 'sucesso'
+Adicionar navigate(n.acao_url) ao clicar em notificação.
+Adicionar formatAt(created_at) para tempo relativo em pt-BR.
+
+PASSO 5 — Remover "Cotação" do menu lateral
+Em AppLayout.tsx remover item { to: "/cotacao", ... } da nav.
+(Já será redirect; item no menu é desnecessário.)
+
+VALIDAÇÃO
+- [ ] Tabela notifications com RLS
+- [ ] createNotification.ts exportado
+- [ ] useNotifications com realtime
+- [ ] NotificationCenter exibe badge com contagem real
+- [ ] Clicar em notificação navega e marca como lida
+- [ ] Dismiss marca como lida no banco
+- [ ] Zero erros TypeScript
+
+
+----------------------------------------------------------------
+PROMPT 25 — NOTIFICAÇÕES SPRINT B: Diário Reformulado
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/components/execucao/DiarioTab.tsx,
+src/pages/DiarioPage.tsx, src/components/diario/DiarioReportPicker.tsx.
+Mapear onde materiaisUsados, registrarMovimentacao,
+percentualAdicionado e addPercentual são usados.
+Reportar antes de alterar qualquer coisa.
+
+PASSO 1 — Migration SQL
+alter table public.diario_registros
+  add column if not exists urgente boolean default false,
+  add column if not exists materiais_faltantes jsonb default '[]';
+alter table public.entradas_pendentes
+  add column if not exists origem text default 'link_publico'
+    check (origem in ('link_publico','diario','manual')),
+  add column if not exists diario_registro_id uuid
+    references public.diario_registros(id);
+
+PASSO 2 — Remover do RegistroFormDrawer em DiarioTab
+REMOVER integralmente:
+- Import useEstoque e registrarMovimentacao
+- Estado materiaisUsados e setMateriaisUsados
+- DiarioMaterialRow e queries de diario_materiais no load
+- Bloco filteredMateriais e insert em diario_materiais
+- Loop que chama registrarMovimentacao
+- Seção "Materiais Utilizados" no JSX (com o .map)
+- Import DiarioMaterialUsado de mockData
+- Vínculo de percentual dos serviços (tarefaId, percentualAdicionado)
+- useCronograma e addPercentual do formulário
+- Bloco de "Vínculo ao cronograma" dentro do .map de serviços
+MANTER: serviços como lista de { id, descricao } texto livre apenas.
+
+PASSO 3 — Adicionar Material Faltante
+Novo estado: materiaisFaltantes: MaterialFaltante[]
+interface MaterialFaltante {
+  id: string; nome: string; unidade: string;
+  quantidade_estimada: number; observacao: string;
+}
+
+Seção no formulário (após "Ocorrências"):
+- Label "Material faltante" com ícone Package âmbar
+- Botão "+ Adicionar"
+- Cada item: inputs de nome, quantidade, unidade (select), observação
+- Bordas âmbar (border-amber-500/20, bg-amber-500/5)
+
+PASSO 4 — Adicionar flag urgente
+Toggle antes do DrawerFooter:
+"Marcar como urgente — notificar gestor imediatamente"
+Visual: checkbox customizado âmbar quando ativo.
+
+PASSO 5 — Atualizar handleSave
+Após insert/update do registro, adicionar:
+a) Update com urgente e materiais_faltantes no registro
+b) Insert em entradas_pendentes para cada material faltante
+   com origem='diario' e diario_registro_id
+c) createNotification tipo 'material_faltante' se faltantes > 0
+d) createNotification tipo 'item_urgente_diario' se urgente=true
+
+PASSO 6 — Atualizar RegistroCard
+Adicionar badges de urgente (âmbar) e faltantes (laranja).
+
+PASSO 7 — Atualizar DiarioReportPicker
+Substituir 'materiais' por 'materiais_faltantes' em DiarioReportSections.
+Atualizar sectionLabels: 'Materiais Faltantes' em vez de 'Materiais Utilizados'.
+
+PASSO 8 — AceiteDiarioDrawer
+Remover qualquer chamada a addPercentual no handleApprove.
+Manter vínculo de etapas para rastreabilidade.
+
+VALIDAÇÃO
+- [ ] Colunas urgente e materiais_faltantes em diario_registros
+- [ ] Campo Materiais Utilizados removido do formulário
+- [ ] Campo Material Faltante funcional com todos os inputs
+- [ ] Cada faltante gera entrada em entradas_pendentes
+- [ ] Notificações geradas corretamente
+- [ ] Toggle urgente visível e funcional
+- [ ] Badges no RegistroCard
+- [ ] PDF sem Materiais Utilizados
+- [ ] Vínculo de percentual removido dos serviços
+- [ ] Zero erros TypeScript
+
+
+----------------------------------------------------------------
+PROMPT 26 — NOTIFICAÇÕES SPRINT C: Checagem Semanal
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/pages/ComprasCentral.tsx,
+src/components/compras/ListaCompraTab.tsx,
+src/hooks/useCronograma.ts.
+Reportar: estrutura atual de ComprasCentral, como KPIs são passados.
+
+PASSO 1 — Migration SQL
+create table public.checagem_material (
+  id uuid primary key default gen_random_uuid(),
+  obra_id uuid not null references public.obras(id),
+  company_id uuid not null references public.companies(id),
+  semana_inicio date not null,
+  semana_fim date not null,
+  responsavel_id uuid references auth.users(id),
+  status text not null default 'pendente'
+    check (status in ('pendente','em_andamento','concluida')),
+  modo text not null default 'manual'
+    check (modo in ('manual','almoxarifado')),
+  itens jsonb not null default '[]',
+  observacoes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table public.checagem_material enable row level security;
+create policy "company_isolation" on public.checagem_material
+  using (company_id = get_user_company_id());
+create policy "insert_own" on public.checagem_material
+  for insert with check (company_id = get_user_company_id());
+
+PASSO 2 — Criar CheckagemSemanalDrawer.tsx
+Sheet lateral (largura 520px, side="right").
+Props: open, onClose, obraId, companyId, modo, onConcluida.
+
+Lógica de carregamento:
+- Buscar tarefas da semana seguinte do cronograma
+  (data_inicio <= proximaSexta AND data_fim >= proximaSegunda)
+- Para cada tarefa, buscar composições e subitens
+- Montar lista de materiais necessários
+
+Modo manual: 3 botões por item (Tenho / Comprar / Verificar)
+Modo almoxarifado: comparar com estoque atual, pré-selecionar status
+
+Ao concluir:
+- INSERT em checagem_material
+- Itens "Comprar" → INSERT em lista_compra + lista_compra_itens
+- Toast de confirmação
+
+PASSO 3 — Banner no ComprasCentral
+Verificar na sexta-feira se checagem da próxima semana foi feita.
+Se não: banner âmbar com botão "Fazer checagem".
+Deduplicar notificação checagem_semanal (1 por dia por obra).
+
+VALIDAÇÃO
+- [ ] Tabela checagem_material com RLS
+- [ ] Drawer abre a partir do banner
+- [ ] Modo manual funciona
+- [ ] Modo almoxarifado compara com estoque
+- [ ] Itens "Comprar" geram lista de compra
+- [ ] Banner só aparece na sexta
+- [ ] Notificação sem duplicatas
+- [ ] Zero erros TypeScript
+
+
+----------------------------------------------------------------
+PROMPT 27 — NOTIFICAÇÕES SPRINT D: Automáticas nos módulos
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/components/financeiro/PagamentosTab.tsx,
+src/components/execucao/RecebimentosTab.tsx (ou equivalente),
+src/contexts/EstoqueContext.tsx, src/hooks/useCronograma.ts.
+Reportar onde cada módulo carrega seus dados.
+
+PASSO 1 — Criar src/lib/notificationDedup.ts
+export async function notificacaoJaExiste(
+  companyId: string, tipo: string,
+  metadataKey: string, metadataValue: string,
+  janelaDias: number = 1
+): Promise<boolean> {
+  const desde = new Date();
+  desde.setDate(desde.getDate() - janelaDias);
+  const { data } = await (supabase as any)
+    .from('notifications').select('id')
+    .eq('company_id', companyId).eq('tipo', tipo)
+    .gte('created_at', desde.toISOString())
+    .contains('metadata', { [metadataKey]: metadataValue })
+    .maybeSingle();
+  return !!data;
+}
+
+PASSO 2 — PagamentosTab: pagamentos vencendo e atrasados
+Após fetch de pagamentos, verificar e criar notificações:
+- Status 'previsto' com data_vencimento <= hoje+3 → 'pagamento_vencendo'
+- Status 'previsto' com data_vencimento < hoje → 'pagamento_atrasado'
+Deduplicar com janelaDias=1 e metadata.pagamento_id.
+
+PASSO 3 — RecebimentosTab: recebimento pendente
+Após insert de novo recebimento pendente → 'recebimento_pendente'.
+
+PASSO 4 — EstoqueContext: estoque crítico
+Após movimentação que deixa estoque_atual <= estoque_minimo
+→ 'estoque_critico' com janelaDias=3.
+
+PASSO 5 — useCronograma: etapa atrasada
+Após fetch de tarefas, verificar data_fim < hoje && percentual < 100
+→ 'etapa_atrasada' com janelaDias=7.
+
+PASSO 6 — DiarioTab: diário não preenchido
+Após fetchRegistros, verificar differenceInBusinessDays >= 3
+→ 'diario_nao_preenchido' com janelaDias=1.
+
+VALIDAÇÃO
+- [ ] Pagamento vencendo em 3 dias → notificação importante
+- [ ] Pagamento atrasado → notificação crítica
+- [ ] Sem duplicatas dentro da janela
+- [ ] Recebimento pendente → notificação
+- [ ] Estoque crítico → notificação
+- [ ] Etapa atrasada → notificação (máx 1 por 7 dias)
+- [ ] Diário parado → notificação informativa
+- [ ] Zero erros TypeScript
+
+
+----------------------------------------------------------------
+PROMPT 28 — NOTIFICAÇÕES SPRINT E: Push e Email via Resend
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Verificar se existe supabase/functions/ no projeto.
+Reportar Edge Functions existentes.
+
+CONFIGURAÇÃO DE VARIÁVEIS DE AMBIENTE
+No painel Supabase → Edge Functions → Secrets:
+Por ora: valores placeholder (não bloqueia nada):
+  RESEND_API_KEY=re_placeholder
+  RESEND_FROM_EMAIL=noreply@placeholder.com
+  RESEND_FROM_NAME=Lastra
+  APP_URL=http://localhost:8080
+Quando domínio estiver pronto: substituir pelos valores reais.
+
+PASSO 1 — Edge Function send-notification-email
+Criar supabase/functions/send-notification-email/index.ts.
+Recebe: { to, titulo, mensagem, acao_url, acao_label,
+          prioridade, obra_nome }
+Se RESEND_API_KEY = 're_placeholder': retornar { skipped: true }.
+Senão: POST para api.resend.com/emails com HTML formatado.
+HTML: header dark Lastra, badge de prioridade, título,
+      mensagem em card colorido, botão CTA, footer com link
+      de preferências.
+
+PASSO 2 — Edge Function notify-on-insert
+Criar supabase/functions/notify-on-insert/index.ts.
+Disparado via webhook na tabela notifications (INSERT).
+Só enviar email para prioridade 'critica' ou 'importante'.
+Buscar email do gestor da company via profiles.
+Buscar nome da obra via obras se obra_id preenchido.
+Chamar send-notification-email via fetch interno.
+Se aprovado, criar recebível também (ver CONTRATOS-5).
+
+PASSO 3 — Webhook no Supabase
+No painel: Database → Webhooks → criar:
+Nome: notify_on_new_notification
+Tabela: notifications / Evento: INSERT
+URL: https://<ref>.supabase.co/functions/v1/notify-on-insert
+
+PASSO 4 — Página stub de preferências
+Criar src/pages/configuracoes/NotificacoesConfig.tsx.
+Lista os tipos de notificação com toggles "Receber por email".
+Por ora: toggles não persistem ("Em breve").
+Rota: /configuracoes?aba=notificacoes (usa aba existente).
+
+VALIDAÇÃO
+- [ ] Edge Functions deployadas
+- [ ] Webhook configurado na tabela notifications
+- [ ] Com placeholder: retorna { skipped: true } sem erro
+- [ ] Página de preferências renderiza
+- [ ] Com API key real: email enviado para crítica/importante
+- [ ] Zero erros TypeScript
+
+
+================================================================
+FASE 6 — MENU LATERAL E CONFIGURAÇÕES
+================================================================
+
+NOTA: Esta fase reorganiza a navegação. Executar MENU-1 e
+MENU-2 antes de qualquer sprint que adicione nova rota.
+
+----------------------------------------------------------------
+PROMPT 29 — MENU-1: Reestruturação do menu lateral
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/layouts/AppLayout.tsx (ou equivalente),
+src/App.tsx, src/contexts/AuthContext.tsx.
+Reportar: quais rotas já existem, quais são stub, quais não existem.
+
+PASSO 1 — Novos imports de ícones
+Adicionar ao AppLayout: FileText, Settings, ClipboardList, Home.
+(Verificar quais já existem antes de adicionar.)
+
+PASSO 2 — Substituir arrays de navegação
+REMOVER: obraSection, planejamentoSection, financeiroSection,
+canteiroSection, redeSection, gestorSections,
+engenheiroLinks, mobileGestorTabs, mobileEngenheiroTabs.
+
+ADICIONAR — Seções do GESTOR:
+gestorVisaoGeralSection: Dashboard(/dashboard), Painel da Obra(/painel)
+gestorPlanejamentoSection: Orçamento, Cronograma, Contratos(/contratos), Biblioteca
+gestorFinanceiroSection: Financeiro, Relatórios(/relatorios)
+gestorCanteiroSection: Diário(/diario), Estoque(/estoque), Equipe(/equipe), Compras, Agenda
+gestorObraSection: Documentos, Contatos
+gestorContaSection: Configurações(/configuracoes), Usuários
+
+ADICIONAR — Seções do ENGENHEIRO (idêntico ao gestor exceto):
+engenheiroContaSection: apenas Perfil(/perfil)
+Contratos: incluir sempre por ora (filtrado por permissão no PERM-1)
+
+PASSO 3 — Montar mainSections por role
+const isGestor = user.role === 'gestor' || user.role === 'admin';
+Gestor: 6 seções com variant:'conta' na última.
+Engenheiro: mesmas 6 seções, Conta só com Perfil.
+
+PASSO 4 — Adicionar prop variant ao NavSection
+variant?: 'default' | 'conta'
+Quando 'conta': separador visual acima, título mais discreto.
+
+PASSO 5 — Atualizar ROUTE_LABELS
+Incluir: /dashboard, /diario, /estoque, /equipe, /contratos,
+/configuracoes + manter aliases de rotas antigas.
+
+PASSO 6 — Mobile tabs
+gestorMobile: Dashboard, Painel, Financeiro, Diário, Mais
+engenheiroMobile: Dashboard, Painel, Diário, Compras, Mais
+
+PASSO 7 — Redirect /cotacao → /orcamento?tab=cotacao
+(Confirmar se já foi feito no PROMPT 20.)
+
+PASSO 8 — Stubs para rotas novas
+Para cada rota nova que não existe: criar arquivo stub simples.
+Verificar antes de criar: /dashboard, /diario, /estoque,
+/equipe, /contratos, /configuracoes.
+
+VALIDAÇÃO
+- [ ] Menu gestor: 6 seções corretas
+- [ ] Menu engenheiro: Conta só com Perfil
+- [ ] Seção Conta tem separador visual
+- [ ] Todas as rotas novas sem 404
+- [ ] Mobile tabs atualizadas
+- [ ] Zero erros TypeScript
+
+
+----------------------------------------------------------------
+PROMPT 30 — MENU-2: Separar Diário, Estoque e Equipe
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/pages/ExecucaoCentral.tsx (ou equivalente).
+Reportar: estrutura atual, quais abas tem, quais componentes usa.
+
+OBJETIVO
+Criar páginas independentes para /diario, /estoque e /equipe.
+NÃO alterar ExecucaoCentral — manter funcionando em /execucao.
+
+PASSO 1 — Identificar componentes existentes
+Mapear: DiarioTab, EstoqueTab/EstoquePage, EquipeTab/EquipePage.
+
+PASSO 2 — Criar DiarioCentral.tsx
+src/pages/DiarioCentral.tsx wrapper de PageShell + DiarioTab.
+Props: obraId da ObraSelectionContext.
+SVG de ícone do diário incluído.
+
+PASSO 3 — Criar EstoqueCentral.tsx e EquipeCentral.tsx
+Seguir o mesmo padrão de DiarioCentral.
+Se EquipePage.tsx já tem PageShell: apenas adicionar rota direta.
+
+PASSO 4 — Adicionar rotas em App.tsx
+<Route path="/diario"  element={<DiarioCentral />} />
+<Route path="/estoque" element={<EstoqueCentral />} />
+<Route path="/equipe"  element={<EquipeCentral />} />
+Manter /execucao sem alterar.
+
+VALIDAÇÃO
+- [ ] /diario abre com dados reais
+- [ ] /estoque abre com dados reais
+- [ ] /equipe abre com dados reais
+- [ ] /execucao continua funcionando
+- [ ] Zero erros TypeScript
+
+
+----------------------------------------------------------------
+PROMPT 31 — CFG-1: Página de Configurações
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/App.tsx (verificar se /configuracoes tem rota).
+
+OBJETIVO
+Criar /configuracoes com navegação lateral interna.
+Exclusivo para gestor/admin — engenheiro é redirecionado.
+Todas as abas são stub agora (preenchidas em sprints futuros).
+
+Guard:
+if (user.role !== 'gestor' && user.role !== 'admin')
+  return <Navigate to="/dashboard" replace />;
+
+Layout dois painéis (SEM PageShell):
+- Esquerdo: 240px, background-secondary, nav interna
+- Direito: flex-1, conteúdo da aba
+
+5 abas: Empresa, Calendário & Jornada, Produtividade,
+        Permissões, Notificações.
+Aba ativa via ?aba=empresa (useSearchParams).
+Cada aba: stub "em implementação" com nome do sprint futuro.
+
+Estilo dos nav items: border-left 2px solid #534AB7 quando ativo,
+background-primary, transition. Hover sem active: background-primary
+com opacity menor.
+
+VALIDAÇÃO
+- [ ] /configuracoes abre sem erro
+- [ ] Engenheiro redirecionado para /dashboard
+- [ ] 5 abas com nav funcional
+- [ ] Aba persiste em ?aba=
+- [ ] Zero erros TypeScript
+
+
+================================================================
+FASE 7 — CRONOGRAMA AVANÇADO / AMDAHL
+================================================================
+
+NOTA: CRON-1 é migration pura, pode rodar cedo.
+CRON-3 depende de PROMPT 25 (Sprint B do Diário) ter rodado.
+CRON-5 preenche stubs do CFG-1.
+
+----------------------------------------------------------------
+PROMPT 32 — CRON-1: Migration campos e tabelas novas
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR — EXECUTAR QUERIES PRIMEIRO:
+SELECT column_name, data_type FROM information_schema.columns
+WHERE table_name='cronograma_tarefas' ORDER BY ordinal_position;
+
+SELECT table_name FROM information_schema.tables
+WHERE table_schema='public' AND table_name LIKE 'cronograma%';
+
+SELECT table_name FROM information_schema.tables
+WHERE table_schema='public' AND table_name LIKE 'company%';
+
+Reportar resultados COMPLETOS antes de qualquer SQL.
+
+PASSO 1 — Estender cronograma_tarefas
+ALTER TABLE public.cronograma_tarefas
+  ADD COLUMN IF NOT EXISTS quantidade_prevista numeric,
+  ADD COLUMN IF NOT EXISTS quantidade_executada numeric DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS unidade text,
+  ADD COLUMN IF NOT EXISTS amdahl_p numeric,
+  ADD COLUMN IF NOT EXISTS amdahl_f numeric,
+  ADD COLUMN IF NOT EXISTS duracao_sugerida_dias integer,
+  ADD COLUMN IF NOT EXISTS dias_impedidos integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+
+UPDATE public.cronograma_tarefas ct
+SET company_id = o.company_id
+FROM public.obras o WHERE o.id = ct.obra_id AND ct.company_id IS NULL;
+
+PASSO 2 — Criar company_calendar e company_calendar_holidays
+(Verificar se existem antes de criar. Campos: dias_uteis int[],
+horas_por_dia numeric. Feriados: data, descricao, recorrente.)
+
+PASSO 3 — Criar cronograma_impedimentos
+(Campos: tarefa_id nullable, categoria, descricao, data_inicio,
+data_fim, dias_perdidos, impacto_prazo, resolvido.)
+
+PASSO 4 — Criar cronograma_medicoes e cronograma_medicao_itens
+(Registros periódicos de progresso. Itens: percentual_anterior,
+percentual_periodo, percentual_acumulado, quantidade equivalente.)
+
+PASSO 5 — Criar amdahl_params
+(Parâmetros P/f por categoria. Inserir 11 registros globais
+com company_id NULL para: estrutura, fundação, alvenaria,
+cobertura, instalações hidráulica/elétrica, acabamento
+revestimento/pintura/geral, serviços gerais.)
+
+VERIFICAÇÃO PÓS-MIGRATION:
+SELECT table_name FROM information_schema.tables
+WHERE table_schema='public'
+AND table_name IN ('company_calendar','company_calendar_holidays',
+'cronograma_impedimentos','cronograma_medicoes',
+'cronograma_medicao_itens','amdahl_params');
+Deve retornar 6 linhas.
+
+VALIDAÇÃO
+- [ ] 6 tabelas novas
+- [ ] 8 colunas novas em cronograma_tarefas
+- [ ] company_id preenchido em tarefas existentes
+- [ ] 11 registros globais em amdahl_params
+- [ ] RLS em todas as novas tabelas
+
+
+----------------------------------------------------------------
+PROMPT 33 — CRON-2: Amdahl — sugestão de duração
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/components/cronograma/TaskDetailDrawer.tsx, src/hooks/useCronograma.ts (para entender tipos e como updateTarefa funciona), e verificar se existe sinapi_composicao_itens no banco com dados.
+Reportar: campos exibidos no drawer, como duração é editada atualmente, se orcamento_composicao_id está exposto na tarefa.
+
+PASSO 1 — Criar src/lib/amdahl.ts
+Lógica pura sem React. Nenhum import de hooks ou contextos.
+ts// Tipos
+export interface InsumoCoeficiente {
+  descricao: string;
+  tipo: 'mao_obra' | 'material' | 'equipamento';
+  coeficiente: number; // horas por unidade de serviço
+  unidade: string;
+}
+
+export interface EquipeBase {
+  funcaoPrincipal: string;    // função com maior coeficiente
+  qtdPrincipal: number;       // unidades por equipe (derivado da proporção)
+  funcaoAuxiliar: string | null;
+  qtdAuxiliar: number;        // unidades por equipe
+  proporcao: string;          // ex: "2 pedreiros + 1 servente"
+}
+
+export interface AmdahlParams {
+  categoria: string;
+  p: number;  // fração paralelizável 0-1
+  f: number;  // overhead por equipe adicional 0-1
+}
+
+export interface CalendarConfig {
+  diasUteis: number[]; // 0=dom, 1=seg ... 6=sab
+  horasPorDia: number;
+  feriados: string[];  // formato yyyy-MM-dd
+}
+
+export interface AmdahlInput {
+  quantidade: number;         // m², kg, un etc
+  nEquipes: number;           // número de equipes completas
+  params: AmdahlParams;
+  calendar: CalendarConfig;
+  insumos: InsumoCoeficiente[];
+  dataInicio: string;         // yyyy-MM-dd
+}
+
+export interface AmdahlResult {
+  d0DiasUteis: number;        // duração com 1 equipe
+  dnDiasUteis: number;        // duração com n equipes
+  dataFimSugerida: string;    // yyyy-MM-dd
+  eficiencia: number;         // 0-1
+  equipe: EquipeBase;
+  totalFuncaoPrincipal: number;  // nEquipes × qtdPrincipal
+  totalFuncaoAuxiliar: number;   // nEquipes × qtdAuxiliar
+}
+Função derivarEquipeBase:
+Recebe array de InsumoCoeficiente filtrado por tipo = 'mao_obra'.
+Ordena por coeficiente decrescente — o maior é a função principal.
+Calcula a proporção: proporcaoPrincipal = coefPrincipal / coefAuxiliar.
+Arredonda para o inteiro mais próximo útil (ex: 1.2/0.6 = 2 → equipe = 2 principal + 1 auxiliar).
+Retorna EquipeBase.
+Função calcularD0:
+Trabalho total função principal = quantidade × coefPrincipal (horas).
+Trabalho total função auxiliar = quantidade × coefAuxiliar (horas).
+Capacidade diária por equipe: qtdPrincipal × horasPorDia para a função principal.
+D0 em dias úteis = max(trabalhoPrincipal / capacidadePrincipal, trabalhoAuxiliar / capacidadeAuxiliar).
+O max() é o fator limitante — a tarefa só termina quando o mais lento terminar.
+Função calcularAmdahl:
+Dn = D0 × [(1-P) + P/n] × [1 + f×(n-1)/n]
+Eficiência = D0 / (n × Dn) — quanto do potencial de n equipes está sendo usado.
+Funções de calendário:
+adicionarDiasUteis(dataInicio, diasUteis, calendar) — avança pelo calendário pulando fins de semana e feriados.
+contarDiasUteis(dataInicio, dataFim, calendar) — conta dias úteis entre duas datas.
+
+PASSO 2 — Criar src/hooks/useAmdahlSugestao.ts
+O hook resolve qual composição SINAPI usar pela seguinte ordem de prioridade:
+Caminho 1 — sinapi_codigo diretamente na composição do orçamento:
+Se a tarefa tem orcamento_composicao_id e essa composição tem sinapi_codigo confirmado, buscar sinapi_composicao_itens filtrando composicao_codigo = sinapi_codigo e tipo_item = 'M' (mão de obra). Mapear coeficiente e descricao_item.
+Caminho 2 — sinapi_codigo na biblioteca via catalogo_id:
+Se a composição tem catalogo_id e o registro da biblioteca tem sinapi_codigo, usar o mesmo lookup de sinapi_composicao_itens.
+Caminho 3 — insumos no jsonb da biblioteca:
+Se a composição tem catalogo_id e o registro da biblioteca tem insumos jsonb preenchido, filtrar por tipo = 'mao_obra' e usar os coeficientes do jsonb.
+Caminho 4 — fallback manual:
+Nenhum dos anteriores disponível. Retornar { needsManualInput: true }. O drawer vai mostrar inputs manuais para o usuário informar a função e o coeficiente.
+Além disso:
+
+Carregar company_calendar e feriados da empresa via Supabase.
+Buscar amdahl_params por categoria: primeiro verifica se existe override com company_id da empresa, senão usa o registro global (company_id IS NULL).
+Ao mudar nEquipes ou categoria, recalcular e retornar novo AmdahlResult.
+
+Retornar: { resultado, loading, needsManualInput, params, equipe, recalcular(novaEquipe), recalcularComInsumos(insumos) }.
+
+PASSO 3 — Integrar no TaskDetailDrawer
+Adicionar seção "Sugestão de duração por equipe" apenas para tipo_tarefa === 'PADRAO', colapsável com chevron, colapsada por padrão.
+Ao expandir pela primeira vez: chamar useAmdahlSugestao com os dados da tarefa e exibir loading.
+Conteúdo da seção quando expandida:
+Select de categoria (valores de amdahl_params disponíveis): Fundação, Estrutura, Alvenaria, Cobertura, Instalações Hidráulicas, Instalações Elétricas, Acabamento Revestimento, Acabamento Pintura, Serviços Gerais.
+Slider/input de número de equipes (1 a 10, default 1). Label: "Equipes completas".
+Composição da equipe calculada (abaixo do slider):
+"1 equipe = 2 pedreiros + 1 servente"
+"2 equipes = 4 pedreiros + 2 serventes"
+Preview do resultado:
+
+Duração: X dias úteis
+Data fim sugerida: dd/MM/yyyy
+Eficiência: X% com badge verde/âmbar/vermelho
+
+Aviso quando eficiência < 70%:
+Banner âmbar: "Com muitas equipes no mesmo espaço o ganho de velocidade diminui. Considere reduzir para N equipes."
+Caminho 4 — inputs manuais:
+Quando needsManualInput = true, exibir dois inputs: "Função principal" (texto) e "Coeficiente h/unidade" (número). Botão "Calcular" que chama recalcularComInsumos.
+Botão "Aplicar sugestão":
+Chama onUpdate(tarefa.id, { data_fim: resultado.dataFimSugerida, duracao_dias: resultado.dnDiasUteis }).
+Toast: "Duração atualizada para X dias úteis."
+
+PASSO 4 — Campos de medição física no TaskDetailDrawer
+Para tipo_tarefa === 'PADRAO', adicionar na aba Geral:
+Dois inputs lado a lado: "Qtd. prevista" (number) e "Unidade" (texto, ex: m², kg, un).
+Abaixo, somente leitura: "Executado: X" e "Saldo: Y" calculados de quantidade_executada e quantidade_prevista.
+Salvar via onUpdate(tarefa.id, { quantidade_prevista, unidade }) com debounce de 800ms — não precisa de botão de salvar separado.
+
+VALIDAÇÃO
+
+ amdahl.ts sem erros TypeScript, funções exportadas
+ D0 calculado pelo fator limitante (max das funções)
+ Equipe base derivada da proporção dos coeficientes
+ Seção colapsável no TaskDetailDrawer
+ Caminho 1 busca coeficientes do SINAPI quando disponível
+ Caminho 4 exibe inputs manuais quando sem referência
+ Slider de equipes recalcula em tempo real
+ Composição da equipe exibida abaixo do slider
+ Eficiência com cor semântica
+ Aviso quando eficiência < 70%
+ "Aplicar sugestão" atualiza data_fim e duracao_dias
+ Campos quantidade_prevista e unidade editáveis com debounce
+ Saldo calculado automaticamente
+
+
+----------------------------------------------------------------
+PROMPT 34 — CRON-3: Aba Medição — Revisão & Medição física
+----------------------------------------------------------------
+
+EXECUTAR APÓS confirmar que PROMPT 25 (Diário Reformulado) foi concluído.
+Verificar que o campo addPercentual foi removido do DiarioTab antes de começar.
+
+----------------------------------------------------------------
+ANTES DE COMEÇAR — INSPEÇÃO OBRIGATÓRIA
+----------------------------------------------------------------
+
+Inspecionar os seguintes arquivos e reportar o que encontrou
+antes de escrever qualquer código:
+
+1. src/pages/CronogramaPage.tsx
+   → Quais abas existem hoje? (array tabs)
+   → Como viewMode é controlado? (useState, tipo atual)
+   → Como o conteúdo de cada aba é renderizado?
+
+2. src/hooks/useCronograma.ts
+   → Quais campos existem em CronogramaTarefa?
+   → Existe quantidade_prevista e unidade nos tipos?
+   → Existem funções relacionadas a medição?
+
+3. Banco de dados — verificar se as tabelas abaixo já existem:
+   → cronograma_medicoes
+   → cronograma_medicao_itens
+   Se existirem, reportar os campos de cada uma.
+   Se não existirem, informar antes de criar a migration.
+
+Reportar tudo isso antes de qualquer implementação.
+
+----------------------------------------------------------------
+PASSO 1 — Migration (somente se as tabelas não existirem)
+----------------------------------------------------------------
+
+Criar migration em supabase/migrations com as tabelas:
+
+cronograma_medicoes:
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+  obra_id uuid NOT NULL REFERENCES obras(id)
+  company_id uuid NOT NULL
+  periodo_inicio date NOT NULL
+  periodo_fim date NOT NULL
+  status text NOT NULL DEFAULT 'confirmada'
+  observacao text
+  created_at timestamptz DEFAULT now()
+  created_by uuid REFERENCES auth.users(id)
+
+cronograma_medicao_itens:
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+  medicao_id uuid NOT NULL REFERENCES cronograma_medicoes(id) ON DELETE CASCADE
+  tarefa_id uuid NOT NULL REFERENCES cronograma_tarefas(id)
+  percentual_anterior numeric NOT NULL DEFAULT 0
+  percentual_novo numeric NOT NULL
+  quantidade_executada numeric
+  observacao text
+
+RLS em ambas as tabelas: SELECT/INSERT/UPDATE por company_id.
+Usar ADD COLUMN IF NOT EXISTS e CREATE TABLE IF NOT EXISTS.
+Nunca usar ALTER COLUMN ou DROP.
+
+----------------------------------------------------------------
+PASSO 2 — Adicionar aba ao CronogramaPage.tsx
+----------------------------------------------------------------
+
+No array tabs, adicionar após a aba 'impedimentos':
+
+  { id: 'medicao', label: 'Medição', icon: <ClipboardCheck style={{ width: 13, height: 13 }}/> }
+
+Adicionar import: import { ClipboardCheck } from 'lucide-react';
+
+Atualizar o tipo de viewMode para incluir 'medicao' se for um union type explícito.
+
+Adicionar div de conteúdo no bloco de views, seguindo o mesmo padrão
+das outras views (div absoluto, display condicional):
+
+  <div className="absolute inset-0 overflow-hidden"
+       style={{ display: viewMode === 'medicao' ? 'flex' : 'none',
+                flexDirection: 'column' }}>
+    <MedicaoTab
+      obraId={selectedObraId}
+      tarefas={tarefas}
+      hasBaseline={stats.hasBaseline}
+      saveBaseline={saveBaseline}
+      onMedicaoConfirmada={() => {}}
+    />
+  </div>
+
+Adicionar import: import MedicaoTab from '@/components/cronograma/MedicaoTab';
+
+----------------------------------------------------------------
+PASSO 3 — Criar MedicaoTab.tsx
+----------------------------------------------------------------
+
+Caminho: src/components/cronograma/MedicaoTab.tsx
+
+PROPS:
+  interface MedicaoTabProps {
+    obraId: string | null;
+    tarefas: CronogramaTarefa[];
+    hasBaseline: boolean;
+    saveBaseline: () => void;
+    onMedicaoConfirmada: () => void;
+  }
+
+ESTRUTURA VERTICAL (três partes):
+
+── HEADER (fixo, não scrolla) ──────────────────────────────────
+
+Linha com:
+- Label "Período:" + dois inputs de data (inicio e fim) lado a lado
+- Botão primário "Iniciar Medição" (quando não há medição ativa)
+- Botão primário "Confirmar Medição" + botão ghost "Cancelar"
+  (quando há medição ativa)
+
+Estado interno: medicaoAtiva (boolean), periodoInicio, periodoFim.
+
+── BANNER CONDICIONAL ──────────────────────────────────────────
+
+Mostrar banner âmbar quando !hasBaseline:
+  "Nenhum baseline salvo. Salve um baseline antes de medir
+   para visualizar desvios planejado vs. realizado."
+  Botão inline "Salvar Baseline Agora" → chama saveBaseline()
+
+── TABELA (scroll) ─────────────────────────────────────────────
+
+Exibir apenas tarefas com tipo_tarefa === 'PADRAO'.
+Agrupar por parent_tarefa_id: tarefas com pai aparecem sob
+um cabeçalho com o nome da tarefa pai.
+Tarefas sem pai aparecem em grupo "Geral".
+
+Cabeçalho da tabela:
+  Tarefa | Unidade | Qtd. Prevista | Qtd. Executada | % Concluído | Desvio*
+  (* coluna Desvio só aparece quando hasBaseline === true)
+
+Por tarefa — campos de input quando medicaoAtiva === true:
+
+  CAMPO "Qtd. Executada":
+    - Visível e editável quando tarefa.quantidade_prevista != null
+    - Desabilitado com placeholder "—" quando quantidade_prevista é null
+    - Tipo: input numérico, w-24, text-right
+    - Ao alterar: recalcula percentual automaticamente
+      percentual = (qtd_executada / quantidade_prevista) * 100
+      Atualiza o campo % Concluído na mesma linha
+
+  CAMPO "% Concluído":
+    - SEMPRE visível e editável, independente de quantidade_prevista
+    - Não bloquear este campo em nenhuma situação
+    - Tipo: input numérico, w-16, text-right, sufixo "%"
+    - Ao alterar: recalcula qtd_executada automaticamente
+      qtd_executada = (percentual / 100) * quantidade_prevista
+      Só recalcula quantidade se quantidade_prevista não for null
+    - Limitar entre 0 e 100
+
+  Os dois campos coexistem sempre. O usuário pode usar qualquer
+  um dos dois — não há modo exclusivo. O último campo editado
+  prevalece e atualiza o outro.
+
+  Quando medicaoAtiva === false: exibir valores atuais das tarefas
+  em modo leitura (não editável).
+
+CONFIRMAR MEDIÇÃO (função confirmarMedicao):
+  1. Validar que periodoInicio e periodoFim estão preenchidos
+  2. INSERT em cronograma_medicoes com os dados do período
+  3. Para cada tarefa editada: INSERT em cronograma_medicao_itens
+     com percentual_anterior (valor antes da medição),
+     percentual_novo e quantidade_executada
+  4. UPDATE em cronograma_tarefas: percentual_concluido = percentual_novo
+     para cada tarefa da medição
+  5. Toast de sucesso
+  6. Chamar onMedicaoConfirmada()
+  7. Resetar estado: medicaoAtiva = false, limpar inputs
+
+HISTÓRICO (abaixo da tabela, separado por divider):
+  Título "Medições anteriores"
+  Lista de medições confirmadas da obra, ordenadas por data desc.
+  Por medição: período, data de confirmação, quantidade de tarefas,
+  botão "Ver detalhes" que expande inline os itens da medição.
+
+----------------------------------------------------------------
+VALIDAÇÃO — conferir antes de marcar como concluído
+----------------------------------------------------------------
+
+- [ ] Aba "Medição" aparece no Cronograma entre Impedimentos e fim
+- [ ] Banner sem baseline aparece e botão salva baseline
+- [ ] Iniciar Medição ativa os campos de input
+- [ ] Campo % sempre editável, sem bloqueio
+- [ ] Campo Qtd. Executada desabilitado quando sem quantidade_prevista
+- [ ] Editar % recalcula Qtd. quando quantidade_prevista existe
+- [ ] Editar Qtd. recalcula % automaticamente
+- [ ] Confirmar salva em cronograma_medicoes e cronograma_medicao_itens
+- [ ] UPDATE em cronograma_tarefas aplica os novos percentuais
+- [ ] Histórico carrega medições anteriores
+- [ ] npx tsc --noEmit → zero erros TypeScript
+- [ ] Console do browser → sem erros ou warnings
+
+
+----------------------------------------------------------------
+PROMPT 36 — CRON-5: Configurações — Calendário e Produtividade
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/pages/ConfiguracoesPage.tsx.
+Confirmar que stubs ConfigCalendarioTab e ConfigProdutividadeTab existem.
+
+PASSO 1 — Implementar ConfigCalendarioTab
+Buscar company_calendar via upsert.
+Seção 1 — Jornada:
+  Checkboxes visuais para dias da semana [Dom][Seg]...[Sáb]
+  Select de horas por dia (6h/7h/7.5h/8h/9h/10h)
+  Preview: "Jornada semanal: X horas"
+  Salvar via upsert imediato ao alterar.
+
+Seção 2 — Feriados:
+  Lista de feriados com data, descrição, badge "Recorrente".
+  Botão "+ Adicionar feriado" → drawer com date picker e toggle.
+  8 feriados nacionais como chips clicáveis (não inserir automático):
+  1/Jan, 21/Abr, 1/Mai, 7/Set, 12/Out, 2/Nov, 15/Nov, 25/Dez.
+
+PASSO 2 — Implementar ConfigProdutividadeTab
+Buscar amdahl_params com company_id IS NULL ou = company.id.
+Por categoria: slider P (0-100%), slider f (0-100%) com input.
+Origem: badge "Padrão" ou "Personalizado" quando override existe.
+Botão "Redefinir padrão" remove override.
+Salvar via upsert imediato.
+
+Seção inferior — Calibração automática:
+Contar obras com status='concluida' da empresa.
+Se < 5: barra de progresso "X/5 obras concluídas para calibração".
+Se >= 5: toggle "Habilitar calibração automática".
+
+VALIDAÇÃO
+- [ ] Checkboxes de dias salvam via upsert
+- [ ] Preview de jornada calculado
+- [ ] Feriados: adicionar e excluir funciona
+- [ ] 8 chips de feriados nacionais clicáveis
+- [ ] Sliders P e f salvam via upsert
+- [ ] Badge "Personalizado" quando override
+- [ ] Botão "Redefinir padrão" funcional
+
+
+================================================================
+FASE 8 — PERMISSÕES CONFIGURÁVEIS
+================================================================
+
+----------------------------------------------------------------
+PROMPT 37 — PERM-1: Permissões por módulo por usuário
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/contexts/AuthContext.tsx (estrutura completa),
+src/pages/FinanceiroCentral.tsx (TABS_CONFIG atual),
+src/pages/ConfiguracoesPage.tsx (aba permissoes stub).
+Reportar: como user.role está armazenado, como hasPermission
+funciona hoje.
+
+PASSO 1 — Migration SQL
+create table public.user_module_permissions (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id),
+  user_id uuid not null references auth.users(id),
+  modulo text not null,
+  permitido boolean not null default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(company_id, user_id, modulo)
+);
+RLS com policies para gestor gerenciar.
+
+Módulos: 'financeiro_pagamentos', 'financeiro_custo_real',
+'financeiro_fluxo_caixa', 'financeiro_dre',
+'financeiro_recebiveis', 'contratos', 'equipe_gestao',
+'relatorios_exportar', 'relatorios_cliente',
+'diario_aprovar', 'configuracoes_obra'.
+
+PASSO 2 — Atualizar AuthContext
+Adicionar modulePermissions: Record<string, boolean>.
+Carregar via loadModulePermissions após login.
+Defaults: gestor=tudo true; engenheiro=fluxo_caixa/dre/recebiveis false.
+Expor hasModulePermission(modulo: string): boolean.
+
+PASSO 3 — Filtrar abas do Financeiro
+Em FinanceiroCentral.tsx, TABS_CONFIG via useMemo com
+.filter(t => t.visible !== false).
+visible = hasModulePermission('financeiro_xxx').
+
+PASSO 4 — Implementar aba Permissões em Configurações
+Listar engenheiros da empresa via user_roles JOIN profiles.
+Para cada engenheiro: toggles por módulo com upsert imediato.
+Indicador "salvando..." por toggle individual.
+
+VALIDAÇÃO
+- [ ] Tabela user_module_permissions com RLS
+- [ ] AuthContext carrega permissions
+- [ ] hasModulePermission correta por role
+- [ ] Financeiro oculta abas sem permissão
+- [ ] Aba Permissões com toggles funcionais
+
+
+================================================================
+FASE 9 — CONTRATOS E MEDIÇÕES
+================================================================
+
+NOTA: Contratos-1 é migration pura.
+Contratos-2 depende de PERM-1 (usa hasModulePermission).
+Contratos-5 depende de Sprint A (usa tabela notifications).
+Contratos-6 depende de Contratos-5 (aprovação cria recebível).
+
+----------------------------------------------------------------
+PROMPT 38 — CONTRATOS-1: Migration e estrutura base
+----------------------------------------------------------------
+
+EXECUTAR QUERIES PRIMEIRO:
+SELECT table_name FROM information_schema.tables
+WHERE table_schema='public'
+AND table_name IN ('contratos','recebiveis','aditivos',
+'contratos_aditivos','contratos_medicoes','contratos_medicao_itens');
+
+Criar apenas o que NÃO existe:
+- contratos: tipo(cliente/empreiteiro), modalidade_medicao,
+  valor_inicial, valor_atual, status, datas, etc.
+- contratos_aditivos: tipo(valor/prazo/escopo), delta campos,
+  justificativa, status, numero_aditivo UNIQUE por contrato.
+- contratos_medicoes: numero_medicao UNIQUE por contrato, status
+  (rascunho/emitido/aprovado/contestado/pago),
+  aprovacao_token UUID UNIQUE, acumulados, responsavel_id.
+  Policy pública: SELECT when aprovacao_token IS NOT NULL.
+- contratos_medicao_itens: herda acesso via medicao + policy pública.
+- recebiveis: status(pendente/a_vencer/vencido/recebido/parcial/cancelado),
+  valor_faturado, valor_recebido, forma_recebimento.
+
+RLS em todas as tabelas. Verificar 5 tabelas após migration.
+
+VALIDAÇÃO
+- [ ] 5 tabelas criadas
+- [ ] RLS em todas
+- [ ] Policy pública em medicoes e itens (para /bm/:token)
+- [ ] CHECK constraints corretos nos status
+
+
+----------------------------------------------------------------
+PROMPT 39 — CONTRATOS-2: Página de Contratos — CRUD
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/components/layout/PageShell.tsx,
+src/pages/FinanceiroCentral.tsx (padrão), componentes ui/ disponíveis.
+Reportar: quais Drawer/Sheet existem.
+
+Criar ContratosPage.tsx seguindo EXATAMENTE o padrão de
+FinanceiroCentral (PageShell, useSearchParams, display block/none,
+onKpisReady).
+Duas abas: 'clientes' e 'empreiteiros'.
+Guard: hasModulePermission('contratos').
+
+ContratosClienteTab.tsx:
+- Fetch com medicoes join para calcular total_medido
+- KPIs: total contratado, total medido, contratos ativos
+- Cards com: nome, objeto truncado, valor, barra de progresso
+  de medição, badges de status e modalidade, data de término
+- Hover: botões Editar, Ver Medições, Novo Aditivo
+
+ContratoDrawer.tsx (Sheet side="right" 520px ou Drawer):
+Campos: número, contratante, CNPJ, objeto, valor, datas,
+modalidade com descrição de cada opção.
+Insert: valor_atual = valor_inicial no cadastro.
+
+ContratosEmpreiteirosTab.tsx: clone de Cliente com tipo='empreiteiro'.
+
+VALIDAÇÃO
+- [ ] Duas abas funcionais com KPIs
+- [ ] Empty state correto
+- [ ] Drawer valida obrigatórios
+- [ ] Contrato aparece na lista após criar
+- [ ] Guard de permissão funciona
+
+
+----------------------------------------------------------------
+PROMPT 40 — CONTRATOS-3: Aditivos
+----------------------------------------------------------------
+
+Criar AditivoDrawer.tsx.
+Tipo como segmented control: Valor | Prazo | Escopo.
+Preview de mudança por tipo (valor: R$X → R$Y; prazo: data→data).
+Justificativa obrigatória em todos os tipos.
+Data de assinatura: preenchida → 'assinado'; vazia → 'pendente'.
+
+Ao salvar:
+a) SELECT MAX(numero_aditivo)+1 para número sequencial
+b) INSERT em contratos_aditivos
+c) UPDATE contratos SET valor_atual += delta, data_termino_atual += dias
+
+Histórico expansível no card com chips coloridos por tipo.
+
+VALIDAÇÃO
+- [ ] Preview correto para cada tipo
+- [ ] valor_atual e data_termino_atual atualizados
+- [ ] Número sequencial por contrato
+- [ ] Histórico expansível no card
+
+
+----------------------------------------------------------------
+PROMPT 41 — CONTRATOS-4: Medições — criação e itens
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: OrcamentoContext, useCronograma.
+Reportar: como etapas do orçamento são acessadas.
+
+MedicaoDrawer.tsx com stepper 2 passos:
+Passo 1: período, data emissão, número sequencial, acumulado anterior.
+Passo 2 (varia por modalidade):
+  percentual: lista etapas com input % (limitar a 100-anterior)
+  quantidade: composições com input qtd, preço unit do orçamento
+  livre: tabela editável com + Adicionar item
+
+Rodapé sempre visível: valor período, acumulado anterior,
+acumulado total, % acumulado do contrato.
+
+Salvar como status='rascunho'.
+Ação "Emitir": UPDATE status='emitido', data_emissao=hoje.
+
+Histórico expansível com botões condicionais por status.
+
+VALIDAÇÃO
+- [ ] Stepper funciona
+- [ ] 3 modos corretos
+- [ ] Acumulado anterior calculado automaticamente
+- [ ] Salva como rascunho
+- [ ] Emitir muda status
+- [ ] Histórico com botões corretos por status
+
+
+----------------------------------------------------------------
+PROMPT 42 — CONTRATOS-5: BM — PDF e aprovação virtual
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/pages/RelatoriosPage.tsx (uso de jsPDF).
+Verificar supabase/functions/ existentes.
+
+PASSO 1 — src/lib/gerarBoletimMedicao.ts
+PDF A4 com jsPDF + jspdf-autotable:
+Header dark (#0f172a), dados do contrato, tabela de itens
+(header roxo #534AB7), resumo financeiro, campo de assinaturas.
+Rodapé em todas as páginas.
+
+PASSO 2 — Botão "Gerar BM" busca itens e chama gerarBoletimMedicaoPDF.
+
+PASSO 3 — Aprovação virtual
+Botão "Enviar para aprovação":
+a) token = crypto.randomUUID()
+b) UPDATE aprovacao_token no banco
+c) URL = window.location.origin + '/bm/' + token
+d) clipboard.writeText + Dialog com URL copiável
+
+PASSO 4 — BoletimPublicoPage.tsx (ROTA PÚBLICA — fora do auth wrapper)
+/bm/:token busca medição + itens + contrato.
+Renderiza BM em HTML estilizado.
+Botões Aprovar e Contestar (requer comentário).
+Após ação: tela de resultado (aprovado=verde, contestado=vermelho).
+Chamar Edge Function bm-aprovacao após cada ação.
+
+PASSO 5 — Edge Function bm-aprovacao
+Recebe: { token, resultado, comentario }
+Busca company_id via medição → contrato.
+INSERT em notifications para o gestor.
+Se resultado='aprovado' E tipo='cliente': INSERT em recebiveis
+  (vencimento = hoje + 30 dias).
+
+VALIDAÇÃO
+- [ ] PDF com todas as seções e assinaturas
+- [ ] Token gerado e URL copiada
+- [ ] /bm/:token abre sem auth
+- [ ] Aprovar e Contestar funcionam
+- [ ] Edge function cria notificação e recebível
+
+
+----------------------------------------------------------------
+PROMPT 43 — CONTRATOS-6: Financeiro — Recebíveis
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/pages/FinanceiroCentral.tsx.
+Reportar: abas atuais, como TABS_CONFIG está definido.
+
+PASSO 1 — Adicionar aba 'recebiveis' ao Financeiro
+visible: hasModulePermission('financeiro_recebiveis').
+
+PASSO 2 — RecebiveisTab.tsx
+Fetch com status calculado dinamicamente (vencido/a_vencer/pendente).
+KPIs: a receber, recebido, vencidos.
+Lista em dois grupos: "A receber" e "Recebido".
+Cada linha: descrição, valor, vencimento com badge semântico, status.
+Botão "Confirmar recebimento" para pendentes.
+
+Drawer de confirmação:
+data_recebimento (default hoje), valor_recebido
+(default = faturado), forma, observação.
+Status = 'recebido' se valor >= faturado, 'parcial' se menor.
+
+PASSO 3 — src/lib/criarPagamentoDeMedicao.ts
+Quando medição de EMPREITEIRO é emitida:
+INSERT em pagamentos com tipo='servico', status='previsto',
+vencimento = periodo_fim + 30 dias.
+
+VALIDAÇÃO
+- [ ] Aba Recebíveis respeita permissão
+- [ ] KPIs corretos
+- [ ] Status calculado dinamicamente
+- [ ] Drawer confirma recebimento
+- [ ] Status parcial quando valor menor
+- [ ] Medição empreiteiro cria pagamento
+
+
+----------------------------------------------------------------
+PROMPT 44 — CONTRATOS-7: BM na página de Relatórios
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR
+Inspecionar: src/pages/RelatoriosPage.tsx (estrutura atual).
+Reportar: seções existentes, como PDF é gerado.
+
+Adicionar seção "Boletins de Medição" condicional quando
+a obra tem contratos:
+- Buscar contratos com medicoes join
+- Por contrato: lista de medições não-rascunho
+- Por medição: status badge, valor, período, botões PDF e link aprovação
+- handleGerarBM: busca itens e chama gerarBoletimMedicaoPDF
+- handleEnviarAprovacao: gera token, copia URL, toast
+
+VALIDAÇÃO
+- [ ] Seção aparece quando há contratos
+- [ ] Somente não-rascunho listadas
+- [ ] PDF funciona
+- [ ] Link de aprovação funciona
+
+
+================================================================
+FASE 10 — PERFIL E ADMIN
+================================================================
+
+----------------------------------------------------------------
+PROMPT 45 — PERFIL: Foto + dados profissionais + ART
+----------------------------------------------------------------
+
+(Conteúdo idêntico ao PROMPT 19 original do plano — ver acima.
+Implementar quando sprints anteriores estiverem concluídos.)
+
+DADOS PESSOAIS: foto de perfil (Supabase Storage), miniatura
+no rodapé do menu, nome, email, telefone, senha.
+DADOS PROFISSIONAIS: cargo, conselho (CREA/CAU), registro,
+assinatura digital PNG para PDFs.
+ARTs/RRTs: lista com controle de validade, vinculação a obra.
+REMOVIDO DO PERFIL: Configurações do Orçamento → Configurações da Empresa.
+REMOVIDO DO MENU: link "Perfil" — acessar pelo avatar no rodapé.
+
+
+----------------------------------------------------------------
+PROMPT 46 — ADMIN SPRINT 1: Correções e completude
+----------------------------------------------------------------
+
+(Conteúdo do PROMPT 27 original — ver acima.)
+Planos editáveis no banco. Empresas expandidas.
+Página /admin/companies/:id. Impersonar empresa com banner.
+
+
+----------------------------------------------------------------
+PROMPT 47 — ADMIN SPRINT 2: Dois perfis de acesso
+----------------------------------------------------------------
+
+(Conteúdo do PROMPT 28 original — ver acima.)
+Dono vs Gestor de Obra. Filtros por obra em queries.
+Implementar gradualmente por módulo.
+
+
+----------------------------------------------------------------
+PROMPT 48 — ADMIN SPRINT 3: Dashboard de analytics
+----------------------------------------------------------------
+
+(Conteúdo do PROMPT 29 original — ver acima.)
+MRR, DAU/MAU, funil de onboarding, saúde das empresas.
+
+
+----------------------------------------------------------------
+PROMPT 49 — ADMIN SPRINT 4: Integração de cobrança
+----------------------------------------------------------------
+
+NÃO IMPLEMENTAR AGORA. Retomar quando primeiros clientes
+estiverem pagando e gateway estiver escolhido (Iugu/Asaas).
+
+
+================================================================
+FASE 11 — DASHBOARDS
+================================================================
+
+NOTA: Dashboards dependem de notificações (PROMPT 24),
+permissões (PROMPT 37) e do briefing compacto.
+Implementar após Fases 5-9 concluídas.
+
+----------------------------------------------------------------
+PROMPT 50 — DASHBOARD PAINEL DA OBRA: Briefing + KPIs
+----------------------------------------------------------------
+
+Reformulação completa de /painel.
+
+Card "Hoje na obra" no topo (altura fixa ~120px):
+- Faixa colorida por estado (verde/âmbar/vermelho)
+- Título "X itens precisam de atenção"
+- Chips dos sinais mais urgentes (clicáveis, ação direta)
+- Quando tudo ok: "✓ Obra em dia — nenhuma ação necessária"
+
+4 KPIs: percentual de avanço, SPI com contexto Amdahl,
+custo real vs orçado, dias até o prazo.
+
+Seção de agenda: próximos 5 eventos.
+Últimos 3 registros do diário com status e clima.
+Semáforo financeiro: orçado, executado, previsto final.
+Acesso rápido: novo diário, atualizar progresso,
+               registrar pagamento, adicionar faltante.
+
+LinksDeAcessoCard: mover de Relatórios para esta página.
+(Gerenciamento de links pertence ao Painel, não a Relatórios.)
+
+
+----------------------------------------------------------------
+PROMPT 51 — DASHBOARD ENGENHEIRO: Visão das obras dele
+----------------------------------------------------------------
+
+Rota: /dashboard (role engenheiro).
+Obras vinculadas ao user_id (criadas + delegadas).
+
+Briefing pessoal consolidado: "X obras com atenção".
+Chips de obras com problema.
+Cards por obra: percentual, SPI, 2-3 sinais urgentes, ação direta.
+Visão da semana: calendário horizontal 5 dias com eventos
+de todas as obras combinados.
+Métricas pessoais: obras ativas, etapas em atraso, pagamentos
+vencendo esta semana.
+
+
+----------------------------------------------------------------
+PROMPT 52 — DASHBOARD GESTOR: Visão da empresa
+----------------------------------------------------------------
+
+Rota: /dashboard (role gestor/admin).
+Todas as obras de todos os engenheiros.
+
+Briefing executivo: "5 obras ativas, 1 bloqueio, 2 atenção".
+Painel financeiro consolidado: DRE simplificado, fluxo de caixa
+90 dias de todas as obras em um gráfico.
+Grid de obras agrupadas por engenheiro com subtotal por engenheiro.
+Desempenho comparativo: tabela com SPI, desvio custo, pontualidade diário.
+Alertas críticos consolidados de todas as obras.
+Gestão de equipe: lista de engenheiros com obras e última atividade.
+
+
+----------------------------------------------------------------
+PROMPT 53 — DASHBOARD CLIENTE: Link público reformulado
+----------------------------------------------------------------
+
+Rota: /v/:token (sem auth).
+Header com nome da obra e construtora — sem branding Lastra.
+
+Progresso visual em destaque: barra grande + percentual.
+Data prevista de entrega e dias restantes.
+
+Seções condicionais (controladas pelo LinksDeAcessoCard):
+- Cronograma: timeline visual por etapa simplificada
+- Galeria de fotos: agrupada por data do diário
+- Financeiro simplificado: contratado, executado, previsto final
+- Relatórios para download (quando habilitados)
+
+Sistema de comentários assimétrico:
+- Cliente deixa mensagem: "Deixe uma mensagem para a equipe"
+- Gestor responde pelo sistema interno
+- Cliente vê resposta na próxima visita
+- Histórico máx 10 mensagens
+
+
+================================================================
+FASE 12 — RELATÓRIOS REFORMULADOS
+================================================================
+
+----------------------------------------------------------------
+PROMPT 54 — RELATÓRIOS: Galeria estruturada por categoria
+----------------------------------------------------------------
+
+Reformular RelatoriosPage de um relatório único para
+galeria de relatórios por categoria.
+
+Mover LinksDeAcessoCard para PROMPT 50 (Painel da Obra).
+
+Estrutura em 4 categorias:
+PARA O CLIENTE: Executivo (1 página visual), Fotográfico,
+  Boletim de Medição (se tem contratos).
+ACOMPANHAMENTO: Avanço Físico-Financeiro, Curva S, Ocorrências.
+OPERACIONAL: Diário (RDO formato ABNT), Medição Mão de Obra,
+  Pagamentos e Compras por período.
+FINANCEIRO (com permissão): DRE da Obra, Curva de Desembolso.
+
+Cada relatório: descrição, quem pode ver, toggle
+"Disponível no link do cliente", botão configurar e exportar.
+
+PDF via jsPDF (simples) ou Puppeteer Edge Function (visuais).
+Toggle "Publicar no link do cliente" por relatório.
+
+
+================================================================
+FASE 13 — PRODUTO (MARKETING E ONBOARDING)
+================================================================
+
+----------------------------------------------------------------
+PROMPT 55 — LANDING PAGE: Atualização completa
+----------------------------------------------------------------
+
+(Conteúdo do PROMPT 31 original — preservar webhooks de plano,
+lógica de redirecionamento e fluxo pós-pagamento intactos.)
+
+
+----------------------------------------------------------------
+PROMPT 56 — ONBOARDING: Fluxo de primeiro acesso
+----------------------------------------------------------------
+
+(Conteúdo do PROMPT 32 original.)
+Stepper 3 etapas. Dados empresa → criar obra ou demo → convidar.
+Trial: banner âmbar dia 10, bloqueio suave dia 14.
+
+
+----------------------------------------------------------------
+PROMPT 57 — ASSISTENTE IA: Guia contextual
+----------------------------------------------------------------
+
+(Conteúdo do PROMPT 33 original.)
+Painel lateral 380px. Controle por plano.
+Haiku por padrão, Sonnet para análise complexa.
+3 triggers proativos. Zero fricção para dispensar.
+
+
+================================================================
+FASE 14 — ESTOQUE GLOBAL (ADIADO)
+================================================================
+
+----------------------------------------------------------------
+PROMPT 58 — ESTOQUE GLOBAL
+----------------------------------------------------------------
+
+(Conteúdo do PROMPT 13 original — ver acima.)
+Retomar após Dashboards funcionando.
+Visão consolidada + transferência + pedido centralizado.
+
+
+================================================================
+FIM DO PLANO GERAL
+Total: 58 prompts em ordem de implementação
 ================================================================
