@@ -579,6 +579,7 @@ function GroupIconButton({
           boxShadow: lite ? "none" : isGroupActive
             ? `0 0 16px ${group.glow}, inset 0 1px 0 rgba(255,255,255,0.05)`
             : isOpen ? `0 0 10px ${group.glow}` : "none",
+        }}
       >
         {/* Active indicator */}
         {isGroupActive && (
@@ -685,8 +686,6 @@ function SidebarIconLink({ to, label, icon: Icon, active, lite, accent = "#818CF
       <Link
         ref={btnRef}
         to={to}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
         style={{
           position: "relative",
           width: 40, height: 40,
