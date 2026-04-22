@@ -118,15 +118,18 @@ export function useNotifications() {
         }
       };
 
-      channel = (supabase as any)
+      channel = supabase
         .channel(`notifications:company:${companyId}`)
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
           table: 'notifications',
           filter: `company_id=eq.${companyId}`
-        }, handlePayload)
-        .subscribe();
+        }, handlePayload);
+
+      if (channel.state !== 'joined') {
+        channel.subscribe();
+      }
     } catch (e) {
       console.warn('Realtime unavailable:', e);
     }
