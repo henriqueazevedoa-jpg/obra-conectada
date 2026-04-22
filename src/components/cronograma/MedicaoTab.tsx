@@ -86,7 +86,6 @@ export default function MedicaoTab({
         .from('cronograma_medicoes')
         .select(`
           *,
-          users(nome),
           itens:cronograma_medicao_itens(
             *,
             tarefa:cronograma_tarefas(nome)
