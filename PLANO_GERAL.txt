@@ -1954,6 +1954,235 @@ Visão consolidada + transferência + pedido centralizado.
 
 
 ================================================================
+FASE 15 — REFATORAÇÃO COMPLETA DO MÓDULO DE ORÇAMENTO
+================================================================
+
+NOTA: Este bloco deriva do prompt ORCAMENTO-REFACTOR enviado
+em 22/04/2026. Foi fragmentado em 3 sprints (55A/55B/55C)
+para controle de risco e entrega incremental.
+
+----------------------------------------------------------------
+SPRINT 55A — PageShell/KPIs + Visão Geral (CONCLUÍDO 22/04/2026)
+Partes 1 e 2 do prompt original.
+Commit: 3d89746 (branch main)
+----------------------------------------------------------------
+
+[ENTREGUE — ver PLANO_GERAL_STATUS.md para detalhes]
+
+
+----------------------------------------------------------------
+SPRINT 55B — Planilha modo denso + Popovers SINAPI e Listas
+Partes 3, 4 e 5 do prompt original.
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR — INSPEÇÃO OBRIGATÓRIA
+Inspecionar e reportar:
+1. OrcamentoEditor.tsx — como linhas de composição/insumo
+   são renderizadas hoje, como preço é editado
+2. Confirmar se preco_historico recebe INSERT quando
+   fornecedor submete CotacaoPublicaPage
+   (verificar handleSubmit em CotacaoPublicaPage.tsx)
+
+PARTE 3 — PLANILHA (OrcamentoEditor)
+
+LAYOUT DAS LINHAS — modo denso tipo Excel:
+  Sem cards, linhas com hover highlight
+  Altura de linha: ~36px
+
+Linha de COMPOSIÇÃO:
+  [⠿] [▶] #1.01  [descrição editável_____]  [un]  [qtd]
+    [R$ preço_____] [R$ total]  [badge fonte?]
+    [🔍 tooltip] [📋 tooltip] [✩] [🗑]
+
+Linha de INSUMO (dentro de composição expandida):
+  Indentada, mesma estrutura sem ▶
+
+CAMPO DE PREÇO:
+  Input direto, sem spinner de seta
+  Ao sair do campo (onBlur):
+    → salva valor
+    → badge de fonte aparece: SINAPI (azul) / Histórico (verde)
+    → INSERT em preco_historico com origem='manual'
+
+NAVEGAÇÃO POR TECLADO:
+  Tab → próximo campo na mesma linha
+  Enter → confirma e move para linha de baixo
+  Shift+Enter → linha de cima
+
+TOOLBAR — nova ordem:
+  [✨ Orçamento Rápido]  [+ Nova etapa]  [Salvar]
+  [Abrir todas ▾ discreto]  [... Mais]
+    └→ Importar de outra obra
+    └→ Colar Excel
+    └→ Exportar
+
+Remover:
+  - Botão "Buscar no Catálogo" azul (redundante)
+  - Botões de visão compacta (sem efeito real)
+
+
+PARTE 4 — POPOVER DE BUSCA [🔍]
+
+Componente: SinapiPricePopover.tsx
+Abre ancorado na linha, largura 420px, fecha ao clicar fora.
+NÃO é drawer.
+
+Lógica de busca:
+  Se item é insumo → busca em sinapi_insumos
+  Se item é composição → busca em sinapi_composicoes
+    + fallback em sinapi_insumos
+  Busca simultânea em preco_historico por
+    descricao_normalizada ILIKE '%{termo}%'
+
+UI:
+  Input de busca pré-preenchido com descrição do item
+  ─────────────────────────────────────────
+  SINAPI (badge azul) — até 5 resultados
+    Descrição  UN  R$ preço  [Usar]
+  ─────────────────────────────────────────
+  HISTÓRICO (badge verde) — até 3 resultados
+    Descrição  UN  R$ preço  Obra origem  [Usar]
+  ─────────────────────────────────────────
+  Se sem resultados: "Nenhum match — digitar manualmente"
+
+Ao clicar [Usar]:
+  → preenche campo de preço
+  → badge de fonte aparece na linha
+  → fecha popover
+  → INSERT em preco_historico com origem='sinapi' ou 'historico'
+
+Tooltip no ícone [🔍]:
+  "Buscar preço no SINAPI ou histórico de obras anteriores"
+
+
+PARTE 5 — POPOVER DE LISTAS [📋]
+
+Componente: ListaCotacaoPopover.tsx
+Abre ancorado na linha, largura 280px.
+
+UI:
+  "Adicionar à lista de cotação"
+  ──────────────────────────────
+  ● Aço Estrutural  12 it.  R$ 45k est.  [+]
+  ● Hidráulica       8 it.  R$ 12k est.  [+]
+  ──────────────────────────────
+  [+ Criar nova lista...]
+    → input inline: nome → Enter cria e adiciona item
+
+Badge na linha após adicionar:
+  📋 [nome da lista] — clicável para remover
+  Se em múltiplas listas: 📋 2 listas
+
+Tooltip no ícone [📋]:
+  "Adicionar a uma lista de cotação para enviar
+   a fornecedores"
+
+BULK ACTION:
+  Checkbox por linha de composição/insumo
+  Quando 2+ selecionados → toolbar flutuante aparece:
+  "[X] itens selecionados  [📋 Adicionar à lista ▾]
+   [🔍 Buscar preços]  [✕]"
+
+VALIDAÇÃO 55B:
+- [ ] Planilha modo denso sem cards (~36px/linha)
+- [ ] Preço sem spinner, salva no onBlur
+- [ ] Tab/Enter/Shift+Enter navegam entre campos
+- [ ] Badge de fonte (SINAPI azul / Histórico verde / Manual)
+- [ ] Popover busca 420px abre ancorado na linha, fecha ao clicar fora
+- [ ] Popover listas 280px, criar lista inline no Enter
+- [ ] Bulk action: checkbox + toolbar flutuante (2+ itens)
+- [ ] INSERT em preco_historico no onBlur e no [Usar] SINAPI
+- [ ] Toolbar nova ordem (Orçamento Rápido, Nova etapa, Salvar)
+- [ ] npx tsc --noEmit zero erros
+
+
+----------------------------------------------------------------
+SPRINT 55C — Cotação reformulada: split view + comparativo
+Parte 6 do prompt original.
+----------------------------------------------------------------
+
+ANTES DE COMEÇAR — INSPEÇÃO OBRIGATÓRIA
+Inspecionar e reportar:
+1. CotacaoCentral.tsx — estrutura atual completa
+2. CotacaoListasView.tsx — como listas são gerenciadas hoje
+3. Banco — confirmar se INSERT em preco_historico acontece
+   quando fornecedor submete CotacaoPublicaPage
+   (verificar handleSubmit em CotacaoPublicaPage.tsx)
+
+PARTE 6 — ABA COTAÇÃO REFORMULADA
+
+PAINEL ABC (colapsável, topo da aba):
+  ▶ Curva ABC — X itens classe A = Y% do orçamento
+  Expande: tabela resumida com badge A/B/C por item
+  Útil para priorizar quais listas cotar primeiro
+
+LAYOUT PRINCIPAL — split view:
+  Esquerda (260px): lista de listas
+  Direita: conteúdo da lista selecionada
+
+PAINEL ESQUERDO — listas:
+  [+ Nova lista]
+  ● Aço Estrutural   12 it.  ○○● (2/3 fornecedores)
+  ● Hidráulica        8 it.  ○○○
+  Status por item: ● sem resposta ○ cotado 1 ◉ cotado 2+
+
+  Drag and drop entre listas (@dnd-kit/sortable):
+    → arrastar item de uma lista para outra
+    → arrastar para reordenar dentro da lista
+
+PAINEL DIREITO — itens + fornecedores:
+  Cabeçalho:
+    [+ Fornecedor]  [Gerar Link → copia URL]  [Editar lista]
+
+  Tabela comparativa (quando há 1+ fornecedor):
+    Item  UN  Qtd  | Forn.A | Forn.B | SINAPI ref. | Melhor
+    ────────────────────────────────────────────────────────
+    Aço   kg  1800 |  8,50  |  9,20  |    8,80     |  8,50 ★
+    ────────────────────────────────────────────────────────
+    TOTAL        R$|  15.3k |  16.5k |             |  15.3k
+
+  Toggle de highlight:
+    [Por linha] → glow verde no menor preço de cada linha
+    [Por fornecedor] → glow no fornecedor com menor total
+
+  Botão "Aplicar fornecedor X ao orçamento":
+    → aparece ao selecionar um fornecedor (radio ou click)
+    → aplica todos os preços daquele fornecedor
+    → INSERT em preco_historico para cada item
+    → badge 'Histórico' aparece nas linhas da Planilha
+
+  Edição manual inline:
+    Células da tabela editáveis diretamente
+    onBlur → UPDATE cotacao_links.respostas
+    → INSERT em preco_historico com origem='manual'
+
+PRECO_HISTORICO — garantir INSERT em todos os gatilhos:
+  1. CotacaoPublicaPage handleSubmit (fornecedor submete)
+     → para cada item em respostas: INSERT preco_historico
+  2. OrcamentoEditor onBlur do campo preço (feito no 55B)
+     → se preço > 0: INSERT preco_historico origem='manual'
+  3. Comparativo onBlur edição manual
+     → INSERT preco_historico origem='manual'
+  4. Aplicar fornecedor ao orçamento
+     → INSERT preco_historico origem='cotacao'
+
+VALIDAÇÃO 55C:
+- [ ] Painel ABC colapsável no topo da aba Cotação
+- [ ] Split view esquerda (260px) + direita (flex)
+- [ ] Drag-and-drop entre listas (@dnd-kit/sortable)
+- [ ] Drag-and-drop para reordenar dentro da lista
+- [ ] Tabela comparativa com colunas por fornecedor
+- [ ] Highlight "Por linha" → menor preço em verde
+- [ ] Highlight "Por fornecedor" → menor total em verde
+- [ ] "Aplicar fornecedor X" → batch update + badge Histórico
+- [ ] Edição inline onBlur → UPDATE cotacao_links.respostas
+- [ ] INSERT preco_historico: gatilho 1 (CotacaoPublicaPage)
+- [ ] INSERT preco_historico: gatilho 3 (edição inline)
+- [ ] INSERT preco_historico: gatilho 4 (aplicar fornecedor)
+- [ ] npx tsc --noEmit zero erros
+
+
+================================================================
 FIM DO PLANO GERAL
-Total: 58 prompts em ordem de implementação
+Total: 58 prompts + Fase 15 (ORCAMENTO-REFACTOR 55A/55B/55C)
 ================================================================

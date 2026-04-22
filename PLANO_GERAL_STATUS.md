@@ -7,7 +7,7 @@ COMO USAR: Ao iniciar nova sessão, leia este arquivo primeiro.
 Ao concluir um sprint, atualize o status aqui.
 
 ----------------------------------------------------------------
-STATUS ATUAL — Atualizado em: 22/04/2026
+STATUS ATUAL — Atualizado em: 22/04/2026 (18h46)
 ----------------------------------------------------------------
 
 ✅ CONCLUÍDOS (Prompts 1-43 do plano):
@@ -53,6 +53,9 @@ STATUS ATUAL — Atualizado em: 22/04/2026
 - PROMPT 51 — Dashboard Engenheiro
 - PROMPT 52 — Dashboard Gestor
 - PROMPT 53 — Dashboard Cliente
+- PROMPT 54 — Relatórios: Galeria estruturada por categoria
+- SPRINT 55A — Orçamento: PageShell/KPIs + Dashboard (Curva ABC, accordion etapas, banner)
+  Inclui: correções pós-sprint (filtro __classe_a__, prevKpisRef estabilização)
 
 
 ⬛ PULADO:
@@ -143,9 +146,44 @@ GRUPO I — Relatórios
 GRUPO J — Produto
 (Executar quando o sistema estiver pronto para venda.)
 
-⬜ PROMPT 55 — Landing Page: Atualização completa
+⬜ PROMPT 55 — Landing Page: Atualização completa (ADIADO — aguarda sistema estável)
 ⬜ PROMPT 56 — Onboarding: Fluxo de primeiro acesso
 ⬜ PROMPT 57 — Assistente IA: Guia contextual
+
+----------------------------------------------------------------
+GRUPO ORÇ — Reformulação do Orçamento (55A-55C)
+(Sprint interno criado durante execução. Deriva do prompt de
+Refatoração Completa do Módulo de Orçamento.)
+----------------------------------------------------------------
+
+✅ SPRINT 55A — Orçamento: PageShell/KPIs + Dashboard
+  Partes 1 e 2 do prompt ORCAMENTO-REFACTOR.
+  - OrcamentoCentral: PageShell + 4 KPIs via onKpisReady
+  - OrcamentoDashboard: Curva ABC (BLOCO 1), accordion 3 níveis (BLOCO 2),
+    gráfico pizza toggle (BLOCO 3), banner dica dismissível
+  - Correções: filtro __classe_a__ no CotacaoCentral, prevKpisRef
+  Commit: 3d89746 (main)
+
+⬜ SPRINT 55B — Orçamento: Planilha modo denso + Popovers
+  Partes 3, 4 e 5 do prompt ORCAMENTO-REFACTOR.
+  - OrcamentoEditor: layout Excel (~36px/linha), campo preço sem spinner,
+    navegação Tab/Enter/Shift+Enter, toolbar reorganizada
+  - SinapiPricePopover.tsx: popover 420px ancorado na linha, busca
+    sinapi_insumos + sinapi_composicoes + preco_historico, badge fonte
+  - ListaCotacaoPopover.tsx: popover 280px, criar lista inline, bulk action
+    com checkbox + toolbar flutuante
+  - INSERT em preco_historico nos gatilhos 1 (onBlur editor) e 2 (Usar SINAPI)
+
+⬜ SPRINT 55C — Cotação reformulada: split view + comparativo
+  Parte 6 do prompt ORCAMENTO-REFACTOR.
+  - Painel ABC colapsável no topo da aba
+  - Split view esquerda/direita (260px lista + restante detalhe)
+  - Drag-and-drop entre listas via @dnd-kit/sortable
+  - Tabela comparativa com highlight melhor preço por linha/fornecedor
+  - "Aplicar fornecedor X ao orçamento" (batch update preços)
+  - Edição inline onBlur → UPDATE cotacao_links.respostas
+  - INSERT em preco_historico nos gatilhos 3 (edição inline) e 4 (aplicar fornecedor)
+  - Garantir que CotacaoPublicaPage.handleSubmit insere preco_historico (gatilho 1)
 
 GRUPO K — Estoque Global (ADIADO)
 (Retomar após Dashboards funcionando com dados reais.)
