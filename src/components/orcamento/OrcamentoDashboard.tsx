@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useOrcamento, OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import {
-  AlertTriangle, CheckCircle2,
-  TrendingUp, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown,
-  Package, BarChart3, Lock, Loader2, Table2, BarChart2,
+  AlertTriangle, CheckCircle2, X,
+  TrendingUp, ChevronDown, ChevronRight,
+  Package, Lock, Loader2, Table2, BarChart2,
+  Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HelpPopover } from '@/components/ui/HelpPopover';
@@ -16,6 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { PageKPI } from '@/components/layout/PageShell';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +26,10 @@ interface OrcamentoDashboardProps {
   obra: ObraSummary;
   onEditWBS: () => void;
   onGoCotacao: () => void;
+  /** Navega para Cotação com filtro pré-aplicado nos itens classe A */
+  onGoCotacaoClasseA?: () => void;
+  /** Emite KPIs para o PageShell do Central */
+  onKpisReady?: (kpis: PageKPI[]) => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -107,7 +113,7 @@ function classificarItem(descricao: string): string {
   return 'Outros';
 }
 
-// ── Sub-componente: Gráfico de rosca ─────────────────────────────────────────
+// ── Sub-componente: Gráfico de pizza ─────────────────────────────────────────
 
 type DistMode = 'etapa' | 'categoria';
 
@@ -125,7 +131,6 @@ function GraficoPizza({ etapas, mode }: { etapas: OrcamentoEtapa[]; mode: DistMo
         .sort((a, b) => b.value - a.value);
     }
 
-    // Modo categoria
     const acc: Record<string, number> = {};
     for (const etapa of etapas) {
       for (const comp of etapa.composicoes || []) {
@@ -172,7 +177,6 @@ function GraficoPizza({ etapas, mode }: { etapas: OrcamentoEtapa[]; mode: DistMo
 
   return (
     <div className="space-y-3">
-      {/* Donut chart — altura fixa, sem legenda interna */}
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -201,7 +205,6 @@ function GraficoPizza({ etapas, mode }: { etapas: OrcamentoEtapa[]; mode: DistMo
         </ResponsiveContainer>
       </div>
 
-      {/* Legenda custom em HTML — cresce com número de itens */}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-1">
         {data.map((entry, index) => (
           <div
@@ -232,12 +235,17 @@ function GraficoPizza({ etapas, mode }: { etapas: OrcamentoEtapa[]; mode: DistMo
   );
 }
 
-// ── Sub-componente: Curva ABC (melhorada) ──────────────────────────────────────────
+// ── Sub-componente: Curva ABC em destaque ────────────────────────────────────
 
 type AbcSource = 'todos' | 'insumos' | 'composicoes';
 type AbcView = 'chart' | 'table';
 
-function CurvaABC({ etapas }: { etapas: OrcamentoEtapa[] }) {
+interface CurvaABCProps {
+  etapas: OrcamentoEtapa[];
+  onGoCotacaoClasseA?: () => void;
+}
+
+function CurvaABC({ etapas, onGoCotacaoClasseA }: CurvaABCProps) {
   const [abcSource, setAbcSource] = useState<AbcSource>('todos');
   const [abcView, setAbcView] = useState<AbcView>('chart');
 
@@ -282,20 +290,22 @@ function CurvaABC({ etapas }: { etapas: OrcamentoEtapa[] }) {
   const countA = dados.filter(d => d.classe === 'A').length;
   const countB = dados.filter(d => d.classe === 'B').length;
   const countC = dados.filter(d => d.classe === 'C').length;
+  const valorA = dados.filter(d => d.classe === 'A').reduce((s, d) => s + d.valor, 0);
+  const totalValor = dados.reduce((s, d) => s + d.valor, 0);
 
   if (dados.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-        {abcSource !== 'todos'
-          ? `Nenhum item com preço para o filtro selecionado.`
-          : 'Nenhum item com preço para gerar a curva ABC.'}
+      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm gap-2">
+        <BarChart2 className="h-8 w-8 opacity-30" />
+        <span>Nenhum item com preço para gerar a Curva ABC.</span>
+        <span className="text-xs opacity-60">Preencha os preços na Planilha.</span>
       </div>
     );
   }
 
-  const chartData = dados.slice(0, Math.min(dados.length, 25));
+  const chartData = dados.slice(0, Math.min(dados.length, 30));
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltipChart = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     const d = payload[0]?.payload;
     return (
@@ -311,164 +321,189 @@ function CurvaABC({ etapas }: { etapas: OrcamentoEtapa[] }) {
   };
 
   return (
-    <div className="space-y-3">
-      {/* Controles: Filtro de fonte + Visão */}
+    <div className="space-y-4">
+      {/* Controles */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        {/* Filtro */}
-        <div className="flex items-center gap-1 border rounded-md overflow-hidden">
-          {(['todos', 'insumos', 'composicoes'] as AbcSource[]).map(src => (
+        <div className="flex items-center gap-3">
+          {/* Badges de classe */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400">
+              A · {countA} it. · 80%
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+              B · {countB} it. · 15%
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+              C · {countC} it. · 5%
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Filtro fonte */}
+          <div className="flex items-center gap-1 border rounded-md overflow-hidden">
+            {(['todos', 'insumos', 'composicoes'] as AbcSource[]).map(src => (
+              <button
+                key={src}
+                onClick={() => setAbcSource(src)}
+                className={cn(
+                  'px-2.5 py-1 text-[10px] font-medium transition-colors',
+                  abcSource === src ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50',
+                  src !== 'composicoes' && 'border-r'
+                )}
+              >
+                {src === 'todos' ? 'Todos' : src === 'insumos' ? 'Insumos' : 'Composições'}
+              </button>
+            ))}
+          </div>
+          {/* View toggle */}
+          <div className="flex items-center gap-1 border rounded-md overflow-hidden">
             <button
-              key={src}
-              onClick={() => setAbcSource(src)}
-              className={cn(
-                'px-2.5 py-1 text-[10px] font-medium transition-colors',
-                abcSource === src ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50',
-                src !== 'composicoes' && 'border-r'
-              )}
+              onClick={() => setAbcView('chart')}
+              className={cn('p-1.5 transition-colors', abcView === 'chart' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50')}
+              title="Gráfico"
             >
-              {src === 'todos' ? 'Todos' : src === 'insumos' ? 'Insumos' : 'Composições'}
+              <BarChart2 className="h-3.5 w-3.5" />
             </button>
-          ))}
-        </div>
-
-        {/* View toggle */}
-        <div className="flex items-center gap-1 border rounded-md overflow-hidden">
-          <button
-            onClick={() => setAbcView('chart')}
-            className={cn('p-1.5 transition-colors', abcView === 'chart' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50')}
-            title="Gráfico"
-          >
-            <BarChart2 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setAbcView('table')}
-            className={cn('p-1.5 transition-colors border-l', abcView === 'table' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50')}
-            title="Tabela completa"
-          >
-            <Table2 className="h-3.5 w-3.5" />
-          </button>
+            <button
+              onClick={() => setAbcView('table')}
+              className={cn('p-1.5 transition-colors border-l', abcView === 'table' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50')}
+              title="Tabela completa"
+            >
+              <Table2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Badges de classe */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400">
-          A · {countA} itens · 80%
-        </span>
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-          B · {countB} itens · 15%
-        </span>
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-          C · {countC} itens · 5%
-        </span>
-        <span className="text-[10px] text-muted-foreground">
-          {dados.length} itens totais
-        </span>
-      </div>
+      {/* Layout principal: chart + tabela lado a lado */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
+        {/* Gráfico ou Tabela completa */}
+        <div>
+          {abcView === 'chart' ? (
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="rank" tick={false} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="left" tickFormatter={formatCurrencyShort} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <RechartTooltip content={<CustomTooltipChart />} />
+                  <Bar yAxisId="left" dataKey="valor" radius={[3, 3, 0, 0]}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={index} fill={entry.classe === 'A' ? '#ef4444' : entry.classe === 'B' ? '#f59e0b' : '#10b981'} />
+                    ))}
+                  </Bar>
+                  <Line yAxisId="right" type="monotone" dataKey="pctAcumulado" stroke="#6366f1" strokeWidth={2} dot={false} />
+                  <ReferenceLine yAxisId="right" y={80} stroke="#6366f1" strokeDasharray="4 4" label={{ value: '80%', position: 'right', fontSize: 10, fill: '#6366f1' }} />
+                  <ReferenceLine yAxisId="right" y={95} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: '95%', position: 'right', fontSize: 10, fill: '#f59e0b' }} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-hidden">
+              <div className="max-h-56 overflow-y-auto">
+                <table className="text-[11px] w-full">
+                  <thead className="sticky top-0">
+                    <tr className="bg-muted/80">
+                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-8">#</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground">Descrição</th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground">Valor</th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground">% Acum.</th>
+                      <th className="px-2 py-1.5 text-center font-semibold text-muted-foreground">Cl.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dados.map(item => (
+                      <tr key={item.rank} className="border-t odd:bg-muted/10">
+                        <td className="px-2 py-1.5 text-muted-foreground font-mono">{item.rank}</td>
+                        <td className="px-2 py-1.5 text-foreground max-w-[180px] truncate" title={item.descricao}>{item.descricao}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums font-medium">{formatCurrencyShort(item.valor)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{item.pctAcumulado}%</td>
+                        <td className="px-2 py-1.5 text-center">
+                          <span className={cn(
+                            'font-bold text-[10px]',
+                            item.classe === 'A' ? 'text-red-600' :
+                            item.classe === 'B' ? 'text-amber-600' : 'text-emerald-600'
+                          )}>{item.classe}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
 
-      {/* Vista: Gráfico */}
-      {abcView === 'chart' && (
-        <>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="rank" tick={false} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="left" tickFormatter={formatCurrencyShort} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                <RechartTooltip content={<CustomTooltip />} />
-                <Bar yAxisId="left" dataKey="valor" radius={[3, 3, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={index} fill={entry.classe === 'A' ? '#ef4444' : entry.classe === 'B' ? '#f59e0b' : '#10b981'} />
-                  ))}
-                </Bar>
-                <Line yAxisId="right" type="monotone" dataKey="pctAcumulado" stroke="#6366f1" strokeWidth={2} dot={false} />
-                <ReferenceLine yAxisId="right" y={80} stroke="#6366f1" strokeDasharray="4 4" label={{ value: '80%', position: 'right', fontSize: 10, fill: '#6366f1' }} />
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Tabela lateral: Top itens classe A */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Top Classe A</p>
+            <HelpPopover
+              title="Curva ABC"
+              text="Classe A = top 80% do custo. São os itens críticos para cotar. Classe B = próximos 15%. Classe C = 5% restantes."
+              side="left"
+            />
+          </div>
+          {/* Resumo */}
+          <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 px-3 py-2 text-xs space-y-0.5">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{countA} itens classe A</span>
+              <span className="font-semibold text-red-700 dark:text-red-400">{formatCurrencyShort(valorA)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">% do orçamento</span>
+              <span className="font-semibold">{totalValor > 0 ? ((valorA / totalValor) * 100).toFixed(1) : 0}%</span>
+            </div>
           </div>
 
-          <div className="text-[10px] text-muted-foreground">Top {Math.min(5, countA)} itens Classe A (priorize a cotação):</div>
-          <div className="space-y-1">
-            {dados.slice(0, Math.min(5, countA)).map((item) => (
+          {/* Lista top 6 */}
+          <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+            {dados.slice(0, Math.min(6, countA)).map((item) => (
               <div key={item.rank} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40">
                 <span className="text-[10px] font-bold text-red-500 shrink-0 w-4">#{item.rank}</span>
-                <span className="text-xs text-foreground truncate flex-1">{item.descricao}</span>
-                <span className="text-xs font-semibold text-red-600 shrink-0">{formatCurrency(item.valor)}</span>
+                <span className="text-xs text-foreground truncate flex-1" title={item.descricao}>{item.descricao}</span>
+                <span className="text-[10px] font-semibold text-red-600 shrink-0">{formatCurrencyShort(item.valor)}</span>
               </div>
             ))}
           </div>
-        </>
-      )}
 
-      {/* Vista: Tabela completa */}
-      {abcView === 'table' && (
-        <div className="rounded-md border overflow-hidden">
-          <div className="max-h-72 overflow-y-auto">
-            <table className="text-[11px] w-full">
-              <thead className="sticky top-0">
-                <tr className="bg-muted/80">
-                  <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-8">#</th>
-                  <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground">Descrição</th>
-                  <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground">Valor</th>
-                  <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground">% Item</th>
-                  <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground">% Acum.</th>
-                  <th className="px-2 py-1.5 text-center font-semibold text-muted-foreground">Cl.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dados.map(item => (
-                  <tr key={item.rank} className="border-t odd:bg-muted/10">
-                    <td className="px-2 py-1.5 text-muted-foreground font-mono">{item.rank}</td>
-                    <td className="px-2 py-1.5 text-foreground max-w-[180px] truncate" title={item.descricao}>{item.descricao}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums font-medium">{formatCurrency(item.valor)}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{item.pctItem.toFixed(1)}%</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{item.pctAcumulado}%</td>
-                    <td className="px-2 py-1.5 text-center">
-                      <span className={cn(
-                        'font-bold text-[10px]',
-                        item.classe === 'A' ? 'text-red-600' :
-                        item.classe === 'B' ? 'text-amber-600' : 'text-emerald-600'
-                      )}>{item.classe}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* Botão Cotar itens A */}
+          {countA > 0 && onGoCotacaoClasseA && (
+            <button
+              onClick={onGoCotacaoClasseA}
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
+            >
+              Cotar itens A →
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
 
-type GraphView = 'distribuicao' | 'abc';
+const DICA_KEY = 'lastra_orcamento_dica_vista';
+type DistModeType = 'etapa' | 'categoria';
 
-export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao }: OrcamentoDashboardProps) {
+export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoCotacaoClasseA, onKpisReady }: OrcamentoDashboardProps) {
   const { getOrcamento, finalizarOrcamento } = useOrcamento();
   const etapas = getOrcamento(obra.id)?.etapas ?? [];
 
-  const [expandedEtapas, setExpandedEtapas] = useState<Set<string>>(new Set());
-  const [graphView, setGraphView] = useState<GraphView>('distribuicao');
-  const [distMode, setDistMode] = useState<DistMode>('etapa');
+  const [distMode, setDistMode] = useState<DistModeType>('etapa');
   const [finalizarOpen, setFinalizarOpen] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
   const [finalizadoResult, setFinalizadoResult] = useState<{ total: number; novos: number } | null>(null);
+  const [dicaDismissed, setDicaDismissed] = useState(() => {
+    try { return localStorage.getItem(DICA_KEY) === '1'; } catch { return false; }
+  });
 
-  const toggleEtapa = (id: string) => {
-    setExpandedEtapas((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const handleDismissDica = () => {
+    setDicaDismissed(true);
+    try { localStorage.setItem(DICA_KEY, '1'); } catch { /* ignore */ }
   };
-
-  const expandAll = () => setExpandedEtapas(new Set(etapas.map((e) => e.id)));
-  const collapseAll = () => setExpandedEtapas(new Set());
-  const anyExpanded = expandedEtapas.size > 0;
 
   const handleFinalizar = async () => {
     const orc = getOrcamento(obra.id);
@@ -514,66 +549,68 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao }: Orc
     return { totalGeral, totalInsumos, insumosSemPreco, totalComposicoes, cotadoPct };
   }, [etapas]);
 
-  const kpis = [
-    {
-      label: 'Total Previsto',
-      value: formatCurrency(stats.totalGeral),
-      icon: TrendingUp,
-      color: 'text-primary dark:text-primary/80',
-      bg: 'bg-primary/8 dark:bg-indigo-950/40',
-      border: 'border-primary/12 dark:border-indigo-900/60',
-    },
-    {
-      label: 'Itens Cotados',
-      value: `${stats.cotadoPct}%`,
-      icon: CheckCircle2,
-      color: stats.cotadoPct === 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
-      bg: stats.cotadoPct === 100 ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-amber-50 dark:bg-amber-950/40',
-      border: stats.cotadoPct === 100 ? 'border-emerald-100 dark:border-emerald-900/60' : 'border-amber-100 dark:border-amber-900/60',
-    },
-    {
-      label: 'Sem Preço',
-      value: stats.insumosSemPreco.toString(),
-      icon: AlertTriangle,
-      color: stats.insumosSemPreco > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400',
-      bg: stats.insumosSemPreco > 0 ? 'bg-red-50 dark:bg-red-950/40' : 'bg-emerald-50 dark:bg-emerald-950/40',
-      border: stats.insumosSemPreco > 0 ? 'border-red-100 dark:border-red-900/60' : 'border-emerald-100 dark:border-emerald-900/60',
-    },
-    {
-      label: 'Composições',
-      value: stats.totalComposicoes.toString(),
-      icon: Package,
-      color: 'text-slate-600 dark:text-slate-400',
-      bg: 'bg-slate-50 dark:bg-slate-800/40',
-      border: 'border-slate-100 dark:border-slate-700/60',
-    },
-  ];
+  // ── Emitir KPIs para o PageShell ──────────────────────────────────────────
+  useEffect(() => {
+    if (!onKpisReady) return;
+    onKpisReady([
+      {
+        id: 'total',
+        label: 'Total Previsto',
+        value: formatCurrency(stats.totalGeral),
+        tint: 'rgba(83,74,183,0.08)',
+        valueColor: '#534AB7',
+        labelColor: '#7c75be',
+      },
+      {
+        id: 'cotado',
+        label: '% Cotado',
+        value: `${stats.cotadoPct}%`,
+        tint: stats.cotadoPct === 100 ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)',
+        valueColor: stats.cotadoPct === 100 ? '#059669' : '#d97706',
+        labelColor: stats.cotadoPct === 100 ? '#10b981' : '#f59e0b',
+      },
+      {
+        id: 'sem_preco',
+        label: 'Sem Preço',
+        value: stats.insumosSemPreco.toString(),
+        tint: stats.insumosSemPreco > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
+        valueColor: stats.insumosSemPreco > 0 ? '#dc2626' : '#059669',
+        labelColor: stats.insumosSemPreco > 0 ? '#ef4444' : '#10b981',
+      },
+      {
+        id: 'composicoes',
+        label: 'Composições',
+        value: stats.totalComposicoes.toString(),
+        tint: 'rgba(100,116,139,0.08)',
+        valueColor: '#475569',
+        labelColor: '#94a3b8',
+      },
+    ]);
+  }, [stats, onKpisReady]);
 
   return (
     <>
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="p-4 md:p-6 space-y-5 max-w-screen-xl mx-auto w-full">
+      <div className="p-4 md:p-6 space-y-6 max-w-screen-xl mx-auto w-full">
 
-        {/* ── KPIs ─────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {kpis.map((kpi) => {
-            const Icon = kpi.icon;
-            return (
-              <div key={kpi.label} className={cn('rounded-xl p-4 border flex items-start gap-3', kpi.bg, kpi.border)}>
-                <div className={cn('mt-0.5 shrink-0', kpi.color)}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className={cn('text-xl font-bold leading-none', kpi.color)}>{kpi.value}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{kpi.label}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {/* ── Banner dica — aparece uma vez, dismissível ───────────── */}
+        {!dicaDismissed && etapas.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/20 animate-in fade-in duration-300">
+            <Lightbulb className="h-4 w-4 text-violet-500 shrink-0" />
+            <p className="text-xs text-violet-800 dark:text-violet-300 flex-1 leading-relaxed">
+              💡 Use <strong>🔍</strong> para buscar no SINAPI · <strong>📋</strong> para criar listas de cotação · Selecione itens em lote para cotar em grupo
+            </p>
+            <button
+              onClick={handleDismissDica}
+              className="shrink-0 text-violet-400 hover:text-violet-600 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
-        {/* ── Alerta / Sucesso ──────────────────────────────────────────────── */}
-        {stats.insumosSemPreco > 0 ? (
+        {/* ── Alerta / Sucesso ─────────────────────────────────────── */}
+        {etapas.length > 0 && stats.insumosSemPreco > 0 ? (
           <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
@@ -603,209 +640,146 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao }: Orc
           </div>
         ) : null}
 
-        {/* ── Layout de duas colunas: Lista + Gráfico ──────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-5 items-start">
-
-          {/* ── Coluna esquerda: Lista de etapas ─────────────────────────── */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                Etapas do Orçamento
-              </h2>
-              {etapas.length > 0 && (
-                <button
-                  onClick={anyExpanded ? collapseAll : expandAll}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {anyExpanded
-                    ? <><ChevronsDownUp className="h-3.5 w-3.5" /> Fechar todas</>
-                    : <><ChevronsUpDown className="h-3.5 w-3.5" /> Abrir todas</>}
-                </button>
-              )}
+        {/* ═══════════════════════════════════════════════════════════════
+            BLOCO 1 — Curva ABC em destaque (topo)
+        ════════════════════════════════════════════════════════════════ */}
+        {etapas.length > 0 && (
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4 text-primary" />
+                  Curva ABC do Orçamento
+                </h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Priorize a cotação dos itens Classe A — eles representam 80% do custo
+                </p>
+              </div>
             </div>
-
-            {etapas.length === 0 ? (
-              <div className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center py-12 gap-4 text-center">
-                <div className="text-5xl select-none">📋</div>
-                <div>
-                  <p className="text-base font-semibold text-foreground mb-1">Nenhuma etapa criada</p>
-                  <p className="text-sm text-muted-foreground mb-4">Comece o orçamento de uma das formas abaixo:</p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <button
-                    onClick={onEditWBS}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary transition-colors"
-                  >
-                    ️✏️ Criar etapas
-                  </button>
-                  <button
-                    onClick={onEditWBS}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-violet-300 text-violet-700 dark:text-violet-400 text-sm font-medium hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
-                  >
-                    ️🏗️ Usar modelos de etapa
-                  </button>
-                  <button
-                    onClick={onEditWBS}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 text-blue-700 dark:text-blue-400 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
-                  >
-                    ️📊 Importar SINAPI
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {etapas.map((etapa, i) => {
-                  const etapaStats = getEtapaStats(etapa);
-                  const total = (etapa.composicoes || []).reduce((s, c) => s + (c.precoTotal || 0), 0);
-                  const isExpanded = expandedEtapas.has(etapa.id);
-                  const dotColor = etapaStats.cotadoPct === 100 ? 'bg-emerald-500' : etapaStats.cotadoPct > 50 ? 'bg-amber-400' : 'bg-red-500';
-
-                  return (
-                    <div key={etapa.id} className="rounded-xl border bg-card overflow-hidden transition-shadow hover:shadow-sm">
-                      {/* Linha clicável da etapa */}
-                      <button
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
-                        onClick={() => toggleEtapa(etapa.id)}
-                      >
-                        <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform shrink-0', isExpanded ? 'rotate-0' : '-rotate-90')} />
-                        <div className="h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{String(i + 1).padStart(2, '0')}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-semibold truncate text-foreground">{etapa.nome || etapa.codigo}</span>
-                            <span className={cn('h-2 w-2 rounded-full shrink-0', dotColor)} />
-                          </div>
-                          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                            <div
-                              className={cn('h-full rounded-full transition-all', etapaStats.cotadoPct === 100 ? 'bg-emerald-500' : 'bg-primary/80')}
-                              style={{ width: `${etapaStats.cotadoPct}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0 ml-2">
-                          <div className="text-sm font-bold text-foreground">{formatCurrency(total)}</div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {(etapa.composicoes || []).length} comp. · {etapaStats.cotadoPct}% cotado
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Composições expandidas */}
-                      {isExpanded && (
-                        <div className="border-t border-border/50 bg-muted/10">
-                          {(etapa.composicoes || []).length === 0 ? (
-                            <div className="px-4 py-4 text-center text-xs text-muted-foreground">
-                              Nenhuma composição nesta etapa.
-                            </div>
-                          ) : (
-                            <div className="divide-y divide-border/40">
-                              {(etapa.composicoes || []).map((comp) => {
-                                const compSemPreco = !comp.precoUnitario || comp.precoUnitario === 0;
-                                const insSemPreco = (comp.insumos || []).filter((i) => !i.precoUnitario).length;
-                                const totalSemPreco = comp.usaInsumos ? insSemPreco : (compSemPreco ? 1 : 0);
-
-                                return (
-                                  <div key={comp.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
-                                    <span className={cn('h-2 w-2 rounded-full shrink-0', totalSemPreco > 0 ? 'bg-red-400' : 'bg-emerald-500')} />
-                                    <span className="text-[10px] font-mono text-muted-foreground shrink-0 w-12">{comp.codigo}</span>
-                                    <span className="text-xs text-foreground flex-1 truncate">{comp.descricao || '—'}</span>
-                                    {comp.usaInsumos && (
-                                      <span className="text-[10px] text-muted-foreground shrink-0">{(comp.insumos || []).length} ins.</span>
-                                    )}
-                                    {totalSemPreco > 0 && (
-                                      <span className="text-[10px] text-red-500 shrink-0 whitespace-nowrap">{totalSemPreco} sem preço</span>
-                                    )}
-                                    <span className="text-xs font-semibold text-foreground shrink-0 text-right w-24">
-                                      {formatCurrency(comp.precoTotal || 0)}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                          <div className="px-4 py-2 border-t border-border/40 flex justify-end">
-                            <button
-                              onClick={onEditWBS}
-                              className="text-[11px] text-primary hover:underline font-medium flex items-center gap-1"
-                            >
-                              Editar etapa <ChevronRight className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <CurvaABC etapas={etapas} onGoCotacaoClasseA={onGoCotacaoClasseA} />
           </div>
+        )}
 
-          {/* ── Coluna direita: Gráficos (sticky) ────────────────────────── */}
-          {etapas.length > 0 && stats.totalGeral > 0 && (
-            <div className="rounded-xl border bg-card p-4 space-y-3 xl:sticky xl:top-4">
-
-              {/* Toggle: Distribuição vs ABC */}
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground">Análise</h3>
-                <div className="flex items-center border rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setGraphView('distribuicao')}
-                    className={cn('px-2.5 py-1 text-[11px] font-medium transition-colors', graphView === 'distribuicao' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted')}
-                  >
-                    Distribuição
-                  </button>
-                  <button
-                    onClick={() => setGraphView('abc')}
-                    className={cn('px-2.5 py-1 text-[11px] font-medium flex items-center gap-1 transition-colors', graphView === 'abc' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted')}
-                  >
-                    <BarChart3 className="h-3 w-3" /> Curva ABC
-                  </button>
-                </div>
-              </div>
-
-              {graphView === 'distribuicao' ? (
-                <>
-                  {/* Sub-toggle: por etapa ou por categoria */}
-                  <div className="flex items-center gap-1 bg-muted/50 p-0.5 rounded-lg">
-                    <button
-                      onClick={() => setDistMode('etapa')}
-                      className={cn('flex-1 py-1 text-[11px] font-medium rounded-md transition-colors',
-                        distMode === 'etapa' ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                    >
-                      Por Etapa
-                    </button>
-                    <button
-                      onClick={() => setDistMode('categoria')}
-                      className={cn('flex-1 py-1 text-[11px] font-medium rounded-md transition-colors',
-                        distMode === 'categoria' ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                    >
-                      Por Categoria
-                    </button>
-                  </div>
-                  {distMode === 'categoria' && (
-                    <p className="text-[10px] text-muted-foreground">
-                      Classificação estimada baseada nas descrições dos itens.
-                    </p>
-                  )}
-                  <GraficoPizza etapas={etapas} mode={distMode} />
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-1">
-                    <p className="text-[11px] text-muted-foreground">Priorize a cotação dos itens Classe A</p>
-                    <HelpPopover
-                      title="Como usar a Curva ABC"
-                      text="Classe A = top 80% do custo. Priorize cotar esses itens. Classe B = 15% do custo. Classe C = 5% restantes. Filtre por Insumos ou Composições para análises mais detalhadas."
-                      side="left"
-                    />
-                  </div>
-                  <CurvaABC etapas={etapas} />
-                </>
-              )}
+        {/* ═══════════════════════════════════════════════════════════════
+            BLOCO 2 — Cards de etapa
+        ════════════════════════════════════════════════════════════════ */}
+        {etapas.length === 0 ? (
+          <div className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center py-12 gap-4 text-center">
+            <div className="text-5xl select-none">📋</div>
+            <div>
+              <p className="text-base font-semibold text-foreground mb-1">Nenhuma etapa criada</p>
+              <p className="text-sm text-muted-foreground mb-4">Comece o orçamento de uma das formas abaixo:</p>
             </div>
-          )}
-        </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={onEditWBS}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                ✏️ Criar etapas
+              </button>
+              <button
+                onClick={onEditWBS}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-violet-300 text-violet-700 dark:text-violet-400 text-sm font-medium hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
+              >
+                🏗️ Usar modelos de etapa
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Package className="h-4 w-4 text-muted-foreground" />
+              Etapas do Orçamento
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {etapas.map((etapa, i) => {
+                const etapaStats = getEtapaStats(etapa);
+                const total = (etapa.composicoes || []).reduce((s, c) => s + (c.precoTotal || 0), 0);
+                const pct = etapaStats.cotadoPct;
+                const barColor = pct === 100 ? '#10b981' : pct > 60 ? '#f59e0b' : '#ef4444';
+
+                return (
+                  <button
+                    key={etapa.id}
+                    onClick={onEditWBS}
+                    className="group rounded-xl border bg-card p-4 text-left hover:shadow-md hover:border-primary/30 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="h-6 w-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">
+                            {String(i + 1).padStart(2, '0')}
+                          </span>
+                        </div>
+                        <span className="text-sm font-semibold text-foreground truncate">
+                          {etapa.nome || etapa.codigo || 'Sem nome'}
+                        </span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+                    </div>
+
+                    <div className="space-y-2">
+                      {/* Barra de progresso */}
+                      <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${pct}%`, background: barColor }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{pct}% cotado</span>
+                        <span className="font-bold text-foreground">{formatCurrencyShort(total)}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>{(etapa.composicoes || []).length} composições</span>
+                        {etapaStats.insumosSemPreco > 0 && (
+                          <span className="text-red-500">{etapaStats.insumosSemPreco} sem preço</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            BLOCO 3 — Gráfico de distribuição (pizza toggle)
+        ════════════════════════════════════════════════════════════════ */}
+        {etapas.length > 0 && stats.totalGeral > 0 && (
+          <div className="rounded-xl border bg-card p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-foreground">Distribuição de Custos</h3>
+              {/* Sub-toggle */}
+              <div className="flex items-center gap-1 bg-muted/50 p-0.5 rounded-lg">
+                <button
+                  onClick={() => setDistMode('etapa')}
+                  className={cn('px-3 py-1 text-[11px] font-medium rounded-md transition-colors',
+                    distMode === 'etapa' ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                >
+                  Por Etapa
+                </button>
+                <button
+                  onClick={() => setDistMode('categoria')}
+                  className={cn('px-3 py-1 text-[11px] font-medium rounded-md transition-colors',
+                    distMode === 'categoria' ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                >
+                  Por Categoria
+                </button>
+              </div>
+            </div>
+            {distMode === 'categoria' && (
+              <p className="text-[10px] text-muted-foreground">
+                Classificação estimada baseada nas descrições dos itens.
+              </p>
+            )}
+            <GraficoPizza etapas={etapas} mode={distMode} />
+          </div>
+        )}
+
       </div>
     </div>
 

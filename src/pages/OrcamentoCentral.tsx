@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+
 import { useOrcamento } from '@/contexts/OrcamentoContext';
 import type { OrcamentoVersao } from '@/contexts/OrcamentoContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +16,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import NoObraState from '@/components/obras/NoObraState';
 import { supabase } from '@/integrations/supabase/untyped';
 import PageShell from '@/components/layout/PageShell';
-import type { PageTab } from '@/components/layout/PageShell';
+import type { PageTab, PageKPI } from '@/components/layout/PageShell';
 
 // ── Tipos e utilitários ──────────────────────────────────────────────────────
 
@@ -65,10 +65,14 @@ export default function OrcamentoCentral() {
   );
 
   const editing = user?.role === 'gestor' || user?.role === 'admin';
-  const navigate = useNavigate();
+
 
   const [exportOpen, setExportOpen] = useState(false);
   const [cotacaoSearch, setCotacaoSearch] = useState('');
+
+  // ── KPIs elevados do Dashboard para o PageShell ──────────────────────────
+  const [kpis, setKpis] = useState<PageKPI[]>([]);
+  const handleKpisReady = useCallback((next: PageKPI[]) => setKpis(next), []);
 
   // ── Versão ativa — lifted aqui para ser compartilhada entre as duas abas ──
   const [versaoAtiva, setVersaoAtiva] = useState<OrcamentoVersao | null>(null);
@@ -168,6 +172,7 @@ export default function OrcamentoCentral() {
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={id => setActiveTab(id as OrcamentoTab)}
+      kpis={activeTab === 'overview' ? kpis : undefined}
       actions={[
         { label: 'Exportar', onClick: () => setExportOpen(true), variant: 'ghost' }
       ]}
@@ -207,6 +212,11 @@ export default function OrcamentoCentral() {
                   setCotacaoSearch('');
                   setActiveTab('cotacao');
                 }}
+                onGoCotacaoClasseA={() => {
+                  setCotacaoSearch('__classe_a__');
+                  setActiveTab('cotacao');
+                }}
+                onKpisReady={handleKpisReady}
               />
             </ErrorBoundary>
           )}
