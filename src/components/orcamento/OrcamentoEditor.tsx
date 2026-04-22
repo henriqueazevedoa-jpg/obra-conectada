@@ -395,6 +395,19 @@ export default function OrcamentoEditor({
   };
   const uncertainCount = Array.from(priceBadges.values()).filter(b => b === 'sinapi_uncertain').length;
 
+  // ── Bulk selection ────────────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const bulkActive = selectedIds.size > 0;
+
   // Templates de etapa (mantido para compatibilidade com JSX legado)
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [selectedTemplateCodes, setSelectedTemplateCodes] = useState<Set<string>>(new Set());
@@ -668,11 +681,40 @@ export default function OrcamentoEditor({
         {/* ── Toolbar de Ações ──────────────────────────────────────────── */}
         {!readOnly && (
           <div className="flex items-center gap-2 px-4 md:px-6 py-1.5 border-b bg-muted/20 shrink-0">
-            {/* 3B Nova etapa com hint de atalho */}
+            {/* ⚡ Orçamento Rápido — primeiro na toolbar */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button onClick={addEmptyEtapa} size="sm" className="gap-1.5 h-7 text-xs">
+                  <div className="relative hidden sm:block">
+                    {etapas.length > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-violet-500" />
+                      </span>
+                    )}
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="gap-1.5 h-7 text-xs bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white border-0 shadow-sm"
+                      onClick={() => handleOpenCatalogo()}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      Orçamento Rápido
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+                  <p className="font-semibold mb-1">⚡ Orçamento Rápido</p>
+                  <p className="text-muted-foreground leading-snug">Adicione composições, insumos e itens do SINAPI sem sair da planilha.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* + Nova etapa */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={addEmptyEtapa} variant="outline" size="sm" className="gap-1.5 h-7 text-xs">
                     <Plus className="w-3.5 h-3.5" />
                     Nova etapa
                   </Button>
@@ -683,7 +725,7 @@ export default function OrcamentoEditor({
               </Tooltip>
             </TooltipProvider>
 
-            {/* Expandir / Colapsar */}
+            {/* Abrir / Fechar todas */}
             {etapas.length > 0 && (
               <button
                 onClick={() => setAllExpanded(prev => prev === true ? false : true)}
@@ -696,8 +738,7 @@ export default function OrcamentoEditor({
               </button>
             )}
 
-
-            {/* Botão Colar do Excel */}
+            {/* Colar Excel */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -717,38 +758,6 @@ export default function OrcamentoEditor({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-
-            {/* Botão global do hub de orçamento rápido */}
-            {!readOnly && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="relative hidden sm:block">
-                      {/* Anel pulsante — chama atenção para o fluxo mais poderoso */}
-                      {etapas.length > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-violet-500" />
-                        </span>
-                      )}
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="gap-1.5 h-7 text-xs bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white border-0 shadow-sm"
-                        onClick={() => handleOpenCatalogo()}
-                      >
-                        <Zap className="w-3.5 h-3.5" />
-                        Orçamento Rápido
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-                    <p className="font-semibold mb-1">⚡ Orçamento Rápido</p>
-                    <p className="text-muted-foreground leading-snug">Adicione composicoes, insumos e itens do SINAPI de forma rápida sem sair da planilha. O fluxo mais eficiente para montar orçamentos completos.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
 
             {/* Menu "Mais" — ações secundárias */}
             <DropdownMenu>
@@ -901,10 +910,8 @@ export default function OrcamentoEditor({
         {/* ── Área de conteúdo ─────────────────────────────────────────────── */}
         <div className="flex-1 flex overflow-hidden">
 
-          {/* Lista de etapas */}
-          <div className={cn(
-            'flex-1 overflow-y-auto p-4 md:p-6 space-y-3 transition-all duration-300',
-          )}>
+          {/* Planilha plana — sem padding, sem space-y (linhas contíguas) */}
+          <div className="flex-1 overflow-y-auto relative">
 
             {/* ── Sprint 3.4: Banner de revisão SINAPI ? ── */}
             {uncertainCount > 0 && !bannerDismissed && (
@@ -1004,7 +1011,19 @@ export default function OrcamentoEditor({
                           <EtapaBlock
                             etapa={cat}
                             posicao={idx + 1}
-                            onChange={(c: OrcamentoEtapa) => updateEtapa(idx, c)}
+                            onChange={(updated: OrcamentoEtapa) => {
+                              // Handle duplicate via __duplicate flag
+                              const dup = (updated as OrcamentoEtapa & { __duplicate?: OrcamentoEtapa }).__duplicate;
+                              if (dup) {
+                                setEtapasWithUndo(prev => {
+                                  const next = [...prev];
+                                  next.splice(idx + 1, 0, dup);
+                                  return next;
+                                });
+                              } else {
+                                updateEtapa(idx, updated);
+                              }
+                            }}
                             onRemove={() => removeEtapa(idx)}
                             unidades={unidades}
                             generateComposicaoCodigo={generateComposicaoCodigo}
@@ -1015,11 +1034,12 @@ export default function OrcamentoEditor({
                             allEtapas={etapas}
                             dragListeners={dragListeners}
                             onOpenCatalogo={() => handleOpenCatalogo(cat)}
-                            compactMode={compactMode}
-                            densityMode={densityMode}
                             onGoCotacao={onGoCotacao}
                             priceSuggestionEnabled={priceSuggestionEnabled}
                             onPriceBadge={handlePriceBadge}
+                            selectedIds={selectedIds}
+                            onToggleSelect={toggleSelect}
+                            bulkActive={bulkActive}
                           />
                         )}
                       </SortableEtapaWrapper>
@@ -1037,13 +1057,33 @@ export default function OrcamentoEditor({
                 </DndContext>
 
                 {/* Rodapé totalizador */}
-                <div className="flex items-center justify-between px-4 py-3 rounded-xl border bg-muted/30">
+                <div className="flex items-center justify-between px-4 py-2.5 border-t bg-muted/20 sticky bottom-0">
                   <div>
-                    <div className="text-xs text-muted-foreground font-medium">Total Geral Previsto</div>
+                    <div className="text-xs text-muted-foreground font-medium">Total Geral</div>
                     <div className="text-[10px] text-muted-foreground">{etapas.length} etapa{etapas.length !== 1 ? 's' : ''}</div>
                   </div>
-                  <div className="text-lg font-bold text-foreground">{formatCurrency(totalGeral)}</div>
+                  <div className="text-base font-bold text-foreground tabular-nums">{formatCurrency(totalGeral)}</div>
                 </div>
+
+                {/* ── Bulk action toolbar ── */}
+                {selectedIds.size >= 2 && (
+                  <div className="sticky bottom-0 z-20 flex items-center gap-3 px-4 py-2 bg-primary text-primary-foreground border-t border-primary/60 animate-in slide-in-from-bottom-2 duration-200">
+                    <span className="text-xs font-semibold">{selectedIds.size} itens selecionados</span>
+                    <div className="flex-1" />
+                    <button
+                      className="text-xs font-medium px-2.5 py-1 rounded border border-primary-foreground/30 hover:bg-primary-foreground/10 transition-colors"
+                      onClick={() => { /* TODO: abrir ListaCotacaoPopover bulk */ }}
+                    >
+                      📋 Adicionar à lista
+                    </button>
+                    <button
+                      className="text-xs font-medium px-2.5 py-1 rounded border border-primary-foreground/30 hover:bg-primary-foreground/10 transition-colors"
+                      onClick={clearSelection}
+                    >
+                      ✕ Limpar
+                    </button>
+                  </div>
+                )}
               </>
             )}
         </div>

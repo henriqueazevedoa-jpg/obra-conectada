@@ -109,6 +109,44 @@ export default function CotacaoPublicaPage() {
         .eq('id', link.id);
 
       if (!error) {
+        // ── Gatilho 1: INSERT em preco_historico para cada item respondido ──
+        try {
+          // Buscar company_id da obra (necessário para RLS)
+          const { data: obraData } = await supabase
+            .from('obras')
+            .select('company_id')
+            .eq('id', link.obra_id)
+            .single();
+
+          const companyId = (obraData as { company_id: string } | null)?.company_id;
+          const dataRef = new Date().toISOString().split('T')[0];
+
+          const inserts = Object.entries(respostas).map(([key, preco]) => {
+            const item = link.itens?.find(i => i.key === key);
+            if (!item || preco <= 0) return null;
+            const descNorm = item.descricao.toLowerCase()
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return {
+              obra_id: link.obra_id,
+              company_id: companyId,
+              descricao_insumo: item.descricao,
+              descricao_normalizada: descNorm,
+              unidade: item.unidade,
+              fornecedor_nome: link.fornecedor_nome,
+              preco_unitario: preco,
+              origem: 'cotacao',
+              data_referencia: dataRef,
+            };
+          }).filter(Boolean);
+
+          if (inserts.length > 0) {
+            await supabase.from('preco_historico').insert(inserts as object[]);
+          }
+        } catch (histErr) {
+          // Não bloquear fluxo principal por falha no histórico
+          console.warn('[CotacaoPublica] preco_historico insert:', histErr);
+        }
+
         setPageState('success');
       }
     } finally {

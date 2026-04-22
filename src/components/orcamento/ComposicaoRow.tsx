@@ -1,117 +1,46 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { OrcamentoComposicao, OrcamentoInsumo } from '@/contexts/OrcamentoContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  Trash2,
-  Plus,
-  ChevronDown,
-  Layers,
-  Star,
-  Lock,
-  ListPlus,
-  Eye,
-  Sparkles,
-  X,
-  History,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Trash2, Plus, ChevronRight, Star, Search, ClipboardList,
+  MoreHorizontal, GripVertical, Lock,
 } from 'lucide-react';
 import InsumoRow from './InsumoRow';
 import { formatCurrency } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/untyped';
 import { toast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
 import { useCompany } from '@/contexts/CompanyContext';
-import { usePriceSuggestion, PriceBadge, PriceSuggestion } from '@/hooks/usePriceSuggestion';
+import SinapiPricePopover from './SinapiPricePopover';
+import ListaCotacaoPopover from './ListaCotacaoPopover';
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Exports mantidos para retrocompatibilidade com InsumoRow ──────────────────
 
-/** Semáforo de completude para composição simples (sem insumos) */
-function getComposicaoStatus(c: OrcamentoComposicao): 'empty' | 'partial' | 'complete' {
-  if (c.usaInsumos) return 'complete';
-  const hasQtd = c.quantidade != null && c.quantidade > 0;
-  const hasPrice = c.precoUnitario != null && c.precoUnitario > 0;
-  if (hasQtd && hasPrice) return 'complete';
-  if (hasQtd || hasPrice) return 'partial';
-  return 'empty';
-}
-
-const STATUS_DOT: Record<string, string> = {
-  empty: 'bg-red-500',
-  partial: 'bg-amber-400',
-  complete: 'bg-emerald-500',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  empty: 'Sem quantidade e sem preço',
-  partial: 'Falta preço ou quantidade',
-  complete: 'Linha completa',
-};
-
-/**
- * Title case para nomes vindos do SINAPI (armazenados em CAIXA ALTA).
- * Aplica-se apenas na camada de apresentação — sem alterar o valor do campo.
- * Preposições e artigos comuns ficam em minúsculo.
- */
-const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'a', 'o', 'as', 'os', 'em', 'no', 'na', 'nos', 'nas', 'por', 'para', 'com', 'ou']);
+export const COMPOSICAO_GRID =
+  'grid-cols-[20px_64px_minmax(0,1fr)_52px_72px_88px_88px_56px_28px_28px_28px]';
 
 export function toSinapiDisplayName(descricao: string): string {
   if (!descricao) return descricao;
-  return descricao
-    .toLowerCase()
-    .split(' ')
-    .map((word, idx) => {
-      if (idx === 0 || !LOWERCASE_WORDS.has(word)) {
-        return word.charAt(0).toUpperCase() + word.slice(1);
-      }
-      return word;
-    })
-    .join(' ');
+  const LOWER = new Set(['de','da','do','das','dos','e','a','o','as','os','em','no','na','nos','nas','por','para','com','ou']);
+  return descricao.toLowerCase().split(' ').map((w, i) =>
+    i === 0 || !LOWER.has(w) ? w.charAt(0).toUpperCase() + w.slice(1) : w
+  ).join(' ');
 }
 
-export const COMPOSICAO_GRID = 'grid-cols-[90px_minmax(0,1fr)_64px_84px_100px_100px_34px_34px]';
-
-// ── LockedField ────────────────────────────────────────────────────────────────
-
-/** Campo bloqueado com indicador visual de cadeado e tooltip */
-function LockedField({
-  value,
-  tooltip,
-  align = 'right',
-}: {
-  value: React.ReactNode;
-  tooltip: string;
-  align?: 'left' | 'right';
-}) {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            className={cn(
-              'h-8 text-xs px-2 flex items-center gap-1 text-muted-foreground cursor-not-allowed select-none bg-muted/30 rounded-md border border-dashed border-border/50',
-              align === 'right' && 'justify-end'
-            )}
-          >
-            <Lock className="h-2.5 w-2.5 shrink-0 opacity-60" />
-            <span>{value}</span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs max-w-52">
-          {tooltip}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+function normalizarDescricao(d: string) {
+  return d.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-// ── Props ──────────────────────────────────────────────────────────────────────
+// ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
   composicao: OrcamentoComposicao;
@@ -121,274 +50,169 @@ interface Props {
   generateInsumoCodigo: (compCode: string, existing: string[]) => string;
   obraId?: string;
   readOnly?: boolean;
-  /** Modo compacto: reduz padding vertical das linhas */
   compactMode?: boolean;
-  /** 3C: Callback para ir à aba Cotação filtrando este item */
   onGoCotacao?: (descricao: string) => void;
-  /** Sprint 3: sugestão de preços habilitada globalmente */
   priceSuggestionEnabled?: boolean;
-  /** Sprint 3: critério de preço histórico */
   priceCriterio?: string;
-  /** Sprint 3: callback quando badge de preço é definido (para o banner de revisão) */
-  onPriceBadge?: (composicaoId: string, badge: PriceBadge | null) => void;
+  onPriceBadge?: (composicaoId: string, badge: string | null) => void;
+  isNew?: boolean;
+  // Bulk
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  bulkActive?: boolean;
 }
 
-// ── Badge de preço ─────────────────────────────────────────────────────────────
-
-function PriceBadgeChip({ badge, score, fonte }: { badge: PriceBadge; score: number; fonte: string }) {
-  const config: Record<PriceBadge, { label: string; className: string }> = {
-    historico: { label: 'Histórico', className: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700' },
-    sinapi: { label: 'SINAPI', className: 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700' },
-    sinapi_uncertain: { label: 'SINAPI ?', className: 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700' },
-    sem_match: { label: 'Sem match', className: 'bg-muted text-muted-foreground border-border' },
-  };
-  const { label, className } = config[badge];
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-4 shrink-0 cursor-help', className)}>
-            {label}
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs max-w-52">
-          <p className="font-medium">{fonte}</p>
-          {badge !== 'sem_match' && <p className="text-muted-foreground">Confiança: {Math.round(score * 100)}%</p>}
-          {badge === 'sinapi_uncertain' && <p className="text-amber-500 mt-1">Score médio — recomendamos revisar o vínculo SINAPI</p>}
-          {badge === 'sem_match' && <p className="text-muted-foreground">Nenhum preço histórico ou SINAPI encontrado</p>}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ComposicaoRow({
-  composicao, unidades, onChange, onRemove, generateInsumoCodigo, obraId, readOnly,
-  compactMode = false,
-  onGoCotacao,
-  priceSuggestionEnabled = false,
-  priceCriterio = 'ultimo',
-  onPriceBadge,
+  composicao, unidades, onChange, onRemove, generateInsumoCodigo,
+  obraId, readOnly, onGoCotacao, priceSuggestionEnabled = false,
+  onPriceBadge, isNew = false,
+  isSelected = false, onToggleSelect, bulkActive = false,
 }: Props) {
-  // SINAPI: começa fechado por padrão (usuário raramente precisa ver insumos SINAPI)
   const isSinapi = composicao.fonteReferencia === 'SINAPI';
   const isInsumodireto = composicao.tipo === 'insumo_direto';
-  const [expanded, setExpanded] = useState(!isSinapi);
+  const [insumosExpanded, setInsumosExpanded] = useState(!isSinapi);
   const [showAllInsumos, setShowAllInsumos] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
+  const [lotesIds, setLotesIds] = useState<string[]>([]);
+
+  // onBlur local state
+  const [localPreco, setLocalPreco] = useState<string>(
+    composicao.precoUnitario != null ? String(composicao.precoUnitario) : ''
+  );
+  const [localQtd, setLocalQtd] = useState<string>(
+    composicao.quantidade != null ? String(composicao.quantidade) : ''
+  );
+
+  // Fonte badge
+  type FonteBadge = 'sinapi' | 'historico' | 'manual' | null;
+  const [fonteBadge, setFonteBadge] = useState<FonteBadge>(null);
+
   const { company } = useCompany();
 
-  // ── Sprint 3.1: Sugestão de insumos via IA ───────────────────────────────
-  interface InsumoSugerido { nome: string; unidade: string; coeficiente: number; checked: boolean; }
-  const [insumosSugeridos, setInsumosSugeridos] = useState<InsumoSugerido[]>([]);
-  const [loadingSugestao, setLoadingSugestao] = useState(false);
-  const [showSugestao, setShowSugestao] = useState(false);
-  const sugestaoFiredRef = useRef(false);
-
-  // ── Sprint 3.3: Badge de preço ───────────────────────────────────────────
-  const [priceSuggestion, setPriceSuggestion] = useState<PriceSuggestion | null>(null);
-  const [loadingPrice, setLoadingPrice] = useState(false);
-  const priceTriggeredRef = useRef(false);
-  const { suggest } = usePriceSuggestion(company?.id);
-
-  // Reset showAllInsumos quando a composição muda
-  useEffect(() => { setShowAllInsumos(false); }, [composicao.id]);
-
-  // ── Disparar sugestão de IA quando composição nova tem nome suficiente ──
+  // Sync localPreco quando composicao muda externamente
   useEffect(() => {
-    if (sugestaoFiredRef.current) return;
-    if (readOnly || isSinapi || isInsumodireto) return;
-    if (composicao.usaInsumos || composicao.insumos.length > 0) return;
-    const words = composicao.descricao.trim().split(/\s+/).filter(Boolean);
-    if (words.length < 3) return;
-    // Só para composições recem-criadas (sem preço e sem insumos)
-    if (composicao.precoUnitario != null) return;
-    sugestaoFiredRef.current = true;
-    fetchInsumosugestao(composicao.descricao);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [composicao.id]);
+    setLocalPreco(composicao.precoUnitario != null ? String(composicao.precoUnitario) : '');
+  }, [composicao.id, composicao.precoUnitario]);
 
-  // ── Disparar sugestão de preço ────────────────────────────────────────────
   useEffect(() => {
-    if (priceTriggeredRef.current) return;
-    if (!priceSuggestionEnabled) return;
-    if (readOnly || isSinapi) return;
-    if (composicao.precoUnitario != null && composicao.precoUnitario > 0) return;
-    const words = composicao.descricao.trim().split(/\s+/).filter(Boolean);
-    if (words.length < 2) return;
-    priceTriggeredRef.current = true;
-    fetchPriceSuggestion();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priceSuggestionEnabled, composicao.id]);
+    setLocalQtd(composicao.quantidade != null ? String(composicao.quantidade) : '');
+  }, [composicao.id, composicao.quantidade]);
 
-  const fetchInsumosugestao = async (nome: string) => {
-    setLoadingSugestao(true);
-    setShowSugestao(true);
-    try {
-      const { data: { session } } = await (supabase as any).auth.getSession();
-      const token = session?.access_token;
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-      const resp = await fetch(`${supabaseUrl}/functions/v1/suggest-insumos`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ nome }),
-      });
-      if (!resp.ok) throw new Error('Falha na API');
-      const json = await resp.json();
-      const items: InsumoSugerido[] = (json.insumos || []).map((i: any) => ({ ...i, checked: true }));
-      setInsumosSugeridos(items);
-    } catch (e) {
-      console.warn('[suggest-insumos]', e);
-      setShowSugestao(false);
-    } finally {
-      setLoadingSugestao(false);
-    }
-  };
-
-  const fetchPriceSuggestion = async () => {
-    if (!composicao.descricao.trim() || loadingPrice) return;
-    setLoadingPrice(true);
-    try {
-      const result = await suggest(composicao.descricao, priceCriterio);
-      setPriceSuggestion(result);
-      if (result && result.preco > 0 && (result.badge === 'historico' || result.badge === 'sinapi')) {
-        // Auto-fill preço
-        update('precoUnitario', result.preco);
-      }
-      onPriceBadge?.(composicao.id, result?.badge ?? null);
-    } catch (e) {
-      console.warn('[fetchPriceSuggestion]', e);
-    } finally {
-      setLoadingPrice(false);
-    }
-  };
-
-  const applyInsumosSugeridos = () => {
-    const checked = insumosSugeridos.filter(i => i.checked);
-    if (checked.length === 0) { setShowSugestao(false); return; }
-    const existingCodes = composicao.insumos.map(s => s.codigo);
-    const novosInsumos: OrcamentoInsumo[] = checked.map((item, idx) => ({
-      id: crypto.randomUUID(),
-      codigo: generateInsumoCodigo(composicao.codigo, [...existingCodes, ...checked.slice(0, idx).map((_, i) => `${composicao.codigo}.${i + 1}`)]),
-      descricao: item.nome,
-      unidade: item.unidade,
-      quantidade: item.coeficiente,
-      precoUnitario: null,
-      precoTotal: 0,
-    }));
-    const next: OrcamentoComposicao = {
-      ...composicao,
-      usaInsumos: true,
-      insumos: novosInsumos,
-    };
-    onChange(next);
-    setExpanded(true);
-    setShowSugestao(false);
-    toast({ title: `✨ ${novosInsumos.length} insumos adicionados`, description: 'Preencha os preços para completar a composição.' });
-  };
-
-  // ── Verificar favoritos ────────────────────────────────────────────────────
+  // Verificar favorito
   useEffect(() => {
     if (!composicao.descricao || !company?.id) return;
-    (supabase as any)
-      .from('catalogo_composicoes')
-      .select('id')
-      .eq('nome', composicao.descricao)
-      .eq('company_id', company.id)
-      .maybeSingle()
+    (supabase as any).from('catalogo_composicoes').select('id')
+      .eq('nome', composicao.descricao).eq('company_id', company.id).maybeSingle()
       .then(({ data }: { data: { id: string } | null }) => setIsFavorite(!!data));
   }, [composicao.descricao, company?.id]);
 
-  // ── Toggle Favoritar ───────────────────────────────────────────────────────
-  const handleToggleFavorita = async () => {
-    if (!obraId || savingFavorite || !company?.id) return;
-    setSavingFavorite(true);
-    try {
-      if (isFavorite) {
-        const { error } = await (supabase as any)
-          .from('catalogo_composicoes')
-          .delete()
-          .eq('nome', composicao.descricao)
-          .eq('company_id', company.id)
-          .eq('obra_origem_id', obraId);
-        if (error) throw error;
-        setIsFavorite(false);
-        toast({ title: 'Removida da biblioteca' });
-      } else {
-        const { error } = await (supabase as any).from('catalogo_composicoes').insert({
-          nome: composicao.descricao,
-          unidade: composicao.unidade,
-          preco_medio: composicao.precoUnitario,
-          company_id: company.id,
-          is_modelo: false,
-          origem: 'favorito',
-          obra_origem_id: obraId,
-        });
-        if (error) throw error;
-        setIsFavorite(true);
-        toast({ title: '⭐ Salva na Biblioteca!' });
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast({ title: 'Erro ao atualizar biblioteca', description: msg, variant: 'destructive' });
-    } finally {
-      setSavingFavorite(false);
-    }
-  };
-
-
-  // ── Insumo helpers ─────────────────────────────────────────────────────────
-  const makeInsumo = (): OrcamentoInsumo => {
-    const existingCodes = composicao.insumos.map(s => s.codigo);
-    return {
-      id: crypto.randomUUID(),
-      codigo: generateInsumoCodigo(composicao.codigo, existingCodes),
-      descricao: '',
-      unidade: composicao.unidade || '',
-      quantidade: null,
-      precoUnitario: null,
-      precoTotal: 0,
-    };
-  };
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   const recalcFromInsumos = (comp: OrcamentoComposicao) => {
     if (comp.usaInsumos) {
       comp.precoTotal = comp.insumos.reduce((s, si) => s + (Number(si.precoTotal) || 0), 0);
       comp.quantidade = comp.insumos.reduce((s, si) => s + (Number(si.quantidade) || 0), 0) || null;
       comp.precoUnitario = comp.quantidade && comp.quantidade > 0
-        ? comp.precoTotal / comp.quantidade
-        : null;
+        ? comp.precoTotal / comp.quantidade : null;
     }
   };
 
-  const update = (field: string, value: string | number | null | boolean) => {
-    const next = { ...composicao };
+  const update = useCallback((field: string, value: string | number | null | boolean) => {
+    const next = { ...composicao } as OrcamentoComposicao;
     (next as unknown as Record<string, unknown>)[field] = value;
     if (!next.usaInsumos) {
       if (field === 'quantidade' || field === 'precoUnitario') {
         if (next.quantidade && next.precoUnitario) next.precoTotal = next.quantidade * next.precoUnitario;
       }
-      if (field === 'precoTotal' && next.quantidade && next.quantidade > 0) {
-        next.precoUnitario = next.precoTotal / next.quantidade;
-      }
     } else {
       recalcFromInsumos(next);
     }
     onChange(next);
+  }, [composicao, onChange]);
+
+  const insertPrecoHistorico = useCallback(async (preco: number, origem: string) => {
+    if (!obraId || !company?.id || preco <= 0) return;
+    try {
+      await (supabase as any).from('preco_historico').insert({
+        obra_id: obraId,
+        company_id: company.id,
+        descricao_insumo: composicao.descricao,
+        descricao_normalizada: normalizarDescricao(composicao.descricao),
+        unidade: composicao.unidade,
+        preco_unitario: preco,
+        origem,
+        data_referencia: new Date().toISOString().split('T')[0],
+      });
+    } catch (e) {
+      console.warn('[ComposicaoRow] preco_historico:', e);
+    }
+  }, [obraId, company?.id, composicao.descricao, composicao.unidade]);
+
+  // onBlur preço
+  const handlePrecoBlur = () => {
+    const preco = localPreco ? parseFloat(localPreco) : null;
+    update('precoUnitario', preco);
+    if (preco && preco > 0) {
+      setFonteBadge('manual');
+      onPriceBadge?.(composicao.id, 'manual');
+      insertPrecoHistorico(preco, 'manual');
+    }
   };
+
+  // onBlur quantidade
+  const handleQtdBlur = () => {
+    const qtd = localQtd ? parseFloat(localQtd) : null;
+    update('quantidade', qtd);
+  };
+
+  // Quando SinapiPricePopover "Usar" é clicado
+  const handleUsarPreco = (preco: number, fonte: 'sinapi' | 'historico') => {
+    setLocalPreco(String(preco));
+    update('precoUnitario', preco);
+    setFonteBadge(fonte);
+    onPriceBadge?.(composicao.id, fonte);
+  };
+
+  // Navegação teclado Enter → linha abaixo / Shift+Enter → linha acima
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, field: 'preco' | 'qtd') => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // Move foco para próximo input na planilha (usando tabIndex natural)
+      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-planilha]'));
+      const idx = inputs.indexOf(e.currentTarget);
+      if (e.shiftKey) {
+        inputs[idx - 1]?.focus();
+      } else {
+        // Buscar mesmo campo (preco ou qtd) na linha abaixo
+        const dataField = e.currentTarget.getAttribute('data-field');
+        const rowId = e.currentTarget.getAttribute('data-rowid');
+        const allSameField = inputs.filter(i => i.getAttribute('data-field') === dataField);
+        const rowIdx = allSameField.indexOf(e.currentTarget);
+        allSameField[rowIdx + 1]?.focus();
+      }
+    }
+  };
+
+  // Insumos
+  const makeInsumo = (): OrcamentoInsumo => ({
+    id: crypto.randomUUID(),
+    codigo: generateInsumoCodigo(composicao.codigo, composicao.insumos.map(s => s.codigo)),
+    descricao: '',
+    unidade: composicao.unidade || '',
+    quantidade: null,
+    precoUnitario: null,
+    precoTotal: 0,
+  });
 
   const toggleInsumos = (val: boolean) => {
     const next = { ...composicao, usaInsumos: val };
     if (val && next.insumos.length === 0) next.insumos = [makeInsumo()];
     recalcFromInsumos(next);
     onChange(next);
-    if (val) setExpanded(true);
+    if (val) setInsumosExpanded(true);
   };
 
   const updateInsumo = (idx: number, si: OrcamentoInsumo) => {
@@ -404,539 +228,310 @@ export default function ComposicaoRow({
     onChange(next);
   };
 
-  const addInsumo = () => {
-    const next = { ...composicao, insumos: [...composicao.insumos, makeInsumo()] };
-    onChange(next);
+  const handleToggleFavorita = async () => {
+    if (!obraId || savingFavorite || !company?.id) return;
+    setSavingFavorite(true);
+    try {
+      if (isFavorite) {
+        await (supabase as any).from('catalogo_composicoes').delete()
+          .eq('nome', composicao.descricao).eq('company_id', company.id).eq('obra_origem_id', obraId);
+        setIsFavorite(false);
+        toast({ title: 'Removida da biblioteca' });
+      } else {
+        await (supabase as any).from('catalogo_composicoes').insert({
+          nome: composicao.descricao, unidade: composicao.unidade,
+          preco_medio: composicao.precoUnitario, company_id: company.id,
+          is_modelo: false, origem: 'favorito', obra_origem_id: obraId,
+        });
+        setIsFavorite(true);
+        toast({ title: '⭐ Salva na Biblioteca!' });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast({ title: 'Erro', description: msg, variant: 'destructive' });
+    } finally {
+      setSavingFavorite(false);
+    }
   };
 
-  // ── Display name (title case para SINAPI) ──────────────────────────────────
+  const hasInsumos = composicao.usaInsumos;
+  const isComputed = !readOnly && hasInsumos && !isSinapi;
+  const isFullReadOnly = readOnly;
   const displayDescricao = isSinapi ? toSinapiDisplayName(composicao.descricao) : composicao.descricao;
 
-  // ── Lock logic ─────────────────────────────────────────────────────────────
-  const hasInsumos = composicao.usaInsumos;
-  // Para SINAPI: todos os campos são read-only exceto quantidade
-  // Para composição com insumos: qtd/preço são computados
-  const sinapiFieldLocked = isSinapi;
-  const isComputed = !readOnly && hasInsumos && !isSinapi; // bloqueia por cálculo, mas não por SINAPI
-  const isFullReadOnly = readOnly;
-
-  // ── Colapso de insumos > 5 ─────────────────────────────────────────────────
   const INSUMO_LIMIT = 5;
-  const totalInsumos = composicao.insumos.length;
-  const insumosVisiveis = showAllInsumos
-    ? composicao.insumos
-    : composicao.insumos.slice(0, INSUMO_LIMIT);
-  const insumosOcultosValor = showAllInsumos
-    ? 0
-    : composicao.insumos.slice(INSUMO_LIMIT).reduce((s, i) => s + (Number(i.precoTotal) || 0), 0);
+  const insumosVisiveis = showAllInsumos ? composicao.insumos : composicao.insumos.slice(0, INSUMO_LIMIT);
+  const insumosOcultos = composicao.insumos.length - INSUMO_LIMIT;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const fonteBadgeConfig: Record<string, { label: string; cls: string }> = {
+    sinapi: { label: 'SINAPI', cls: 'border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-700 dark:text-blue-400' },
+    historico: { label: 'Hist.', cls: 'border-emerald-300 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400' },
+    manual: { label: 'Manual', cls: 'border-border text-muted-foreground' },
+  };
+
+  const showFonteBadge = fonteBadge && composicao.precoUnitario != null && composicao.precoUnitario > 0;
+  const lotesCount = lotesIds.length;
+
   return (
     <div className={cn(
-      'rounded-md border bg-background transition-all',
-      isSinapi
-        ? 'border-l-2 border-l-blue-300 dark:border-l-blue-700'
-        : composicao.usaInsumos
-          ? 'border-l-2 border-l-purple-300 dark:border-l-purple-700'
-          : 'border-l-2 border-l-transparent hover:border-l-primary/25 dark:hover:border-l-indigo-800'
+      'group/row border-b border-border/30 transition-colors',
+      isSelected ? 'bg-primary/8 dark:bg-indigo-950/20' : 'hover:bg-muted/10',
+      isNew && 'animate-in slide-in-from-top-1 fade-in duration-300',
+      isSinapi && 'border-l-2 border-l-blue-200 dark:border-l-blue-800',
     )}>
       {/* ── Linha principal ── */}
-      <div className={cn(`grid ${COMPOSICAO_GRID} gap-2 items-center px-2`, compactMode ? 'py-0.5' : 'py-1.5')}>
+      <div
+        className={cn(
+          `grid ${COMPOSICAO_GRID} items-center px-1 gap-1`,
+          isSinapi && 'bg-blue-50/20 dark:bg-blue-950/10',
+        )}
+        style={{ minHeight: '36px', height: '36px' }}
+      >
+        {/* Drag handle — hover only */}
+        <span className="flex items-center justify-center opacity-0 group-hover/row:opacity-40 hover:!opacity-80 cursor-grab active:cursor-grabbing transition-opacity text-muted-foreground">
+          <GripVertical className="h-3.5 w-3.5" />
+        </span>
 
-        {/* Código + Badge SINAPI + Semáforo */}
-        <div className="flex items-center gap-1 min-w-0">
-          {!hasInsumos && (
-            (() => {
-              const status = getComposicaoStatus(composicao);
-              const dot = (
-                <span className={cn(
-                  'h-2 w-2 rounded-full shrink-0 transition-colors',
-                  STATUS_DOT[status]
-                )} />
-              );
-              if (status !== 'complete' && onGoCotacao) {
-                return (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={() => onGoCotacao(composicao.descricao)}
-                          className="shrink-0 focus:outline-none"
-                          aria-label="Ir para Cotação"
-                        >
-                          {dot}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">
-                        {STATUS_LABEL[status]} — <strong>clique para ir à Cotação</strong>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                );
-              }
-              return (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      {dot}
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="text-xs">
-                      {STATUS_LABEL[status]}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
-            })()
+        {/* Código + chevron se tem insumos */}
+        <div className="flex items-center gap-0.5 min-w-0">
+          {hasInsumos && !isInsumodireto && (
+            <button
+              onClick={() => setInsumosExpanded(v => !v)}
+              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronRight className={cn('h-3 w-3 transition-transform', insumosExpanded && 'rotate-90')} />
+            </button>
           )}
-          <span className="text-xs font-mono text-muted-foreground truncate" title={composicao.codigo}>{composicao.codigo}</span>
-          {isSinapi && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-blue-400 text-blue-600 bg-blue-50 dark:bg-blue-950/30 shrink-0 cursor-help">
-                    SINAPI
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs max-w-48">
-                  <p className="font-medium">Importado da SINAPI</p>
-                  {composicao.ufReferencia && <p className="text-muted-foreground">UF: {composicao.ufReferencia}</p>}
-                  {composicao.regimeReferencia && <p className="text-muted-foreground">Regime: {composicao.regimeReferencia}</p>}
-                  {composicao.referenciaCompetencia && <p className="text-muted-foreground">Competência: {composicao.referenciaCompetencia}</p>}
-                  <p className="text-muted-foreground mt-1 italic">Apenas a quantidade é editável</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {isInsumodireto && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-slate-400 text-slate-600 bg-slate-50 dark:bg-slate-900/40 shrink-0 cursor-help">
-                    I
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs max-w-40">
-                  <p className="font-medium">Insumo direto</p>
-                  <p className="text-muted-foreground">Item simples — sem decomposição em insumos</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          <span className="text-[10px] font-mono text-muted-foreground truncate" title={composicao.codigo}>
+            {composicao.codigo}
+          </span>
         </div>
 
         {/* Descrição */}
-        {isFullReadOnly || sinapiFieldLocked ? (
-          <div className={cn(
-            'h-8 text-sm px-2 flex items-center font-medium overflow-hidden text-ellipsis whitespace-nowrap',
-            sinapiFieldLocked && 'text-foreground'
-          )}>
+        {isFullReadOnly || isSinapi ? (
+          <div className="text-xs px-1 truncate text-foreground font-medium" title={displayDescricao}>
             {displayDescricao}
           </div>
         ) : (
           <Input
             value={composicao.descricao}
-            onChange={(e) => update('descricao', e.target.value)}
-            className="h-8 text-sm px-2 font-medium"
+            onChange={e => update('descricao', e.target.value)}
+            className="h-7 text-xs px-1.5 bg-transparent border-transparent hover:border-input focus:border-input font-medium"
             placeholder="Descrição"
           />
         )}
 
         {/* Unidade */}
-        {isFullReadOnly || sinapiFieldLocked ? (
-          <div className="h-8 text-sm px-2 flex items-center text-muted-foreground">{composicao.unidade}</div>
-        ) : (
-          <div>
-            <Input
-              value={composicao.unidade}
-              onChange={(e) => update('unidade', e.target.value)}
-              className="h-8 text-sm px-2"
-              placeholder="Un"
-              list={`un-comp-${composicao.id}`}
-            />
-            <datalist id={`un-comp-${composicao.id}`}>
-              {unidades.map((u) => <option key={u} value={u} />)}
-            </datalist>
-          </div>
-        )}
-
-        {/* Quantidade — único campo editável para SINAPI */}
-        {isFullReadOnly || isComputed ? (
-          <LockedField
-            value={composicao.quantidade ?? '—'}
-            tooltip={isComputed ? 'Calculado como soma das quantidades dos insumos' : 'Campo somente leitura'}
-          />
+        {isFullReadOnly || isSinapi ? (
+          <div className="text-xs px-1 text-center text-muted-foreground">{composicao.unidade}</div>
         ) : (
           <Input
-            value={composicao.quantidade ?? ''}
-            onChange={(e) => update('quantidade', e.target.value ? parseFloat(e.target.value) : null)}
-            className="h-8 text-sm px-2 text-right"
-            placeholder="Qtd"
-            type="number"
+            value={composicao.unidade}
+            onChange={e => update('unidade', e.target.value)}
+            className="h-7 text-xs px-1 text-center bg-transparent border-transparent hover:border-input focus:border-input"
+            placeholder="Un"
+            list={`un-comp-${composicao.id}`}
           />
         )}
+        <datalist id={`un-comp-${composicao.id}`}>
+          {unidades.map(u => <option key={u} value={u} />)}
+        </datalist>
 
-        {/* P. Unit + badge de preço + botão ✨ */}
-        {isFullReadOnly || isComputed || sinapiFieldLocked ? (
-          <LockedField
-            value={composicao.precoUnitario != null ? formatCurrency(composicao.precoUnitario) : '—'}
-            tooltip={
-              isComputed
-                ? 'Calculado: Preço Total ÷ Quantidade'
-                : sinapiFieldLocked
-                  ? 'Referência SINAPI — não editável'
-                  : 'Campo somente leitura'
-            }
-          />
+        {/* Quantidade */}
+        {isFullReadOnly || isComputed ? (
+          <div className="text-xs px-1 text-right text-muted-foreground">{composicao.quantidade ?? '—'}</div>
         ) : (
-          <div className="flex flex-col gap-0.5">
-            <div className="relative">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">R$</span>
-              <Input
-                value={composicao.precoUnitario ?? ''}
-                onChange={(e) => update('precoUnitario', e.target.value ? parseFloat(e.target.value) : null)}
-                className="h-8 text-sm pl-6 pr-1 text-right"
-                placeholder="0,00"
-                type="number"
-              />
-            </div>
-            {/* Badge de fonte de preço */}
-            {priceSuggestion && priceSuggestion.badge && (
-              <PriceBadgeChip badge={priceSuggestion.badge} score={priceSuggestion.score} fonte={priceSuggestion.fonte} />
-            )}
-            {/* Botão ✨ manual (sem preço, sem suggestion ativa) */}
-            {!priceSuggestion && !loadingPrice && priceSuggestionEnabled && (composicao.precoUnitario == null || composicao.precoUnitario === 0) && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => { priceTriggeredRef.current = false; fetchPriceSuggestion(); }}
-                      className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-amber-500 transition-colors"
-                    >
-                      <Sparkles className="h-3 w-3" /> Sugerir
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="text-xs">Buscar preço no histórico ou SINAPI</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {loadingPrice && <span className="text-[10px] text-muted-foreground animate-pulse">buscando...</span>}
-          </div>
+          <input
+            type="number"
+            value={localQtd}
+            onChange={e => setLocalQtd(e.target.value)}
+            onBlur={handleQtdBlur}
+            onKeyDown={e => handleKeyDown(e, 'qtd')}
+            data-planilha="1"
+            data-field="qtd"
+            data-rowid={composicao.id}
+            placeholder="Qtd"
+            className="h-7 w-full text-xs px-1.5 text-right bg-transparent border border-transparent hover:border-input focus:border-input focus:outline-none rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
         )}
 
-        {/* P. Total */}
-        {isFullReadOnly || isComputed || sinapiFieldLocked ? (
-          <LockedField
-            value={formatCurrency(composicao.precoTotal)}
-            tooltip={
-              isComputed
-                ? 'Soma de todos os insumos'
-                : sinapiFieldLocked
-                  ? 'Referência SINAPI — editável via quantidade'
-                  : 'Campo somente leitura'
-            }
-          />
+        {/* Preço unitário */}
+        {isFullReadOnly || isComputed || isSinapi ? (
+          <div className="flex items-center justify-end gap-1 text-xs px-1 text-muted-foreground">
+            {isSinapi && <Lock className="h-2.5 w-2.5 shrink-0 opacity-50" />}
+            {composicao.precoUnitario != null ? formatCurrency(composicao.precoUnitario) : '—'}
+          </div>
         ) : (
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">R$</span>
-            <Input
-              value={composicao.precoTotal || ''}
-              onChange={(e) => update('precoTotal', parseFloat(e.target.value) || 0)}
-              className="h-8 text-sm pl-6 pr-1 text-right font-medium"
-              placeholder="0,00"
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">R$</span>
+            <input
               type="number"
+              value={localPreco}
+              onChange={e => setLocalPreco(e.target.value)}
+              onBlur={handlePrecoBlur}
+              onKeyDown={e => handleKeyDown(e, 'preco')}
+              data-planilha="1"
+              data-field="preco"
+              data-rowid={composicao.id}
+              placeholder="0,00"
+              className="h-7 w-full text-xs pl-5 pr-1 text-right bg-transparent border border-transparent hover:border-input focus:border-input focus:outline-none rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
         )}
 
-        {/* ⭐ Favoritar toggle */}
-        {!readOnly ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleToggleFavorita}
-                  disabled={savingFavorite}
-                  className={cn(
-                    'h-8 w-8 transition-colors',
-                    isFavorite
-                      ? 'text-amber-500 hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30'
-                      : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30'
-                  )}
-                >
-                  <Star className={cn('h-3.5 w-3.5 transition-all', isFavorite && 'fill-current')} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                {isFavorite ? 'Remover do catálogo pessoal' : 'Salvar no catálogo pessoal'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : <div />}
-
-        {/* Excluir */}
-        {!readOnly ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onRemove}
-            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        ) : <div />}
-      </div>
-
-      {/* ── Painel de sugestão de insumos via IA ── */}
-      {showSugestao && (
-        <div className="mx-2 mb-1 mt-1 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-3 animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                {loadingSugestao ? 'Gerando sugestão de insumos...' : 'Insumos sugeridos — confirme ou ajuste:'}
-              </span>
-            </div>
-            <button type="button" onClick={() => setShowSugestao(false)} className="text-muted-foreground hover:text-foreground">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {loadingSugestao ? (
-            <div className="space-y-1.5">
-              {[1, 2, 3].map(i => <div key={i} className="h-5 rounded bg-amber-200/50 dark:bg-amber-800/30 animate-pulse" />)}
-            </div>
-          ) : (
-            <>
-              <div className="space-y-1 mb-3">
-                {insumosSugeridos.map((item, idx) => (
-                  <label key={idx} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-amber-100/50 dark:hover:bg-amber-900/20 rounded px-1 py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={item.checked}
-                      onChange={e => setInsumosSugeridos(prev => prev.map((it, i) => i === idx ? { ...it, checked: e.target.checked } : it))}
-                      className="rounded border-amber-400"
-                    />
-                    <span className="flex-1 font-medium text-foreground">{item.nome}</span>
-                    <span className="text-muted-foreground tabular-nums">{item.unidade}</span>
-                    <span className="text-muted-foreground tabular-nums w-12 text-right">{item.coeficiente}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  className="h-7 text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
-                  onClick={applyInsumosSugeridos}
-                  disabled={!insumosSugeridos.some(i => i.checked)}
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Usar esses insumos
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={() => { setShowSugestao(false); if (!composicao.usaInsumos) toggleInsumos(true); }}
-                >
-                  Criar do zero
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── Barra inferior: toggle insumos + expandir — oculta para insumo_direto ── */}
-      {!isInsumodireto && (
-      <div className="flex items-center gap-3 px-3 pb-1.5 pt-1 border-t border-border/20 bg-muted/5 rounded-b-md">
-
-        {/* SINAPI: "Ver insumos (N)" em modo leitura */}
-        {isSinapi && hasInsumos && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => setExpanded(v => !v)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  Ver insumos ({totalInsumos})
-                  <ChevronDown className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {expanded ? 'Recolher lista de insumos' : 'Visualizar insumos desta composição SINAPI (somente leitura)'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* Composição própria: "Detalhar em insumos" */}
-        {!isSinapi && !readOnly && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!hasInsumos) {
-                      toggleInsumos(true);
-                    } else {
-                      setExpanded(v => !v);
-                    }
-                  }}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border',
-                    hasInsumos
-                      ? 'border-primary/40 bg-primary/5 text-primary hover:bg-primary/10'
-                      : 'border-border/50 text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/20'
-                  )}
-                >
-                  <ListPlus className="h-3.5 w-3.5" />
-                  {hasInsumos ? (
-                    <>
-                      {totalInsumos} insumo{totalInsumos !== 1 ? 's' : ''}
-                      <ChevronDown className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')} />
-                    </>
-                  ) : (
-                    'Detalhar em insumos'
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {hasInsumos
-                  ? (expanded ? 'Recolher lista de insumos' : 'Ver e editar insumos desta composição')
-                  : 'Ativar detalhamento por insumos (mão de obra, materiais, etc.)'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* Remover detalhamento (composições próprias) */}
-        {hasInsumos && expanded && !readOnly && !isSinapi && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => toggleInsumos(false)}
-                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors ml-auto"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Remover insumos
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                Remover o detalhamento por insumos e editar o preço diretamente
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* ReadOnly: contador de insumos (composições próprias) */}
-        {readOnly && hasInsumos && !isSinapi && (
-          <button
-            type="button"
-            onClick={() => setExpanded(v => !v)}
-            className="flex items-center gap-1.5 text-[11px] text-primary hover:underline"
-          >
-            <Layers className="h-3 w-3" />
-            {totalInsumos} insumo{totalInsumos !== 1 ? 's' : ''}
-            <ChevronDown className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')} />
-          </button>
-        )}
-      </div>
-      )}
-
-      {/* ── Painel de insumos ── */}
-      {hasInsumos && expanded && (
+        {/* Preço total */}
         <div className={cn(
-          'mx-2 mb-2 mt-1 rounded border border-border/50 bg-background animate-in fade-in slide-in-from-top-1 duration-200 shadow-inner',
-          isSinapi && 'bg-muted/20'
+          'text-xs px-1 text-right font-semibold tabular-nums',
+          composicao.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground'
         )}>
-          <div className={`grid ${COMPOSICAO_GRID} gap-2 items-center px-3 py-2 bg-muted/30 border-b border-border/50 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider`}>
-            <span>Código</span>
-            <span>Insumo / Descrição</span>
-            <span>Un</span>
-            <span className="text-right">Qtd</span>
-            <span className="text-right">P. Unit</span>
-            <span className="text-right">P. Total</span>
-            <span />
-            <span />
-          </div>
+          {formatCurrency(composicao.precoTotal)}
+        </div>
 
-          <div className="divide-y divide-border/30">
-            {composicao.insumos.length === 0 ? (
-              <div className="py-6 text-center bg-muted/10">
-                <p className="text-xs text-muted-foreground mb-2">Nenhum insumo cadastrado.</p>
-                {!readOnly && !isSinapi && (
-                  <Button variant="outline" size="sm" onClick={addInsumo} className="h-7 text-xs">
-                    <Plus className="h-3 w-3 mr-1" /> Adicionar Primeiro Insumo
-                  </Button>
-                )}
-              </div>
-            ) : (
-              // Colapso: mostra apenas os primeiros INSUMO_LIMIT
-              insumosVisiveis.map((si, idx) => (
-                <InsumoRow
-                  key={si.id}
-                  insumo={si}
-                  unidades={unidades}
-                  onChange={(s) => updateInsumo(idx, s)}
-                  onRemove={() => removeInsumo(idx)}
-                  obraId={obraId}
-                  readOnly={readOnly || isSinapi}
-                />
-              ))
-            )}
-          </div>
+        {/* Badge fonte / lista */}
+        <div className="flex items-center justify-center">
+          {lotesCount > 0 ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-[9px] px-1 py-0.5 rounded border border-primary/30 text-primary bg-primary/5 font-medium cursor-default truncate max-w-full">
+                    📋 {lotesCount > 1 ? `${lotesCount} listas` : 'lista'}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">Em {lotesCount} lista{lotesCount > 1 ? 's' : ''} de cotação</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : showFonteBadge && fonteBadge ? (
+            <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-4 shrink-0', fonteBadgeConfig[fonteBadge]?.cls)}>
+              {fonteBadgeConfig[fonteBadge]?.label}
+            </Badge>
+          ) : null}
+        </div>
 
-          {/* "Ver mais N insumos · R$ X" */}
-          {!showAllInsumos && totalInsumos > INSUMO_LIMIT && (
+        {/* Botão 🔍 SINAPI */}
+        {!readOnly && (
+          <TooltipProvider>
+            <Tooltip>
+              <SinapiPricePopover
+                descricao={composicao.descricao}
+                unidade={composicao.unidade}
+                isInsumo={isInsumodireto || (hasInsumos && composicao.insumos.length > 0)}
+                obraId={obraId}
+                onUsar={handleUsarPreco}
+              >
+                <TooltipTrigger asChild>
+                  <button className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors opacity-0 group-hover/row:opacity-100">
+                    <Search className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+              </SinapiPricePopover>
+              <TooltipContent side="top" className="text-xs">Buscar preço no SINAPI ou histórico</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Botão 📋 Lista */}
+        {!readOnly && (
+          <TooltipProvider>
+            <Tooltip>
+              <ListaCotacaoPopover
+                composicaoId={composicao.id}
+                descricao={composicao.descricao}
+                unidade={composicao.unidade}
+                qtd={composicao.quantidade}
+                precoTotal={composicao.precoTotal}
+                obraId={obraId}
+                onListasChange={setLotesIds}
+                addedLotesIds={lotesIds}
+              >
+                <TooltipTrigger asChild>
+                  <button className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors opacity-0 group-hover/row:opacity-100">
+                    <ClipboardList className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+              </ListaCotacaoPopover>
+              <TooltipContent side="top" className="text-xs">Adicionar a lista de cotação</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Menu ⋯ */}
+        {!readOnly ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors opacity-0 group-hover/row:opacity-100">
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44 text-xs">
+              {!isInsumodireto && (
+                <DropdownMenuItem className="text-xs gap-2" onClick={() => toggleInsumos(!hasInsumos)}>
+                  {hasInsumos ? 'Remover insumos' : 'Detalhar em insumos'}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem className="text-xs gap-2" onClick={handleToggleFavorita} disabled={savingFavorite}>
+                <Star className={cn('h-3 w-3', isFavorite && 'fill-amber-500 text-amber-500')} />
+                {isFavorite ? 'Remover da biblioteca' : 'Salvar na biblioteca'}
+              </DropdownMenuItem>
+              {onGoCotacao && (
+                <DropdownMenuItem className="text-xs gap-2" onClick={() => onGoCotacao(composicao.descricao)}>
+                  Ir para Cotação
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs gap-2 text-destructive focus:text-destructive" onClick={onRemove}>
+                <Trash2 className="h-3 w-3" />
+                Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : <div />}
+      </div>
+
+      {/* ── Insumos (sub-linhas com indent 24px) ── */}
+      {hasInsumos && insumosExpanded && !isInsumodireto && (
+        <div className="pl-6 bg-muted/5 border-t border-border/20">
+          {insumosVisiveis.map((si, idx) => (
+            <InsumoRow
+              key={si.id}
+              insumo={si}
+              unidades={unidades}
+              onChange={s => updateInsumo(idx, s)}
+              onRemove={() => removeInsumo(idx)}
+              obraId={obraId}
+              readOnly={readOnly || isSinapi}
+            />
+          ))}
+          {insumosOcultos > 0 && !showAllInsumos && (
             <button
-              type="button"
               onClick={() => setShowAllInsumos(true)}
-              className="w-full px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors border-t border-border/40 flex items-center gap-1.5"
+              className="w-full text-center py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ver mais ({insumosOcultos}) ↓
+            </button>
+          )}
+          {!readOnly && !isSinapi && (
+            <button
+              onClick={() => { const next = { ...composicao, insumos: [...composicao.insumos, makeInsumo()] }; onChange(next); }}
+              className="flex items-center gap-1 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors"
             >
               <Plus className="h-3 w-3" />
-              + {totalInsumos - INSUMO_LIMIT} insumos
-              {insumosOcultosValor > 0 && (
-                <span className="ml-1 text-muted-foreground/70">· {formatCurrency(insumosOcultosValor)}</span>
-              )}
-              <ChevronDown className="h-3 w-3 ml-auto" />
+              Adicionar insumo
             </button>
-          )}
-          {showAllInsumos && totalInsumos > INSUMO_LIMIT && (
-            <button
-              type="button"
-              onClick={() => setShowAllInsumos(false)}
-              className="w-full px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors border-t border-border/40 flex items-center gap-1.5"
-            >
-              <ChevronDown className="h-3 w-3 rotate-180" />
-              Recolher insumos
-            </button>
-          )}
-
-          {!readOnly && !isSinapi && composicao.insumos.length > 0 && (
-            <div className="px-3 py-2 border-t border-border/40 bg-muted/10">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={addInsumo}
-                className="h-7 text-xs gap-1 text-primary hover:bg-primary/10"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Adicionar insumo
-              </Button>
-            </div>
           )}
         </div>
       )}
     </div>
   );
+
+  function makeInsumo(): OrcamentoInsumo {
+    return {
+      id: crypto.randomUUID(),
+      codigo: generateInsumoCodigo(composicao.codigo, composicao.insumos.map(s => s.codigo)),
+      descricao: '',
+      unidade: composicao.unidade || '',
+      quantidade: null,
+      precoUnitario: null,
+      precoTotal: 0,
+    };
+  }
 }

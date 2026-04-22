@@ -1,0 +1,264 @@
+import { useState, useEffect } from 'react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { ClipboardList, Plus, X, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/untyped';
+import { useCompany } from '@/contexts/CompanyContext';
+import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+interface Lote {
+  id: string;
+  titulo: string;
+  itemCount: number;
+  isAdded: boolean;
+}
+
+interface Props {
+  composicaoId: string;
+  descricao: string;
+  unidade: string;
+  qtd: number | null;
+  precoTotal: number;
+  obraId?: string;
+  children: React.ReactNode;
+  /** Callback quando lista muda (para atualizar o badge na linha) */
+  onListasChange?: (lotesIds: string[]) => void;
+  /** IDs das listas em que o item já está */
+  addedLotesIds?: string[];
+}
+
+export default function ListaCotacaoPopover({
+  composicaoId,
+  descricao,
+  obraId,
+  children,
+  onListasChange,
+  addedLotesIds = [],
+}: Props) {
+  const [open, setOpen] = useState(false);
+  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [novaLista, setNovaLista] = useState('');
+  const [criando, setCriando] = useState(false);
+  const { company } = useCompany();
+
+  const carregarLotes = async () => {
+    if (!obraId || !company?.id) return;
+    setLoading(true);
+    try {
+      // Buscar lotes da obra
+      const { data: lotesData } = await (supabase as any)
+        .from('cotacao_lotes')
+        .select('id, titulo')
+        .eq('obra_id', obraId)
+        .eq('company_id', company.id)
+        .order('created_at', { ascending: false });
+
+      if (!lotesData) { setLotes([]); return; }
+
+      // Buscar itens de cada lote que correspondem a esta composição
+      const { data: itensData } = await (supabase as any)
+        .from('cotacao_lote_itens')
+        .select('lote_id')
+        .eq('item_origem_id', composicaoId);
+
+      const addedLoteIdsSet = new Set([
+        ...(itensData || []).map((i: { lote_id: string }) => i.lote_id),
+        ...addedLotesIds,
+      ]);
+
+      // Contar itens por lote
+      const { data: contagemData } = await (supabase as any)
+        .from('cotacao_lote_itens')
+        .select('lote_id');
+
+      const counts = (contagemData || []).reduce((acc: Record<string, number>, i: { lote_id: string }) => {
+        acc[i.lote_id] = (acc[i.lote_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      setLotes(
+        lotesData.map((l: { id: string; titulo: string }) => ({
+          id: l.id,
+          titulo: l.titulo,
+          itemCount: counts[l.id] || 0,
+          isAdded: addedLoteIdsSet.has(l.id),
+        }))
+      );
+    } catch (e) {
+      console.warn('[ListaCotacaoPopover]', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) carregarLotes();
+  }, [open]);
+
+  const handleAdicionar = async (loteId: string) => {
+    try {
+      await (supabase as any).from('cotacao_lote_itens').insert({
+        lote_id: loteId,
+        item_origem_id: composicaoId,
+      });
+
+      setLotes(prev => prev.map(l =>
+        l.id === loteId ? { ...l, isAdded: true, itemCount: l.itemCount + 1 } : l
+      ));
+
+      const addedIds = lotes.filter(l => l.isAdded || l.id === loteId).map(l => l.id);
+      onListasChange?.(addedIds);
+      toast({ title: `Adicionado à lista "${lotes.find(l => l.id === loteId)?.titulo}"` });
+    } catch (e) {
+      console.warn('[ListaCotacaoPopover] adicionar:', e);
+    }
+  };
+
+  const handleRemover = async (loteId: string) => {
+    try {
+      await (supabase as any)
+        .from('cotacao_lote_itens')
+        .delete()
+        .eq('lote_id', loteId)
+        .eq('item_origem_id', composicaoId);
+
+      setLotes(prev => prev.map(l =>
+        l.id === loteId ? { ...l, isAdded: false, itemCount: Math.max(0, l.itemCount - 1) } : l
+      ));
+
+      const addedIds = lotes.filter(l => l.isAdded && l.id !== loteId).map(l => l.id);
+      onListasChange?.(addedIds);
+    } catch (e) {
+      console.warn('[ListaCotacaoPopover] remover:', e);
+    }
+  };
+
+  const handleCriarLista = async () => {
+    const titulo = novaLista.trim();
+    if (!titulo || !obraId || !company?.id) return;
+
+    setCriando(true);
+    try {
+      const { data: novoLote } = await (supabase as any)
+        .from('cotacao_lotes')
+        .insert({ titulo, obra_id: obraId, company_id: company.id, status: 'aberto' })
+        .select('id, titulo')
+        .single();
+
+      if (novoLote) {
+        // Adicionar item automaticamente à nova lista
+        await (supabase as any).from('cotacao_lote_itens').insert({
+          lote_id: novoLote.id,
+          item_origem_id: composicaoId,
+        });
+
+        setLotes(prev => [{
+          id: novoLote.id,
+          titulo: novoLote.titulo,
+          itemCount: 1,
+          isAdded: true,
+        }, ...prev]);
+
+        onListasChange?.([novoLote.id, ...lotes.filter(l => l.isAdded).map(l => l.id)]);
+        toast({ title: `Lista "${titulo}" criada e item adicionado` });
+        setNovaLista('');
+      }
+    } catch (e) {
+      console.warn('[ListaCotacaoPopover] criar:', e);
+    } finally {
+      setCriando(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent
+        className="w-72 p-0 shadow-xl"
+        align="start"
+        side="bottom"
+        sideOffset={4}
+        onInteractOutside={() => setOpen(false)}
+      >
+        {/* Header */}
+        <div className="px-3 py-2.5 border-b">
+          <p className="text-xs font-semibold text-foreground">Adicionar à lista de cotação</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{descricao}</p>
+        </div>
+
+        {/* Listas */}
+        <div className="max-h-52 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : lotes.length === 0 ? (
+            <div className="px-3 py-3 text-xs text-muted-foreground text-center">
+              Nenhuma lista criada ainda
+            </div>
+          ) : (
+            lotes.map(lote => (
+              <div
+                key={lote.id}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 border-b border-border/20 last:border-0 transition-colors',
+                  lote.isAdded ? 'bg-primary/5' : 'hover:bg-muted/20'
+                )}
+              >
+                <ClipboardList className={cn(
+                  'h-3.5 w-3.5 shrink-0',
+                  lote.isAdded ? 'text-primary' : 'text-muted-foreground'
+                )} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">{lote.titulo}</p>
+                  <p className="text-[10px] text-muted-foreground">{lote.itemCount} item{lote.itemCount !== 1 ? 's' : ''}</p>
+                </div>
+                <button
+                  onClick={() => lote.isAdded ? handleRemover(lote.id) : handleAdicionar(lote.id)}
+                  className={cn(
+                    'h-6 w-6 flex items-center justify-center rounded border text-xs transition-all shrink-0',
+                    lote.isAdded
+                      ? 'border-destructive/30 text-destructive hover:bg-destructive/10'
+                      : 'border-primary/30 text-primary hover:bg-primary/10'
+                  )}
+                  title={lote.isAdded ? 'Remover da lista' : 'Adicionar à lista'}
+                >
+                  {lote.isAdded ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Criar nova lista */}
+        <div className="px-3 py-2.5 border-t bg-muted/10">
+          <div className="flex items-center gap-2">
+            <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <input
+              value={novaLista}
+              onChange={e => setNovaLista(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleCriarLista(); }}
+              placeholder="Criar nova lista..."
+              className="flex-1 text-xs bg-transparent border-none outline-none placeholder:text-muted-foreground"
+              disabled={criando}
+            />
+            {novaLista.trim() && (
+              <button
+                onClick={handleCriarLista}
+                disabled={criando}
+                className="text-[10px] font-semibold text-primary hover:underline shrink-0 disabled:opacity-50"
+              >
+                {criando ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Criar'}
+              </button>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
