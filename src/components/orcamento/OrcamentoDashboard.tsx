@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useOrcamento, OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import {
   AlertTriangle, CheckCircle2, X,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PageKPI } from '@/components/layout/PageShell';
+import { classificarCurvaABC, AbcSource } from '@/lib/curvaABC';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -249,43 +250,7 @@ function CurvaABC({ etapas, onGoCotacaoClasseA }: CurvaABCProps) {
   const [abcSource, setAbcSource] = useState<AbcSource>('todos');
   const [abcView, setAbcView] = useState<AbcView>('chart');
 
-  const dados = useMemo(() => {
-    const itens: { descricao: string; valor: number; fonte: AbcSource }[] = [];
-
-    for (const etapa of etapas) {
-      for (const comp of etapa.composicoes || []) {
-        if (comp.usaInsumos && comp.insumos?.length) {
-          for (const ins of comp.insumos) {
-            if (ins.precoTotal > 0) {
-              itens.push({ descricao: ins.descricao || ins.codigo, valor: ins.precoTotal, fonte: 'insumos' });
-            }
-          }
-        } else if (comp.precoTotal > 0) {
-          itens.push({ descricao: comp.descricao || comp.codigo, valor: comp.precoTotal, fonte: 'composicoes' });
-        }
-      }
-    }
-
-    const filtrados = abcSource === 'todos' ? itens : itens.filter(i => i.fonte === abcSource);
-    filtrados.sort((a, b) => b.valor - a.valor);
-    const total = filtrados.reduce((s, i) => s + i.valor, 0);
-
-    let acumulado = 0;
-    return filtrados.map((item, idx) => {
-      acumulado += item.valor;
-      const pct = total > 0 ? (acumulado / total) * 100 : 0;
-      const classe = pct <= 80 ? 'A' : pct <= 95 ? 'B' : 'C';
-      return {
-        rank: idx + 1,
-        descricao: item.descricao,
-        valor: item.valor,
-        pctItem: total > 0 ? (item.valor / total) * 100 : 0,
-        pctAcumulado: parseFloat(pct.toFixed(1)),
-        classe,
-        fonte: item.fonte,
-      };
-    });
-  }, [etapas, abcSource]);
+  const dados = useMemo(() => classificarCurvaABC(etapas, abcSource), [etapas, abcSource]);
 
   const countA = dados.filter(d => d.classe === 'A').length;
   const countB = dados.filter(d => d.classe === 'B').length;
@@ -549,10 +514,12 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
     return { totalGeral, totalInsumos, insumosSemPreco, totalComposicoes, cotadoPct };
   }, [etapas]);
 
-  // ── Emitir KPIs para o PageShell ──────────────────────────────────────────
+  const prevKpisRef = useRef<string>('');
+
+  // ── Emitir KPIs para o PageShell — com estabilização via ref ──────────────
   useEffect(() => {
     if (!onKpisReady) return;
-    onKpisReady([
+    const nextKpis: PageKPI[] = [
       {
         id: 'total',
         label: 'Total Previsto',
@@ -585,7 +552,12 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
         valueColor: '#475569',
         labelColor: '#94a3b8',
       },
-    ]);
+    ];
+    // Só emitir se os valores mudaram de fato
+    const sig = JSON.stringify(nextKpis.map(k => [k.id, k.value]));
+    if (sig === prevKpisRef.current) return;
+    prevKpisRef.current = sig;
+    onKpisReady(nextKpis);
   }, [stats, onKpisReady]);
 
   return (

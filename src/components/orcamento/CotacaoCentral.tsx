@@ -43,6 +43,7 @@ import { usePrecoHistorico, ModoSugestao } from '@/hooks/usePrecoHistorico';
 import { normalizeText } from '@/lib/normalizeText';
 import { useCotacaoListas } from '@/hooks/useCotacaoListas';
 import { PageKPI } from '@/components/layout/PageShell';
+import { getClasseAKeys } from '@/lib/curvaABC';
 
 interface CotacaoCentralProps {
   obra: { id: string; nome: string };
@@ -270,7 +271,7 @@ export default function CotacaoCentral({
   const { categorias, getCategoriaByCode, pertenceAEspecialidade } = useCotacaoCategorias();
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
-  const [search, setSearch] = useState(initialSearch);
+  const [search, setSearch] = useState(initialSearch === '__classe_a__' ? '' : initialSearch);
   const [etapaFilter, setEtapaFilter] = useState<string>('todas');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('excluir_sinapi');
   // Prompt 2 — 3 toggles opt-in (por padrão oculta SINAPI, itens com preço e composições sem detalhe)
@@ -279,14 +280,23 @@ export default function CotacaoCentral({
   const [incluirSemDetalhe, setIncluirSemDetalhe] = useState(false);
   // Filtro por especialidade de um fornecedor específico do mapa
   const [filtroRelevante, setFiltroRelevante] = useState<string | null>(null);
+  // Filtro Classe A — ativado quando initialSearch === '__classe_a__'
+  const [filtroClasseA, setFiltroClasseA] = useState(initialSearch === '__classe_a__');
 
   // 3C: Sincroniza busca quando initialSearch muda (semáforo clicado na planilha)
+  // Detecta a flag especial '__classe_a__' que filtra itens Classe A da Curva ABC
   useEffect(() => {
-    if (initialSearch && contexto === 'orcamento') {
-      setSearch(initialSearch);
+    if (!initialSearch || contexto !== 'orcamento') return;
+    if (initialSearch === '__classe_a__') {
+      setFiltroClasseA(true);
+      setSearch('');         // busca textual limpa
       setView('comparativo');
-      onClearInitialSearch?.();
+    } else {
+      setSearch(initialSearch);
+      setFiltroClasseA(false);
+      setView('comparativo');
     }
+    onClearInitialSearch?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSearch, contexto]);
 
@@ -437,14 +447,25 @@ export default function CotacaoCentral({
     return Array.from(seen.entries()).map(([id, nome]) => ({ id, nome }));
   }, [itens]);
 
+  // Keys dos itens Classe A (só calculados quando o filtro está ativo)
+  const classeAKeys = useMemo(() => {
+    if (!filtroClasseA) return null;
+    return getClasseAKeys(etapas);
+  }, [filtroClasseA, etapas]);
+
   // ── Itens filtrados e ordenados ─────────────────────────────────────────────
   const itensFiltrados = useMemo(() => {
     let result = [...itens];
 
-    // Filtro por texto
-    if (search.trim()) {
-      const q = normalize(search.trim());
-      result = result.filter(i => normalize(i.descricao).includes(q));
+    // Filtro Classe A (exclusivo com busca textual)
+    if (filtroClasseA && classeAKeys) {
+      result = result.filter(i => classeAKeys.has(i.key));
+    } else {
+      // Filtro por texto
+      if (search.trim()) {
+        const q = normalize(search.trim());
+        result = result.filter(i => normalize(i.descricao).includes(q));
+      }
     }
 
     // Filtro por etapa
@@ -454,14 +475,14 @@ export default function CotacaoCentral({
 
     // Prompt 2 — Filtros opt-in com comportamento padrão restritivo:
     // Por padrão: apenas próprios sem preço
+    // Quando filtroClasseA ativo, inclui itens com preço (ABC não exclui cotados)
     result = result.filter(i => {
       const ehSinapi = i.fonteReferencia === 'SINAPI';
       const temPreco = !!i.precoAtual && i.precoAtual > 0;
       const ehSemDetalhe = !!i.ehComposicaoSemInsumos;
 
-      // Regras de exclusão por padrão (cada toggle libera uma regra)
       if (ehSinapi && !incluirSinapi) return false;
-      if (temPreco && !incluirComPreco) return false;
+      if (temPreco && !incluirComPreco && !filtroClasseA) return false;
       if (ehSemDetalhe && !incluirSemDetalhe) return false;
       return true;
     });
@@ -495,7 +516,7 @@ export default function CotacaoCentral({
     }
 
     return result;
-  }, [itens, search, etapaFilter, incluirSinapi, incluirComPreco, incluirSemDetalhe, filtroRelevante, sortField, sortDir, todosFornecedores, categorias]);
+  }, [itens, search, etapaFilter, incluirSinapi, incluirComPreco, incluirSemDetalhe, filtroRelevante, sortField, sortDir, todosFornecedores, categorias, filtroClasseA, classeAKeys]);
 
   // ── Toggle de ordenação ─────────────────────────────────────────────────────
   const toggleSort = (field: SortField) => {
@@ -1373,6 +1394,31 @@ ${fornBlocks}
         </div>
       )}
 
+      {/* ── Chip: Filtro Classe A ─────────────────────────────────────────── */}
+      {filtroClasseA && (
+        <div className="px-4 md:px-6 py-1.5 border-b shrink-0 bg-red-50/50 dark:bg-red-950/20">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400 border border-red-200 dark:border-red-800">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+              Classe A · {itensFiltrados.length} itens
+              <button
+                onClick={() => {
+                  setFiltroClasseA(false);
+                  setSearch('');
+                }}
+                className="ml-0.5 rounded-full hover:bg-red-200 dark:hover:bg-red-900 p-0.5 transition-colors"
+                title="Limpar filtro Classe A"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              Itens de maior impacto no custo — representam ~80% do orçamento
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ════════════════════════════════════════════════════════════════════
            ZONA 2 — Toolbar: views + ações primárias + indicador + overflow
           ════════════════════════════════════════════════════════════════════ */}
@@ -1836,7 +1882,11 @@ ${fornBlocks}
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                     <Input
                       value={search}
-                      onChange={e => setSearch(e.target.value)}
+                      onChange={e => {
+                        setSearch(e.target.value);
+                        // Digitar na busca desativa o filtro Classe A (exclusivos entre si)
+                        if (filtroClasseA) setFiltroClasseA(false);
+                      }}
                       placeholder="Buscar item..."
                       className="h-8 pl-8 text-sm pr-8"
                     />
