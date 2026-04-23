@@ -381,6 +381,51 @@ export default function OrcamentoEditor({
     localStorage.setItem('lastra_orcamento_view_mode', mode);
   };
 
+  const applyTextFormat = async (mode: 'title'|'upper'|'lower') => {
+    const LOWER_WORDS = new Set(['de','da','do','das','dos','e','a','o','em','no','na','por','para','com']);
+    const transformText = (text: string, m: 'title'|'upper'|'lower') => {
+      if (!text) return text;
+      if (m === 'upper') return text.toUpperCase();
+      if (m === 'lower') return text.toLowerCase();
+      // title case respeitando artigos
+      return text.toLowerCase().split(' ').map((w, i) =>
+        i === 0 || !LOWER_WORDS.has(w) ? w.charAt(0).toUpperCase() + w.slice(1) : w
+      ).join(' ');
+    };
+
+    const nextEtapas = etapas.map(etapa => ({
+      ...etapa,
+      nome: transformText(etapa.nome, mode),
+      composicoes: etapa.composicoes.map(comp => ({
+        ...comp,
+        descricao: transformText(comp.descricao, mode),
+        unidade: mode === 'upper' ? comp.unidade.toUpperCase()
+                : mode === 'lower' ? comp.unidade.toLowerCase()
+                : comp.unidade.toUpperCase(),
+        insumos: comp.insumos.map(ins => ({
+          ...ins,
+          descricao: transformText(ins.descricao, mode),
+          unidade: mode === 'upper' ? ins.unidade.toUpperCase()
+                 : mode === 'lower' ? ins.unidade.toLowerCase()
+                 : ins.unidade.toUpperCase(),
+        })),
+      })),
+    }));
+    
+    setEtapasWithUndo(nextEtapas);
+    toast({ title: 'Formatação aplicada a todas as etapas' });
+    
+    try {
+      setSaveStatus('saving');
+      await saveOrcamento({ obraId, etapas: nextEtapas });
+      lastSavedSnapshotRef.current = JSON.stringify(nextEtapas);
+      setSaveStatus('saved');
+      window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
+    } catch (e) {
+      setSaveStatus('error');
+    }
+  };
+
   const setEtapasWithUndo = useCallback(
     (updater: OrcamentoEtapa[] | ((prev: OrcamentoEtapa[]) => OrcamentoEtapa[])) => {
       setEtapas((prev) => {
@@ -912,6 +957,26 @@ export default function OrcamentoEditor({
               initialConfig={bdiConfig}
               onConfigChange={setBdiConfig}
             />
+
+            {/* Formatação de Texto */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs font-medium gap-1 text-muted-foreground hover:text-foreground">
+                  Aa <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-36 text-xs">
+                <DropdownMenuItem onClick={() => applyTextFormat('title')} className="gap-2 cursor-pointer text-xs">
+                  <span className="font-semibold text-[10px] w-4 text-center">Aa</span> Title Case
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => applyTextFormat('upper')} className="gap-2 cursor-pointer text-xs">
+                  <span className="font-semibold text-[10px] w-4 text-center">AA</span> MAIÚSCULAS
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => applyTextFormat('lower')} className="gap-2 cursor-pointer text-xs">
+                  <span className="font-semibold text-[10px] w-4 text-center">aa</span> minúsculas
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Undo / Redo + Salvar + Mais */}
             <div className="ml-auto flex items-center gap-2">
