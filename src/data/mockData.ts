@@ -21,6 +21,7 @@ export interface Obra {
   responsavel: string;
   percentualAndamento: number;
   descricao: string;
+  orcamento_bdi_config?: any;
 }
 
 export interface OrcamentoItem {

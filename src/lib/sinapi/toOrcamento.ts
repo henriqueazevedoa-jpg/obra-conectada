@@ -1,5 +1,6 @@
 import type { OrcamentoComposicao, OrcamentoInsumo } from '@/contexts/OrcamentoContext';
 import type { SinapiComposicaoExpandida } from './expandComposicao';
+import { toSinapiDisplayName } from '@/components/orcamento/ComposicaoRow';
 
 function gerarCodigoInsumo(index: number) {
   return `SIN-INS-${String(index + 1).padStart(3, '0')}`;
@@ -21,7 +22,7 @@ export function sinapiExpandidaParaOrcamentoComposicao(params: {
     return {
       id: crypto.randomUUID(),
       codigo: gerarCodigoInsumo(index),
-      descricao: item.descricao,
+      descricao: toSinapiDisplayName(item.descricao),
       unidade: item.unidade || '',
       quantidade: Number(item.quantidade),
       precoUnitario,
@@ -43,7 +44,7 @@ export function sinapiExpandidaParaOrcamentoComposicao(params: {
   return {
     id: crypto.randomUUID(),
     codigo: `SINAPI-${resultado.composicaoPrincipal.codigo}`,
-    descricao: resultado.composicaoPrincipal.descricao,
+    descricao: toSinapiDisplayName(resultado.composicaoPrincipal.descricao),
     unidade: resultado.composicaoPrincipal.unidade || '',
     quantidade: 1,
     precoUnitario: custoUnitario,

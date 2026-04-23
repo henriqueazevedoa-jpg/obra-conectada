@@ -28,12 +28,19 @@ interface HistoricoResult {
   fonte: 'historico';
 }
 
+interface BibliotecaResult {
+  descricao: string;
+  unidade: string;
+  preco: number;
+  fonte: 'biblioteca';
+}
+
 interface Props {
   descricao: string;
   unidade: string;
   isInsumo: boolean;
   obraId?: string;
-  onUsar: (preco: number, fonte: 'sinapi' | 'historico') => void;
+  onUsar: (preco: number, fonte: 'sinapi' | 'historico' | 'biblioteca') => void;
   children: React.ReactNode;
 }
 
@@ -54,6 +61,7 @@ export default function SinapiPricePopover({
   const [loading, setLoading] = useState(false);
   const [sinapiResults, setSinapiResults] = useState<SinapiResult[]>([]);
   const [historicoResults, setHistoricoResults] = useState<HistoricoResult[]>([]);
+  const [bibliotecaResults, setBibliotecaResults] = useState<BibliotecaResult[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { company } = useCompany();
 
@@ -101,6 +109,27 @@ export default function SinapiPricePopover({
           fonte: 'historico' as const,
         }))
       );
+
+      // Busca Biblioteca
+      const bibQuery = (supabase as any)
+        .from('catalogo_composicoes')
+        .select('nome, unidade, preco_medio')
+        .ilike('nome', `%${termo}%`)
+        .limit(3);
+
+      if (company?.id) {
+        bibQuery.eq('company_id', company.id);
+      }
+
+      const { data: bibData } = await bibQuery;
+      setBibliotecaResults(
+        (bibData || []).map((r: { nome: string; unidade: string; preco_medio: number }) => ({
+          descricao: r.nome,
+          unidade: r.unidade,
+          preco: r.preco_medio || 0,
+          fonte: 'biblioteca' as const,
+        }))
+      );
     } catch (e) {
       console.warn('[SinapiPricePopover]', e);
     } finally {
@@ -124,7 +153,7 @@ export default function SinapiPricePopover({
     }, 300);
   };
 
-  const handleUsar = async (preco: number, fonte: 'sinapi' | 'historico', itemDescricao: string, itemUnidade: string) => {
+  const handleUsar = async (preco: number, fonte: 'sinapi' | 'historico' | 'biblioteca', itemDescricao: string, itemUnidade: string) => {
     onUsar(preco, fonte);
 
     // INSERT em preco_historico
@@ -148,7 +177,7 @@ export default function SinapiPricePopover({
     setOpen(false);
   };
 
-  const hasResults = sinapiResults.length > 0 || historicoResults.length > 0;
+  const hasResults = sinapiResults.length > 0 || historicoResults.length > 0 || bibliotecaResults.length > 0;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -171,7 +200,7 @@ export default function SinapiPricePopover({
             autoFocus
             value={busca}
             onChange={e => handleBuscaChange(e.target.value)}
-            placeholder="Buscar preço no SINAPI ou histórico..."
+            placeholder="Buscar preço (SINAPI, Histórico, Biblioteca)..."
             className="flex-1 text-xs bg-transparent border-none outline-none placeholder:text-muted-foreground"
           />
         </div>
@@ -241,6 +270,37 @@ export default function SinapiPricePopover({
             </div>
           )}
 
+          {/* Seção Biblioteca */}
+          {bibliotecaResults.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30">
+                <Badge variant="outline" className="text-[9px] px-1 h-4 border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+                  BIBLIOTECA
+                </Badge>
+                <span className="text-[10px] text-muted-foreground">{bibliotecaResults.length} resultado{bibliotecaResults.length !== 1 ? 's' : ''}</span>
+              </div>
+              {bibliotecaResults.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/20 transition-colors group/row border-b border-border/20 last:border-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate text-foreground">{r.descricao}</p>
+                    <p className="text-[10px] text-muted-foreground">{r.unidade}</p>
+                  </div>
+                  <span className="text-xs font-semibold tabular-nums text-foreground shrink-0">
+                    {formatCurrency(r.preco)}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-[10px] shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                    onClick={() => handleUsar(r.preco, 'biblioteca', r.descricao, r.unidade)}
+                  >
+                    Usar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Sem resultado */}
           {!loading && !hasResults && busca.length > 1 && (
             <div className="px-3 py-4 text-center text-xs text-muted-foreground">
@@ -250,7 +310,7 @@ export default function SinapiPricePopover({
 
           {!busca && (
             <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-              Digite para buscar preços no SINAPI e no histórico de obras
+              Digite para buscar preços no SINAPI, Histórico ou Biblioteca.
             </div>
           )}
         </div>

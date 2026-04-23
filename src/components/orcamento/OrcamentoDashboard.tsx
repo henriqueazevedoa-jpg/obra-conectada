@@ -236,6 +236,122 @@ function GraficoPizza({ etapas, mode }: { etapas: OrcamentoEtapa[]; mode: DistMo
   );
 }
 
+// ── Sub-componente: Stepper de Progresso ────────────────────────────────────
+
+function OrcamentoStepper({ 
+  etapasCount, 
+  todasEtapasComItem, 
+  cotadoPct, 
+  onGoPlanilha, 
+  onGoCotacao 
+}: { 
+  etapasCount: number, 
+  todasEtapasComItem: boolean, 
+  cotadoPct: number, 
+  onGoPlanilha: () => void, 
+  onGoCotacao: () => void 
+}) {
+  const passo1_ok = etapasCount > 0;
+  const passo2_ok = etapasCount > 0 && todasEtapasComItem;
+  const passo3_ok = cotadoPct >= 80;
+  const passo4_ok = cotadoPct === 100;
+
+  // Determinar o currentStep
+  let currentStep = 0;
+  if (!passo1_ok) currentStep = 0;
+  else if (!passo2_ok) currentStep = 1;
+  else if (!passo3_ok) currentStep = 2;
+  else if (!passo4_ok) currentStep = 3;
+  else currentStep = 4; // Tudo concluído (passo4_ok)
+
+  const steps = [
+    { label: 'Estrutura', desc: 'Criar etapas', icon: Package, isOk: passo1_ok },
+    { label: 'Composições', desc: 'Adicionar itens', icon: Pencil, isOk: passo2_ok },
+    { label: 'Preços', desc: 'Cotar', icon: BarChart2, isOk: passo3_ok },
+    { label: 'Pronto', desc: 'Finalizar', icon: CheckCircle2, isOk: passo4_ok },
+  ];
+
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-sm mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Progresso do Orçamento
+          </h2>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Acompanhe as etapas para finalizar o orçamento da obra.
+          </p>
+        </div>
+      </div>
+      
+      <div className="relative mt-6 mb-2">
+        {/* Linha de fundo */}
+        <div className="absolute top-4 left-4 right-4 h-[2px] bg-muted" />
+        {/* Linha preenchida */}
+        <div 
+          className="absolute top-4 left-4 h-[2px] bg-emerald-500 transition-all duration-500"
+          style={{ width: `calc(${((currentStep > 0 ? Math.min(currentStep, 3) : 0) / 3) * 100}% - 2rem)` }}
+        />
+
+        <div className="relative flex justify-between">
+          {steps.map((step, idx) => {
+            const isCompleted = step.isOk;
+            const isCurrent = idx === currentStep;
+            
+            return (
+              <div key={idx} className="flex flex-col items-center gap-2 z-10 w-24">
+                <div 
+                  className={cn(
+                    "flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors",
+                    isCompleted ? "bg-emerald-500 border-emerald-500 text-white" :
+                    isCurrent ? "bg-background border-primary text-primary" :
+                    "bg-background border-muted text-muted-foreground"
+                  )}
+                >
+                  {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : <span className="h-2.5 w-2.5 rounded-full bg-current" />}
+                </div>
+                <div className="text-center">
+                  <p className={cn("text-xs font-bold leading-tight", isCurrent || isCompleted ? "text-foreground" : "text-muted-foreground")}>{step.label}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Ação rápida baseada no passo atual */}
+      <div className="mt-5 pt-4 border-t border-border/50 flex justify-end">
+        {!passo1_ok && (
+          <Button size="sm" onClick={onGoPlanilha} className="h-8 text-xs gap-1.5">
+            Criar etapas →
+          </Button>
+        )}
+        {passo1_ok && !passo2_ok && (
+          <Button size="sm" onClick={onGoPlanilha} className="h-8 text-xs gap-1.5">
+            Adicionar composições →
+          </Button>
+        )}
+        {passo2_ok && !passo3_ok && (
+          <Button size="sm" onClick={onGoCotacao} className="h-8 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white">
+            Completar cotação →
+          </Button>
+        )}
+        {passo3_ok && !passo4_ok && (
+          <Button size="sm" onClick={onGoCotacao} className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+            Finalizar →
+          </Button>
+        )}
+        {passo4_ok && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-4 w-4" /> 100% Cotado. Pronto para fechamento!
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Sub-componente: Curva ABC em destaque ────────────────────────────────────
 
 type AbcSource = 'todos' | 'insumos' | 'composicoes';
@@ -903,6 +1019,17 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
             </button>
           </div>
         ) : null}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            BLOCO 0 — Stepper de Progresso
+        ════════════════════════════════════════════════════════════════ */}
+        <OrcamentoStepper 
+          etapasCount={etapas.length} 
+          todasEtapasComItem={etapas.length > 0 && etapas.every(e => e.composicoes && e.composicoes.length > 0)} 
+          cotadoPct={stats.cotadoPct} 
+          onGoPlanilha={onEditWBS}
+          onGoCotacao={onGoCotacao}
+        />
 
         {/* ═══════════════════════════════════════════════════════════════
             BLOCO 1 — Curva ABC em destaque (topo)

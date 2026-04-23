@@ -52,20 +52,39 @@ export function AutocompleteInput({
     setActiveIdx(-1);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open || filtered.length === 0) return;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Tab') {
+      setOpen(false);
+      props.onKeyDown?.(e);
+      return;
+    }
+
+    if (!open || filtered.length === 0) {
+      if (e.key === 'ArrowDown') {
+        setOpen(true);
+        e.preventDefault();
+      }
+      props.onKeyDown?.(e);
+      return;
+    }
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setActiveIdx(i => Math.min(i + 1, filtered.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActiveIdx(i => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' && activeIdx >= 0) {
-      e.preventDefault();
-      handleSelect(filtered[activeIdx]);
+    } else if (e.key === 'Enter') {
+      if (activeIdx >= 0) {
+        e.preventDefault();
+        handleSelect(filtered[activeIdx]);
+      }
     } else if (e.key === 'Escape') {
+      e.preventDefault();
       setOpen(false);
     }
+    
+    props.onKeyDown?.(e);
   };
 
   return (

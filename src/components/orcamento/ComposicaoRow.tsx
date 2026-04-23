@@ -14,7 +14,7 @@ import {
   Trash2, Plus, ChevronRight, Star, Search, ClipboardList,
   MoreHorizontal, GripVertical, Lock,
 } from 'lucide-react';
-import InsumoRow from './InsumoRow';
+import InsumoRowDense from './InsumoRowDense';
 import { formatCurrency } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/untyped';
@@ -22,11 +22,14 @@ import { toast } from '@/hooks/use-toast';
 import { useCompany } from '@/contexts/CompanyContext';
 import SinapiPricePopover from './SinapiPricePopover';
 import ListaCotacaoPopover from './ListaCotacaoPopover';
+import { usePriceSuggestion } from '@/hooks/usePriceSuggestion';
+import { Checkbox } from '@/components/ui/checkbox';
+import { BdiConfig } from './BdiPopover';
 
 // ── Exports mantidos para retrocompatibilidade com InsumoRow ──────────────────
 
-export const COMPOSICAO_GRID =
-  'grid-cols-[20px_64px_minmax(0,1fr)_52px_72px_88px_88px_56px_28px_28px_28px]';
+import { PLANILHA_GRID } from './planilhaGrid';
+export const COMPOSICAO_GRID = PLANILHA_GRID;
 
 export function toSinapiDisplayName(descricao: string): string {
   if (!descricao) return descricao;
@@ -60,6 +63,8 @@ interface Props {
   isSelected?: boolean;
   onToggleSelect?: () => void;
   bulkActive?: boolean;
+  bdiConfig?: BdiConfig;
+  onOpenCatalogo?: (tab?: string, query?: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -69,6 +74,7 @@ export default function ComposicaoRow({
   obraId, readOnly, onGoCotacao, priceSuggestionEnabled = false,
   onPriceBadge, isNew = false,
   isSelected = false, onToggleSelect, bulkActive = false,
+  bdiConfig, onOpenCatalogo,
 }: Props) {
   const isSinapi = composicao.fonteReferencia === 'SINAPI';
   const isInsumodireto = composicao.tipo === 'insumo_direto';
@@ -100,6 +106,27 @@ export default function ComposicaoRow({
   useEffect(() => {
     setLocalQtd(composicao.quantidade != null ? String(composicao.quantidade) : '');
   }, [composicao.id, composicao.quantidade]);
+
+  // Sugestão Automática
+  const { suggestedPrice, clearSuggestion } = usePriceSuggestion(
+    composicao.descricao,
+    composicao.unidade || '',
+    priceSuggestionEnabled,
+    composicao.precoUnitario,
+    company?.id
+  );
+
+  useEffect(() => {
+    if (suggestedPrice != null && composicao.precoUnitario == null && priceSuggestionEnabled && composicao.usaInsumos === false) {
+      setLocalPreco(String(suggestedPrice));
+      const next = { ...composicao, precoUnitario: suggestedPrice } as OrcamentoComposicao;
+      if (next.quantidade) next.precoTotal = next.quantidade * suggestedPrice;
+      onChange(next);
+      setFonteBadge('sugerido' as FonteBadge);
+      onPriceBadge?.(composicao.id, 'sugerido');
+      clearSuggestion();
+    }
+  }, [suggestedPrice, composicao, priceSuggestionEnabled, onChange, onPriceBadge, clearSuggestion]);
 
   // Verificar favorito
   useEffect(() => {
@@ -155,7 +182,11 @@ export default function ComposicaoRow({
   const handlePrecoBlur = () => {
     const preco = localPreco ? parseFloat(localPreco) : null;
     update('precoUnitario', preco);
-    if (preco && preco > 0) {
+    if (preco && preco > 0 && fonteBadge === 'sugerido') {
+      setFonteBadge('manual');
+      onPriceBadge?.(composicao.id, 'manual');
+      insertPrecoHistorico(preco, 'manual');
+    } else if (preco && preco > 0 && !fonteBadge) {
       setFonteBadge('manual');
       onPriceBadge?.(composicao.id, 'manual');
       insertPrecoHistorico(preco, 'manual');
@@ -169,10 +200,10 @@ export default function ComposicaoRow({
   };
 
   // Quando SinapiPricePopover "Usar" é clicado
-  const handleUsarPreco = (preco: number, fonte: 'sinapi' | 'historico') => {
+  const handleUsarPreco = (preco: number, fonte: 'sinapi' | 'historico' | 'biblioteca') => {
     setLocalPreco(String(preco));
     update('precoUnitario', preco);
-    setFonteBadge(fonte);
+    setFonteBadge(fonte as FonteBadge);
     onPriceBadge?.(composicao.id, fonte);
   };
 
@@ -267,6 +298,8 @@ export default function ComposicaoRow({
     sinapi: { label: 'SINAPI', cls: 'border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-700 dark:text-blue-400' },
     historico: { label: 'Hist.', cls: 'border-emerald-300 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400' },
     manual: { label: 'Manual', cls: 'border-border text-muted-foreground' },
+    sugerido: { label: 'Sugerido', cls: 'border-amber-300 text-amber-700 bg-amber-50 cursor-pointer hover:bg-amber-100 transition-colors' },
+    biblioteca: { label: 'Catálogo', cls: 'border-amber-300 text-amber-700 bg-amber-50' },
   };
 
   const showFonteBadge = fonteBadge && composicao.precoUnitario != null && composicao.precoUnitario > 0;
@@ -282,87 +315,95 @@ export default function ComposicaoRow({
       {/* ── Linha principal ── */}
       <div
         className={cn(
-          `grid ${COMPOSICAO_GRID} items-center px-1 gap-1`,
+          `grid ${PLANILHA_GRID} items-center gap-0 bg-background`,
           isSinapi && 'bg-blue-50/20 dark:bg-blue-950/10',
         )}
-        style={{ minHeight: '36px', height: '36px' }}
+        style={{ minHeight: '32px', height: '32px' }}
       >
-        {/* Drag handle — hover only */}
-        <span className="flex items-center justify-center opacity-0 group-hover/row:opacity-40 hover:!opacity-80 cursor-grab active:cursor-grabbing transition-opacity text-muted-foreground">
-          <GripVertical className="h-3.5 w-3.5" />
-        </span>
-
-        {/* Código + chevron se tem insumos */}
-        <div className="flex items-center gap-0.5 min-w-0">
-          {hasInsumos && !isInsumodireto && (
-            <button
-              onClick={() => setInsumosExpanded(v => !v)}
-              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronRight className={cn('h-3 w-3 transition-transform', insumosExpanded && 'rotate-90')} />
-            </button>
-          )}
-          <span className="text-[10px] font-mono text-muted-foreground truncate" title={composicao.codigo}>
-            {composicao.codigo}
+        {/* Coluna 1: Drag + Código + Chevron + Descrição */}
+        <div className="flex items-center gap-1 h-full px-1 border-r border-border/60 min-w-0">
+          {/* Drag handle */}
+          <span className="flex items-center justify-center opacity-0 group-hover/row:opacity-40 hover:!opacity-80 cursor-grab active:cursor-grabbing transition-opacity text-muted-foreground shrink-0 w-[20px]">
+            <GripVertical className="h-3.5 w-3.5" />
           </span>
-        </div>
 
-        {/* Descrição */}
-        {isFullReadOnly || isSinapi ? (
-          <div className="text-xs px-1 truncate text-foreground font-medium" title={displayDescricao}>
-            {displayDescricao}
+          {/* Chevron se tem insumos */}
+          <div className="flex items-center shrink-0">
+            {hasInsumos && !isInsumodireto && (
+              <button
+                tabIndex={-1}
+                onClick={() => setInsumosExpanded(v => !v)}
+                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mr-1"
+              >
+                <ChevronRight className={cn('h-3 w-3 transition-transform', insumosExpanded && 'rotate-90')} />
+              </button>
+            )}
+            <span className="text-[10px] font-mono text-muted-foreground truncate" title={composicao.codigo}>
+              {composicao.codigo}
+            </span>
           </div>
-        ) : (
-          <Input
-            value={composicao.descricao}
-            onChange={e => update('descricao', e.target.value)}
-            className="h-7 text-xs px-1.5 bg-transparent border-transparent hover:border-input focus:border-input font-medium"
-            placeholder="Descrição"
-          />
-        )}
+
+          {/* Descrição */}
+          {isFullReadOnly || isSinapi ? (
+            <div className="flex-1 flex items-center px-1 truncate text-foreground h-full" style={{ fontSize: '12px', fontWeight: 500 }} title={displayDescricao}>
+              {displayDescricao}
+            </div>
+          ) : (
+            <div className="flex-1 h-full flex items-center min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+              <Input
+                value={composicao.descricao}
+                onChange={e => update('descricao', e.target.value)}
+                className="h-full w-full px-1.5 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
+                style={{ fontSize: '12px', fontWeight: 500 }}
+                placeholder="Descrição"
+              />
+            </div>
+          )}
+        </div>
 
         {/* Unidade */}
         {isFullReadOnly || isSinapi ? (
-          <div className="text-xs px-1 text-center text-muted-foreground">{composicao.unidade}</div>
+          <div className="h-full flex items-center justify-center text-[10px] uppercase px-1 text-center text-muted-foreground border-r border-border/60">{composicao.unidade}</div>
         ) : (
-          <Input
-            value={composicao.unidade}
-            onChange={e => update('unidade', e.target.value)}
-            className="h-7 text-xs px-1 text-center bg-transparent border-transparent hover:border-input focus:border-input"
-            placeholder="Un"
-            list={`un-comp-${composicao.id}`}
-          />
+          <div className="h-full flex items-center justify-center border-r border-border/60 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+            <Input
+              value={composicao.unidade}
+              onChange={e => update('unidade', e.target.value)}
+              className="h-full text-[10px] uppercase px-1 text-center bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
+              placeholder="Un"
+              list={`un-comp-${composicao.id}`}
+            />
+          </div>
         )}
-        <datalist id={`un-comp-${composicao.id}`}>
-          {unidades.map(u => <option key={u} value={u} />)}
-        </datalist>
-
         {/* Quantidade */}
         {isFullReadOnly || isComputed ? (
-          <div className="text-xs px-1 text-right text-muted-foreground">{composicao.quantidade ?? '—'}</div>
+          <div className="h-full flex items-center justify-end px-1 text-right text-muted-foreground tabular-nums border-r border-border/60" style={{ fontSize: '12px', fontWeight: 500 }}>{composicao.quantidade ?? '—'}</div>
         ) : (
-          <input
-            type="number"
-            value={localQtd}
-            onChange={e => setLocalQtd(e.target.value)}
-            onBlur={handleQtdBlur}
-            onKeyDown={e => handleKeyDown(e, 'qtd')}
-            data-planilha="1"
-            data-field="qtd"
-            data-rowid={composicao.id}
-            placeholder="Qtd"
-            className="h-7 w-full text-xs px-1.5 text-right bg-transparent border border-transparent hover:border-input focus:border-input focus:outline-none rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
+          <div className="h-full flex items-center border-r border-border/60 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+            <input
+              type="number"
+              value={localQtd}
+              onChange={e => setLocalQtd(e.target.value)}
+              onBlur={handleQtdBlur}
+              onKeyDown={e => handleKeyDown(e, 'qtd')}
+              data-planilha="1"
+              data-field="qtd"
+              data-rowid={composicao.id}
+              placeholder="Qtd"
+              className="h-full w-full tabular-nums px-1.5 text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              style={{ fontSize: '12px', fontWeight: 500 }}
+            />
+          </div>
         )}
 
         {/* Preço unitário */}
         {isFullReadOnly || isComputed || isSinapi ? (
-          <div className="flex items-center justify-end gap-1 text-xs px-1 text-muted-foreground">
+          <div className="h-full flex items-center justify-end gap-1 tabular-nums px-1 text-muted-foreground border-r border-border/60" style={{ fontSize: '12px', fontWeight: 500 }}>
             {isSinapi && <Lock className="h-2.5 w-2.5 shrink-0 opacity-50" />}
             {composicao.precoUnitario != null ? formatCurrency(composicao.precoUnitario) : '—'}
           </div>
         ) : (
-          <div className="relative">
+          <div className="relative h-full flex items-center border-r border-border/60 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">R$</span>
             <input
               type="number"
@@ -374,21 +415,36 @@ export default function ComposicaoRow({
               data-field="preco"
               data-rowid={composicao.id}
               placeholder="0,00"
-              className="h-7 w-full text-xs pl-5 pr-1 text-right bg-transparent border border-transparent hover:border-input focus:border-input focus:outline-none rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="h-full w-full tabular-nums pl-5 pr-1 text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              style={{ fontSize: '12px', fontWeight: 500 }}
             />
           </div>
         )}
 
         {/* Preço total */}
         <div className={cn(
-          'text-xs px-1 text-right font-semibold tabular-nums',
+          'h-full flex items-center justify-end px-1 text-right tabular-nums border-r border-border/60',
           composicao.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground'
-        )}>
-          {formatCurrency(composicao.precoTotal)}
+        )} style={{ fontSize: '12px', fontWeight: 500 }}>
+          {bdiConfig?.enabled && composicao.precoTotal > 0 ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="cursor-help decoration-dashed underline decoration-muted-foreground/50 underline-offset-2">
+                  {formatCurrency(composicao.precoTotal * (1 + bdiConfig.rate / 100))}
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Preço Base: {formatCurrency(composicao.precoTotal)}<br/>
+                  BDI ({bdiConfig.rate}%): {formatCurrency(composicao.precoTotal * (bdiConfig.rate / 100))}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            formatCurrency(composicao.precoTotal)
+          )}
         </div>
 
-        {/* Badge fonte / lista */}
-        <div className="flex items-center justify-center">
+        {/* Coluna 6: Ações (Badges + Favorito + SINAPI + Lista + Bulk + Menu) */}
+        <div className="h-full flex items-center justify-end gap-0.5 px-1">
           {lotesCount > 0 ? (
             <TooltipProvider>
               <Tooltip>
@@ -401,30 +457,61 @@ export default function ComposicaoRow({
               </Tooltip>
             </TooltipProvider>
           ) : showFonteBadge && fonteBadge ? (
-            <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-4 shrink-0', fonteBadgeConfig[fonteBadge]?.cls)}>
+            <Badge 
+              variant="outline" 
+              className={cn('text-[9px] px-1 py-0 h-4 shrink-0', fonteBadgeConfig[fonteBadge]?.cls)}
+              onClick={fonteBadge === 'sugerido' ? handlePrecoBlur : undefined}
+            >
               {fonteBadgeConfig[fonteBadge]?.label}
             </Badge>
           ) : null}
-        </div>
+
+          {/* Bulk Checkbox */}
+          {bulkActive && (
+            <div className="flex items-center justify-center h-6 w-6 shrink-0">
+              <Checkbox 
+                checked={isSelected} 
+                onCheckedChange={onToggleSelect}
+                className="h-3.5 w-3.5 rounded-[2px]"
+              />
+            </div>
+          )}
+
+          {/* Botão ⭐ Favorito */}
+          {!readOnly && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  tabIndex={-1}
+                  onClick={handleToggleFavorita}
+                  disabled={savingFavorite}
+                  className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors opacity-0 group-hover/row:opacity-100 disabled:opacity-50"
+                >
+                  <Star className={cn('h-3 w-3', isFavorite && 'fill-amber-500 text-amber-500')} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-[11px]">
+                {isFavorite ? 'Remover da biblioteca' : 'Salvar na biblioteca'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
         {/* Botão 🔍 SINAPI */}
         {!readOnly && (
           <TooltipProvider>
             <Tooltip>
-              <SinapiPricePopover
-                descricao={composicao.descricao}
-                unidade={composicao.unidade}
-                isInsumo={isInsumodireto || (hasInsumos && composicao.insumos.length > 0)}
-                obraId={obraId}
-                onUsar={handleUsarPreco}
-              >
-                <TooltipTrigger asChild>
-                  <button className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors opacity-0 group-hover/row:opacity-100">
-                    <Search className="h-3 w-3" />
-                  </button>
-                </TooltipTrigger>
-              </SinapiPricePopover>
-              <TooltipContent side="top" className="text-xs">Buscar preço no SINAPI ou histórico</TooltipContent>
+              <TooltipTrigger asChild>
+                <button
+                  tabIndex={-1}
+                  onClick={() => onOpenCatalogo?.('sinapi', composicao.descricao)}
+                  className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors opacity-0 group-hover/row:opacity-100"
+                >
+                  <Search className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-[11px]">Buscar preço no SINAPI ou histórico</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}
@@ -444,12 +531,12 @@ export default function ComposicaoRow({
                 addedLotesIds={lotesIds}
               >
                 <TooltipTrigger asChild>
-                  <button className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors opacity-0 group-hover/row:opacity-100">
+                  <button tabIndex={-1} className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors opacity-0 group-hover/row:opacity-100">
                     <ClipboardList className="h-3 w-3" />
                   </button>
                 </TooltipTrigger>
               </ListaCotacaoPopover>
-              <TooltipContent side="top" className="text-xs">Adicionar a lista de cotação</TooltipContent>
+              <TooltipContent side="top" className="text-[11px]">Adicionar a lista de cotação</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}
@@ -458,40 +545,43 @@ export default function ComposicaoRow({
         {!readOnly ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors opacity-0 group-hover/row:opacity-100">
+              <button tabIndex={-1} className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors opacity-0 group-hover/row:opacity-100">
                 <MoreHorizontal className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44 text-xs">
+            <DropdownMenuContent align="end" className="w-44 text-[11px]">
               {!isInsumodireto && (
-                <DropdownMenuItem className="text-xs gap-2" onClick={() => toggleInsumos(!hasInsumos)}>
+                <DropdownMenuItem className="text-[11px] gap-2" onClick={() => toggleInsumos(!hasInsumos)}>
                   {hasInsumos ? 'Remover insumos' : 'Detalhar em insumos'}
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem className="text-xs gap-2" onClick={handleToggleFavorita} disabled={savingFavorite}>
-                <Star className={cn('h-3 w-3', isFavorite && 'fill-amber-500 text-amber-500')} />
-                {isFavorite ? 'Remover da biblioteca' : 'Salvar na biblioteca'}
-              </DropdownMenuItem>
               {onGoCotacao && (
-                <DropdownMenuItem className="text-xs gap-2" onClick={() => onGoCotacao(composicao.descricao)}>
+                <DropdownMenuItem className="text-[11px] gap-2" onClick={() => onGoCotacao(composicao.descricao)}>
                   Ir para Cotação
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-xs gap-2 text-destructive focus:text-destructive" onClick={onRemove}>
+              <DropdownMenuItem className="text-[11px] gap-2 text-destructive focus:text-destructive" onClick={onRemove}>
                 <Trash2 className="h-3 w-3" />
                 Excluir
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : <div />}
+        ) : <div className="w-6 shrink-0" />}
       </div>
+      {/* Fecha grid container */}
+      </div>
+      
+      {/* Elementos fora do grid */}
+      <datalist id={`un-comp-${composicao.id}`}>
+        {unidades.map(u => <option key={u} value={u} />)}
+      </datalist>
 
       {/* ── Insumos (sub-linhas com indent 24px) ── */}
       {hasInsumos && insumosExpanded && !isInsumodireto && (
         <div className="pl-6 bg-muted/5 border-t border-border/20">
           {insumosVisiveis.map((si, idx) => (
-            <InsumoRow
+            <InsumoRowDense
               key={si.id}
               insumo={si}
               unidades={unidades}
@@ -499,10 +589,14 @@ export default function ComposicaoRow({
               onRemove={() => removeInsumo(idx)}
               obraId={obraId}
               readOnly={readOnly || isSinapi}
+              priceSuggestionEnabled={priceSuggestionEnabled}
+              onPriceBadge={onPriceBadge}
+              onOpenCatalogo={onOpenCatalogo}
             />
           ))}
           {insumosOcultos > 0 && !showAllInsumos && (
             <button
+              tabIndex={-1}
               onClick={() => setShowAllInsumos(true)}
               className="w-full text-center py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -511,6 +605,7 @@ export default function ComposicaoRow({
           )}
           {!readOnly && !isSinapi && (
             <button
+              tabIndex={-1}
               onClick={() => { const next = { ...composicao, insumos: [...composicao.insumos, makeInsumo()] }; onChange(next); }}
               className="flex items-center gap-1 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors"
             >
@@ -522,16 +617,4 @@ export default function ComposicaoRow({
       )}
     </div>
   );
-
-  function makeInsumo(): OrcamentoInsumo {
-    return {
-      id: crypto.randomUUID(),
-      codigo: generateInsumoCodigo(composicao.codigo, composicao.insumos.map(s => s.codigo)),
-      descricao: '',
-      unidade: composicao.unidade || '',
-      quantidade: null,
-      precoUnitario: null,
-      precoTotal: 0,
-    };
-  }
 }

@@ -77,6 +77,8 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/data/mockData';
 import EtapaBlock from './EtapaBlock';
+import { COMPOSICAO_GRID } from './ComposicaoRow';
+import EtapaBlockCard from './EtapaBlockCard';
 import {
   Dialog,
   DialogContent,
@@ -89,6 +91,7 @@ import ImportarSinapiDialog from './ImportarSinapiDialog';
 import CatalogDrawer, { CarrinhoItem } from './CatalogDrawer';
 import QuickStartModal from './QuickStartModal';
 import PasteImportDialog, { PastedComposicao } from './PasteImportDialog';
+import BdiPopover, { BdiConfig, DEFAULT_BDI } from './BdiPopover';
 
 import {
   expandirComposicaoSinapi,
@@ -100,6 +103,8 @@ import { useOrcamentoUndo } from '@/hooks/useOrcamentoUndo';
 import { supabase } from '@/integrations/supabase/untyped';
 import { cn } from '@/lib/utils';
 import { OrcamentoVersao } from '@/contexts/OrcamentoContext';
+import { useCompany } from '@/contexts/CompanyContext';
+import { PLANILHA_GRID } from './planilhaGrid';
 
 // UFs do Brasil
 const UFS_BRASIL = [
@@ -186,6 +191,137 @@ interface Props {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+// ── Componente interno para Dropdown de Bulk Action ────────────────────────
+function BulkListaDropdown({
+  obraId,
+  selectedIds,
+  onClearSelection
+}: {
+  obraId: string;
+  selectedIds: Set<string>;
+  onClearSelection: () => void;
+}) {
+  const { company } = useCompany();
+  const [open, setOpen] = useState(false);
+  const [lotes, setLotes] = useState<{ id: string; titulo: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [novaLista, setNovaLista] = useState('');
+  const [criando, setCriando] = useState(false);
+
+  useEffect(() => {
+    if (!open || !obraId || !company?.id) return;
+    const fetchLotes = async () => {
+      setLoading(true);
+      const { data } = await (supabase as any)
+        .from('cotacao_lotes')
+        .select('id, titulo')
+        .eq('obra_id', obraId)
+        .eq('company_id', company.id)
+        .order('created_at', { ascending: false });
+      if (data) setLotes(data);
+      setLoading(false);
+    };
+    fetchLotes();
+  }, [open, obraId, company?.id]);
+
+  const addToLote = async (loteId: string, titulo: string) => {
+    setCriando(true);
+    let adicionados = 0;
+    try {
+      const inserts = Array.from(selectedIds).map(id => ({
+        lote_id: loteId,
+        item_origem_id: id,
+      }));
+      // UPSERT to ignore duplicates
+      const { error } = await (supabase as any)
+        .from('cotacao_lote_itens')
+        .upsert(inserts, { onConflict: 'lote_id,item_origem_id', ignoreDuplicates: true });
+        
+      if (error) throw error;
+      adicionados = selectedIds.size;
+      toast({ title: `Adicionados à lista`, description: `${adicionados} itens adicionados à "${titulo}"` });
+      setOpen(false);
+      onClearSelection();
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
+    } finally {
+      setCriando(false);
+    }
+  };
+
+  const criarEAdicionar = async () => {
+    if (!novaLista.trim() || !obraId || !company?.id) return;
+    setCriando(true);
+    try {
+      const { data: novoLote, error: errLote } = await (supabase as any)
+        .from('cotacao_lotes')
+        .insert({
+          obra_id: obraId,
+          company_id: company.id,
+          titulo: novaLista.trim(),
+          status: 'rascunho'
+        })
+        .select('id')
+        .single();
+      if (errLote) throw errLote;
+
+      await addToLote(novoLote.id, novaLista.trim());
+      setNovaLista('');
+    } catch (e: any) {
+      toast({ title: 'Erro ao criar lista', description: e.message, variant: 'destructive' });
+      setCriando(false);
+    }
+  };
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded border border-primary-foreground/30 hover:bg-primary-foreground/10 transition-colors">
+          <ClipboardList className="h-3 w-3" />
+          Adicionar à lista <ChevronDown className="h-3 w-3 opacity-50" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <div className="p-2 border-b border-border/50 bg-muted/20">
+          <Input
+            autoFocus
+            placeholder="Nova lista + Enter"
+            className="h-7 text-xs bg-background"
+            value={novaLista}
+            onChange={e => setNovaLista(e.target.value)}
+            disabled={criando}
+            onKeyDown={e => {
+              e.stopPropagation();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                criarEAdicionar();
+              }
+            }}
+          />
+        </div>
+        {loading ? (
+          <div className="p-4 text-center text-xs text-muted-foreground">Carregando...</div>
+        ) : lotes.length === 0 ? (
+          <div className="p-4 text-center text-xs text-muted-foreground">Nenhuma lista existente</div>
+        ) : (
+          <ScrollArea className="max-h-60">
+            {lotes.map(lote => (
+              <DropdownMenuItem
+                key={lote.id}
+                onClick={(e) => { e.preventDefault(); addToLote(lote.id, lote.titulo); }}
+                disabled={criando}
+                className="text-xs py-2 cursor-pointer"
+              >
+                {lote.titulo}
+              </DropdownMenuItem>
+            ))}
+          </ScrollArea>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function OrcamentoEditor({
   obraId,
   obraNome,
@@ -224,9 +360,26 @@ export default function OrcamentoEditor({
   }, [obraId, getVersaoAtiva]);
 
   const { obras } = useObras();
+  const obra = obras.find(o => o.id === obraId);
+  const [bdiConfig, setBdiConfig] = useState<BdiConfig>(DEFAULT_BDI);
+
+  useEffect(() => {
+    if (obra?.orcamento_bdi_config) {
+      setBdiConfig(obra.orcamento_bdi_config as BdiConfig);
+    }
+  }, [obra?.orcamento_bdi_config]);
 
   const [etapas, setEtapas] = useState<OrcamentoEtapa[]>([]);
   const undoManager = useOrcamentoUndo();
+
+  const [viewMode, setViewMode] = useState<'cards' | 'excel'>(() => {
+    return (localStorage.getItem('lastra_orcamento_view_mode') as 'cards' | 'excel') || 'excel';
+  });
+
+  const toggleViewMode = (mode: 'cards' | 'excel') => {
+    setViewMode(mode);
+    localStorage.setItem('lastra_orcamento_view_mode', mode);
+  };
 
   const setEtapasWithUndo = useCallback(
     (updater: OrcamentoEtapa[] | ((prev: OrcamentoEtapa[]) => OrcamentoEtapa[])) => {
@@ -306,9 +459,13 @@ export default function OrcamentoEditor({
   // ── Catálogo Global Drawer (substitui painel 50/50) ────────────────────────
   const [catalogDrawerOpen, setCatalogDrawerOpen] = useState(false);
   const [catalogDrawerDefaultEtapaId, setCatalogDrawerDefaultEtapaId] = useState<string | undefined>(undefined);
+  const [catalogDrawerTab, setCatalogDrawerTab] = useState<any | undefined>(undefined);
+  const [catalogDrawerQuery, setCatalogDrawerQuery] = useState<string | undefined>(undefined);
 
-  const handleOpenCatalogo = useCallback((etapa?: OrcamentoEtapa) => {
+  const handleOpenCatalogo = useCallback((etapa?: OrcamentoEtapa, tab?: string, query?: string) => {
     setCatalogDrawerDefaultEtapaId(etapa?.id);
+    setCatalogDrawerTab(tab);
+    setCatalogDrawerQuery(query);
     setCatalogDrawerOpen(true);
   }, []);
 
@@ -681,7 +838,7 @@ export default function OrcamentoEditor({
         {/* ── Toolbar de Ações ──────────────────────────────────────────── */}
         {!readOnly && (
           <div className="flex items-center gap-2 px-4 md:px-6 py-1.5 border-b bg-muted/20 shrink-0">
-            {/* ⚡ Orçamento Rápido — primeiro na toolbar */}
+            {/* ⚡ Orçamento Rápido */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -725,84 +882,39 @@ export default function OrcamentoEditor({
               </Tooltip>
             </TooltipProvider>
 
-            {/* Abrir / Fechar todas */}
-            {etapas.length > 0 && (
-              <button
-                onClick={() => setAllExpanded(prev => prev === true ? false : true)}
-                title={anyExpanded ? 'Colapsar todas' : 'Expandir todas'}
-                className="flex items-center gap-1 px-2 h-7 text-xs text-muted-foreground hover:text-foreground border rounded-md hover:bg-muted/50 transition-colors"
+            <div className="mx-2 w-px h-4 bg-border/50" />
+
+            {/* Toggle View Mode */}
+            <div className="flex bg-muted/50 p-0.5 rounded-md border border-border/50">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleViewMode('cards')}
+                className={cn('h-6 px-2 text-[10px] gap-1', viewMode === 'cards' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
               >
-                {anyExpanded
-                  ? <><ChevronsDownUp className="h-3.5 w-3.5" /> Fechar todas</>
-                  : <><ChevronsUpDown className="h-3.5 w-3.5" /> Abrir todas</>}
-              </button>
-            )}
+                <LayoutGrid className="h-3 w-3" /> Cards
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleViewMode('excel')}
+                className={cn('h-6 px-2 text-[10px] gap-1', viewMode === 'excel' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              >
+                <AlignJustify className="h-3 w-3" /> Excel
+              </Button>
+            </div>
 
-            {/* Colar Excel */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 h-7 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
-                    onClick={() => setPasteDialogOpen(true)}
-                    disabled={etapas.length === 0}
-                  >
-                    <ClipboardPaste className="w-3.5 h-3.5" />
-                    Colar Excel
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Importar composições copiando do Excel ou Google Sheets
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="mx-2 w-px h-4 bg-border/50" />
 
-            {/* Menu "Mais" — ações secundárias */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs text-muted-foreground">
-                  <MoreHorizontal className="w-3.5 h-3.5" />
-                  Mais
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-52">
-                {obrasComOrcamento.length > 0 && (
-                  <DropdownMenuItem
-                    onClick={() => setImportDialogOpen(true)}
-                    className="text-xs gap-2"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    Importar de outra obra
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Configurar BDI */}
+            <BdiPopover
+              obraId={obraId}
+              initialConfig={bdiConfig}
+              onConfigChange={setBdiConfig}
+            />
 
-
-            {/* Undo / Redo + Salvar + Toggle Densidade — todos no ml-auto */}
+            {/* Undo / Redo + Salvar + Mais */}
             <div className="ml-auto flex items-center gap-2">
-              {/* Status de save */}
-              {saveStatus === 'saving' && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground hidden sm:flex">
-                  <RefreshCw className="h-3 w-3 animate-spin" />
-                  Salvando
-                </span>
-              )}
-              {saveStatus === 'saved' && (
-                <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hidden sm:flex animate-in fade-in duration-300">
-                  <Check className="h-3 w-3" />
-                  Salvo
-                </span>
-              )}
-              {saveStatus === 'error' && (
-                <span className="flex items-center gap-1 text-xs text-destructive hidden sm:flex">
-                  <XCircle className="h-3 w-3" />
-                  Erro
-                </span>
-              )}
-              {/* Undo / Redo */}
               <TooltipProvider>
                 <div className="flex items-center gap-0.5 border rounded-md overflow-hidden">
                   <Tooltip>
@@ -832,13 +944,16 @@ export default function OrcamentoEditor({
                   </Tooltip>
                 </div>
               </TooltipProvider>
-              {/* Botão salvar */}
+
+              {/* Botão salvar com spinner */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button onClick={handleSave} variant="outline" size="sm" className="gap-1.5 h-7 text-xs">
-                      <Save className="w-3.5 h-3.5" />
-                      Salvar
+                    <Button onClick={handleSave} variant="outline" size="sm" className="gap-1.5 h-7 text-xs relative" disabled={saveStatus === 'saving'}>
+                      {saveStatus === 'saving' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : saveStatus === 'saved' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Save className="w-3.5 h-3.5" />}
+                      <span className="hidden sm:inline">
+                        {saveStatus === 'saving' ? 'Salvando' : saveStatus === 'saved' ? 'Salvo' : 'Salvar'}
+                      </span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">
@@ -846,72 +961,80 @@ export default function OrcamentoEditor({
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              {/* ── Sprint 3.2: Toggle Sugestão de Preços ── */}
-              {!readOnly && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={handleTogglePriceSuggestion}
-                        className={cn(
-                          'flex items-center gap-1.5 px-2.5 h-7 rounded-md border text-xs font-medium transition-all',
-                          priceSuggestionEnabled
-                            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400'
-                            : 'border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                        )}
+
+              {/* Menu "Mais" */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 h-7 text-xs text-muted-foreground px-2">
+                    <MoreHorizontal className="w-3.5 h-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem
+                    onClick={() => setPasteDialogOpen(true)}
+                    className="text-xs gap-2"
+                    disabled={etapas.length === 0}
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5 text-emerald-600" />
+                    Colar do Excel
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={handleTogglePriceSuggestion}
+                    className="text-xs gap-2"
+                  >
+                    <Sparkles className={cn('h-3.5 w-3.5', priceSuggestionEnabled ? 'text-amber-500' : '')} />
+                    Sugestão de preços {priceSuggestionEnabled ? '(Ativa)' : '(Desativada)'}
+                  </DropdownMenuItem>
+
+
+                  {obrasComOrcamento.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setImportDialogOpen(true)}
+                        className="text-xs gap-2"
                       >
-                        <Sparkles className={cn('h-3.5 w-3.5', priceSuggestionEnabled && 'text-amber-500')} />
-                        <span className="hidden sm:inline">Sugestão de preços</span>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs max-w-56">
-                      {priceSuggestionEnabled
-                        ? 'Sugestão de preços ativa — busca automática no histórico da empresa e SINAPI'
-                        : 'Ativar sugestão automática de preços por histórico e SINAPI'}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {/* ── Toggle de densidade — 3 ícones ── */}
-              <div className="flex items-center border rounded-md overflow-hidden">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button onClick={() => handleSetDensity('detalhado')} className={cn('flex items-center justify-center px-2 h-7 transition-colors', densityMode === 'detalhado' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50')}>
-                        <LayoutGrid className="h-3.5 w-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">Detalhado — cabeçalhos e botões visíveis</TooltipContent>
-                  </Tooltip>
-                  <div className="w-px h-4 bg-border" />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button onClick={() => handleSetDensity('padrao')} className={cn('flex items-center justify-center px-2 h-7 transition-colors', densityMode === 'padrao' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50')}>
-                        <AlignJustify className="h-3.5 w-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">Padrão — sem cabeçalho de colunas</TooltipContent>
-                  </Tooltip>
-                  <div className="w-px h-4 bg-border" />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button onClick={() => handleSetDensity('compacto')} className={cn('flex items-center justify-center px-2 h-7 transition-colors', densityMode === 'compacto' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50')}>
-                        <Minimize2 className="h-3.5 w-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">Compacto — uma linha por composição</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+                        <Copy className="h-3.5 w-3.5" />
+                        Importar de outra obra
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-        )}
-
-        {/* ── Área de conteúdo ─────────────────────────────────────────────── */}
+        )}        {/* ── Área de conteúdo ─────────────────────────────────────────────── */}
         <div className="flex-1 flex overflow-hidden">
 
           {/* Planilha plana — sem padding, sem space-y (linhas contíguas) */}
-          <div className="flex-1 overflow-y-auto relative">
+          <div className="flex-1 overflow-y-auto relative bg-background">
+            
+            {/* Cabeçalho fixo das colunas */}
+            {etapas.length > 0 && viewMode === 'excel' && (
+              <div className={cn(
+                "sticky top-0 z-20 grid items-center gap-0 px-1 border-b border-border/70 bg-muted/60 backdrop-blur-sm",
+                "h-7 text-[10px] font-semibold uppercase text-muted-foreground tracking-wider shadow-sm",
+                PLANILHA_GRID
+              )}>
+                <div className="flex items-center gap-1 px-1">
+                  <button
+                    tabIndex={-1}
+                    onClick={() => setAllExpanded(prev => !prev)}
+                    className="flex items-center justify-center h-5 w-5 rounded hover:bg-muted text-muted-foreground transition-colors"
+                    title={anyExpanded ? 'Recolher todas as etapas' : 'Expandir todas as etapas'}
+                  >
+                    {anyExpanded ? <ChevronsDownUp className="h-3.5 w-3.5" /> : <ChevronsUpDown className="h-3.5 w-3.5" />}
+                  </button>
+                  <span className="pl-1">Descrição</span>
+                </div>
+                <div className="text-center px-1">UN</div>
+                <div className="text-right px-1">QTD</div>
+                <div className="text-right px-1">R$/UN</div>
+                <div className="text-right px-1">TOTAL</div>
+                <div />
+              </div>
+            )}
 
             {/* ── Sprint 3.4: Banner de revisão SINAPI ? ── */}
             {uncertainCount > 0 && !bannerDismissed && (
@@ -1005,45 +1128,83 @@ export default function OrcamentoEditor({
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext items={etapas.map(e => e.id)} strategy={verticalListSortingStrategy}>
-                    {etapas.map((cat, idx) => (
-                      <SortableEtapaWrapper key={cat.id} id={cat.id}>
+                    <div className={cn(viewMode === 'cards' && "flex flex-col gap-3 p-3")}>
+                      {etapas.map((cat, idx) => (
+                        <SortableEtapaWrapper key={cat.id} id={cat.id}>
                         {({ dragListeners }) => (
-                          <EtapaBlock
-                            etapa={cat}
-                            posicao={idx + 1}
-                            onChange={(updated: OrcamentoEtapa) => {
-                              // Handle duplicate via __duplicate flag
-                              const dup = (updated as OrcamentoEtapa & { __duplicate?: OrcamentoEtapa }).__duplicate;
-                              if (dup) {
-                                setEtapasWithUndo(prev => {
-                                  const next = [...prev];
-                                  next.splice(idx + 1, 0, dup);
-                                  return next;
-                                });
-                              } else {
-                                updateEtapa(idx, updated);
-                              }
-                            }}
-                            onRemove={() => removeEtapa(idx)}
-                            unidades={unidades}
-                            generateComposicaoCodigo={generateComposicaoCodigo}
-                            generateInsumoCodigo={generateInsumoCodigo}
-                            forceExpanded={expandedEtapaId === cat.id ? true : allExpanded}
-                            readOnly={readOnly}
-                            obraId={obraId}
-                            allEtapas={etapas}
-                            dragListeners={dragListeners}
-                            onOpenCatalogo={() => handleOpenCatalogo(cat)}
-                            onGoCotacao={onGoCotacao}
-                            priceSuggestionEnabled={priceSuggestionEnabled}
-                            onPriceBadge={handlePriceBadge}
-                            selectedIds={selectedIds}
-                            onToggleSelect={toggleSelect}
-                            bulkActive={bulkActive}
-                          />
+                          viewMode === 'cards' ? (
+                            <EtapaBlockCard
+                              etapa={cat}
+                              posicao={idx + 1}
+                              onChange={(updated: OrcamentoEtapa) => {
+                                const dup = (updated as OrcamentoEtapa & { __duplicate?: OrcamentoEtapa }).__duplicate;
+                                if (dup) {
+                                  setEtapasWithUndo(prev => {
+                                    const next = [...prev];
+                                    next.splice(idx + 1, 0, dup);
+                                    return next;
+                                  });
+                                } else {
+                                  updateEtapa(idx, updated);
+                                }
+                              }}
+                              onRemove={() => removeEtapa(idx)}
+                              unidades={unidades}
+                              generateComposicaoCodigo={generateComposicaoCodigo}
+                              generateInsumoCodigo={generateInsumoCodigo}
+                              forceExpanded={expandedEtapaId === cat.id ? true : allExpanded}
+                              readOnly={readOnly}
+                              obraId={obraId}
+                              allEtapas={etapas}
+                              dragListeners={dragListeners}
+                              onOpenCatalogo={(tab, query) => handleOpenCatalogo(cat, tab, query)}
+                              onGoCotacao={onGoCotacao}
+                              priceSuggestionEnabled={priceSuggestionEnabled}
+                              onPriceBadge={handlePriceBadge}
+                              bdiConfig={bdiConfig}
+                              selectedIds={selectedIds}
+                              onToggleSelect={toggleSelect}
+                              bulkActive={bulkActive}
+                            />
+                          ) : (
+                            <EtapaBlock
+                              etapa={cat}
+                              posicao={idx + 1}
+                              onChange={(updated: OrcamentoEtapa) => {
+                                const dup = (updated as OrcamentoEtapa & { __duplicate?: OrcamentoEtapa }).__duplicate;
+                                if (dup) {
+                                  setEtapasWithUndo(prev => {
+                                    const next = [...prev];
+                                    next.splice(idx + 1, 0, dup);
+                                    return next;
+                                  });
+                                } else {
+                                  updateEtapa(idx, updated);
+                                }
+                              }}
+                              onRemove={() => removeEtapa(idx)}
+                              unidades={unidades}
+                              generateComposicaoCodigo={generateComposicaoCodigo}
+                              generateInsumoCodigo={generateInsumoCodigo}
+                              forceExpanded={expandedEtapaId === cat.id ? true : allExpanded}
+                              readOnly={readOnly}
+                              obraId={obraId}
+                              allEtapas={etapas}
+                              dragListeners={dragListeners}
+                              onOpenCatalogo={(tab, query) => handleOpenCatalogo(cat, tab, query)}
+                              onGoCotacao={onGoCotacao}
+                              priceSuggestionEnabled={priceSuggestionEnabled}
+                              onPriceBadge={handlePriceBadge}
+                              bdiConfig={bdiConfig}
+                              selectedIds={selectedIds}
+                              onToggleSelect={toggleSelect}
+                              bulkActive={bulkActive}
+                            />
+                          )
                         )}
                       </SortableEtapaWrapper>
                     ))}
+                    </div>
                   </SortableContext>
                   <DragOverlay>
                     {activeEtapaId && (
@@ -1057,25 +1218,26 @@ export default function OrcamentoEditor({
                 </DndContext>
 
                 {/* Rodapé totalizador */}
-                <div className="flex items-center justify-between px-4 py-2.5 border-t bg-muted/20 sticky bottom-0">
-                  <div>
-                    <div className="text-xs text-muted-foreground font-medium">Total Geral</div>
-                    <div className="text-[10px] text-muted-foreground">{etapas.length} etapa{etapas.length !== 1 ? 's' : ''}</div>
+                {selectedIds.size < 2 && (
+                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-border bg-background sticky bottom-0">
+                    <div>
+                      <div className="text-xs text-muted-foreground font-medium">Total Geral</div>
+                      <div className="text-[10px] text-muted-foreground">{etapas.length} etapa{etapas.length !== 1 ? 's' : ''}</div>
+                    </div>
+                    <div className="text-base font-bold text-foreground tabular-nums">{formatCurrency(totalGeral)}</div>
                   </div>
-                  <div className="text-base font-bold text-foreground tabular-nums">{formatCurrency(totalGeral)}</div>
-                </div>
+                )}
 
                 {/* ── Bulk action toolbar ── */}
                 {selectedIds.size >= 2 && (
                   <div className="sticky bottom-0 z-20 flex items-center gap-3 px-4 py-2 bg-primary text-primary-foreground border-t border-primary/60 animate-in slide-in-from-bottom-2 duration-200">
                     <span className="text-xs font-semibold">{selectedIds.size} itens selecionados</span>
                     <div className="flex-1" />
-                    <button
-                      className="text-xs font-medium px-2.5 py-1 rounded border border-primary-foreground/30 hover:bg-primary-foreground/10 transition-colors"
-                      onClick={() => { /* TODO: abrir ListaCotacaoPopover bulk */ }}
-                    >
-                      📋 Adicionar à lista
-                    </button>
+                    <BulkListaDropdown 
+                      obraId={obraId} 
+                      selectedIds={selectedIds} 
+                      onClearSelection={clearSelection} 
+                    />
                     <button
                       className="text-xs font-medium px-2.5 py-1 rounded border border-primary-foreground/30 hover:bg-primary-foreground/10 transition-colors"
                       onClick={clearSelection}
@@ -1095,7 +1257,8 @@ export default function OrcamentoEditor({
         onOpenChange={setCatalogDrawerOpen}
         etapas={etapas}
         defaultEtapaId={catalogDrawerDefaultEtapaId}
-        defaultTab={etapas.length === 0 ? 'etapas' : 'biblioteca'}
+        defaultTab={catalogDrawerTab || (etapas.length === 0 ? 'etapas' : 'biblioteca')}
+        defaultQuery={catalogDrawerQuery}
         onApply={handleCatalogApply}
         onApplyEtapas={(templates) => {
           const toAdd = templates.filter(

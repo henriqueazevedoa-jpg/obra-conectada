@@ -25,6 +25,10 @@ export interface OrcamentoInsumo {
   sinapiPreco?: number | null;
   sinapiConfidence?: string | null;
   sinapiConfirmado?: boolean;
+
+  /** Sprint 55C: Tipo e regime do insumo */
+  tipo_item?: 'material' | 'mao_obra' | 'equipamento' | 'servico';
+  regime_mo?: 'clt' | 'mei' | 'autonomo' | 'pj' | null;
 }
 
 export interface OrcamentoComposicao {
@@ -58,8 +62,13 @@ export interface OrcamentoComposicao {
   dataFimPrevista?: string;
   dataInicioReal?: string;
   dataFimReal?: string;
+  dataFimReal?: string;
   pesoCronograma?: number;
   concluida?: boolean;
+
+  /** Sprint 55C: Tipo e regime da composição */
+  tipo_item?: 'material' | 'mao_obra' | 'equipamento' | 'servico';
+  regime_mo?: 'clt' | 'mei' | 'autonomo' | 'pj' | null;
 }
 
 export interface OrcamentoEtapa {
@@ -225,6 +234,9 @@ function dbToInsumo(row: DbRow): OrcamentoInsumo {
     sinapiPreco: row.sinapi_preco != null ? Number(row.sinapi_preco) : null,
     sinapiConfidence: asOptionalString(row.sinapi_confidence),
     sinapiConfirmado: asBoolean(row.sinapi_confirmado),
+
+    tipo_item: (row.tipo_item as any) || 'material',
+    regime_mo: (row.regime_mo as any) || null,
   };
 }
 
@@ -259,6 +271,8 @@ function dbToComposicao(row: DbRow, insumos: OrcamentoInsumo[]): OrcamentoCompos
     pesoCronograma: asNumber(row.peso_cronograma),
     concluida: asBoolean(row.concluida),
     tipo: (row.tipo === 'insumo_direto' ? 'insumo_direto' : 'composicao') as 'composicao' | 'insumo_direto',
+    tipo_item: (row.tipo_item as any) || 'material',
+    regime_mo: (row.regime_mo as any) || null,
   };
 }
 
@@ -484,6 +498,8 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
           peso_cronograma: comp.pesoCronograma ?? null,
           concluida: comp.concluida || false,
           tipo: comp.tipo || 'composicao',
+          tipo_item: comp.tipo_item || 'material',
+          regime_mo: comp.regime_mo || null,
         });
 
         if (compError) throw compError;
@@ -707,6 +723,8 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
             usa_subitens: comp.usaInsumos,
             tipo: comp.tipo || 'composicao',
             fonte_referencia: comp.fonteReferencia || null,
+            tipo_item: comp.tipo_item || 'material',
+            regime_mo: comp.regime_mo || null,
           });
           for (const ins of comp.insumos) {
             await supabase.from('orcamento_subitens').insert({
@@ -779,6 +797,8 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
           tipo: comp.tipo || 'composicao',
           fonte_referencia: comp.fonteReferencia || null,
           codigo_referencia_externa: comp.codigoReferenciaExterna || null,
+          tipo_item: comp.tipo_item || 'material',
+          regime_mo: comp.regime_mo || null,
         });
         for (const ins of comp.insumos) {
           await supabase.from('orcamento_subitens').upsert({

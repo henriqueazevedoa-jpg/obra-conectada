@@ -17,12 +17,18 @@ import {
   GripVertical,
   Trash2,
   Copy,
+  Box,
+  Users,
+  Truck,
+  Wrench,
 } from 'lucide-react';
 import ComposicaoRow from './ComposicaoRow';
 import { formatCurrency } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { useEtapaDependencias } from '@/hooks/useEtapaDependencias';
 import { OrcamentoVersao } from '@/contexts/OrcamentoContext';
+import { BdiConfig } from './BdiPopover';
+import { PLANILHA_GRID } from './planilhaGrid';
 
 // Re-exportar para retrocompatibilidade com InsumoRow e outros
 export { COMPOSICAO_GRID, toSinapiDisplayName } from './ComposicaoRow';
@@ -39,7 +45,7 @@ interface Props {
   obraId?: string;
   allEtapas?: OrcamentoEtapa[];
   dragListeners?: React.HTMLAttributes<HTMLElement>;
-  onOpenCatalogo?: () => void;
+  onOpenCatalogo?: (tab?: string, query?: string) => void;
   compactMode?: boolean;
   densityMode?: 'detalhado' | 'padrao' | 'compacto';
   densityLevel?: 'normal' | 'compact' | 'ultra';
@@ -51,6 +57,7 @@ interface Props {
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
   bulkActive?: boolean;
+  bdiConfig?: BdiConfig;
 }
 
 export default function EtapaBlock({
@@ -73,6 +80,7 @@ export default function EtapaBlock({
   selectedIds,
   onToggleSelect,
   bulkActive = false,
+  bdiConfig,
 }: Props) {
   const [localExpanded, setLocalExpanded] = useState(true);
   const [forceApplied, setForceApplied] = useState<boolean | undefined>(undefined);
@@ -97,7 +105,7 @@ export default function EtapaBlock({
     setForceApplied(forceExpanded);
   }
 
-  const makeComposicao = useCallback((descricao?: string, unidade?: string, tipo: 'composicao' | 'insumo_direto' = 'composicao'): OrcamentoComposicao => {
+  const makeComposicao = useCallback((descricao?: string, unidade?: string, tipo: 'composicao' | 'insumo_direto' = 'composicao', tipo_item?: string): OrcamentoComposicao => {
     const existingCodes = etapa.composicoes.map(c => c.codigo);
     return {
       id: crypto.randomUUID(),
@@ -110,6 +118,7 @@ export default function EtapaBlock({
       insumos: [],
       usaInsumos: false,
       tipo,
+      tipo_item: tipo_item || 'material',
     };
   }, [etapa.composicoes, etapa.codigo, generateComposicaoCodigo]);
 
@@ -127,8 +136,8 @@ export default function EtapaBlock({
     onChange({ ...etapa, composicoes: comps, precoTotal: recalcCategoria(comps) });
   };
 
-  const addComposicao = (tipo: 'composicao' | 'insumo_direto' = 'composicao') => {
-    const comps = [...etapa.composicoes, makeComposicao('', '', tipo)];
+  const addComposicao = (tipo: 'composicao' | 'insumo_direto' = 'composicao', tipo_item?: string) => {
+    const comps = [...etapa.composicoes, makeComposicao('', '', tipo, tipo_item)];
     onChange({ ...etapa, usaComposicoes: true, composicoes: comps });
     if (!localExpanded) setLocalExpanded(true);
   };
@@ -154,13 +163,16 @@ export default function EtapaBlock({
       {/* ── Linha de grupo (sticky header da etapa) ── */}
       <div
         className={cn(
-          'group/etapa sticky top-0 z-10 flex items-center gap-1 px-2 border-b border-border',
-          'bg-muted/40 dark:bg-muted/20',
-          'min-h-[34px]',
-          readOnly && 'opacity-80'
+          'group/etapa sticky top-7 z-10 grid items-center gap-0 border-b border-border/70',
+          'bg-slate-100/80 dark:bg-slate-800/60',
+          'min-h-[36px]',
+          readOnly && 'opacity-80',
+          PLANILHA_GRID
         )}
-        style={{ height: '34px' }}
+        style={{ height: '36px' }}
       >
+        {/* Coluna 1: Drag + Chevron + Num + Nome */}
+        <div className="flex items-center gap-1 h-full px-2 border-r border-border/60">
         {/* Drag handle */}
         {!readOnly && (
           <span
@@ -174,6 +186,7 @@ export default function EtapaBlock({
 
         {/* Chevron expand/collapse */}
         <button
+          tabIndex={-1}
           onClick={() => setLocalExpanded(v => !v)}
           className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
           aria-label={localExpanded ? 'Colapsar etapa' : 'Expandir etapa'}
@@ -201,23 +214,33 @@ export default function EtapaBlock({
             onChange={e => updateNome(e.target.value)}
             onBlur={() => setEditingNome(false)}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingNome(false); }}
-            className="flex-1 min-w-0 h-6 text-xs font-semibold bg-background border border-primary/40 rounded px-1 focus:outline-none"
+            className="flex-1 min-w-0 h-full bg-primary/5 border-transparent rounded-none px-1 focus:outline focus:outline-[1.5px] focus:outline-primary focus:outline-offset-[-1px]"
+            style={{ fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}
           />
         ) : (
           <span
             className={cn(
-              'flex-1 min-w-0 text-xs font-semibold truncate pr-2 text-foreground',
+              'flex-1 min-w-0 truncate pr-2',
               !readOnly && 'cursor-text hover:text-primary transition-colors'
             )}
+            style={{ fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}
             title={etapa.nome || 'Sem nome'}
             onDoubleClick={() => !readOnly && setEditingNome(true)}
           >
             {etapa.nome || <span className="text-muted-foreground italic">Sem nome</span>}
           </span>
         )}
+        </div>
 
-        {/* Info: composições + progresso */}
-        {totalComps > 0 && (
+        {/* Colunas vazias (UN, QTD, P.UNIT) */}
+        <div className="h-full border-r border-border/60" />
+        <div className="h-full border-r border-border/60" />
+        <div className="h-full border-r border-border/60" />
+
+        {/* Coluna 5: Info + Total */}
+        <div className="flex items-center justify-end gap-3 h-full px-2 border-r border-border/60">
+          {/* Info: composições + progresso */}
+          {totalComps > 0 && (
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[10px] text-muted-foreground hidden sm:inline tabular-nums">
               {totalComps} comp.
@@ -242,15 +265,61 @@ export default function EtapaBlock({
         )}
 
         {/* Total */}
-        <span className="text-xs font-bold tabular-nums text-foreground shrink-0 min-w-[72px] text-right">
-          {formatCurrency(etapa.precoTotal)}
+        <span className="tabular-nums text-foreground shrink-0 text-right" style={{ fontSize: '13px', fontWeight: 700 }}>
+          {bdiConfig?.enabled && etapa.precoTotal > 0 ? (
+            <span className="cursor-help decoration-dashed underline decoration-muted-foreground/50 underline-offset-2" title={`Base: ${formatCurrency(etapa.precoTotal)} | BDI (${bdiConfig.rate}%): ${formatCurrency(etapa.precoTotal * (bdiConfig.rate / 100))}`}>
+              {formatCurrency(etapa.precoTotal * (1 + bdiConfig.rate / 100))}
+            </span>
+          ) : (
+            formatCurrency(etapa.precoTotal)
+          )}
         </span>
+        </div>
+
+        {/* Coluna 6: Ações */}
+        <div className="flex items-center justify-center gap-1 h-full px-1">
+          {/* Adicionar... */}
+          {!readOnly && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                tabIndex={-1}
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 opacity-0 group-hover/etapa:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                title="Adicionar item"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 text-xs">
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('composicao')}>
+                <Plus className="h-3 w-3" /> Nova composição
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Insumo direto</div>
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'material')}>
+                <Box className="h-3 w-3" /> Material
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'mao_obra')}>
+                <Users className="h-3 w-3" /> Mão de obra
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'equipamento')}>
+                <Truck className="h-3 w-3" /> Equipamento
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'servico')}>
+                <Wrench className="h-3 w-3" /> Serviço
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Menu ⋯ */}
         {!readOnly && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
+                tabIndex={-1}
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 shrink-0 opacity-0 group-hover/etapa:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
@@ -300,6 +369,7 @@ export default function EtapaBlock({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        </div>
       </div>
 
       {/* ── Composições (visíveis quando expandida) ── */}
@@ -323,44 +393,28 @@ export default function EtapaBlock({
               isSelected={selectedIds?.has(comp.id) ?? false}
               onToggleSelect={() => onToggleSelect?.(comp.id)}
               bulkActive={bulkActive}
+              bdiConfig={bdiConfig}
             />
           ))}
 
-          {/* Linha de adição (28px) */}
-          {!readOnly && (
-            <div className="flex items-center gap-3 px-8 border-b border-dashed border-border/30 bg-transparent hover:bg-muted/5 transition-colors"
-              style={{ height: '28px' }}
-            >
-              <button
-                onClick={() => addComposicao('composicao')}
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
-              >
-                <Plus className="h-3 w-3" />
-                Composição
-              </button>
-              <button
-                onClick={() => addComposicao('insumo_direto')}
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Plus className="h-3 w-3" />
-                Insumo direto
-              </button>
-              {onOpenCatalogo && (
-                <button
-                  onClick={() => onOpenCatalogo()}
-                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Search className="h-3 w-3" />
-                  Buscar no catálogo
-                </button>
-              )}
-            </div>
-          )}
-
           {/* Empty state */}
-          {etapa.composicoes.length === 0 && readOnly && (
-            <div className="flex items-center justify-center py-4 text-xs text-muted-foreground border-b border-border/30">
-              Nenhuma composição
+          {etapa.composicoes.length === 0 && !readOnly && (
+            <div className="flex flex-col items-center gap-3 py-8 border-b border-border/30 bg-muted/5">
+              <p className="text-xs text-muted-foreground">Nenhuma composição nesta etapa</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onOpenCatalogo?.()}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 dark:bg-violet-950/20 dark:text-violet-400 dark:border-violet-800 transition-colors"
+                >
+                  ✨ Sugerir da Biblioteca
+                </button>
+                <button
+                  onClick={() => onOpenCatalogo?.()}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-muted/50 text-muted-foreground transition-colors"
+                >
+                  🔍 Buscar no SINAPI
+                </button>
+              </div>
             </div>
           )}
         </>

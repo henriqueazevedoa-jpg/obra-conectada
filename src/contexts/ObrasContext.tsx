@@ -40,6 +40,7 @@ function dbToObra(row: any): Obra {
     responsavel: row.responsavel || '',
     percentualAndamento: row.percentual_andamento || 0,
     descricao: row.descricao || '',
+    orcamento_bdi_config: row.orcamento_bdi_config || null,
   };
 }
 
@@ -192,6 +193,7 @@ export function ObrasProvider({ children }: { children: React.ReactNode }) {
       if (data.responsavel !== undefined) update.responsavel = data.responsavel || null;
       if (data.percentualAndamento !== undefined) update.percentual_andamento = data.percentualAndamento;
       if (data.descricao !== undefined) update.descricao = data.descricao || null;
+      if (data.orcamento_bdi_config !== undefined) update.orcamento_bdi_config = data.orcamento_bdi_config;
 
       const { error } = await supabase.from('obras').update(update as any).eq('id', id);
 

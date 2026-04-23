@@ -18,7 +18,8 @@ interface Lote {
 }
 
 interface Props {
-  composicaoId: string;
+  composicaoId: string | null;
+  insumoId?: string | null;
   descricao: string;
   unidade: string;
   qtd: number | null;
@@ -33,6 +34,7 @@ interface Props {
 
 export default function ListaCotacaoPopover({
   composicaoId,
+  insumoId,
   descricao,
   obraId,
   children,
@@ -60,11 +62,14 @@ export default function ListaCotacaoPopover({
 
       if (!lotesData) { setLotes([]); return; }
 
-      // Buscar itens de cada lote que correspondem a esta composição
+      const itemRefId = composicaoId || insumoId;
+      if (!itemRefId) { setLotes([]); return; }
+
+      // Buscar itens de cada lote que correspondem a este item
       const { data: itensData } = await (supabase as any)
         .from('cotacao_lote_itens')
         .select('lote_id')
-        .eq('item_origem_id', composicaoId);
+        .eq('item_origem_id', itemRefId);
 
       const addedLoteIdsSet = new Set([
         ...(itensData || []).map((i: { lote_id: string }) => i.lote_id),
@@ -101,10 +106,13 @@ export default function ListaCotacaoPopover({
   }, [open]);
 
   const handleAdicionar = async (loteId: string) => {
+    const itemRefId = composicaoId || insumoId;
+    if (!itemRefId) return;
+
     try {
       await (supabase as any).from('cotacao_lote_itens').insert({
         lote_id: loteId,
-        item_origem_id: composicaoId,
+        item_origem_id: itemRefId,
       });
 
       setLotes(prev => prev.map(l =>
@@ -120,12 +128,15 @@ export default function ListaCotacaoPopover({
   };
 
   const handleRemover = async (loteId: string) => {
+    const itemRefId = composicaoId || insumoId;
+    if (!itemRefId) return;
+
     try {
       await (supabase as any)
         .from('cotacao_lote_itens')
         .delete()
         .eq('lote_id', loteId)
-        .eq('item_origem_id', composicaoId);
+        .eq('item_origem_id', itemRefId);
 
       setLotes(prev => prev.map(l =>
         l.id === loteId ? { ...l, isAdded: false, itemCount: Math.max(0, l.itemCount - 1) } : l
@@ -150,11 +161,16 @@ export default function ListaCotacaoPopover({
         .select('id, titulo')
         .single();
 
-      if (novoLote) {
+      const itemRefId = composicaoId || insumoId;
+      if (!itemRefId) {
+        console.warn('[ListaCotacaoPopover] create failed: both composicaoId and insumoId are null/undefined', { composicaoId, insumoId });
+      }
+
+      if (novoLote && itemRefId) {
         // Adicionar item automaticamente à nova lista
         await (supabase as any).from('cotacao_lote_itens').insert({
           lote_id: novoLote.id,
-          item_origem_id: composicaoId,
+          item_origem_id: itemRefId,
         });
 
         setLotes(prev => [{
@@ -198,8 +214,10 @@ export default function ListaCotacaoPopover({
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           ) : lotes.length === 0 ? (
-            <div className="px-3 py-3 text-xs text-muted-foreground text-center">
-              Nenhuma lista criada ainda
+            <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+              <ClipboardList className="h-8 w-8 text-muted-foreground/30 mb-2" />
+              <p className="text-xs font-medium text-muted-foreground">Nenhuma lista criada</p>
+              <p className="text-[10px] text-muted-foreground/70 mt-1">Crie sua primeira lista de cotação no campo abaixo.</p>
             </div>
           ) : (
             lotes.map(lote => (
@@ -218,18 +236,19 @@ export default function ListaCotacaoPopover({
                   <p className="text-xs font-medium truncate">{lote.titulo}</p>
                   <p className="text-[10px] text-muted-foreground">{lote.itemCount} item{lote.itemCount !== 1 ? 's' : ''}</p>
                 </div>
-                <button
-                  onClick={() => lote.isAdded ? handleRemover(lote.id) : handleAdicionar(lote.id)}
-                  className={cn(
-                    'h-6 w-6 flex items-center justify-center rounded border text-xs transition-all shrink-0',
-                    lote.isAdded
-                      ? 'border-destructive/30 text-destructive hover:bg-destructive/10'
-                      : 'border-primary/30 text-primary hover:bg-primary/10'
-                  )}
-                  title={lote.isAdded ? 'Remover da lista' : 'Adicionar à lista'}
-                >
-                  {lote.isAdded ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                </button>
+                <div className="flex items-center justify-center shrink-0 w-6">
+                  <div
+                    className={cn(
+                      'flex items-center justify-center h-4 w-4 rounded border transition-all cursor-pointer',
+                      lote.isAdded
+                        ? 'bg-primary border-primary text-primary-foreground'
+                        : 'border-input bg-transparent hover:border-primary/50'
+                    )}
+                    onClick={() => lote.isAdded ? handleRemover(lote.id) : handleAdicionar(lote.id)}
+                  >
+                    {lote.isAdded && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                </div>
               </div>
             ))
           )}
