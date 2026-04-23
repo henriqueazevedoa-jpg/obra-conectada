@@ -218,6 +218,12 @@ export const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
+export const formatCurrencyShort = (value: number) => {
+  if (value >= 1_000_000) return `R$ ${(value/1_000_000).toFixed(1).replace('.', ',')}M`;
+  if (value >= 1_000) return `R$ ${(value/1_000).toFixed(1).replace('.', ',')}k`;
+  return formatCurrency(value);
+};
+
 export const formatDate = (date: string) => {
   return new Date(date + 'T12:00:00').toLocaleDateString('pt-BR');
 };

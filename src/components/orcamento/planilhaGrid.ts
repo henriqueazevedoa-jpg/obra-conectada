@@ -7,4 +7,4 @@ export const PLANILHA_COLS = {
   acoes:     '80px',
 };
 
-export const PLANILHA_GRID = "grid-cols-[minmax(0,1fr)_64px_80px_96px_96px_80px]";
+export const PLANILHA_GRID = "grid-cols-[minmax(0,1fr)_56px_72px_88px_120px_72px]";

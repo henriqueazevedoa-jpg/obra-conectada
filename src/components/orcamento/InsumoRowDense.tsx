@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { Search, ClipboardList, Trash2, Settings2, Box, Users, Truck, Wrench } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/untyped';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
-import { formatCurrency } from '@/data/mockData';
+import { formatCurrency, formatCurrencyShort } from '@/data/mockData';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
@@ -337,8 +337,21 @@ export default function InsumoRowDense({
       </div>
 
       {/* 6. Preço Total (88px) */}
-      <div className={cn('h-full flex items-center justify-end border-r border-border/60 px-1 py-0.5 tabular-nums', insumo.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground/50')} style={{ fontSize: '11px', fontWeight: 400 }}>
-        {formatCurrency(insumo.precoTotal)}
+      <div className={cn('h-full flex items-center justify-end border-r border-border/60 px-1 py-0.5 tabular-nums overflow-hidden text-ellipsis whitespace-nowrap', insumo.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground/50')} style={{ fontSize: '11px', fontWeight: 400 }}>
+        {insumo.precoTotal > 999999 ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger className="cursor-help underline decoration-dashed decoration-muted-foreground/50 underline-offset-2 overflow-hidden text-ellipsis whitespace-nowrap max-w-full block">
+                {formatCurrencyShort(insumo.precoTotal)}
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {formatCurrency(insumo.precoTotal)}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-full block">{formatCurrency(insumo.precoTotal)}</span>
+        )}
       </div>
 
       {/* Coluna 6: Ações (Badges + SINAPI + Lista + Remover) */}

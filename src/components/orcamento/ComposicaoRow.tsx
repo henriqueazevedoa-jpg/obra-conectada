@@ -15,7 +15,7 @@ import {
   MoreHorizontal, GripVertical, Lock,
 } from 'lucide-react';
 import InsumoRowDense from './InsumoRowDense';
-import { formatCurrency } from '@/data/mockData';
+import { formatCurrency, formatCurrencyShort } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/untyped';
 import { toast } from '@/hooks/use-toast';
@@ -423,23 +423,35 @@ export default function ComposicaoRow({
 
         {/* Preço total */}
         <div className={cn(
-          'h-full flex items-center justify-end px-1 text-right tabular-nums border-r border-border/60',
+          'h-full flex items-center justify-end px-1 text-right tabular-nums border-r border-border/60 overflow-hidden text-ellipsis whitespace-nowrap',
           composicao.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground'
         )} style={{ fontSize: '12px' }}>
           {bdiConfig?.enabled && composicao.precoTotal > 0 ? (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger className="cursor-help decoration-dashed underline decoration-muted-foreground/50 underline-offset-2">
-                  {formatCurrency(composicao.precoTotal * (1 + bdiConfig.rate / 100))}
+                <TooltipTrigger className="cursor-help decoration-dashed underline decoration-muted-foreground/50 underline-offset-2 overflow-hidden text-ellipsis whitespace-nowrap max-w-full block">
+                  {composicao.precoTotal * (1 + bdiConfig.rate / 100) > 999999 ? formatCurrencyShort(composicao.precoTotal * (1 + bdiConfig.rate / 100)) : formatCurrency(composicao.precoTotal * (1 + bdiConfig.rate / 100))}
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
                   Preço Base: {formatCurrency(composicao.precoTotal)}<br/>
-                  BDI ({bdiConfig.rate}%): {formatCurrency(composicao.precoTotal * (bdiConfig.rate / 100))}
+                  BDI ({bdiConfig.rate}%): {formatCurrency(composicao.precoTotal * (bdiConfig.rate / 100))}<br/>
+                  Total c/ BDI: {formatCurrency(composicao.precoTotal * (1 + bdiConfig.rate / 100))}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : composicao.precoTotal > 999999 ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="cursor-help underline decoration-dashed decoration-muted-foreground/50 underline-offset-2 overflow-hidden text-ellipsis whitespace-nowrap max-w-full block">
+                  {formatCurrencyShort(composicao.precoTotal)}
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {formatCurrency(composicao.precoTotal)}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
-            formatCurrency(composicao.precoTotal)
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-full block">{formatCurrency(composicao.precoTotal)}</span>
           )}
         </div>
 
