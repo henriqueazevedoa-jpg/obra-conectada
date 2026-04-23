@@ -232,7 +232,9 @@ export default function EtapaBlock({
         )}
         </div>
 
-        {/* Coluna 2: UN */}
+        {/* Coluna 2: TIPO */}
+        <div className="h-full border-r border-border/60" />
+        {/* Coluna 3: UN */}
         <div className="h-full border-r border-border/60" />
         {/* Coluna 3: QTD */}
         <div className="h-full border-r border-border/60" />

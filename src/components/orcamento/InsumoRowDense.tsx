@@ -47,6 +47,35 @@ export default function InsumoRowDense({
   const qInputRef = useRef<HTMLInputElement>(null);
   const pInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-detecção de MO
+  const [isMoDetected, setIsMoDetected] = useState(false);
+  useEffect(() => {
+    const MO_KEYWORDS = [
+      'pedreiro','servente','ajudante','operário','operario',
+      'mão de obra','mao de obra','oficial','encanador',
+      'eletricista','pintor','carpinteiro','armador'
+    ];
+    const lower = insumo.descricao.toLowerCase();
+    const isMO = MO_KEYWORDS.some(k => lower.includes(k));
+    setIsMoDetected(isMO && insumo.tipo_item === 'material');
+  }, [insumo.descricao, insumo.tipo_item]);
+
+  const BADGE_STYLES: Record<string, string> = {
+    mao_obra: 'bg-amber-100 text-amber-700 border-amber-300',
+    material: 'bg-blue-100 text-blue-700 border-blue-300',
+    equipamento: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+    servico: 'bg-purple-100 text-purple-700 border-purple-300',
+  };
+  const BADGE_LABEL: Record<string, string> = {
+    mao_obra: 'MO',
+    material: 'MAT',
+    equipamento: 'EQP',
+    servico: 'SRV',
+  };
+
+  const badgeClass = BADGE_STYLES[insumo.tipo_item] || BADGE_STYLES.material;
+  const badgeLabel = BADGE_LABEL[insumo.tipo_item] || 'MAT';
+
   // Busca sugestões de materiais
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -214,47 +243,8 @@ export default function InsumoRowDense({
       'odd:bg-[#f8f9fa] even:bg-[#f2f4f6] dark:odd:bg-slate-900/40 dark:even:bg-slate-900/60 hover:bg-primary/5 focus-within:bg-primary/5 min-h-[28px] h-[28px]',
       INSUMO_DENSE_GRID
     )}>
-      {/* Coluna 1: Dot de Tipo + Descrição (1fr) */}
-      <div className="h-full flex items-center border-r border-border/60 pl-[20px] pr-1 py-0.5 min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
-        <div className="flex items-center h-full py-0.5 shrink-0 mr-1.5 pl-1">
-          {readOnly ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={cn('h-1.5 w-1.5 rounded-full mr-1.5', dotColor, dotClass)} />
-                </TooltipTrigger>
-                <TooltipContent side="right" className="text-[11px]">{dotTooltip}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <DropdownMenu>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <button tabIndex={-1} className="flex items-center justify-center h-4 w-4 rounded-sm hover:bg-muted focus:outline-none mr-1">
-                        <div className={cn('h-1.5 w-1.5 rounded-full', dotColor, dotClass)} />
-                      </button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="text-[11px]">{dotTooltip}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <DropdownMenuContent align="start" className="w-40 text-[11px]">
-                {Object.entries(TIPO_CONFIG).map(([key, config]) => {
-                  const Icon = config.icon;
-                  return (
-                    <DropdownMenuItem key={key} onClick={() => update('tipo_item', key)} className="text-[11px] gap-2">
-                      <Icon className={cn('h-3 w-3', config.color)} />
-                      {config.label}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-
+      {/* Coluna 1: Descrição (1fr) */}
+      <div className="h-full flex items-center border-r border-border/60 pl-2 pr-1 py-0.5 min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
         {readOnly ? (
           <div className="truncate w-full" style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--foreground) / 0.8)' }}>{insumo.descricao}</div>
         ) : (
@@ -267,6 +257,51 @@ export default function InsumoRowDense({
             className="h-6 w-full px-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
             style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--foreground) / 0.8)' }}
           />
+        )}
+      </div>
+
+      {/* Coluna 2: Tipo Badge (36px) */}
+      <div className="h-full flex items-center justify-center border-r border-border/60">
+        {readOnly ? (
+          <Badge variant="outline" className={cn('text-[9px] font-bold px-1 py-0 h-4 rounded', badgeClass)}>
+            {badgeLabel}
+          </Badge>
+        ) : isMoDetected ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={() => update('tipo_item', 'mao_obra')} className="focus:outline-none">
+                  <Badge variant="outline" className="text-[9px] font-bold px-1 py-0 h-4 rounded bg-amber-100 text-amber-700 border-amber-300 animate-pulse cursor-pointer">
+                    MO?
+                  </Badge>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-[11px]">
+                Detectamos mão de obra — clique para confirmar
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="focus:outline-none">
+                <Badge variant="outline" className={cn('text-[9px] font-bold px-1 py-0 h-4 rounded cursor-pointer hover:opacity-80 transition-opacity', badgeClass)}>
+                  {badgeLabel}
+                </Badge>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-40 text-[11px]">
+              {Object.entries(TIPO_CONFIG).map(([key, config]) => {
+                const Icon = config.icon;
+                return (
+                  <DropdownMenuItem key={key} onClick={() => update('tipo_item', key)} className="text-[11px] gap-2">
+                    <Icon className={cn('h-3 w-3', config.color)} />
+                    {config.label}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 

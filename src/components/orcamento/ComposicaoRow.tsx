@@ -362,6 +362,9 @@ export default function ComposicaoRow({
           )}
         </div>
 
+        {/* Tipo (Vazio em ComposicaoRow, só insumo tem badge de tipo) */}
+        <div className="h-full border-r border-border/60" />
+
         {/* Unidade */}
         {isFullReadOnly || isSinapi ? (
           <div className="h-full flex items-center justify-center text-[10px] uppercase px-1 text-center text-muted-foreground border-r border-border/60">{composicao.unidade}</div>

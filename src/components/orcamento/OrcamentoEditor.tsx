@@ -1155,6 +1155,7 @@ export default function OrcamentoEditor({
                   </button>
                   <span className="pl-1">Descrição</span>
                 </div>
+                <div className="text-center px-0 text-muted-foreground/60" title="Tipo do item">T.</div>
                 <div className="text-center px-1">UN</div>
                 <div className="text-right px-1">QTD</div>
                 <div className="text-right px-1">R$/UN</div>
