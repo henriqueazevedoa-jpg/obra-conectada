@@ -238,29 +238,22 @@ export default function EtapaBlock({
         <div className="h-full border-r border-border/60" />
         
         {/* Coluna 4: P.UNIT (Progresso) */}
-        <div className="flex items-center justify-end gap-2 h-full px-2 border-r border-border/60">
+        <div className="flex items-center justify-end gap-2 h-full px-2">
           {totalComps > 0 && (
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] text-muted-foreground hidden sm:inline tabular-nums">
+            <>
+              <span className="text-[10px] text-muted-foreground tabular-nums">
                 {totalComps} comp.
               </span>
-              <div className="flex items-center gap-1">
-                <div className="w-14 h-1 rounded-full bg-border overflow-hidden">
-                  <div
-                    className={cn('h-full rounded-full transition-all duration-500', barColor)}
-                    style={{ width: `${pctCotado}%` }}
-                  />
-                </div>
-                <span className={cn(
-                  'text-[10px] tabular-nums font-medium hidden sm:inline',
-                  pctCotado === 100 ? 'text-emerald-600 dark:text-emerald-400' :
-                  pctCotado > 0 ? 'text-blue-600 dark:text-blue-400' :
-                  'text-muted-foreground'
-                )}>
-                  {pctCotado}%
-                </span>
+              <div className="w-16 h-1 bg-border overflow-hidden">
+                <div className={cn('h-full transition-all', barColor)}
+                     style={{ width: `${pctCotado}%` }} />
               </div>
-            </div>
+              <span className="text-[10px] tabular-nums font-medium"
+                    style={{ color: pctCotado === 100 ? '#10b981' :
+                             pctCotado > 0 ? '#3b82f6' : undefined }}>
+                {pctCotado}%
+              </span>
+            </>
           )}
         </div>
 

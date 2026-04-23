@@ -17,6 +17,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { normalizeUnit } from '@/lib/formatters';
 import {
   useOrcamento,
   OrcamentoObra,
@@ -415,6 +416,33 @@ export default function OrcamentoEditor({
     setEtapasWithUndo(nextEtapas);
     toast({ title: 'Formatação aplicada a todas as etapas' });
     
+    try {
+      setSaveStatus('saving');
+      await saveOrcamento({ obraId, etapas: nextEtapas });
+      lastSavedSnapshotRef.current = JSON.stringify(nextEtapas);
+      setSaveStatus('saved');
+      window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
+    } catch (e) {
+      setSaveStatus('error');
+    }
+  };
+
+  const applyUnitNormalization = async () => {
+    const nextEtapas = etapas.map(etapa => ({
+      ...etapa,
+      composicoes: etapa.composicoes.map(comp => ({
+        ...comp,
+        unidade: normalizeUnit(comp.unidade),
+        insumos: comp.insumos.map(ins => ({
+          ...ins,
+          unidade: normalizeUnit(ins.unidade),
+        })),
+      })),
+    }));
+    
+    setEtapasWithUndo(nextEtapas);
+    toast({ title: 'Unidades normalizadas' });
+
     try {
       setSaveStatus('saving');
       await saveOrcamento({ obraId, etapas: nextEtapas });
@@ -974,6 +1002,10 @@ export default function OrcamentoEditor({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => applyTextFormat('lower')} className="gap-2 cursor-pointer text-xs">
                   <span className="font-semibold text-[10px] w-4 text-center">aa</span> minúsculas
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={applyUnitNormalization} className="gap-2 cursor-pointer text-xs">
+                  <span className="font-semibold text-[10px] w-4 text-center">m²</span> Normalizar unidades
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
