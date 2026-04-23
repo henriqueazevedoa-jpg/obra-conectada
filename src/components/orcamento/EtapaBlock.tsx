@@ -225,7 +225,7 @@ export default function EtapaBlock({
             )}
             style={{ fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}
             title={etapa.nome || 'Sem nome'}
-            onDoubleClick={() => !readOnly && setEditingNome(true)}
+            onClick={() => !readOnly && setEditingNome(true)}
           >
             {etapa.nome || <span className="text-muted-foreground italic">Sem nome</span>}
           </span>

@@ -262,6 +262,7 @@ export default function InsumoRowDense({
             suggestions={suggestions}
             value={insumo.descricao}
             onChange={handleDescricaoChange}
+            onFocus={e => e.target.select()}
             placeholder="Descrição do insumo"
             className="h-6 w-full px-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
             style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--foreground) / 0.8)' }}
@@ -278,6 +279,7 @@ export default function InsumoRowDense({
             <input
               value={insumo.unidade}
               onChange={(e) => update('unidade', e.target.value)}
+              onFocus={e => e.target.select()}
               className="h-6 w-full text-[10px] uppercase text-center bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none"
               placeholder="UN"
               list={`un-ins-${insumo.id}`}
@@ -299,6 +301,7 @@ export default function InsumoRowDense({
             type="number"
             value={localQtd}
             onChange={e => setLocalQtd(e.target.value)}
+            onFocus={e => e.target.select()}
             onBlur={commitQtd}
             onKeyDown={e => handleKeyDown(e, 'qtd')}
             data-planilha="1"
@@ -326,6 +329,7 @@ export default function InsumoRowDense({
               type="number"
               value={localPreco}
               onChange={e => setLocalPreco(e.target.value)}
+              onFocus={e => e.target.select()}
               onBlur={commitPreco}
               onKeyDown={e => handleKeyDown(e, 'preco')}
               className="h-6 w-full tabular-nums text-right pl-4 pr-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"

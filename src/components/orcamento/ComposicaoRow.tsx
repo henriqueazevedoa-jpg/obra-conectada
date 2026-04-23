@@ -353,6 +353,7 @@ export default function ComposicaoRow({
               <Input
                 value={composicao.descricao}
                 onChange={e => update('descricao', e.target.value)}
+                onFocus={e => e.target.select()}
                 className="h-full w-full px-1.5 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
                 style={{ fontSize: '12px', fontWeight: 500 }}
                 placeholder="Descrição"
@@ -369,6 +370,7 @@ export default function ComposicaoRow({
             <Input
               value={composicao.unidade}
               onChange={e => update('unidade', e.target.value)}
+              onFocus={e => e.target.select()}
               className="h-full text-[10px] uppercase px-1 text-center bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
               placeholder="Un"
               list={`un-comp-${composicao.id}`}
@@ -384,6 +386,7 @@ export default function ComposicaoRow({
               type="number"
               value={localQtd}
               onChange={e => setLocalQtd(e.target.value)}
+              onFocus={e => e.target.select()}
               onBlur={handleQtdBlur}
               onKeyDown={e => handleKeyDown(e, 'qtd')}
               data-planilha="1"
@@ -409,6 +412,7 @@ export default function ComposicaoRow({
               type="number"
               value={localPreco}
               onChange={e => setLocalPreco(e.target.value)}
+              onFocus={e => e.target.select()}
               onBlur={handlePrecoBlur}
               onKeyDown={e => handleKeyDown(e, 'preco')}
               data-planilha="1"

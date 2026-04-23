@@ -97,7 +97,7 @@ export function AutocompleteInput({
         {...props}
         value={value}
         onChange={e => { onChange(e.target.value); setOpen(true); setActiveIdx(-1); }}
-        onFocus={() => setOpen(true)}
+        onFocus={(e) => { setOpen(true); props.onFocus?.(e); }}
         onKeyDown={handleKeyDown}
         className={className}
         autoComplete="off"
