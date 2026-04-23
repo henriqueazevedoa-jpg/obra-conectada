@@ -194,18 +194,18 @@ export default function InsumoRowDense({
   const temQtd = insumo.quantidade != null && insumo.quantidade > 0;
   const temPreco = insumo.precoUnitario != null && insumo.precoUnitario > 0;
 
-  let badgeColor = 'bg-[#ef4444]';
-  let badgeTooltip = 'Quantidade e preço ausentes';
-  let badgeClass = 'opacity-100';
+  let dotColor = 'bg-[#ef4444]';
+  let dotTooltip = `Sem quantidade e sem preço — ${conf.label}`;
+  let dotClass = 'opacity-100';
 
   if (temQtd && temPreco) {
-    badgeColor = 'bg-[#10b981]';
-    badgeTooltip = 'Quantidade e preço preenchidos';
-    badgeClass = 'opacity-0 group-hover:opacity-100 transition-opacity duration-200';
+    dotColor = 'bg-[#10b981]';
+    dotTooltip = `Preenchido — ${conf.label}`;
+    dotClass = 'opacity-40 group-hover:opacity-100 transition-opacity duration-200';
   } else if (temQtd || temPreco) {
-    badgeColor = 'bg-[#f59e0b]';
-    badgeTooltip = temQtd ? 'Falta preço' : 'Falta quantidade';
-    badgeClass = 'opacity-100';
+    dotColor = 'bg-[#f59e0b]';
+    dotTooltip = `Falta ${temQtd ? 'preço' : 'quantidade'} — ${conf.label}`;
+    dotClass = 'opacity-100';
   }
 
   return (
@@ -221,18 +221,25 @@ export default function InsumoRowDense({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={cn('h-1.5 w-1.5 rounded-full mr-1.5', conf.color.replace('text-', 'bg-'))} />
+                  <div className={cn('h-1.5 w-1.5 rounded-full mr-1.5', dotColor, dotClass)} />
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-[11px]">{conf.label}</TooltipContent>
+                <TooltipContent side="right" className="text-[11px]">{dotTooltip}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button tabIndex={-1} className="flex items-center justify-center h-4 w-4 rounded-sm hover:bg-muted focus:outline-none mr-1">
-                  <div className={cn('h-1.5 w-1.5 rounded-full', conf.color.replace('text-', 'bg-'))} />
-                </button>
-              </DropdownMenuTrigger>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <button tabIndex={-1} className="flex items-center justify-center h-4 w-4 rounded-sm hover:bg-muted focus:outline-none mr-1">
+                        <div className={cn('h-1.5 w-1.5 rounded-full', dotColor, dotClass)} />
+                      </button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-[11px]">{dotTooltip}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <DropdownMenuContent align="start" className="w-40 text-[11px]">
                 {Object.entries(TIPO_CONFIG).map(([key, config]) => {
                   const Icon = config.icon;
@@ -246,15 +253,6 @@ export default function InsumoRowDense({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {/* Status Badge */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className={cn('h-[6px] w-[6px] rounded-full shrink-0 mr-1.5', badgeColor, badgeClass)} />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="text-[11px]">{badgeTooltip}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </div>
 
         {readOnly ? (

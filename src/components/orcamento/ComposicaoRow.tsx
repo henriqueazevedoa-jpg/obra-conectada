@@ -377,7 +377,7 @@ export default function ComposicaoRow({
         )}
         {/* Quantidade */}
         {isFullReadOnly || isComputed ? (
-          <div className="h-full flex items-center justify-end px-1 text-right text-muted-foreground tabular-nums border-r border-border/60" style={{ fontSize: '12px', fontWeight: 500 }}>{composicao.quantidade ?? '—'}</div>
+          <div className="h-full flex items-center justify-end px-1 text-right text-muted-foreground tabular-nums border-r border-border/60" style={{ fontSize: '12px' }}>{composicao.quantidade ?? '—'}</div>
         ) : (
           <div className="h-full flex items-center border-r border-border/60 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
             <input
@@ -391,14 +391,14 @@ export default function ComposicaoRow({
               data-rowid={composicao.id}
               placeholder="Qtd"
               className="h-full w-full tabular-nums px-1.5 text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              style={{ fontSize: '12px', fontWeight: 500 }}
+              style={{ fontSize: '12px' }}
             />
           </div>
         )}
 
         {/* Preço unitário */}
         {isFullReadOnly || isComputed || isSinapi ? (
-          <div className="h-full flex items-center justify-end gap-1 tabular-nums px-1 text-muted-foreground border-r border-border/60" style={{ fontSize: '12px', fontWeight: 500 }}>
+          <div className="h-full flex items-center justify-end gap-1 tabular-nums px-1 text-muted-foreground border-r border-border/60" style={{ fontSize: '12px' }}>
             {isSinapi && <Lock className="h-2.5 w-2.5 shrink-0 opacity-50" />}
             {composicao.precoUnitario != null ? formatCurrency(composicao.precoUnitario) : '—'}
           </div>
@@ -416,7 +416,7 @@ export default function ComposicaoRow({
               data-rowid={composicao.id}
               placeholder="0,00"
               className="h-full w-full tabular-nums pl-5 pr-1 text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              style={{ fontSize: '12px', fontWeight: 500 }}
+              style={{ fontSize: '12px' }}
             />
           </div>
         )}
@@ -425,7 +425,7 @@ export default function ComposicaoRow({
         <div className={cn(
           'h-full flex items-center justify-end px-1 text-right tabular-nums border-r border-border/60',
           composicao.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground'
-        )} style={{ fontSize: '12px', fontWeight: 500 }}>
+        )} style={{ fontSize: '12px' }}>
           {bdiConfig?.enabled && composicao.precoTotal > 0 ? (
             <TooltipProvider>
               <Tooltip>
