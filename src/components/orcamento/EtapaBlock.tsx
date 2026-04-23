@@ -232,48 +232,49 @@ export default function EtapaBlock({
         )}
         </div>
 
-        {/* Colunas vazias (UN, QTD, P.UNIT) */}
+        {/* Coluna 2: UN */}
         <div className="h-full border-r border-border/60" />
+        {/* Coluna 3: QTD */}
         <div className="h-full border-r border-border/60" />
-        <div className="h-full border-r border-border/60" />
-
-        {/* Coluna 5: Info + Total */}
-        <div className="flex items-center justify-end gap-3 h-full px-2 border-r border-border/60">
-          {/* Info: composições + progresso */}
+        
+        {/* Coluna 4: P.UNIT (Progresso) */}
+        <div className="flex items-center justify-end gap-2 h-full px-2 border-r border-border/60">
           {totalComps > 0 && (
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] text-muted-foreground hidden sm:inline tabular-nums">
-              {totalComps} comp.
-            </span>
-            <div className="flex items-center gap-1">
-              <div className="w-14 h-1 rounded-full bg-border overflow-hidden">
-                <div
-                  className={cn('h-full rounded-full transition-all duration-500', barColor)}
-                  style={{ width: `${pctCotado}%` }}
-                />
-              </div>
-              <span className={cn(
-                'text-[10px] tabular-nums font-medium hidden sm:inline',
-                pctCotado === 100 ? 'text-emerald-600 dark:text-emerald-400' :
-                pctCotado > 0 ? 'text-blue-600 dark:text-blue-400' :
-                'text-muted-foreground'
-              )}>
-                {pctCotado}%
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] text-muted-foreground hidden sm:inline tabular-nums">
+                {totalComps} comp.
               </span>
+              <div className="flex items-center gap-1">
+                <div className="w-14 h-1 rounded-full bg-border overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-500', barColor)}
+                    style={{ width: `${pctCotado}%` }}
+                  />
+                </div>
+                <span className={cn(
+                  'text-[10px] tabular-nums font-medium hidden sm:inline',
+                  pctCotado === 100 ? 'text-emerald-600 dark:text-emerald-400' :
+                  pctCotado > 0 ? 'text-blue-600 dark:text-blue-400' :
+                  'text-muted-foreground'
+                )}>
+                  {pctCotado}%
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Total */}
-        <span className="tabular-nums text-foreground shrink-0 text-right" style={{ fontSize: '13px', fontWeight: 700 }}>
-          {bdiConfig?.enabled && etapa.precoTotal > 0 ? (
-            <span className="cursor-help decoration-dashed underline decoration-muted-foreground/50 underline-offset-2" title={`Base: ${formatCurrency(etapa.precoTotal)} | BDI (${bdiConfig.rate}%): ${formatCurrency(etapa.precoTotal * (bdiConfig.rate / 100))}`}>
-              {formatCurrency(etapa.precoTotal * (1 + bdiConfig.rate / 100))}
-            </span>
-          ) : (
-            formatCurrency(etapa.precoTotal)
           )}
-        </span>
+        </div>
+
+        {/* Coluna 5: Total */}
+        <div className="flex items-center justify-end h-full px-2 border-r border-border/60">
+          <span className="tabular-nums text-foreground shrink-0 text-right" style={{ fontSize: '13px', fontWeight: 700 }}>
+            {bdiConfig?.enabled && etapa.precoTotal > 0 ? (
+              <span className="cursor-help decoration-dashed underline decoration-muted-foreground/50 underline-offset-2" title={`Base: ${formatCurrency(etapa.precoTotal)} | BDI (${bdiConfig.rate}%): ${formatCurrency(etapa.precoTotal * (bdiConfig.rate / 100))}`}>
+                {formatCurrency(etapa.precoTotal * (1 + bdiConfig.rate / 100))}
+              </span>
+            ) : (
+              formatCurrency(etapa.precoTotal)
+            )}
+          </span>
         </div>
 
         {/* Coluna 6: Ações */}
