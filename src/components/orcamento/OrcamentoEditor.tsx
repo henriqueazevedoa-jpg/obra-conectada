@@ -417,6 +417,8 @@ export default function OrcamentoEditor({
     toast({ title: 'Formatação aplicada a todas as etapas' });
     
     try {
+      if (isSavingRef.current) return;
+      isSavingRef.current = true;
       setSaveStatus('saving');
       await saveOrcamento({ obraId, etapas: nextEtapas });
       lastSavedSnapshotRef.current = JSON.stringify(nextEtapas);
@@ -424,6 +426,8 @@ export default function OrcamentoEditor({
       window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
     } catch (e) {
       setSaveStatus('error');
+    } finally {
+      isSavingRef.current = false;
     }
   };
 
@@ -444,6 +448,8 @@ export default function OrcamentoEditor({
     toast({ title: 'Unidades normalizadas' });
 
     try {
+      if (isSavingRef.current) return;
+      isSavingRef.current = true;
       setSaveStatus('saving');
       await saveOrcamento({ obraId, etapas: nextEtapas });
       lastSavedSnapshotRef.current = JSON.stringify(nextEtapas);
@@ -451,6 +457,8 @@ export default function OrcamentoEditor({
       window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
     } catch (e) {
       setSaveStatus('error');
+    } finally {
+      isSavingRef.current = false;
     }
   };
 
@@ -680,11 +688,16 @@ export default function OrcamentoEditor({
   const hasLoadedInitialDataRef = useRef(false);
   const lastSavedSnapshotRef = useRef<string>('');
   const autosaveTimeoutRef = useRef<number | null>(null);
+  const isSavingRef = useRef(false);
+  const lastActionRef = useRef<{ type: string; timestamp: number } | null>(null);
+  const prevEtapasRef = useRef(etapas);
 
   useEffect(() => {
+    if (isSavingRef.current) return;
     const existing = getOrcamento(obraId);
     const etapasIniciais = existing ? existing.etapas : [];
     setEtapas(etapasIniciais);
+    prevEtapasRef.current = etapasIniciais;
     lastSavedSnapshotRef.current = JSON.stringify(etapasIniciais);
     hasLoadedInitialDataRef.current = true;
     setSaveStatus('idle');
@@ -696,11 +709,22 @@ export default function OrcamentoEditor({
     const currentSnapshot = JSON.stringify(etapas);
     if (currentSnapshot === lastSavedSnapshotRef.current) return;
 
+    const totalCompsPrev = prevEtapasRef.current.reduce((a, e) => a + e.composicoes.length, 0);
+    const totalCompsCurr = etapas.reduce((a, e) => a + e.composicoes.length, 0);
+    if (totalCompsCurr > totalCompsPrev) {
+      lastActionRef.current = { type: 'addComposicao', timestamp: Date.now() };
+    }
+    prevEtapasRef.current = etapas;
+
     if (autosaveTimeoutRef.current) window.clearTimeout(autosaveTimeoutRef.current);
     setSaveStatus('saving');
 
+    const timeSinceAdd = lastActionRef.current?.type === 'addComposicao' ? Date.now() - lastActionRef.current.timestamp : 3000;
+    const delay = timeSinceAdd < 3000 ? 3000 - timeSinceAdd + 2000 : 2000;
+
     autosaveTimeoutRef.current = window.setTimeout(async () => {
       try {
+        isSavingRef.current = true;
         await saveOrcamento({ obraId, etapas });
         lastSavedSnapshotRef.current = JSON.stringify(etapas);
         setSaveStatus('saved');
@@ -708,8 +732,10 @@ export default function OrcamentoEditor({
       } catch (error) {
         console.error(error);
         setSaveStatus('error');
+      } finally {
+        isSavingRef.current = false;
       }
-    }, 1000);
+    }, delay);
 
     return () => { if (autosaveTimeoutRef.current) window.clearTimeout(autosaveTimeoutRef.current); };
   }, [etapas, obraId, saveOrcamento]);
@@ -803,6 +829,8 @@ export default function OrcamentoEditor({
 
   const handleSave = async () => {
     try {
+      if (isSavingRef.current) return;
+      isSavingRef.current = true;
       setSaveStatus('saving');
       await saveOrcamento({ obraId, etapas });
       lastSavedSnapshotRef.current = JSON.stringify(etapas);
@@ -813,6 +841,8 @@ export default function OrcamentoEditor({
       console.error(error);
       setSaveStatus('error');
       toast({ title: 'Erro ao salvar orçamento', variant: 'destructive' });
+    } finally {
+      isSavingRef.current = false;
     }
   };
 
