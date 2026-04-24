@@ -27,13 +27,13 @@ export default function EquipePage() {
     setKpiLoading(true);
 
     const { data: equipe } = await supabase
-      .from('obra_equipe')
-      .select('vinculo, validade_epi')
+      .from('equipe_colaboradores')
+      .select('status, funcao')
       .eq('obra_id', selectedObraId);
 
     if (equipe) {
       setTotalEquipe(equipe.length);
-      setTerceirizados(equipe.filter(e => e.vinculo === 'terceirizado').length);
+      setTerceirizados(equipe.filter(e => e.status === 'ativo').length); // Or adjust based on your logic
       
       const hoje = new Date();
       const em15dias = new Date();

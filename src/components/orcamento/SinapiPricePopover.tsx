@@ -75,15 +75,15 @@ export default function SinapiPricePopover({
       const tabela = isInsumo ? 'sinapi_insumos' : 'sinapi_composicoes';
       const { data: sinapiData } = await (supabase as any)
         .from(tabela)
-        .select('descricao, unidade, preco_unitario')
+        .select('descricao, unidade, preco_mediano')
         .ilike('descricao', `%${termo}%`)
         .limit(5);
 
       setSinapiResults(
-        (sinapiData || []).map((r: { descricao: string; unidade: string; preco_unitario: number }) => ({
+        (sinapiData || []).map((r: { descricao: string; unidade: string; preco_mediano: number }) => ({
           descricao: r.descricao,
           unidade: r.unidade,
-          preco: r.preco_unitario,
+          preco: r.preco_mediano,
           fonte: 'sinapi' as const,
         }))
       );

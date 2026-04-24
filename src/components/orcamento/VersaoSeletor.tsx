@@ -28,6 +28,7 @@ import {
   TrendingUp,
   Loader2,
   Copy,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/data/mockData';
@@ -58,7 +59,7 @@ const TIPO_BADGE = {
 interface VersaoSeletorProps {
   obraId: string;
   versaoAtiva: OrcamentoVersao | null;
-  onVersaoChange: (versao: OrcamentoVersao) => void;
+  onVersaoChange: (versao: OrcamentoVersao | null) => void;
   readOnly?: boolean;
 }
 
@@ -70,6 +71,7 @@ export default function VersaoSeletor({ obraId, versaoAtiva, onVersaoChange, rea
     criarVersao,
     ativarVersao,
     evoluirParaAnalitico,
+    removerVersao,
   } = useOrcamento();
 
   const versoes = getVersoes(obraId);
@@ -127,9 +129,89 @@ export default function VersaoSeletor({ obraId, versaoAtiva, onVersaoChange, rea
     onVersaoChange({ ...versao, status: 'ativo' });
   };
 
+  const handleRemoverVersao = async (id: string) => {
+    try {
+      await removerVersao(id);
+      toast({ title: 'Versão apagada com sucesso' });
+      if (id === versaoAtiva?.id) {
+        const remaining = getVersoes(obraId).filter(v => v.id !== id);
+        if (remaining.length > 0) {
+          await ativarVersao(remaining[0].id, obraId);
+          onVersaoChange({ ...remaining[0], status: 'ativo' });
+        } else {
+          onVersaoChange(null);
+        }
+      }
+    } catch (err) {
+      toast({ title: 'Erro ao apagar versão', description: String(err), variant: 'destructive' });
+    }
+  };
+
   const podeEvoluir = versaoAtiva?.tipo === 'estimativo';
 
-  if (versoes.length === 0) return null;
+  if (versoes.length === 0) {
+    if (readOnly) return <span className="text-muted-foreground text-xs italic">Sem versões cadastradas</span>;
+    return (
+      <>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs border-dashed text-muted-foreground hover:text-foreground"
+          onClick={() => setNovaVersaoOpen(true)}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Criar 1ª Versão</span>
+        </Button>
+        {/* Render dialog to allow creation */}
+        <Dialog open={novaVersaoOpen} onOpenChange={setNovaVersaoOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Nova versão do orçamento</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo</Label>
+                <RadioGroup value={novoTipo} onValueChange={v => setNovoTipo(v as VersaoTipo)} className="grid grid-cols-3 gap-2">
+                  {(['estimativo', 'analitico', 'revisao'] as VersaoTipo[]).map(t => (
+                    <div key={t}>
+                      <RadioGroupItem value={t} id={`tipo-first-${t}`} className="sr-only" />
+                      <Label
+                        htmlFor={`tipo-first-${t}`}
+                        className={cn(
+                          'flex items-center justify-center py-2 px-3 rounded-lg border text-xs font-medium cursor-pointer transition-all text-center',
+                          novoTipo === t ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted/50'
+                        )}
+                      >
+                        {TIPO_LABELS[t]}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nova-descricao-first" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Descrição <span className="font-normal normal-case">(opcional)</span>
+                </Label>
+                <Input
+                  id="nova-descricao-first"
+                  placeholder="ex: Orçamento Base"
+                  value={novaDescricao}
+                  onChange={e => setNovaDescricao(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNovaVersaoOpen(false)} disabled={criando}>Cancelar</Button>
+              <Button onClick={handleCriarVersao} disabled={criando}>
+                {criando ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</> : 'Criar versão'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   return (
     <>
@@ -167,7 +249,7 @@ export default function VersaoSeletor({ obraId, versaoAtiva, onVersaoChange, rea
                 key={v.id}
                 onClick={() => handleSelectVersao(v)}
                 className={cn(
-                  'flex items-start gap-3 p-2.5 rounded-md cursor-pointer',
+                  'flex items-start gap-3 p-2.5 rounded-md cursor-pointer group',
                   v.id === versaoAtiva?.id && 'bg-primary/5'
                 )}
               >
@@ -186,9 +268,25 @@ export default function VersaoSeletor({ obraId, versaoAtiva, onVersaoChange, rea
                     {formatCurrency(v.valorTotal)}
                   </p>
                 </div>
-                {v.id === versaoAtiva?.id && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />}
-                {v.status === 'rascunho' && <Clock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />}
-                {v.status === 'arquivado' && <Archive className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />}
+                {!readOnly && (
+                  <div className="flex flex-col items-end justify-center h-full gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Tem certeza que deseja apagar a versão ${v.numeroVersao}? Essa ação não pode ser desfeita.`)) {
+                          handleRemoverVersao(v.id);
+                        }
+                      }}
+                      className="text-destructive hover:bg-destructive/10 p-1.5 rounded"
+                      title="Apagar versão"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+                {v.id === versaoAtiva?.id && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5 group-hover:hidden" />}
+                {v.status === 'rascunho' && <Clock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5 group-hover:hidden" />}
+                {v.status === 'arquivado' && <Archive className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5 group-hover:hidden" />}
               </DropdownMenuItem>
             ))}
 

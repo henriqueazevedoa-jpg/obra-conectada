@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { useOrcamento, OrcamentoEtapa } from '@/contexts/OrcamentoContext';
 import {
   AlertTriangle, CheckCircle2, X,
-  TrendingUp, ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight,
   Package, Lock, Loader2, Table2, BarChart2,
   Lightbulb, Pencil, ChevronsUpDown, ChevronsDownUp,
 } from 'lucide-react';
@@ -114,120 +114,81 @@ function classificarItem(descricao: string): string {
   return 'Outros';
 }
 
-// ── Sub-componente: Gráfico de pizza ─────────────────────────────────────────
+// ── Sub-componente: Distribuição compacta (donut + legenda) ──────────────────
 
-type DistMode = 'etapa' | 'categoria';
-
-function GraficoPizza({ etapas, mode }: { etapas: OrcamentoEtapa[]; mode: DistMode }) {
+function GraficoDistribuicao({ etapas }: { etapas: OrcamentoEtapa[] }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const data = useMemo(() => {
-    if (mode === 'etapa') {
-      return etapas
-        .map((e) => ({
-          name: e.nome || e.codigo,
-          value: (e.composicoes || []).reduce((s, c) => s + (c.precoTotal || 0), 0),
-        }))
-        .filter((d) => d.value > 0)
-        .sort((a, b) => b.value - a.value);
-    }
-
-    const acc: Record<string, number> = {};
-    for (const etapa of etapas) {
-      for (const comp of etapa.composicoes || []) {
-        if (comp.usaInsumos && comp.insumos?.length) {
-          for (const ins of comp.insumos) {
-            const cat = classificarItem(ins.descricao || '');
-            acc[cat] = (acc[cat] || 0) + (ins.precoTotal || 0);
-          }
-        } else {
-          const cat = classificarItem(comp.descricao || '');
-          acc[cat] = (acc[cat] || 0) + (comp.precoTotal || 0);
-        }
-      }
-    }
-    return Object.entries(acc)
-      .map(([name, value]) => ({ name, value }))
+    return etapas
+      .map((e) => ({
+        name: e.nome || e.codigo || 'Etapa',
+        value: (e.composicoes || []).reduce((s, c) => s + (c.precoTotal || 0), 0),
+      }))
       .filter((d) => d.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [etapas, mode]);
+  }, [etapas]);
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+      <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">
         Nenhum dado de custo ainda.
       </div>
     );
   }
 
   const total = data.reduce((s, d) => s + d.value, 0);
-  const getColor = (name: string, idx: number) =>
-    mode === 'categoria' ? (CATEGORIA_COLORS[name] ?? '#94a3b8') : CHART_PALETTE[idx % CHART_PALETTE.length];
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const item = payload[0];
-    return (
-      <div className="bg-popover border rounded-lg shadow-lg px-3 py-2 text-xs">
-        <p className="font-semibold text-foreground mb-1">{item.name}</p>
-        <p className="text-muted-foreground">{formatCurrency(item.value)}</p>
-        <p className="text-muted-foreground">{((item.value / total) * 100).toFixed(1)}% do total</p>
-      </div>
-    );
-  };
 
   return (
-    <div className="space-y-3">
-      <div className="h-[200px]">
+    <div className="flex flex-col gap-3">
+      <div className="h-[160px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
               cx="50%"
               cy="50%"
-              innerRadius={58}
-              outerRadius={88}
+              innerRadius={48}
+              outerRadius={72}
               paddingAngle={2}
               dataKey="value"
-              onMouseEnter={(_, index) => setActiveIndex(index)}
+              onMouseEnter={(_, i) => setActiveIndex(i)}
               onMouseLeave={() => setActiveIndex(null)}
             >
-              {data.map((entry, index) => (
+              {data.map((_, i) => (
                 <Cell
-                  key={index}
-                  fill={getColor(entry.name, index)}
-                  opacity={activeIndex === null || activeIndex === index ? 1 : 0.45}
-                  className="cursor-pointer transition-opacity"
+                  key={i}
+                  fill={CHART_PALETTE[i % CHART_PALETTE.length]}
+                  opacity={activeIndex === null || activeIndex === i ? 1 : 0.4}
                 />
               ))}
             </Pie>
-            <RechartTooltip content={<CustomTooltip />} />
+            <RechartTooltip
+              formatter={(v: number, name: string) => [formatCurrency(v), name]}
+            />
           </PieChart>
         </ResponsiveContainer>
       </div>
-
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-1">
-        {data.map((entry, index) => (
+      <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+        {data.map((entry, i) => (
           <div
             key={entry.name}
-            className="flex items-center gap-1.5 cursor-pointer"
-            onMouseEnter={() => setActiveIndex(index)}
+            className="flex items-center gap-2 text-xs"
+            onMouseEnter={() => setActiveIndex(i)}
             onMouseLeave={() => setActiveIndex(null)}
           >
             <span
-              className="shrink-0 rounded-full"
-              style={{
-                width: 8,
-                height: 8,
-                backgroundColor: getColor(entry.name, index),
-                opacity: activeIndex === null || activeIndex === index ? 1 : 0.4,
-              }}
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ background: CHART_PALETTE[i % CHART_PALETTE.length] }}
             />
-            <span
-              className="text-[11px] text-muted-foreground leading-none"
-              style={{ opacity: activeIndex === null || activeIndex === index ? 1 : 0.5 }}
-            >
+            <span className="flex-1 truncate text-foreground" title={entry.name}>
               {entry.name}
+            </span>
+            <span className="tabular-nums text-muted-foreground shrink-0">
+              {formatCurrencyShort(entry.value)}
+            </span>
+            <span className="tabular-nums text-muted-foreground shrink-0 w-8 text-right">
+              {((entry.value / total) * 100).toFixed(0)}%
             </span>
           </div>
         ))}
@@ -236,125 +197,12 @@ function GraficoPizza({ etapas, mode }: { etapas: OrcamentoEtapa[]; mode: DistMo
   );
 }
 
-// ── Sub-componente: Stepper de Progresso ────────────────────────────────────
+// ── Sub-componente: KPIs (4 cards) ──────────────────────────────────────────
 
-function OrcamentoStepper({ 
-  etapasCount, 
-  todasEtapasComItem, 
-  cotadoPct, 
-  onGoPlanilha, 
-  onGoCotacao 
-}: { 
-  etapasCount: number, 
-  todasEtapasComItem: boolean, 
-  cotadoPct: number, 
-  onGoPlanilha: () => void, 
-  onGoCotacao: () => void 
-}) {
-  const passo1_ok = etapasCount > 0;
-  const passo2_ok = etapasCount > 0 && todasEtapasComItem;
-  const passo3_ok = cotadoPct >= 80;
-  const passo4_ok = cotadoPct === 100;
 
-  // Determinar o currentStep
-  let currentStep = 0;
-  if (!passo1_ok) currentStep = 0;
-  else if (!passo2_ok) currentStep = 1;
-  else if (!passo3_ok) currentStep = 2;
-  else if (!passo4_ok) currentStep = 3;
-  else currentStep = 4; // Tudo concluído (passo4_ok)
-
-  const steps = [
-    { label: 'Estrutura', desc: 'Criar etapas', icon: Package, isOk: passo1_ok },
-    { label: 'Composições', desc: 'Adicionar itens', icon: Pencil, isOk: passo2_ok },
-    { label: 'Preços', desc: 'Cotar', icon: BarChart2, isOk: passo3_ok },
-    { label: 'Pronto', desc: 'Finalizar', icon: CheckCircle2, isOk: passo4_ok },
-  ];
-
-  return (
-    <div className="rounded-xl border bg-card p-5 shadow-sm mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" />
-            Progresso do Orçamento
-          </h2>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Acompanhe as etapas para finalizar o orçamento da obra.
-          </p>
-        </div>
-      </div>
-      
-      <div className="relative mt-6 mb-2">
-        {/* Linha de fundo */}
-        <div className="absolute top-4 left-4 right-4 h-[2px] bg-muted" />
-        {/* Linha preenchida */}
-        <div 
-          className="absolute top-4 left-4 h-[2px] bg-emerald-500 transition-all duration-500"
-          style={{ width: `calc(${((currentStep > 0 ? Math.min(currentStep, 3) : 0) / 3) * 100}% - 2rem)` }}
-        />
-
-        <div className="relative flex justify-between">
-          {steps.map((step, idx) => {
-            const isCompleted = step.isOk;
-            const isCurrent = idx === currentStep;
-            
-            return (
-              <div key={idx} className="flex flex-col items-center gap-2 z-10 w-24">
-                <div 
-                  className={cn(
-                    "flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors",
-                    isCompleted ? "bg-emerald-500 border-emerald-500 text-white" :
-                    isCurrent ? "bg-background border-primary text-primary" :
-                    "bg-background border-muted text-muted-foreground"
-                  )}
-                >
-                  {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : <span className="h-2.5 w-2.5 rounded-full bg-current" />}
-                </div>
-                <div className="text-center">
-                  <p className={cn("text-xs font-bold leading-tight", isCurrent || isCompleted ? "text-foreground" : "text-muted-foreground")}>{step.label}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Ação rápida baseada no passo atual */}
-      <div className="mt-5 pt-4 border-t border-border/50 flex justify-end">
-        {!passo1_ok && (
-          <Button size="sm" onClick={onGoPlanilha} className="h-8 text-xs gap-1.5">
-            Criar etapas →
-          </Button>
-        )}
-        {passo1_ok && !passo2_ok && (
-          <Button size="sm" onClick={onGoPlanilha} className="h-8 text-xs gap-1.5">
-            Adicionar composições →
-          </Button>
-        )}
-        {passo2_ok && !passo3_ok && (
-          <Button size="sm" onClick={onGoCotacao} className="h-8 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white">
-            Completar cotação →
-          </Button>
-        )}
-        {passo3_ok && !passo4_ok && (
-          <Button size="sm" onClick={onGoCotacao} className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
-            Finalizar →
-          </Button>
-        )}
-        {passo4_ok && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 className="h-4 w-4" /> 100% Cotado. Pronto para fechamento!
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ── Sub-componente: Curva ABC em destaque ────────────────────────────────────
 
-type AbcSource = 'todos' | 'insumos' | 'composicoes';
 type AbcView = 'chart' | 'table';
 
 interface CurvaABCProps {
@@ -841,13 +689,12 @@ function EtapasAccordion({ etapas, obraId, onEditWBS, abcDados }: EtapasAccordio
 // ── Componente principal ─────────────────────────────────────────────────────
 
 const DICA_KEY = 'lastra_orcamento_dica_vista';
-type DistModeType = 'etapa' | 'categoria';
+
 
 export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoCotacaoClasseA, onKpisReady }: OrcamentoDashboardProps) {
   const { getOrcamento, finalizarOrcamento } = useOrcamento();
   const etapas = getOrcamento(obra.id)?.etapas ?? [];
 
-  const [distMode, setDistMode] = useState<DistModeType>('etapa');
   const [finalizarOpen, setFinalizarOpen] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
   const [finalizadoResult, setFinalizadoResult] = useState<{ total: number; novos: number } | null>(null);
@@ -971,89 +818,46 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
   return (
     <>
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="p-4 md:p-6 space-y-6 max-w-screen-xl mx-auto w-full">
+      <div className="p-4 md:p-6 space-y-4 max-w-screen-xl mx-auto w-full">
 
-        {/* ── Banner dica — aparece uma vez, dismissível ───────────── */}
+        {/* ── Banner dica — dismissível ─────────────────────────────── */}
         {!dicaDismissed && etapas.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/20 animate-in fade-in duration-300">
             <Lightbulb className="h-4 w-4 text-violet-500 shrink-0" />
             <p className="text-xs text-violet-800 dark:text-violet-300 flex-1 leading-relaxed">
               💡 Use <strong>🔍</strong> para buscar no SINAPI · <strong>📋</strong> para criar listas de cotação · Selecione itens em lote para cotar em grupo
             </p>
-            <button
-              onClick={handleDismissDica}
-              className="shrink-0 text-violet-400 hover:text-violet-600 transition-colors"
-            >
+            <button onClick={handleDismissDica} className="shrink-0 text-violet-400 hover:text-violet-600 transition-colors">
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
-        {/* ── Alerta / Sucesso ─────────────────────────────────────── */}
-        {etapas.length > 0 && stats.insumosSemPreco > 0 ? (
-          <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-              <p className="text-sm text-amber-800 dark:text-amber-400">
-                <strong>{stats.insumosSemPreco} {stats.insumosSemPreco === 1 ? 'item' : 'itens'}</strong> sem preço. Complete o orçamento ou envie links de cotação.
-              </p>
-            </div>
-            <button onClick={onGoCotacao} className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline shrink-0">
-              Cotar agora →
-            </button>
-          </div>
-        ) : etapas.length > 0 ? (
-          <div className="flex items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-              <p className="text-sm text-emerald-800 dark:text-emerald-400">
-                Todos os itens têm preço! Orçamento <strong>100% cotado</strong>.
-              </p>
-            </div>
-            <button
-              onClick={() => { setFinalizadoResult(null); setFinalizarOpen(true); }}
-              className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline shrink-0"
-            >
-              <Lock className="h-3 w-3" />
-              Finalizar orçamento
-            </button>
-          </div>
-        ) : null}
-
-        {/* ═══════════════════════════════════════════════════════════════
-            BLOCO 0 — Stepper de Progresso
-        ════════════════════════════════════════════════════════════════ */}
-        <OrcamentoStepper 
-          etapasCount={etapas.length} 
-          todasEtapasComItem={etapas.length > 0 && etapas.every(e => e.composicoes && e.composicoes.length > 0)} 
-          cotadoPct={stats.cotadoPct} 
-          onGoPlanilha={onEditWBS}
-          onGoCotacao={onGoCotacao}
-        />
-
-        {/* ═══════════════════════════════════════════════════════════════
-            BLOCO 1 — Curva ABC em destaque (topo)
-        ════════════════════════════════════════════════════════════════ */}
+        {/* ── Linha 2: Curva ABC (60%) + Distribuição (40%) ────────── */}
         {etapas.length > 0 && (
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <BarChart2 className="h-4 w-4 text-primary" />
-                  Curva ABC do Orçamento
-                </h2>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Priorize a cotação dos itens Classe A — eles representam 80% do custo
-                </p>
+          <div className="flex flex-col lg:flex-row gap-4">
+
+            {/* Curva ABC */}
+            <div className="lg:w-[60%] rounded-xl border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart2 className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Curva ABC do Orçamento</h2>
+                <span className="text-[11px] text-muted-foreground hidden sm:block">— priorize os itens Classe A</span>
               </div>
+              <CurvaABC etapas={etapas} onGoCotacaoClasseA={onGoCotacaoClasseA} />
             </div>
-            <CurvaABC etapas={etapas} onGoCotacaoClasseA={onGoCotacaoClasseA} />
+
+            {/* Distribuição de Custos */}
+            {stats.totalGeral > 0 && (
+              <div className="lg:w-[40%] rounded-xl border bg-card p-4 shadow-sm">
+                <h3 className="text-sm font-bold text-foreground mb-3">Distribuição por Etapa</h3>
+                <GraficoDistribuicao etapas={etapas} />
+              </div>
+            )}
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════════
-            BLOCO 2 — Etapas accordion
-        ════════════════════════════════════════════════════════════════ */}
+        {/* ── Linha 3: Etapas (colapsado, scroll interno) ──────────── */}
         {etapas.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center py-12 gap-4 text-center">
             <div className="text-5xl select-none">📋</div>
@@ -1074,48 +878,24 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
               >
                 🏗️ Usar modelos de etapa
               </button>
+              <a
+                href="/calculadora"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-muted/40 transition-colors"
+              >
+                🧮 Já tem uma estimativa?
+              </a>
             </div>
           </div>
         ) : (
-          <EtapasAccordion
-            etapas={etapas}
-            obraId={obra.id}
-            onEditWBS={onEditWBS}
-            abcDados={abcDadosBloco2}
-          />
-        )}
-
-        {/* ═══════════════════════════════════════════════════════════════
-            BLOCO 3 — Gráfico de distribuição (pizza toggle)
-        ════════════════════════════════════════════════════════════════ */}
-        {etapas.length > 0 && stats.totalGeral > 0 && (
-          <div className="rounded-xl border bg-card p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-foreground">Distribuição de Custos</h3>
-              {/* Sub-toggle */}
-              <div className="flex items-center gap-1 bg-muted/50 p-0.5 rounded-lg">
-                <button
-                  onClick={() => setDistMode('etapa')}
-                  className={cn('px-3 py-1 text-[11px] font-medium rounded-md transition-colors',
-                    distMode === 'etapa' ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                >
-                  Por Etapa
-                </button>
-                <button
-                  onClick={() => setDistMode('categoria')}
-                  className={cn('px-3 py-1 text-[11px] font-medium rounded-md transition-colors',
-                    distMode === 'categoria' ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                >
-                  Por Categoria
-                </button>
-              </div>
-            </div>
-            {distMode === 'categoria' && (
-              <p className="text-[10px] text-muted-foreground">
-                Classificação estimada baseada nas descrições dos itens.
-              </p>
-            )}
-            <GraficoPizza etapas={etapas} mode={distMode} />
+          <div className="pb-8">
+            <EtapasAccordion
+              etapas={etapas}
+              obraId={obra.id}
+              onEditWBS={onEditWBS}
+              abcDados={abcDadosBloco2}
+            />
           </div>
         )}
 

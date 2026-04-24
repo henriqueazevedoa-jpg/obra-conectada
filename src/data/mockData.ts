@@ -22,6 +22,7 @@ export interface Obra {
   percentualAndamento: number;
   descricao: string;
   orcamento_bdi_config?: any;
+  area_construida?: number;
 }
 
 export interface OrcamentoItem {

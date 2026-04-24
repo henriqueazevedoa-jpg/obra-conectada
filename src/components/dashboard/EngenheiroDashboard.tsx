@@ -56,7 +56,7 @@ export default function EngenheiroDashboard() {
       supabase.from('cronograma_impedimentos').select('id, obra_id, resolvido, created_at').in('obra_id', obraIds),
       supabase.from('diario_registros').select('id, obra_id, data').in('obra_id', obraIds).order('data', { ascending: false }),
       supabase.from('pagamentos').select('id, obra_id, status, data_vencimento').in('obra_id', obraIds),
-      supabase.from('contratos').select('id, obra_id, obra_contratos_periodos(data_referencia, status_medicao)').in('obra_id', obraIds)
+      supabase.from('contratos').select('id, obra_id, contratos_medicoes(data_referencia, status)').in('obra_id', obraIds)
     ]).then(([resT, resI, resD, resP, resC]) => {
       setDbData({
         tarefas: resT.data || [],
@@ -121,10 +121,10 @@ export default function EngenheiroDashboard() {
       const vencidos = pagamentos.filter(p => p.status === 'atrasado' || (p.status === 'previsto' && isBefore(parseISO(p.data_vencimento), hoje))).length;
 
       const contrSemMed = contratos.filter(c => {
-        const purs = c.obra_contratos_periodos || [];
+        const purs = c.contratos_medicoes || [];
         if (purs.length === 0) return true;
         const last = [...purs].sort((a: any, b: any) => new Date(b.data_referencia).getTime() - new Date(a.data_referencia).getTime())[0];
-        return differenceInDays(hoje, parseISO(last.data_referencia)) >= 25 && last.status_medicao !== 'concluida';
+        return differenceInDays(hoje, parseISO(last.data_referencia)) >= 25 && last.status !== 'concluida';
       }).length;
 
       signals[id] = {

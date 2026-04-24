@@ -10,9 +10,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Trash2, Plus, ChevronRight, Star, Search, ClipboardList,
-  MoreHorizontal, GripVertical, Lock,
+  MoreHorizontal, GripVertical, Lock, Layers,
+  Box, Users, Truck, Wrench, Copy, List,
 } from 'lucide-react';
 import InsumoRowDense from './InsumoRowDense';
 import { formatCurrency, formatCurrencyShort } from '@/data/mockData';
@@ -25,6 +27,7 @@ import ListaCotacaoPopover from './ListaCotacaoPopover';
 import { usePriceSuggestion } from '@/hooks/usePriceSuggestion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BdiConfig } from './BdiPopover';
+
 
 // ── Exports mantidos para retrocompatibilidade com InsumoRow ──────────────────
 
@@ -83,6 +86,14 @@ export default function ComposicaoRow({
   const [isFavorite, setIsFavorite] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [lotesIds, setLotesIds] = useState<string[]>([]);
+  const [descTooltip, setDescTooltip] = useState({ visible: false, text: '' });
+  const descRef = useRef<HTMLDivElement>(null);
+
+  const handleDescMouseEnter = () => {
+    if (descRef.current && descRef.current.scrollWidth > descRef.current.clientWidth) {
+      setDescTooltip({ visible: true, text: composicao.descricao });
+    }
+  };
 
   // onBlur local state
   const [localPreco, setLocalPreco] = useState<string>(
@@ -93,7 +104,7 @@ export default function ComposicaoRow({
   );
 
   // Fonte badge
-  type FonteBadge = 'sinapi' | 'historico' | 'manual' | null;
+  type FonteBadge = 'sinapi' | 'historico' | 'manual' | 'sugerido' | 'biblioteca' | null;
   const [fonteBadge, setFonteBadge] = useState<FonteBadge>(null);
 
   const { company } = useCompany();
@@ -197,14 +208,6 @@ export default function ComposicaoRow({
   const handleQtdBlur = () => {
     const qtd = localQtd ? parseFloat(localQtd) : null;
     update('quantidade', qtd);
-  };
-
-  // Quando SinapiPricePopover "Usar" é clicado
-  const handleUsarPreco = (preco: number, fonte: 'sinapi' | 'historico' | 'biblioteca') => {
-    setLocalPreco(String(preco));
-    update('precoUnitario', preco);
-    setFonteBadge(fonte as FonteBadge);
-    onPriceBadge?.(composicao.id, fonte);
   };
 
   // Navegação teclado Enter → linha abaixo / Shift+Enter → linha acima
@@ -322,12 +325,10 @@ export default function ComposicaoRow({
       >
         {/* Coluna 1: Drag + Código + Chevron + Descrição */}
         <div className="flex items-center gap-1 h-full px-1 border-r border-border/60 min-w-0">
-          {/* Drag handle */}
           <span className="flex items-center justify-center opacity-0 group-hover/row:opacity-40 hover:!opacity-80 cursor-grab active:cursor-grabbing transition-opacity text-muted-foreground shrink-0 w-[20px]">
             <GripVertical className="h-3.5 w-3.5" />
           </span>
 
-          {/* Chevron se tem insumos */}
           <div className="flex items-center shrink-0">
             {hasInsumos && !isInsumodireto && (
               <button
@@ -344,25 +345,55 @@ export default function ComposicaoRow({
           </div>
 
           {/* Descrição */}
-          {isFullReadOnly || isSinapi ? (
-            <div className="flex-1 flex items-center px-1 truncate text-foreground h-full" style={{ fontSize: '12px', fontWeight: 500 }} title={displayDescricao}>
-              {displayDescricao}
+          {isFullReadOnly ? (
+            <div 
+              ref={descRef} 
+              onMouseEnter={handleDescMouseEnter} 
+              onMouseLeave={() => setDescTooltip(v => ({ ...v, visible: false }))}
+              className="flex-1 flex items-center px-1 truncate text-foreground h-full min-w-0" 
+              style={{ fontSize: '12px', fontWeight: 500 }}
+            >
+              {lotesCount > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="shrink-0 mr-1 mt-[2px]">
+                      <List className="h-3 w-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs">Composição com variantes em lista</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              <span className="truncate">{displayDescricao}</span>
             </div>
           ) : (
-            <div className="flex-1 h-full flex items-center min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+            <div 
+              ref={descRef} 
+              onMouseEnter={handleDescMouseEnter} 
+              onMouseLeave={() => setDescTooltip(v => ({ ...v, visible: false }))}
+              className="flex-1 h-full w-full flex items-center min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5"
+            >
+              {lotesCount > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="shrink-0 pl-1 mr-1 mt-[2px]">
+                      <List className="h-3 w-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs">Composição com variantes em lista</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <Input
                 value={composicao.descricao}
                 onChange={e => update('descricao', e.target.value)}
-                onFocus={e => e.target.select()}
-                className="h-full w-full px-1.5 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
-                style={{ fontSize: '12px', fontWeight: 500 }}
                 placeholder="Descrição"
+                className="h-full w-full px-1.5 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none"
+                style={{ fontSize: '12px', fontWeight: 500 }}
               />
             </div>
           )}
         </div>
 
-        {/* Tipo (Vazio em ComposicaoRow, só insumo tem badge de tipo) */}
+        {/* Tipo */}
         <div className="h-full border-r border-border/60" />
 
         {/* Unidade */}
@@ -462,20 +493,9 @@ export default function ComposicaoRow({
           )}
         </div>
 
-        {/* Coluna 6: Ações (Badges + Favorito + SINAPI + Lista + Bulk + Menu) */}
-        <div className="h-full flex items-center justify-end gap-0.5 px-1">
-          {lotesCount > 0 ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-[9px] px-1 py-0.5 rounded border border-primary/30 text-primary bg-primary/5 font-medium cursor-default truncate max-w-full">
-                    📋 {lotesCount > 1 ? `${lotesCount} listas` : 'lista'}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">Em {lotesCount} lista{lotesCount > 1 ? 's' : ''} de cotação</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : showFonteBadge && fonteBadge ? (
+        {/* Coluna 6: Ações */}
+        <div className="h-full flex items-center justify-center px-1 shrink-0">
+          {(!bulkActive && showFonteBadge && fonteBadge && !isSelected) ? (
             <Badge 
               variant="outline" 
               className={cn('text-[9px] px-1 py-0 h-4 shrink-0', fonteBadgeConfig[fonteBadge]?.cls)}
@@ -483,110 +503,71 @@ export default function ComposicaoRow({
             >
               {fonteBadgeConfig[fonteBadge]?.label}
             </Badge>
-          ) : null}
-
-          {/* Bulk Checkbox */}
-          {bulkActive && (
-            <div className="flex items-center justify-center h-6 w-6 shrink-0">
+          ) : bulkActive || isSelected ? (
+            <div className="flex items-center justify-center h-6 w-6 opacity-100 transition-opacity">
               <Checkbox 
                 checked={isSelected} 
                 onCheckedChange={onToggleSelect}
                 className="h-3.5 w-3.5 rounded-[2px]"
               />
             </div>
-          )}
-
-          {/* Botão ⭐ Favorito */}
-          {!readOnly && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          ) : !readOnly ? (
+            <Popover>
+              <PopoverTrigger asChild>
                 <button
-                  tabIndex={-1}
+                  className="opacity-0 group-hover/row:opacity-100 h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-opacity"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-1" align="end" onClick={e => e.stopPropagation()}>
+                <button 
                   onClick={handleToggleFavorita}
                   disabled={savingFavorite}
-                  className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors opacity-0 group-hover/row:opacity-100 disabled:opacity-50"
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
                 >
-                  <Star className={cn('h-3 w-3', isFavorite && 'fill-amber-500 text-amber-500')} />
+                  <Star className={cn('h-3.5 w-3.5', isFavorite && 'fill-amber-500 text-amber-500')} /> {isFavorite ? 'Remover Favorito' : 'Favoritar'}
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-[11px]">
-                {isFavorite ? 'Remover da biblioteca' : 'Salvar na biblioteca'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* Botão 🔍 SINAPI */}
-        {!readOnly && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  tabIndex={-1}
-                  onClick={() => onOpenCatalogo?.('sinapi', composicao.descricao)}
-                  className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors opacity-0 group-hover/row:opacity-100"
+                <button 
+                  onClick={() => { /* duplicate not implemented yet */ }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
                 >
-                  <Search className="h-3 w-3" />
+                  <Copy className="h-3.5 w-3.5" /> Duplicar
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-[11px]">Buscar preço no SINAPI ou histórico</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* Botão 📋 Lista */}
-        {!readOnly && (
-          <TooltipProvider>
-            <Tooltip>
-              <ListaCotacaoPopover
-                composicaoId={composicao.id}
-                descricao={composicao.descricao}
-                unidade={composicao.unidade}
-                qtd={composicao.quantidade}
-                precoTotal={composicao.precoTotal}
-                obraId={obraId}
-                onListasChange={setLotesIds}
-                addedLotesIds={lotesIds}
-              >
-                <TooltipTrigger asChild>
-                  <button tabIndex={-1} className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors opacity-0 group-hover/row:opacity-100">
-                    <ClipboardList className="h-3 w-3" />
+                {onGoCotacao && (
+                  <button 
+                    onClick={() => onGoCotacao(composicao.descricao)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" /> Ir para Cotação
                   </button>
-                </TooltipTrigger>
-              </ListaCotacaoPopover>
-              <TooltipContent side="top" className="text-[11px]">Adicionar a lista de cotação</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* Menu ⋯ */}
-        {!readOnly ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button tabIndex={-1} className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors opacity-0 group-hover/row:opacity-100">
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44 text-[11px]">
-              {!isInsumodireto && (
-                <DropdownMenuItem className="text-[11px] gap-2" onClick={() => toggleInsumos(!hasInsumos)}>
-                  {hasInsumos ? 'Remover insumos' : 'Detalhar em insumos'}
-                </DropdownMenuItem>
-              )}
-              {onGoCotacao && (
-                <DropdownMenuItem className="text-[11px] gap-2" onClick={() => onGoCotacao(composicao.descricao)}>
-                  Ir para Cotação
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-[11px] gap-2 text-destructive focus:text-destructive" onClick={onRemove}>
-                <Trash2 className="h-3 w-3" />
-                Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : <div className="w-6 shrink-0" />}
+                )}
+                {(!composicao.precoUnitario || composicao.precoUnitario === 0) && (
+                  <button 
+                    onClick={() => onOpenCatalogo?.('sinapi', composicao.descricao)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
+                  >
+                    <Search className="h-3.5 w-3.5" /> Buscar SINAPI
+                  </button>
+                )}
+                {!isInsumodireto && (
+                  <button 
+                    onClick={() => toggleInsumos(!hasInsumos)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
+                  >
+                    <Layers className="h-3.5 w-3.5" /> {hasInsumos ? 'Remover insumos' : 'Detalhar em insumos'}
+                  </button>
+                )}
+                <div className="h-px bg-border/50 my-1 mx-1" />
+                <button 
+                  onClick={onRemove}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
+                </button>
+              </PopoverContent>
+            </Popover>
+          ) : <div className="w-6 shrink-0" />}
       </div>
       {/* Fecha grid container */}
       </div>

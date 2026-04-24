@@ -13,6 +13,9 @@ export default {
       },
     },
     extend: {
+      backdropBlur: {
+        sm: '4px',
+      },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
       },
@@ -72,6 +75,9 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
           muted: "hsl(var(--sidebar-muted))",
+        },
+        backdropBlur: {
+          sm: '4px',
         },
       },
       borderRadius: {

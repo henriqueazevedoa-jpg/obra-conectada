@@ -1971,9 +1971,12 @@ Commit: 3d89746 (branch main)
 
 
 ----------------------------------------------------------------
-SPRINT 55B — Planilha modo denso + Popovers SINAPI e Listas
+SPRINT 55B — Planilha modo denso + Popovers SINAPI e Listas (CONCLUÍDO 23/04/2026)
 Partes 3, 4 e 5 do prompt original.
+Commit: 0b80669 (branch main)
 ----------------------------------------------------------------
+
+[ENTREGUE — ver PLANO_GERAL_STATUS.md para detalhes. Incluiu as pequenas correções de UX, single click to edit, coluna TIPO, e formatação de texto.]
 
 ANTES DE COMEÇAR — INSPEÇÃO OBRIGATÓRIA
 Inspecionar e reportar:

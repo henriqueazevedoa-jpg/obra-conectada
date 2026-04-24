@@ -1,0 +1,36 @@
+# Lastra Intelligence — Dependências
+# Instale com: pip install -r requirements.txt
+
+# ── Essenciais (sem estas o worker não roda) ──────────────────────────────────
+pillow>=10.0.0
+numpy>=1.24.0
+pdfplumber>=0.10.0
+
+# ── Conversão de PDF ───────────────────────────────────────────────────────────
+# Requer também o poppler instalado no sistema:
+#   macOS:  brew install poppler
+#   Ubuntu: sudo apt install poppler-utils
+#   Windows: https://github.com/oschwartz10612/poppler-windows/releases
+pdf2image>=1.16.0
+
+# ── Análise vetorial do PDF ────────────────────────────────────────────────────
+PyMuPDF>=1.23.0
+
+# ── Visão computacional ────────────────────────────────────────────────────────
+opencv-python>=4.8.0
+
+# ── Hash perceptual ────────────────────────────────────────────────────────────
+ImageHash>=4.3.0
+
+# ── OCR local ─────────────────────────────────────────────────────────────────
+# Requer o Tesseract instalado no sistema:
+#   macOS:  brew install tesseract tesseract-lang
+#   Ubuntu: sudo apt install tesseract-ocr tesseract-ocr-por
+pytesseract>=0.3.10
+
+# ── APIs de IA ────────────────────────────────────────────────────────────────
+anthropic>=0.40.0
+google-generativeai>=0.8.0
+
+# ── Utilitários ───────────────────────────────────────────────────────────────
+scipy>=1.11.0   # para análise de conectividade (opcional)

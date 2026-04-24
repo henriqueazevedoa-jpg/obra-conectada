@@ -16,13 +16,17 @@ import {
   Mail,
   Smartphone,
   Info,
-  FileText
+  FileText,
+  Bot,
+  Zap,
+  Calculator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ConfigCalendarioTab from "./components/ConfigCalendarioTab";
 import ConfigProdutividadeTab from "./components/ConfigProdutividadeTab";
 import ConfigPermissoesTab from "./components/ConfigPermissoesTab";
 import ConfigOrcamentoTab from "./components/ConfigOrcamentoTab";
+import ConfigCalculadoraTab from "@/components/configuracoes/ConfigCalculadoraTab";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +41,7 @@ const CONFIG_TABS = [
   { id: "calendario",    label: "Calendário",    icon: CalendarDays, description: "Dias úteis, feriados e horários padrão." },
   { id: "produtividade", label: "Produtividade", icon: Settings2,    description: "Metas globais, índices SINAPI e encargos." },
   { id: "orcamento",     label: "Orçamento",     icon: FileText,     description: "Critério de preço histórico e preferências de orçamento." },
+  { id: "calculadora",  label: "Calculadora",  icon: Calculator,   description: "CUB, EAP e parâmetros padrão da calculadora estimativa." },
   { id: "permissoes",    label: "Permissões",    icon: ShieldCheck,  description: "Gerenciamento de papéis e níveis de acesso." },
   { id: "notificacoes",  label: "Notificações",  icon: Bell,         description: "Configuração de alertas por e-mail e push." },
 ];
@@ -48,7 +53,7 @@ export default function ConfiguracoesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
   
-  const currentTab = searchParams.get("aba") || "empresa";
+  const currentTab = searchParams.get("tab") || "empresa";
 
   // Upload state
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -138,7 +143,7 @@ export default function ConfiguracoesPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setSearchParams({ aba: tab.id })}
+                  onClick={() => setSearchParams({ tab: tab.id })}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all group",
                     active 
@@ -245,6 +250,45 @@ export default function ConfiguracoesPage() {
                         <Input id="end" placeholder="Rua, Número, Bairro - Cidade/UF" />
                       </div>
                     </div>
+
+                    {/* AI Credits Card */}
+                    <div className="border border-border rounded-xl p-5 bg-gradient-to-br from-violet-50/50 to-indigo-50/50">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="bg-violet-100 p-1.5 rounded-md text-violet-600">
+                          <Bot className="h-4 w-4" />
+                        </div>
+                        <h3 className="font-semibold text-sm text-foreground">Obra Conectada AI</h3>
+                        <Badge variant="outline" className="ml-auto text-[10px] bg-white border-violet-200 text-violet-700">Add-on</Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Créditos Inclusos</p>
+                          <p className="text-lg font-bold text-foreground">
+                            {company?.ai_credits_included ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Consumo (Mês)</p>
+                          <div className="flex items-end gap-1.5">
+                            <p className="text-lg font-bold text-foreground">
+                              {company?.ai_credits_used_month ?? 0}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mb-1.5">
+                              / {(company?.ai_credits_included ?? 0) + (company?.ai_credits_extra ?? 0)} totais
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 pt-4 border-t border-violet-100/50 flex justify-between items-center">
+                        <p className="text-xs text-violet-600">O ciclo renova a cada mês de faturamento.</p>
+                        <Button size="sm" variant="outline" className="h-7 text-xs border-violet-200 text-violet-700 hover:bg-violet-50 gap-1.5">
+                          <Zap className="h-3 w-3" />
+                          Mais Créditos
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -349,6 +393,9 @@ export default function ConfiguracoesPage() {
             )}
             {currentTab === "orcamento" && (
               <ConfigOrcamentoTab />
+            )}
+            {currentTab === "calculadora" && (
+              <ConfigCalculadoraTab />
             )}
           </div>
         </main>

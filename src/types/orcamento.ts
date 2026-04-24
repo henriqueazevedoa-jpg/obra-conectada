@@ -6,6 +6,8 @@ export interface OrcamentoInsumo {
   quantidade: number | null;
   precoUnitario: number | null;
   precoTotal: number;
+  tipo_item?: 'material' | 'mao_obra' | 'equipamento' | 'servico';
+  pending?: boolean;
 
   codigoReferenciaExterna?: string;
   origemGrupoTitulo?: string;

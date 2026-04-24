@@ -96,16 +96,20 @@ export function useNotifications() {
     }
   }, [companyId]);
 
-  // Fetch inicial + realtime subscription
+  // Efeito 1 — apenas fetch
   useEffect(() => {
     if (!companyId) {
       setLoading(false);
       return;
     }
-
     fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
-    let channel: any;
+  // Efeito 2 — apenas subscription
+  useEffect(() => {
+    if (!companyId) return;
+    if (channelRef.current) return;
     
     try {
       const handlePayload = (payload: any) => {
@@ -118,25 +122,26 @@ export function useNotifications() {
         }
       };
 
-      channel = supabase
+      const channel = supabase
         .channel(`notifications:company:${companyId}`)
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
           table: 'notifications',
           filter: `company_id=eq.${companyId}`
-        }, handlePayload);
+        }, handlePayload)
+        .subscribe();
 
-      if (channel.state !== 'joined') {
-        channel.subscribe();
-      }
+      channelRef.current = channel;
     } catch (e) {
       console.warn('Realtime unavailable:', e);
     }
 
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
   }, [companyId]);

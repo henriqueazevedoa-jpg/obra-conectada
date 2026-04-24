@@ -21,6 +21,9 @@ import {
   Users,
   Truck,
   Wrench,
+  HelpCircle,
+  Clock,
+  ChevronDown
 } from 'lucide-react';
 import ComposicaoRow from './ComposicaoRow';
 import { formatCurrency } from '@/data/mockData';
@@ -105,7 +108,7 @@ export default function EtapaBlock({
     setForceApplied(forceExpanded);
   }
 
-  const makeComposicao = useCallback((descricao?: string, unidade?: string, tipo: 'composicao' | 'insumo_direto' = 'composicao', tipo_item?: string): OrcamentoComposicao => {
+  const makeComposicao = useCallback((descricao?: string, unidade?: string, tipo: 'composicao' | 'insumo_direto' = 'composicao', tipo_item?: 'material' | 'mao_obra' | 'equipamento' | 'servico' | 'composicao'): OrcamentoComposicao => {
     const existingCodes = etapa.composicoes.map(c => c.codigo);
     return {
       id: crypto.randomUUID(),
@@ -136,7 +139,7 @@ export default function EtapaBlock({
     onChange({ ...etapa, composicoes: comps, precoTotal: recalcCategoria(comps) });
   };
 
-  const addComposicao = (tipo: 'composicao' | 'insumo_direto' = 'composicao', tipo_item?: string) => {
+  const addComposicao = (tipo: 'composicao' | 'insumo_direto' = 'composicao', tipo_item?: 'material' | 'mao_obra' | 'equipamento' | 'servico' | 'composicao') => {
     const comps = [...etapa.composicoes, makeComposicao('', '', tipo, tipo_item)];
     onChange({ ...etapa, usaComposicoes: true, composicoes: comps });
     if (!localExpanded) setLocalExpanded(true);
@@ -155,104 +158,119 @@ export default function EtapaBlock({
 
   const barColor =
     pctCotado === 0 ? 'bg-muted-foreground/20' :
-    pctCotado === 100 ? 'bg-emerald-500' :
-    'bg-blue-500';
+      pctCotado === 100 ? 'bg-emerald-500' :
+        'bg-blue-500';
 
   return (
     <div className="contents">
       {/* ── Linha de grupo (sticky header da etapa) ── */}
       <div
         className={cn(
-          'group/etapa sticky top-7 z-10 grid items-center gap-0 border-b border-border/70',
-          'bg-slate-100/80 dark:bg-slate-800/60',
-          'min-h-[36px]',
+          'group/etapa sticky top-7 z-10 grid items-center gap-0 border-y border-border/80 shadow-sm dark:[background:rgba(30,41,59,0.85)]',
           readOnly && 'opacity-80',
           PLANILHA_GRID
         )}
-        style={{ height: '36px' }}
+        style={{ 
+          height: '36px',
+          background: 'rgba(226,232,240,0.85)',
+          backdropFilter: 'blur(4px)',
+        }}
       >
         {/* Coluna 1: Drag + Chevron + Num + Nome */}
-        <div className="flex items-center gap-1 h-full px-2 border-r border-border/60">
-        {/* Drag handle */}
-        {!readOnly && (
-          <span
-            {...(dragListeners ?? {})}
-            className="cursor-grab active:cursor-grabbing opacity-0 group-hover/etapa:opacity-40 hover:!opacity-80 transition-opacity shrink-0 text-muted-foreground touch-none -ml-1"
-            title="Arrastar para reordenar"
+        <div className="flex items-center gap-1 h-full px-2 border-r border-border/60 bg-transparent">
+          {/* Drag handle */}
+          {!readOnly && (
+            <span
+              {...(dragListeners ?? {})}
+              className="cursor-grab active:cursor-grabbing opacity-0 group-hover/etapa:opacity-40 hover:!opacity-80 transition-opacity shrink-0 text-muted-foreground touch-none -ml-1"
+              title="Arrastar para reordenar"
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
+          )}
+
+          {/* Chevron expand/collapse */}
+          <button
+            tabIndex={-1}
+            onClick={() => setLocalExpanded(v => !v)}
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+            aria-label={localExpanded ? 'Colapsar etapa' : 'Expandir etapa'}
           >
-            <GripVertical className="h-3.5 w-3.5" />
-          </span>
-        )}
+            <ChevronRight
+              className={cn(
+                'h-3.5 w-3.5 transition-transform duration-200',
+                localExpanded && 'rotate-90'
+              )}
+            />
+          </button>
 
-        {/* Chevron expand/collapse */}
-        <button
-          tabIndex={-1}
-          onClick={() => setLocalExpanded(v => !v)}
-          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
-          aria-label={localExpanded ? 'Colapsar etapa' : 'Expandir etapa'}
-        >
-          <ChevronRight
-            className={cn(
-              'h-3.5 w-3.5 transition-transform duration-200',
-              localExpanded && 'rotate-90'
-            )}
-          />
-        </button>
+          {/* Posição */}
+          {posicao != null && (
+            <span className="text-[10px] font-bold font-mono text-muted-foreground/50 shrink-0 tabular-nums select-none">
+              #{posicao}
+            </span>
+          )}
 
-        {/* Posição */}
-        {posicao != null && (
-          <span className="text-[10px] font-bold font-mono text-muted-foreground/50 shrink-0 tabular-nums select-none">
-            #{posicao}
-          </span>
-        )}
-
-        {/* Nome da etapa */}
-        {editingNome && !readOnly ? (
-          <input
-            autoFocus
-            value={etapa.nome}
-            onChange={e => updateNome(e.target.value)}
-            onBlur={() => setEditingNome(false)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingNome(false); }}
-            className="flex-1 min-w-0 h-full bg-primary/5 border-transparent rounded-none px-1 focus:outline focus:outline-[1.5px] focus:outline-primary focus:outline-offset-[-1px]"
-            style={{ fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}
-          />
-        ) : (
-          <span
-            className={cn(
-              'flex-1 min-w-0 truncate pr-2',
-              !readOnly && 'cursor-text hover:text-primary transition-colors'
-            )}
-            style={{ fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}
-            title={etapa.nome || 'Sem nome'}
-            onClick={() => !readOnly && setEditingNome(true)}
-          >
-            {etapa.nome || <span className="text-muted-foreground italic">Sem nome</span>}
-          </span>
-        )}
+          {/* Nome da etapa */}
+          {editingNome && !readOnly ? (
+            <input
+              autoFocus
+              value={etapa.nome}
+              onChange={e => updateNome(e.target.value)}
+              onBlur={() => setEditingNome(false)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingNome(false); }}
+              className="flex-1 min-w-0 h-full bg-transparent border-transparent rounded-none px-1 focus:bg-primary/5 focus:outline focus:outline-[1.5px] focus:outline-primary focus:outline-offset-[-1px]"
+              style={{ fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}
+            />
+          ) : (
+            <span
+              tabIndex={0}
+              className={cn(
+                'flex-1 min-w-0 truncate pr-2 focus:outline-none focus:ring-1 focus:ring-primary rounded',
+                !readOnly && 'cursor-text hover:text-primary transition-colors'
+              )}
+              style={{ fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}
+              title={etapa.nome || 'Sem nome'}
+              onClick={() => !readOnly && setEditingNome(true)}
+              onKeyDown={(e) => {
+                if (e.key === ' ') {
+                  e.preventDefault();
+                  setLocalExpanded(v => !v);
+                }
+                if (e.key === 'Enter' || e.key === 'F2') {
+                  e.preventDefault();
+                  if (!readOnly) setEditingNome(true);
+                }
+              }}
+            >
+              {etapa.nome || <span className="text-muted-foreground italic">Sem nome</span>}
+            </span>
+          )}
         </div>
 
         {/* Coluna 2: TIPO */}
         <div className="h-full border-r border-border/60" />
         {/* Coluna 3: UN */}
         <div className="h-full border-r border-border/60" />
-        {/* Coluna 3: QTD */}
-        <div className="h-full border-r border-border/60" />
-        
-        {/* Coluna 4: P.UNIT (Progresso) */}
-        <div className="flex items-center justify-end gap-2 h-full px-2">
+        {/* Coluna 4 & 5: Progresso (ocupa P.UNIT e QTD) */}
+        <div
+          className="flex items-center justify-end gap-2 h-full px-3 border-r border-border/60"
+          style={{ gridColumn: 'span 2' }}
+        >
           {totalComps > 0 && (
             <>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
+              <span className="text-[11px] text-muted-foreground tabular-nums">
                 {totalComps} comp.
               </span>
-              <div className="w-16 h-1 bg-border overflow-hidden">
+              <div className="w-24 h-1 bg-border overflow-hidden">
                 <div className={cn('h-full transition-all', barColor)}
-                     style={{ width: `${pctCotado}%` }} />
+                  style={{ width: `${pctCotado}%` }} />
               </div>
-              <span className="text-[10px] tabular-nums font-medium"
-                    style={{ color: pctCotado === 100 ? '#10b981' :
-                             pctCotado > 0 ? '#3b82f6' : undefined }}>
+              <span className="text-[11px] tabular-nums font-medium"
+                style={{
+                  color: pctCotado === 100 ? '#10b981' :
+                    pctCotado > 0 ? '#3b82f6' : undefined
+                }}>
                 {pctCotado}%
               </span>
             </>
@@ -276,95 +294,102 @@ export default function EtapaBlock({
         <div className="flex items-center justify-center gap-1 h-full px-1">
           {/* Adicionar... */}
           {!readOnly && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-0 opacity-0 group-hover/etapa:opacity-100 transition-opacity">
               <Button
                 tabIndex={-1}
                 variant="ghost"
-                size="icon"
-                className="h-6 w-6 shrink-0 opacity-0 group-hover/etapa:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
-                title="Adicionar item"
+                onClick={() => addComposicao('composicao')}
+                className="h-6 px-1.5 shrink-0 text-muted-foreground hover:text-primary text-[10px] uppercase font-bold"
+                title="Nova composição"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3 w-3 mr-1" /> Comp
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 text-xs">
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('composicao')}>
-                <Plus className="h-3 w-3" /> Nova composição
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Insumo direto</div>
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'material')}>
-                <Box className="h-3 w-3" /> Material
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'mao_obra')}>
-                <Users className="h-3 w-3" /> Mão de obra
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'equipamento')}>
-                <Truck className="h-3 w-3" /> Equipamento
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'servico')}>
-                <Wrench className="h-3 w-3" /> Serviço
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    tabIndex={-1}
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-5 shrink-0 text-muted-foreground hover:text-primary"
+                    title="Adicionar insumo direto"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 text-xs">
+                  <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Insumo direto</div>
+                  <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'material')}>
+                    <Box className="h-3 w-3" /> Material
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'mao_obra')}>
+                    <Users className="h-3 w-3" /> Mão de obra
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'equipamento')}>
+                    <Truck className="h-3 w-3" /> Equipamento
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs gap-2" onClick={() => addComposicao('insumo_direto', 'servico')}>
+                    <Wrench className="h-3 w-3" /> Serviço
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
 
-        {/* Menu ⋯ */}
-        {!readOnly && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                tabIndex={-1}
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 shrink-0 opacity-0 group-hover/etapa:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44 text-xs">
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => setEditingNome(true)}>
-                Renomear etapa
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-xs gap-2"
-                onClick={() => {
-                  const clone: OrcamentoEtapa = {
-                    ...etapa,
-                    id: crypto.randomUUID(),
-                    nome: `${etapa.nome} (cópia)`,
-                    composicoes: etapa.composicoes.map(c => ({
-                      ...c,
-                      id: crypto.randomUUID(),
-                      insumos: c.insumos.map(i => ({ ...i, id: crypto.randomUUID() })),
-                    })),
-                  };
-                  // Passa o clone para o pai via onChange com flag especial
-                  // O OrcamentoEditor cuida de inserir — aqui só disparamos o evento
-                  onChange({ ...etapa, __duplicate: clone } as OrcamentoEtapa & { __duplicate?: OrcamentoEtapa });
-                }}
-              >
-                <Copy className="h-3 w-3" />
-                Duplicar etapa
-              </DropdownMenuItem>
-              {onOpenCatalogo && (
-                <DropdownMenuItem className="text-xs gap-2" onClick={() => { onOpenCatalogo(); setLocalExpanded(true); }}>
-                  <Search className="h-3 w-3" />
-                  Buscar composições
+          {/* Menu ⋯ */}
+          {!readOnly && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  tabIndex={-1}
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0 opacity-0 group-hover/etapa:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 text-xs">
+                <DropdownMenuItem className="text-xs gap-2" onClick={() => setEditingNome(true)}>
+                  Renomear etapa
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-xs gap-2 text-destructive focus:text-destructive"
-                onClick={onRemove}
-              >
-                <Trash2 className="h-3 w-3" />
-                Excluir etapa
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                <DropdownMenuItem
+                  className="text-xs gap-2"
+                  onClick={() => {
+                    const clone: OrcamentoEtapa = {
+                      ...etapa,
+                      id: crypto.randomUUID(),
+                      nome: `${etapa.nome} (cópia)`,
+                      composicoes: etapa.composicoes.map(c => ({
+                        ...c,
+                        id: crypto.randomUUID(),
+                        insumos: c.insumos.map(i => ({ ...i, id: crypto.randomUUID() })),
+                      })),
+                    };
+                    // Passa o clone para o pai via onChange com flag especial
+                    // O OrcamentoEditor cuida de inserir — aqui só disparamos o evento
+                    onChange({ ...etapa, __duplicate: clone } as OrcamentoEtapa & { __duplicate?: OrcamentoEtapa });
+                  }}
+                >
+                  <Copy className="h-3 w-3" />
+                  Duplicar etapa
+                </DropdownMenuItem>
+                {onOpenCatalogo && (
+                  <DropdownMenuItem className="text-xs gap-2" onClick={() => { onOpenCatalogo(); setLocalExpanded(true); }}>
+                    <Search className="h-3 w-3" />
+                    Buscar composições
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-xs gap-2 text-destructive focus:text-destructive"
+                  onClick={onRemove}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Excluir etapa
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 

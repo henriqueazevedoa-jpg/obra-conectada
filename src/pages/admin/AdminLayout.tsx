@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
-import { Building2, CreditCard, Puzzle, Shield, ArrowLeft, LayoutDashboard } from 'lucide-react';
+import { Building2, CreditCard, Puzzle, Shield, ArrowLeft, LayoutDashboard, Calculator, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const adminLinks = [
@@ -8,7 +8,9 @@ const adminLinks = [
   { to: '/admin/companies', label: 'Empresas', icon: Building2 },
   { to: '/admin/plans', label: 'Planos', icon: CreditCard },
   { to: '/admin/addons', label: 'Add-ons', icon: Puzzle },
-];
+  { to: '/admin/calculadora', label: 'Calculadora', icon: Calculator },
+  { to: '/admin/feedbacks', label: 'Feedbacks', icon: MessageSquare },
+];
 
 export default function AdminLayout() {
   const { user, loading } = useAuth();

@@ -135,6 +135,7 @@ export default function CatalogDrawer({
   const [modelosGrupo, setModelosGrupo] = useState<any[]>([]);
   const [modelosLoading, setModelosLoading] = useState(false);
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
+  const [activeDragEtapa, setActiveDragEtapa] = useState<string | null>(null);
 
   // DND para painel direito
   const sensors = useSensors(

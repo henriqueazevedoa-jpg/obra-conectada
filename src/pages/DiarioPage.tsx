@@ -28,10 +28,11 @@ export default function DiarioPage() {
     setKpiLoading(true);
     const hoje = format(new Date(), 'yyyy-MM-dd');
 
-    const { data: registros } = await supabase
+    const { data: registros, error } = await supabase
       .from('diario_registros')
       .select('trabalhadores, problemas, data, status')
       .eq('obra_id', selectedObraId);
+    if (error) console.error('[DEBUG página diario]', error);
 
     if (registros) {
       const hojeRegs = registros.filter(r => r.data === hoje);

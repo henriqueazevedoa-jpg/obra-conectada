@@ -12,11 +12,12 @@ import {
   Package, LogOut, Menu, HardHat, Shield, Users,
   Wallet, FolderOpen, CalendarCheck, ShoppingCart,
   Search, ChevronRight, ChevronsUpDown, Check,
-  BarChart3, ClipboardList, Home, Settings,
+  BarChart3, ClipboardList, Home, Settings, MessageSquare, Calculator,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import ModalFeedback from "@/components/shared/ModalFeedback";
 
 // ─── Lite mode detection ───────────────────────────────────────────────────────
 
@@ -131,10 +132,11 @@ const getGroups = (role: string): NavGroup[] => [
     accent: "#818CF8",
     glow: "rgba(129,140,248,0.35)",
     links: [
-      { to: "/orcamento",  label: "Orçamento",  icon: DollarSign },
-      { to: "/cronograma", label: "Cronograma", icon: CalendarDays },
-      { to: "/contratos",  label: "Contratos",  icon: ClipboardList },
-      { to: "/biblioteca", label: "Biblioteca", icon: BookOpen },
+      { to: "/orcamento",   label: "Orçamento",   icon: DollarSign },
+      { to: "/cronograma",  label: "Cronograma",  icon: CalendarDays },
+      { to: "/contratos",   label: "Contratos",   icon: ClipboardList },
+      { to: "/biblioteca",  label: "Biblioteca",  icon: BookOpen },
+      { to: "/calculadora", label: "Calculadora", icon: Calculator },
     ],
   },
   {
@@ -243,67 +245,6 @@ function ProgressRing({ progress, size = 44, stroke = 2.5, lite }: {
   );
 }
 
-// ─── Custom Tooltip ────────────────────────────────────────────────────────────
-
-function SidebarTooltip({ label, sublabel, accent, pos }: {
-  label: string;
-  sublabel?: string;
-  accent: string;
-  pos: { top: number; left: number };
-}) {
-  return createPortal(
-    <div style={{
-      position: "fixed",
-      top: pos.top,
-      left: pos.left,
-      zIndex: 99998,
-      pointerEvents: "none",
-      animation: "tooltipIn 0.12s cubic-bezier(0.16,1,0.3,1) forwards",
-    }}>
-      <div style={{
-        background: "rgba(14,12,24,0.96)",
-        border: `1px solid ${accent}30`,
-        borderRadius: 9,
-        padding: "6px 10px",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        boxShadow: `0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.3), 0 0 16px ${accent}18`,
-        display: "flex",
-        flexDirection: "column",
-        gap: 1,
-        whiteSpace: "nowrap",
-      }}>
-        {/* Dot + label */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{
-            width: 5, height: 5, borderRadius: "50%",
-            background: accent,
-            boxShadow: `0 0 5px ${accent}80`,
-            flexShrink: 0,
-          }}/>
-          <span style={{
-            fontSize: 12, fontWeight: 600,
-            color: "rgba(220,217,245,0.92)",
-            letterSpacing: "-0.01em",
-          }}>
-            {label}
-          </span>
-        </div>
-        {/* Sublabel (recência) */}
-        {sublabel && (
-          <span style={{
-            fontSize: 10,
-            color: "rgba(148,140,195,0.5)",
-            paddingLeft: 11,
-          }}>
-            {sublabel}
-          </span>
-        )}
-      </div>
-    </div>,
-    document.body
-  );
-}
 
 // ─── Popover ──────────────────────────────────────────────────────────────────
 
@@ -481,19 +422,16 @@ function GroupPopoverPortal({
 // ─── Group Icon Button ─────────────────────────────────────────────────────────
 
 function GroupIconButton({
-  group, activePath, isOpen, onToggle, onNavigate,
+  group, activePath, isOpen, onOpen, onClose, onNavigate,
   lite, recencyTs, showKbHint,
 }: {
   group: NavGroup; activePath: string; isOpen: boolean;
-  onToggle: () => void; onNavigate: () => void;
+  onOpen: () => void; onClose: () => void; onNavigate: () => void;
   lite: boolean; recencyTs: number | undefined; showKbHint: boolean;
 }) {
   const isGroupActive = group.links.some(l => activePath === l.to);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
-  const [showTooltip, setShowTooltip] = useState(false);
   const [closing, setClosing] = useState(false);
   const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -523,17 +461,9 @@ function GroupIconButton({
   const opacity = showHighlight ? 1 : recencyOpacity(recencyTs);
 
   const handleMouseEnter = () => {
-    hoverTimer.current = setTimeout(() => {
-      if (btnRef.current) {
-        const r = btnRef.current.getBoundingClientRect();
-        setTooltipPos({ top: r.top + r.height / 2 - 14, left: r.right + 10 });
-        setShowTooltip(true);
-      }
-    }, 400);
-
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     closeTimerRef.current = setTimeout(() => {
-      if (!isOpen) onToggle();
+      onOpen();
     }, 120);
 
     if (!showHighlight && btnRef.current) {
@@ -544,12 +474,9 @@ function GroupIconButton({
   };
 
   const handleMouseLeave = () => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    setShowTooltip(false);
-
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     closeTimerRef.current = setTimeout(() => {
-      if (isOpen) onToggle();
+      onClose();
     }, 180);
 
     if (!showHighlight && btnRef.current) {
@@ -563,7 +490,8 @@ function GroupIconButton({
     <>
       <button
         ref={btnRef}
-        onClick={onToggle}
+        title={group.title}
+        onClick={onOpen}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{
@@ -623,16 +551,6 @@ function GroupIconButton({
         <group.icon size={17} />
       </button>
 
-      {/* Custom tooltip */}
-      {showTooltip && !isOpen && (
-        <SidebarTooltip
-          label={group.title}
-          sublabel={recencyTs ? recencyLabel(recencyTs) : undefined}
-          accent={group.accent}
-          pos={tooltipPos}
-        />
-      )}
-
       {showPortal && (
         <GroupPopoverPortal
           group={group}
@@ -646,7 +564,7 @@ function GroupIconButton({
           }}
           onMouseLeave={() => {
             closeTimerRef.current = setTimeout(() => {
-              if (isOpen) onToggle();
+              onClose();
             }, 120);
           }}
         />
@@ -662,30 +580,13 @@ function SidebarIconLink({ to, label, icon: Icon, active, lite, accent = "#818CF
   active: boolean; lite?: boolean; accent?: string;
 }) {
   const btnRef = useRef<HTMLAnchorElement>(null);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
-
-  const handleMouseEnter = () => {
-    hoverTimer.current = setTimeout(() => {
-      if (btnRef.current) {
-        const r = btnRef.current.getBoundingClientRect();
-        setTooltipPos({ top: r.top + r.height / 2 - 14, left: r.right + 10 });
-        setShowTooltip(true);
-      }
-    }, 400);
-  };
-
-  const handleMouseLeave = () => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    setShowTooltip(false);
-  };
 
   return (
     <>
       <Link
         ref={btnRef}
         to={to}
+        title={label}
         style={{
           position: "relative",
           width: 40, height: 40,
@@ -700,14 +601,12 @@ function SidebarIconLink({ to, label, icon: Icon, active, lite, accent = "#818CF
             : "none",
         }}
         onMouseEnter={e => {
-          handleMouseEnter();
           if (!active) {
             (e.currentTarget as HTMLElement).style.color = "rgba(200,196,230,0.85)";
             (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
           }
         }}
         onMouseLeave={e => {
-          handleMouseLeave();
           if (!active) {
             (e.currentTarget as HTMLElement).style.color = "rgba(148,140,195,0.55)";
             (e.currentTarget as HTMLElement).style.background = "transparent";
@@ -724,14 +623,6 @@ function SidebarIconLink({ to, label, icon: Icon, active, lite, accent = "#818CF
         )}
         <Icon style={{ width: 16, height: 16, flexShrink: 0 }} />
       </Link>
-
-      {showTooltip && (
-        <SidebarTooltip
-          label={label}
-          accent={accent}
-          pos={tooltipPos}
-        />
-      )}
     </>
   );
 }
@@ -822,6 +713,7 @@ export default function AppLayout() {
   const { selectedObraId } = useObraSelection();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [liteMode, setLiteMode] = useState<boolean>(() => detectLiteMode());
   const [recency, setRecency] = useState<Record<string, number>>(() => loadRecency());
   const [showKbHint, setShowKbHint] = useState(false);
@@ -904,16 +796,18 @@ export default function AppLayout() {
   const allLinks = groups.flatMap(g => g.links);
   const mobileTabRoutes = mobileTabs.filter(t => t.to !== "/_more").map(t => t.to);
   const moreLinks = allLinks.filter(l => !mobileTabRoutes.includes(l.to));
+  const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + '/');
+
   const isActiveRoute = (to: string) => {
-    if (to === "/_more") return moreLinks.some(l => location.pathname === l.to) || moreMenuOpen;
-    return location.pathname === to;
+    if (to === "/_more") return moreLinks.some(l => isActive(l.to)) || moreMenuOpen;
+    return isActive(to);
   };
 
   const initials = user.name
     ? user.name.split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()
     : "?";
 
-  const activeGroup = groups.find(g => g.links.some(l => location.pathname === l.to));
+  const activeGroup = groups.find(g => g.links.some(l => isActive(l.to)));
 
   return (
     <div className="min-h-screen bg-background">
@@ -947,6 +841,7 @@ export default function AppLayout() {
       )}
 
       <CommandPalette />
+      <ModalFeedback origem="lastra" open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
       {/* ══ Desktop Sidebar ════════════════════════════════════════════ */}
       <aside
@@ -1019,7 +914,7 @@ export default function AppLayout() {
             to="/obras" 
             label="Obras" 
             icon={Building2}
-            active={location.pathname === '/obras'}
+            active={isActive('/obras')}
             lite={liteMode}
           />
           <div style={{ width: 20, height: 1, background: 'rgba(175,169,236,0.1)', margin: '4px auto' }} />
@@ -1027,14 +922,14 @@ export default function AppLayout() {
             to="/dashboard" 
             label="Dashboard" 
             icon={LayoutDashboard}
-            active={location.pathname === '/dashboard'}
+            active={isActive('/dashboard')}
             lite={liteMode}
           />
           <SidebarIconLink 
             to="/painel" 
             label="Painel da Obra" 
             icon={Home}
-            active={location.pathname === '/painel'}
+            active={isActive('/painel')}
             lite={liteMode}
           />
 
@@ -1053,14 +948,17 @@ export default function AppLayout() {
               group={group}
               activePath={location.pathname}
               isOpen={openGroupId === group.id}
-              onToggle={() => {
-                toggleGroup(group.id);
+              onOpen={() => {
+                setOpenGroupId(group.id);
                 // Atualizar recência ao abrir
                 setRecency(prev => {
                   const next = { ...prev, [group.id]: Date.now() };
                   saveRecency(next);
                   return next;
                 });
+              }}
+              onClose={() => {
+                setOpenGroupId(prev => prev === group.id ? null : prev);
               }}
               onNavigate={() => {
                 handleNavigate(group.id);
@@ -1078,8 +976,31 @@ export default function AppLayout() {
           padding: "8px 10px 14px",
           display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
         }}>
+          {/* Feedback */}
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            title="Enviar feedback"
+            style={{
+              width: 40, height: 36, borderRadius: 11,
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'rgba(148,140,195,0.4)',
+              background: 'transparent', transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = 'rgba(175,169,236,0.8)';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = 'rgba(148,140,195,0.4)';
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }}
+          >
+            <MessageSquare style={{ width: 14, height: 14, flexShrink: 0 }} />
+          </button>
+
           <SidebarIconLink to="/configuracoes" label="Configurações" icon={Settings}
-            active={location.pathname === "/configuracoes"} lite={liteMode} />
+            active={isActive("/configuracoes")} lite={liteMode} />
 
           {/* Avatar */}
           <button
@@ -1250,7 +1171,7 @@ export default function AppLayout() {
             <div className="grid grid-cols-3 gap-2">
               {moreLinks.map(link => {
                 const Icon = link.icon;
-                const active = location.pathname === link.to;
+                const active = isActive(link.to);
                 return (
                   <Link key={link.to} to={link.to} onClick={() => setMoreMenuOpen(false)}
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-colors"

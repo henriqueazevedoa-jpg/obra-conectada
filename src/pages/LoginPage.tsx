@@ -69,7 +69,7 @@ export default function LoginPage() {
         <div className="max-w-md space-y-6">
           <div className="flex items-center gap-3">
             <HardHat className="h-12 w-12" />
-            <h1 className="text-4xl font-bold">ObraFácil</h1>
+            <h1 className="text-4xl font-bold">Lastra</h1>
           </div>
           <p className="text-xl leading-relaxed opacity-90">
             Controle cronograma, orçamento, materiais e diário de obra em um só sistema.
@@ -89,7 +89,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm space-y-6">
           <div className="lg:hidden flex items-center gap-2 justify-center mb-4">
             <HardHat className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">ObraFácil</h1>
+            <h1 className="text-2xl font-bold text-foreground">Lastra</h1>
           </div>
 
           <Tabs defaultValue="login" className="w-full">

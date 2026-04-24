@@ -1,0 +1,194 @@
+{
+  "caminho_pdf": "C:\\Users\\henri\\OneDrive\\Área de Trabalho\\meu-obra-main\\obra-conectada-main\\Pipeline_analise_pdf\\SIMOES-FAPEPE-CEU-PE-EST-FOR-R03-01.pdf",
+  "iniciado_em": "2026-04-24T01:13:02.844295",
+  "metadados_projeto": {
+    "nome": null,
+    "responsavel": null,
+    "cau_crea": null,
+    "data": null,
+    "revisao": null,
+    "escala_padrao": null,
+    "software": "AutoCAD",
+    "tipologia": null,
+    "num_pavimentos": null,
+    "area_total_m2": null
+  },
+  "pranchas": {
+    "0": {
+      "numero": 0,
+      "tipo_provavel": "corte_com_diagonal",
+      "confianca_tipo": 0.55,
+      "duplicata_de": null,
+      "densidade_visual": 0.0266,
+      "tem_carimbo": false,
+      "escala_declarada": "1:75",
+      "escala_calculada": null,
+      "tem_tabela": true,
+      "layers_cad": [],
+      "tipo_pdf": "vetorial",
+      "prioridade": 6
+    }
+  },
+  "dados_extraidos": [
+    {
+      "modulo": "documentos",
+      "tipo": "tabela_revisoes",
+      "valor": {
+        "cabecalho": [
+          null,
+          null,
+          "REV. 03 050424",
+          "CORREÇÃO DA PLANTA DE LOCAÇÃO DAS ESTACAS",
+          null,
+          null,
+          "SIMOES"
+        ],
+        "conteudo": [
+          [
+            null,
+            null,
+            "REV. 02 290823",
+            "REVISÃO DE PROJETO E FUNDAÇÃO",
+            null,
+            null,
+            "SIMOES"
+          ],
+          [
+            null,
+            null,
+            "REV. 01 200723",
+            "REVISÃO DA FUNDAÇÃO",
+            null,
+            null,
+            "SIMOES"
+          ],
+          [
+            null,
+            null,
+            "REV. 00 060723",
+            "EMISSÃO INICIAL",
+            null,
+            null,
+            "SIMOES"
+          ],
+          [
+            null,
+            null,
+            "REVISÃO: DATA : DESCRIÇÃO: RESP.:\nCLIENTE",
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            "",
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            "PROJETO\nSIMOES\nEMPREENDIMENTOS LTDA\nCNPJ: 12.354.9260001-64\nRua Coronel Francisco Braz, 185.\nPinheirinho - Sala 203\nCEP: 37500-052 - Itajubá/MG\nTel: (35) 3622-0418",
+            null,
+            "RESPONSÁVEL TÉCNICO\nENGª. CIVIL FLÁVIA BARBOSA CREA MG-187.842D",
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            "EMPREENDIMENTO\nCENTRO DE EMPREENDEDORISMO (CEU) - UNIFEI ITABIRA",
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            "ENDEREÇO\nRUA IRMÃ IVONE DRUMOND - DISTRITO INDUSTRIAL II\nITABIRA - MINAS GERAIS",
+            null,
+            null,
+            "DISCIPLINA\nESTRUTURAL",
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            "FASE DO PROJETO\nEXECUTIVO",
+            null
+          ],
+          [
+            null,
+            null,
+            "ASSUNTO\nPROJETO ESTRUTURAL EM CONCRETO ARMADO\nPROJETO DE FUNDAÇÃO\nPLANTA DE LOCAÇÃO DAS ESTACAS",
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            "FOLHA Nº.\n01 79",
+            null
+          ],
+          [
+            null,
+            null,
+            "DATA INICIAL ESC\n060723 I",
+            "ALA REVISÃO ARQUIVO\nNDICADA R03 SIMOES-FAPEPE-CEU-PE-EST-FOR-R03.DWG",
+            null,
+            null,
+            null
+          ],
+          [
+            "",
+            "",
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "linhas": 14,
+        "colunas": 7,
+        "bbox": [
+          1336.6800000000003,
+          1742.3246315789463,
+          3341.990149253732,
+          2357.48
+        ],
+        "extraido_por": "geometria_pdf"
+      },
+      "confianca": 0.9,
+      "prancha": "prancha_0",
+      "fonte": "pre_ai",
+      "inferido": false
+    }
+  ],
+  "resumo": {
+    "total_pranchas": 1,
+    "pranchas_processadas": 0,
+    "dados_extraidos": 1,
+    "erros": 0
+  },
+  "custos": {
+    "total_usd": 0,
+    "total_brl": 0.0,
+    "creditos_lastra": 0,
+    "por_operacao": []
+  },
+  "erros": []
+}

@@ -328,11 +328,12 @@ export default function AgendaPage() {
     if (!obra) return;
     setLoading(true);
 
-    const { data: agendaData } = await (supabase as any)
+    const { data: agendaData, error: errAgenda } = await (supabase as any)
       .from('obra_agenda')
       .select('*')
       .eq('obra_id', obra.id)
       .order('data_programada', { ascending: true });
+    if (errAgenda) console.error('[DEBUG página agenda]', errAgenda);
 
     const { data: marcosData } = await (supabase as any)
       .from('cronograma_tarefas')
@@ -342,7 +343,7 @@ export default function AgendaPage() {
 
     const { data: pagamentosData } = await (supabase as any)
       .from('pagamentos')
-      .select('id, descricao, data_vencimento, valor')
+      .select('id, descricao, data_vencimento, valor_previsto')
       .eq('obra_id', obra.id)
       .not('data_vencimento', 'is', null)
       .not('status', 'in', '("pago","cancelado")');
@@ -362,7 +363,7 @@ export default function AgendaPage() {
     const pagamentosItems: AgendaItem[] = (pagamentosData || []).map((p: any) => ({
       id: `pag-${p.id}`, obra_id: obra.id,
       titulo: p.descricao || 'Pagamento', tipo: 'administrativo' as AgendaTipo,
-      descricao: `Valor: R$ ${Number(p.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      descricao: `Valor: R$ ${Number(p.valor_previsto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       data_programada: p.data_vencimento,
       hora_programada: null, data_finalizacao: null, responsavel: null,
       status: 'programado' as AgendaStatus, prioridade: 'alta' as AgendaPrioridade,
@@ -524,7 +525,7 @@ export default function AgendaPage() {
   ) : undefined;
 
   const headerActions: PageAction[] = [
-    { label: '+ Nova Pendência', variant: 'outline', onClick: () => openCreate('pendencia') },
+    { label: '+ Nova Pendência', variant: 'ghost', onClick: () => openCreate('pendencia') },
     { label: '+ Novo Evento', variant: 'primary', onClick: () => openCreate() },
   ];
 

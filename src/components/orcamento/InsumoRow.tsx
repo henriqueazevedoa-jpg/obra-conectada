@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { OrcamentoInsumo } from '@/contexts/OrcamentoContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Trash2, MoreHorizontal, Copy, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/untyped';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { COMPOSICAO_GRID, toSinapiDisplayName } from './ComposicaoRow';
 import { cn } from '@/lib/utils';
+import { useOrcamento } from '@/contexts/OrcamentoContext';
 import {
   Tooltip,
   TooltipContent,
@@ -53,31 +55,81 @@ const STATUS_LABELS: Record<string, string> = {
 export default function InsumoRow({
   insumo, unidades, onChange, onRemove, obraId, readOnly,
 }: Props) {
-  const [suggestions, setSuggestions] = useState<{ label: string; value: string }[]>([]);
+  const { sinapiConfig } = useOrcamento();
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [priceHint, setPriceHint] = useState<PriceHint | null>(null);
 
   const status = getStatus(insumo);
 
-  // Busca sugestões de materiais
+  // Busca progressiva
   useEffect(() => {
-    const fetchSuggestions = async () => {
-      const { data } = await supabase
-        .from('precos_fornecedores')
-        .select('descricao_item_snapshot')
-        .limit(200);
-      if (data) {
-        const unique = new Map<string, string>();
-        data.forEach((d: { descricao_item_snapshot: string | null }) => {
-          const desc = d.descricao_item_snapshot || '';
-          if (desc && !unique.has(desc.toLowerCase())) unique.set(desc.toLowerCase(), desc);
+    if (!insumo.descricao || insumo.descricao.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    let active = true;
+    const terms = insumo.descricao.trim().split(/\s+/).filter(Boolean);
+
+    const timerLocal = setTimeout(async () => {
+      let queryCat = supabase.from('catalogo_insumos').select('id, nome, unidade, preco_medio');
+      terms.forEach(t => { queryCat = queryCat.ilike('nome', `%${t}%`); });
+      const { data: cat } = await queryCat.order('nome').limit(5);
+      
+      if (!active) return;
+
+      setSuggestions(prev => {
+        const prevSinapi = prev.filter(p => p.meta === 'SINAPI' || (p.isHeader && p.value.startsWith('hdr-sinapi')));
+        const next: any[] = [];
+        
+        if (cat && cat.length > 0) {
+          next.push({ label: 'Da sua biblioteca', value: 'hdr-cat', isHeader: true });
+          cat.forEach(c => next.push({ label: c.nome, value: c.id, meta: 'Catálogo', unidade: c.unidade, preco: c.preco_medio }));
+        }
+        
+        if (sinapiConfig?.isSinapiSearchEnabled !== false) {
+          if (prevSinapi.length > 0) {
+            next.push(...prevSinapi);
+          } else {
+            next.push({ label: 'SINAPI', value: 'hdr-sinapi-loading', isHeader: true, isLoading: true });
+          }
+        }
+        return next;
+      });
+    }, 100);
+
+    let timerSinapi: any;
+    if (sinapiConfig?.isSinapiSearchEnabled !== false) {
+      timerSinapi = setTimeout(async () => {
+        let querySin = supabase.from('sinapi_insumos').select('id, descricao, unidade');
+        terms.forEach(t => { querySin = querySin.ilike('descricao', `%${t}%`); });
+        const { data: sin } = await querySin.order('descricao').limit(5);
+
+        if (!active) return;
+
+        setSuggestions(prev => {
+          const prevCat = prev.filter(p => p.meta === 'Catálogo' || (p.isHeader && p.value === 'hdr-cat'));
+          const next: any[] = [];
+          
+          next.push(...prevCat);
+          
+          if (sin && sin.length > 0) {
+            next.push({ label: 'SINAPI', value: 'hdr-sinapi', isHeader: true });
+            sin.forEach(s => next.push({ label: s.descricao, value: s.id, meta: 'SINAPI', unidade: s.unidade }));
+          }
+          return next;
         });
-        setSuggestions(
-          Array.from(unique.values()).map((label) => ({ label, value: label.toLowerCase() }))
-        );
-      }
+      }, 250);
+    } else {
+      setSuggestions(prev => prev.filter(p => p.meta !== 'SINAPI' && (!p.isHeader || p.value !== 'hdr-sinapi-loading')));
+    }
+
+    return () => {
+      active = false;
+      clearTimeout(timerLocal);
+      clearTimeout(timerSinapi);
     };
-    fetchSuggestions();
-  }, []);
+  }, [insumo.descricao, sinapiConfig?.isSinapiSearchEnabled]);
 
   // Busca o preço histórico mais recente ao mudar a descrição
   const fetchPriceHint = useCallback(async (descricao: string) => {
@@ -122,9 +174,67 @@ export default function InsumoRow({
   };
 
   const handleDescricaoChange = (val: string) => {
+    if (val.trim() === '') {
+      const next = { ...insumo, descricao: val, codigo: '', precoUnitario: null, precoTotal: 0 };
+      onChange(next);
+      return;
+    }
     update('descricao', val);
     // Só busca hint se ainda não tem preço definido
     if (!insumo.precoUnitario) fetchPriceHint(val);
+  };
+
+  const handleSelectSuggestion = async (s: any) => {
+    update('descricao', s.label);
+
+    if (s.meta === 'Catálogo') {
+      const { data } = await supabase
+        .from('catalogo_insumos')
+        .select('unidade, preco_medio, codigo')
+        .eq('id', s.value)
+        .maybeSingle();
+
+      if (data) {
+        const next = { 
+          ...insumo, 
+          descricao: s.label,
+          codigo: data.codigo || insumo.codigo,
+          unidade: data.unidade || insumo.unidade,
+          precoUnitario: data.preco_medio || insumo.precoUnitario,
+        };
+        if (next.quantidade && next.precoUnitario) next.precoTotal = next.quantidade * next.precoUnitario;
+        onChange(next);
+      }
+    } else if (s.meta === 'SINAPI') {
+      const { data } = await supabase
+        .from('sinapi_insumos')
+        .select('unidade, codigo')
+        .eq('id', s.value)
+        .maybeSingle();
+
+      if (data) {
+        const config = sinapiConfig?.uf ? sinapiConfig : { uf: 'SP', regime: 'SEM_DESONERACAO' };
+        // Find price from sinapi_insumo_precos
+        const { data: precoData } = await supabase
+          .from('sinapi_insumo_precos')
+          .select('preco')
+          .eq('insumo_codigo', data.codigo)
+          .eq('uf', config.uf)
+          .eq('regime', config.regime)
+          .maybeSingle();
+
+        const precoUnit = precoData?.preco || insumo.precoUnitario;
+        const next = { 
+          ...insumo, 
+          descricao: s.label,
+          codigo: String(data.codigo),
+          unidade: data.unidade || insumo.unidade,
+          precoUnitario: precoUnit,
+        };
+        if (next.quantidade && next.precoUnitario) next.precoTotal = next.quantidade * next.precoUnitario;
+        onChange(next);
+      }
+    }
   };
 
   const applyHintPrice = () => {
@@ -146,21 +256,23 @@ export default function InsumoRow({
 
         {/* Código + Semáforo */}
         <div className="flex items-center gap-1.5 min-w-0">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    'h-2 w-2 rounded-full shrink-0 transition-colors',
-                    STATUS_CLASSES[status]
-                  )}
-                />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">
-                {STATUS_LABELS[status]}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {status !== 'complete' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      'h-2 w-2 rounded-full shrink-0 transition-colors',
+                      STATUS_CLASSES[status]
+                    )}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">
+                  {STATUS_LABELS[status]}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <span className="text-[10px] font-mono text-muted-foreground truncate" title={insumo.codigo}>
             {insumo.codigo}
           </span>
@@ -176,6 +288,8 @@ export default function InsumoRow({
             suggestions={suggestions}
             value={insumo.descricao}
             onChange={handleDescricaoChange}
+            onSuggestionSelect={handleSelectSuggestion}
+            disableLocalFilter={true}
             placeholder="Descrição / insumo"
             className="h-8 text-xs px-2 bg-transparent focus-visible:bg-background"
           />
@@ -256,17 +370,35 @@ export default function InsumoRow({
           </div>
         )}
 
-        {/* Excluir */}
-        {!readOnly ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={onRemove}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        ) : <div />}
+        {/* Ações */}
+        <div className="h-full flex items-center justify-center px-1 shrink-0">
+          {!readOnly ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="opacity-0 group-hover:opacity-100 h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-opacity"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-1" align="end" onClick={e => e.stopPropagation()}>
+                <button 
+                  onClick={() => { /* Not implemented yet */ }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Duplicar
+                </button>
+                <div className="h-px bg-border/50 my-1 mx-1" />
+                <button 
+                  onClick={onRemove}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
+                </button>
+              </PopoverContent>
+            </Popover>
+          ) : <div className="w-6 shrink-0" />}
+        </div>
       </div>
 
       {/* ── Hint de preço histórico — inline, sem expandir ── */}

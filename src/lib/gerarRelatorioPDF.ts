@@ -115,7 +115,7 @@ export async function gerarRelatorioPDF(config: ReportConfig): Promise<void> {
 
   const autoTableConfig = {
     margin: { top: 35, bottom: 20, left: margin, right: margin },
-    headStyles: { fillColor: ACCENT_COLOR, textColor: [255, 255, 255], fontStyle: 'bold' as const },
+    headStyles: { fillColor: ACCENT_COLOR, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const },
     alternateRowStyles: { fillColor: ROW_ALT_BG },
     styles: { fontSize: 8.5, cellPadding: 3, textColor: TEXT_DARK },
     didDrawPage: (dataHook: any) => {

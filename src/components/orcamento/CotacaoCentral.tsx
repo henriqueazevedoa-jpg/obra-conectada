@@ -38,12 +38,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSinapiAssistente } from '@/hooks/useSinapiAssistente';
 import SinapiReviewDrawer from '@/components/orcamento/SinapiReviewDrawer';
-import CotacaoListasView from '@/components/orcamento/CotacaoListasView';
 import { usePrecoHistorico, ModoSugestao } from '@/hooks/usePrecoHistorico';
 import { normalizeText } from '@/lib/normalizeText';
 import { useCotacaoListas } from '@/hooks/useCotacaoListas';
 import { PageKPI } from '@/components/layout/PageShell';
 import { getClasseAKeys } from '@/lib/curvaABC';
+import CotacaoAbcPanel from './CotacaoAbcPanel';
+import CotacaoSplitView from './CotacaoSplitView';
 
 interface CotacaoCentralProps {
   obra: { id: string; nome: string };
@@ -213,6 +214,7 @@ export default function CotacaoCentral({
     carregarHistorico,
     getSugestao,
     getFornecedoresHistorico,
+    historico,
   } = usePrecoHistorico();
   const etapas = useMemo(() => getOrcamento(obra.id)?.etapas ?? [], [getOrcamento, obra.id]);
   const itens = useMemo(
@@ -302,13 +304,14 @@ export default function CotacaoCentral({
 
   // A2b: Carrega fornecedores cadastrados para autocomplete
   useEffect(() => {
-    if (!obra.id) return;
+    const companyId = (company as any)?.id;
+    if (!companyId) return;
     (supabase as any)
       .from('fornecedores')
       .select('id, nome, cnpj, email, especialidades')
-      .eq('obra_id', obra.id)
+      .eq('company_id', companyId)
       .then(({ data }: any) => { if (data) setFornecedoresDB(data); });
-  }, [obra.id]);
+  }, [company]);
 
 
 
@@ -601,14 +604,7 @@ export default function CotacaoCentral({
   };
 
   // ── Edição de célula de fornecedor manual ────────────────────────────────────
-  const startManualEdit = (itemKey: string, fornId: string, currentValue?: number) => {
-    setEditingManualCell({ itemKey, fornId });
-    setEditingManualValue(currentValue ? String(currentValue) : '');
-  };
-
-  const commitManualEdit = async (itemKey: string, fornId: string, fornNome: string) => {
-    const value = parseFloat(editingManualValue);
-    setEditingManualCell(null);
+  const handleUpdatePrecoManual = async (itemKey: string, fornId: string, fornNome: string, value: number) => {
     if (isNaN(value) || value < 0) return;
 
     const cellKey = `${itemKey}::${fornId}`;
@@ -655,8 +651,8 @@ export default function CotacaoCentral({
   };
 
   // ── Adicionar fornecedor manual ─────────────────────────────────────────────
-  const handleAddFornecedorManual = async () => {
-    const nome = novoFornecedorNome.trim();
+  const handleAddFornecedorManual = async (nomeFromParam?: string) => {
+    const nome = (typeof nomeFromParam === 'string' ? nomeFromParam : novoFornecedorNome).trim();
     if (!nome) return;
 
     // Evitar duplicatas no mapa
@@ -1202,6 +1198,7 @@ ${fornBlocks}
   const {
     listas: listasHook,
     criarLista: criarListaHook,
+    atualizarItens,
   } = useCotacaoListas(obra.id, (company as any)?.id);
 
   const [listaSelecionada, setListaSelecionada] = useState<string | null>(null);
@@ -1275,6 +1272,20 @@ ${fornBlocks}
     return itens.filter(i => keys.has(i.key));
   }, [listaSelecionada, itensSemLista, listasHook, itens, contexto, itensCompraAtivos]);
 
+  // Limpeza de chaves órfãs na lista selecionada (itens removidos do orçamento)
+  useEffect(() => {
+    if (!listaSelecionada || listaSelecionada === '__sem_lista__' || contexto === 'compra') return;
+    const lista = listasHook.find(l => l.id === listaSelecionada);
+    if (!lista) return;
+
+    const keysValidas = new Set(itens.map(i => i.key));
+    const chavesLimpar = lista.item_keys?.filter(k => keysValidas.has(k)) ?? [];
+    
+    if (lista.item_keys && chavesLimpar.length !== lista.item_keys.length) {
+      atualizarItens(lista.id, chavesLimpar);
+    }
+  }, [listaSelecionada, listasHook, itens, contexto, atualizarItens]);
+
   // ── Fornecedores existentes para o CotacaoDrawer (inclui especialidades) ──
   const fornecedoresExistentesDrawer = useMemo(() =>
     todosFornecedores.map(f => ({ id: f.id, nome: f.nome, especialidades: f.especialidades ?? [] })),
@@ -1288,12 +1299,21 @@ ${fornBlocks}
       onKpisChange([]);
       return;
     }
+    const valorRespondido = itens.reduce((s, i) => {
+      const best = getMelhorPreco(i.key);
+      if (best && best.preco > 0 && i.quantidade) {
+        return s + (best.preco * i.quantidade);
+      }
+      return s;
+    }, 0);
+
     onKpisChange([
       { id: 'sem_preco', label: 'Sem preço', value: String(itensSemPreco.length), tint: itensSemPreco.length > 0 ? '#FCEBEB' : '#F3F2FD', valueColor: itensSemPreco.length > 0 ? '#A32D2D' : '#3C3489' },
       { id: 'cotados', label: 'Cotados', value: `${pctCotado}%`, tint: '#F3F2FD', valueColor: '#3C3489' },
-      { id: 'forns', label: 'Fornecedores', value: String(todosFornecedores.length), tint: '#F3F2FD', valueColor: '#3C3489' }
+      { id: 'forns', label: 'Fornecedores', value: String(todosFornecedores.length), tint: '#F3F2FD', valueColor: '#3C3489' },
+      { id: 'valor_resp', label: 'Valor respondido', value: formatCurrency(valorRespondido), tint: '#F3F2FD', valueColor: '#3C3489' }
     ]);
-  }, [itens.length, itensSemPreco.length, pctCotado, todosFornecedores.length, onKpisChange]);
+  }, [itens, itensSemPreco.length, pctCotado, todosFornecedores.length, onKpisChange, getMelhorPreco]);
 
   const isCompraEmptyState = !loadingListas && contexto === 'compra' && listasCompra.length === 0;
 
@@ -1360,39 +1380,7 @@ ${fornBlocks}
       {/* ════════════════════════════════════════════════════════════════════
            ZONA 1 — KPIs compactos
           ════════════════════════════════════════════════════════════════════ */}
-      {!onKpisChange && itens.length > 0 && (
-        <div className="px-4 md:px-6 pt-3 pb-2 shrink-0">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {/* Sem preço */}
-            <div className={cn(
-              'rounded-lg border px-3 py-2 flex flex-col gap-0.5',
-              itensSemPreco.length > 0 ? 'bg-red-50/60 border-red-200' : 'bg-card border-border'
-            )}>
-              <span className={cn('text-lg font-bold tabular-nums leading-none', itensSemPreco.length > 0 ? 'text-red-600' : 'text-foreground')}>
-                {itensSemPreco.length}
-              </span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Sem preço</span>
-            </div>
-            {/* % Cotados */}
-            <div className="rounded-lg border px-3 py-2 flex flex-col gap-0.5 bg-card border-border">
-              <span className={cn('text-lg font-bold tabular-nums leading-none', kpiTextColor)}>{pctCotado}%</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Cotados</span>
-            </div>
-            {/* Fornecedores */}
-            <div className="rounded-lg border px-3 py-2 flex flex-col gap-0.5 bg-card border-border">
-              <span className="text-lg font-bold tabular-nums leading-none text-foreground">{todosFornecedores.length}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Fornecedores</span>
-            </div>
-            {/* Valor coberto */}
-            <div className="rounded-lg border px-3 py-2 flex flex-col gap-0.5 bg-card border-border">
-              <span className="text-base font-bold tabular-nums leading-none text-foreground truncate">
-                {totalOrcado > 0 ? totalOrcado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—'}
-              </span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Valor coberto</span>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Bloco de KPIs inline removido */}
 
       {/* ── Chip: Filtro Classe A ─────────────────────────────────────────── */}
       {filtroClasseA && (
@@ -1433,12 +1421,11 @@ ${fornBlocks}
            ────────────────────────────────────────────────── */}
         <div className="flex items-stretch h-full">
           {([
-            { id: 'listas'      as ActiveView, label: 'Listas' },
             { id: 'comparativo' as ActiveView, label: 'Comparativo' },
             { id: 'links'       as ActiveView, label: 'Links' },
           ]).map(aba => {
             const isActive = view === aba.id ||
-              (aba.id === 'comparativo' && view === 'mapa');
+              (aba.id === 'comparativo' && (view === 'mapa' || view === 'listas'));
             return (
               <button
                 key={aba.id}
@@ -1467,80 +1454,6 @@ ${fornBlocks}
            ────────────────────────────────────────────────── */}
         <div className="flex items-center gap-1.5">
 
-          {/* Botão contextual: Comparativo (+ Fornecedor) */}
-          {view === 'comparativo' && (
-            <div className="relative">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1.5 border-primary/25 text-primary hover:bg-primary/8 dark:border-indigo-800 dark:text-primary/80 dark:hover:bg-indigo-950/30"
-                onClick={() => { setShowAddFornecedor(v => !v); setTimeout(() => addFornecedorInputRef.current?.focus(), 50); }}
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                + Fornecedor
-              </Button>
-              {showAddFornecedor && (
-                <div className="absolute right-0 top-full mt-1 z-20 w-72 rounded-lg border bg-card shadow-lg p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
-                  <p className="text-xs font-medium text-foreground">Adicionar fornecedor ao mapa</p>
-                  <div className="relative">
-                    <Input
-                      ref={addFornecedorInputRef}
-                      value={novoFornecedorNome}
-                      onChange={e => {
-                        const v = e.target.value;
-                        setNovoFornecedorNome(v);
-                        if (v.trim().length >= 1) {
-                          const q = normalize(v.trim());
-                          setFornSugestoes(
-                            fornecedoresDB.filter(f =>
-                              normalize(f.nome).includes(q) &&
-                              !fornecedoresManuais.some(m => m.nome.toLowerCase() === f.nome.toLowerCase())
-                            ).slice(0, 5)
-                          );
-                        } else {
-                          setFornSugestoes([]);
-                        }
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleAddFornecedorManual();
-                        if (e.key === 'Escape') { setShowAddFornecedor(false); setFornSugestoes([]); }
-                      }}
-                      placeholder="Nome ou buscar cadastrado..."
-                      className="h-8 text-sm"
-                    />
-                    {fornSugestoes.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-0.5 z-30 rounded-md border bg-popover shadow-md overflow-hidden">
-                        {fornSugestoes.map(f => (
-                          <button
-                            key={f.id}
-                            className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors flex items-center gap-2"
-                            onClick={() => {
-                              setNovoFornecedorNome(f.nome);
-                              setFornSugestoes([]);
-                              setTimeout(() => addFornecedorInputRef.current?.focus(), 50);
-                            }}
-                          >
-                            <Users className="h-3 w-3 text-muted-foreground shrink-0" />
-                            <span className="truncate">{f.nome}</span>
-                            {f.cnpj && <span className="text-muted-foreground shrink-0">{f.cnpj}</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleAddFornecedorManual} disabled={loadingManuais}>
-                      {loadingManuais ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Adicionar'}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowAddFornecedor(false); setFornSugestoes([]); }}>
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Botão contextual: Links (Novo Link) */}
           {view === 'links' && !showNewLink && (
             <Button
@@ -1553,16 +1466,88 @@ ${fornBlocks}
             </Button>
           )}
 
-          {/* Botão primário: Inserir Preços (Oculto na view de Links) */}
+          {/* Botões primários: Fornecedor e Inserir Preços (Ocultos na view de Links) */}
           {view !== 'links' && (
-            <Button
-              onClick={() => { setCotacaoDrawerMode('precos'); setCotacaoDrawerOpen(true); }}
-              size="sm"
-              className="h-7 text-xs gap-1.5"
-            >
-              <PenLine className="h-3.5 w-3.5" />
-              Inserir Preços
-            </Button>
+            <>
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 border-primary/25 text-primary hover:bg-primary/8 dark:border-indigo-800 dark:text-primary/80 dark:hover:bg-indigo-950/30"
+                  onClick={() => { setShowAddFornecedor(v => !v); setTimeout(() => addFornecedorInputRef.current?.focus(), 50); }}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">+ Fornecedor</span>
+                </Button>
+                {showAddFornecedor && (
+                  <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-lg border bg-card shadow-lg p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <p className="text-xs font-medium text-foreground">Adicionar fornecedor ao mapa</p>
+                    <div className="relative">
+                      <Input
+                        ref={addFornecedorInputRef}
+                        value={novoFornecedorNome}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setNovoFornecedorNome(v);
+                          if (v.trim().length >= 1) {
+                            const q = normalize(v.trim());
+                            setFornSugestoes(
+                              fornecedoresDB.filter(f =>
+                                normalize(f.nome).includes(q) &&
+                                !fornecedoresManuais.some(m => m.nome.toLowerCase() === f.nome.toLowerCase())
+                              ).slice(0, 5)
+                            );
+                          } else {
+                            setFornSugestoes([]);
+                          }
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleAddFornecedorManual();
+                          if (e.key === 'Escape') { setShowAddFornecedor(false); setFornSugestoes([]); }
+                        }}
+                        placeholder="Nome ou buscar cadastrado..."
+                        className="h-8 text-sm"
+                      />
+                      {fornSugestoes.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-0.5 z-30 rounded-md border bg-popover shadow-md overflow-hidden">
+                          {fornSugestoes.map(f => (
+                            <button
+                              key={f.id}
+                              className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors flex items-center gap-2"
+                              onClick={() => {
+                                setNovoFornecedorNome(f.nome);
+                                setFornSugestoes([]);
+                                setTimeout(() => addFornecedorInputRef.current?.focus(), 50);
+                              }}
+                            >
+                              <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="truncate">{f.nome}</span>
+                              {f.cnpj && <span className="text-muted-foreground shrink-0">{f.cnpj}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => handleAddFornecedorManual()} disabled={loadingManuais}>
+                        {loadingManuais ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Adicionar'}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowAddFornecedor(false); setFornSugestoes([]); }}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <Button
+                onClick={() => { setCotacaoDrawerMode('precos'); setCotacaoDrawerOpen(true); }}
+                size="sm"
+                className="h-7 text-xs gap-1.5 shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white border-0"
+              >
+                <PenLine className="h-3.5 w-3.5" />
+                Inserir Preços
+              </Button>
+            </>
           )}
 
           {/* Dropdown secundário: demais ações */}
@@ -1698,968 +1683,20 @@ ${fornBlocks}
 
       {/* ── Views ──────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden">
-
-        {/* ── ABA LISTAS ──────────────────────────────────────────────────── */}
-        {view === 'listas' && (
-          <div className="flex h-full overflow-hidden">
-            {/* Painel esquerdo — seletor de listas */}
-            <div className="w-64 shrink-0 border-r flex flex-col overflow-hidden bg-muted/5">
-              <div className="px-3 py-2 border-b shrink-0">
-                <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Listas</p>
-              </div>
-              <div className="flex-1 overflow-y-auto py-1">
-                {/* Entrada "Sem lista" */}
-                {contexto === 'orcamento' && (
-                  <button
-                    onClick={() => setListaSelecionada('__sem_lista__')}
-                    className={cn(
-                      'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/30',
-                      listaSelecionada === '__sem_lista__' && 'bg-primary/8 dark:bg-indigo-950/20'
-                    )}
-                  >
-                    <Package className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground truncate">Sem lista</p>
-                      <p className="text-[10px] text-muted-foreground">{itensSemLista.length} itens sem preço</p>
-                    </div>
-                  </button>
-                )}
-                {/* Listas de cotação (contexto orçamento) */}
-                {contexto === 'orcamento' && listasHook.map(lista => (
-                  <button
-                    key={lista.id}
-                    onClick={() => setListaSelecionada(lista.id)}
-                    className={cn(
-                      'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/30',
-                      listaSelecionada === lista.id && 'bg-primary/8 dark:bg-indigo-950/20'
-                    )}
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary/60" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground truncate">{lista.nome}</p>
-                      <p className="text-[10px] text-muted-foreground">{lista.item_keys?.length ?? 0} itens</p>
-                    </div>
-                  </button>
-                ))}
-                {/* Listas de compra ativas (contexto compra) */}
-                {contexto === 'compra' && listasCompra.map((lista: any) => (
-                  <button
-                    key={lista.id}
-                    onClick={() => setListaSelecionada(lista.id)}
-                    className={cn(
-                      'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/30',
-                      listaSelecionada === lista.id && 'bg-primary/8 dark:bg-indigo-950/20'
-                    )}
-                  >
-                    <ShoppingBag className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary/60" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground truncate">{lista.nome}</p>
-                      <p className="text-[10px] text-muted-foreground">{lista.itens?.length ?? 0} itens</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Painel direito — itens da lista selecionada + histórico */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {!listaSelecionada ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-8 text-muted-foreground">
-                  <FileSpreadsheet className="h-10 w-10 opacity-20" />
-                  <p className="text-sm">Selecione uma lista à esquerda para ver os itens</p>
-                </div>
-              ) : (
-                <>
-                  {/* Header painel direito */}
-                  <div className="flex items-center gap-3 px-4 py-2.5 border-b shrink-0">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {listaSelecionada === '__sem_lista__' ? 'Itens sem lista' :
-                          listasHook.find(l => l.id === listaSelecionada)?.nome ??
-                          listasCompra.find((l: any) => l.id === listaSelecionada)?.nome ?? ''}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">{itensListaSelecionada.length} itens</p>
-                    </div>
-                    {/* Seletor modo sugestão */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] text-muted-foreground hidden sm:block">Sugestão:</span>
-                      <Select value={modoSugestao} onValueChange={v => setModoSugestao(v as ModoSugestao)}>
-                        <SelectTrigger className="h-6 text-[11px] w-28">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ultimo" className="text-xs">Último preço</SelectItem>
-                          <SelectItem value="menor" className="text-xs">Menor preço</SelectItem>
-                          <SelectItem value="media" className="text-xs">Média</SelectItem>
-                          <SelectItem value="fornecedor" className="text-xs">Por fornecedor</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {modoSugestao === 'fornecedor' && (
-                        <Select value={fornecedorSugestao} onValueChange={setFornecedorSugestao}>
-                          <SelectTrigger className="h-6 text-[11px] w-32">
-                            <SelectValue placeholder="Fornecedor..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {getFornecedoresHistorico().map(f => (
-                              <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Lista de itens */}
-                  <div className="flex-1 overflow-y-auto divide-y divide-border/30">
-                    {itensListaSelecionada.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground py-12">
-                        <Package className="h-8 w-8 opacity-20" />
-                        <p className="text-sm">Nenhum item nesta lista.</p>
-                      </div>
-                    ) : itensListaSelecionada.map(item => {
-                      const sugestao = getSugestao(item.descricao, modoSugestao, fornecedorSugestao || undefined);
-                      const temPreco = !!(item.precoAtual && item.precoAtual > 0);
-                      return (
-                        <div key={item.key} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/10 group">
-                          {/* Dot status */}
-                          <span className={cn(
-                            'shrink-0 h-2 w-2 rounded-full',
-                            temPreco ? 'bg-emerald-500' : 'bg-red-400'
-                          )} />
-                          {/* Descrição + etapa */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-foreground leading-snug truncate">{item.descricao}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-muted-foreground">{item.etapaNome} · {item.unidade || '—'}</span>
-                              {/* Chip de sugestão histórica */}
-                              {sugestao && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-[10px] font-medium text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                                  <TrendingUp className="h-2.5 w-2.5 shrink-0" />
-                                  {sugestao.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                  {sugestao.fornecedor && <span className="opacity-70 hidden sm:inline"> · {sugestao.fornecedor}</span>}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {/* Preço atual */}
-                          <div className="text-right shrink-0">
-                            {temPreco ? (
-                              <span className="text-xs text-emerald-600 font-medium">
-                                {item.precoAtual!.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-red-400">sem preço</span>
-                            )}
-                            {item.quantidade && (
-                              <p className="text-[9px] text-muted-foreground">Qtd: {item.quantidade}</p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+        {(view === 'listas' || view === 'comparativo' || view === 'mapa') && (
+          <CotacaoSplitView
+            itens={itens}
+            contexto={contexto}
+            todosFornecedores={todosFornecedores}
+            historico={historico}
+            onAddFornecedor={handleAddFornecedorManual}
+            onRemoveFornecedor={handleRemoveFornecedorManual}
+            onUpdatePrecoManual={handleUpdatePrecoManual}
+            companyId={company?.id}
+            obraId={obra.id}
+          />
         )}
-
-        {/* ── ABA COMPARATIVO (Mapa de Preços) ───────────────────────────── */}
-        {(view === 'mapa' || view === 'comparativo') && (
-          <div className="h-full overflow-auto">
-            {itens.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-8">
-                <FileSpreadsheet className="h-12 w-12 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Nenhum insumo ou composição no orçamento ainda.</p>
-                <Button variant="ghost" size="sm" onClick={onBack} className="text-xs">← Ir para Planilha Orçamentária</Button>
-              </div>
-            ) : (
-              <div className="p-4 md:p-6 space-y-4">
-
-                {/* ── ZONA 3: Filtros (imediatamente acima da tabela) ──── */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative flex-1 min-w-[160px]">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <Input
-                      value={search}
-                      onChange={e => {
-                        setSearch(e.target.value);
-                        // Digitar na busca desativa o filtro Classe A (exclusivos entre si)
-                        if (filtroClasseA) setFiltroClasseA(false);
-                      }}
-                      placeholder="Buscar item..."
-                      className="h-8 pl-8 text-sm pr-8"
-                    />
-                    {search && (
-                      <button
-                        onClick={() => setSearch('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  <Select value={etapaFilter} onValueChange={setEtapaFilter}>
-                    <SelectTrigger className="h-8 text-xs w-40">
-                      <SelectValue placeholder="Todas as etapas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todas" className="text-xs">Todas as etapas</SelectItem>
-                      {etapasDistintas.map(e => (
-                        <SelectItem key={e.id} value={e.id} className="text-xs">{e.nome || 'Sem nome'}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Prompt 2 — Toggles opt-in */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-muted-foreground font-medium shrink-0">Incluir:</span>
-                    <button
-                      onClick={() => setIncluirSinapi(v => !v)}
-                      className={cn(
-                        'flex items-center gap-1 px-2 h-7 rounded-md border text-[11px] font-medium transition-all',
-                        incluirSinapi
-                          ? 'bg-amber-100 border-amber-400 text-amber-700 dark:bg-amber-950/30 dark:border-amber-700 dark:text-amber-400'
-                          : 'border-border text-muted-foreground hover:bg-muted/50'
-                      )}
-                      title="Exibir itens de origem SINAPI (composições e insumos importados do SINAPI)"
-                    >
-                      📊 SINAPI
-                    </button>
-                    <button
-                      onClick={() => setIncluirComPreco(v => !v)}
-                      className={cn(
-                        'flex items-center gap-1 px-2 h-7 rounded-md border text-[11px] font-medium transition-all',
-                        incluirComPreco
-                          ? 'bg-emerald-100 border-emerald-400 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400'
-                          : 'border-border text-muted-foreground hover:bg-muted/50'
-                      )}
-                      title="Exibir itens que já possuem preço cadastrado"
-                    >
-                      🟢 Com preço
-                    </button>
-                    <button
-                      onClick={() => setIncluirSemDetalhe(v => !v)}
-                      className={cn(
-                        'flex items-center gap-1 px-2 h-7 rounded-md border text-[11px] font-medium transition-all',
-                        incluirSemDetalhe
-                          ? 'bg-slate-100 border-slate-400 text-slate-700 dark:bg-slate-800/50 dark:border-slate-600 dark:text-slate-300'
-                          : 'border-border text-muted-foreground hover:bg-muted/50'
-                      )}
-                      title="Exibir composições sem detalhamento de insumos"
-                    >
-                      ⋯ Sem detalhe
-                    </button>
-                  </div>
-
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {itensFiltrados.length} de {itens.length}
-                  </span>
-
-                  {/* ── Filtro: Relevante para fornecedor (Passo 5) ── */}
-                  {todosFornecedores.some(f => f.especialidades?.length) && (
-                    <Select
-                      value={filtroRelevante ?? 'todos'}
-                      onValueChange={v => setFiltroRelevante(v === 'todos' ? null : v)}
-                    >
-                      <SelectTrigger className={cn('h-8 text-xs w-44',
-                        filtroRelevante && 'border-primary/80 text-primary bg-primary/8 dark:border-primary dark:text-primary/60 dark:bg-indigo-950/20'
-                      )}>
-                        <SelectValue placeholder="⚡ Relevante para..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todos" className="text-xs">Todos os itens</SelectItem>
-                        {todosFornecedores
-                          .filter(f => f.especialidades?.length)
-                          .map(f => (
-                            <SelectItem key={f.id} value={f.id} className="text-xs">
-                              ⚡ {f.nome}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-
-                  {(search || etapaFilter !== 'todas' || incluirSinapi || incluirComPreco || incluirSemDetalhe || filtroRelevante) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs text-muted-foreground gap-1"
-                      onClick={() => { setSearch(''); setEtapaFilter('todas'); setIncluirSinapi(false); setIncluirComPreco(false); setIncluirSemDetalhe(false); setFiltroRelevante(null); }}
-                    >
-                      <X className="h-3 w-3" /> Limpar
-                    </Button>
-                  )}
-                </div>
-
-
-
-                {/* ── Barra de ações contextuais (seleção em lote) ── */}
-                {selectedMapaKeys.size > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/8 dark:bg-indigo-950/30 border border-primary/25 dark:border-indigo-800 animate-in slide-in-from-top-1 duration-200">
-                    <CheckSquare className="h-4 w-4 text-primary shrink-0" />
-                    <span className="text-xs font-medium text-primary dark:text-primary/60">
-                      {selectedMapaKeys.size} item{selectedMapaKeys.size !== 1 ? 's' : ''} selecionado{selectedMapaKeys.size !== 1 ? 's' : ''}
-                    </span>
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      {adoptedCount > 0 && (
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-                          onClick={applyAdoptedPrecos}
-                          disabled={applyingBest}
-                        >
-                          {applyingBest
-                            ? <RefreshCw className="h-3 w-3 animate-spin" />
-                            : <Sparkles className="h-3 w-3" />}
-                          Aplicar pre\u00e7os adotados
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 border-primary/60"
-                        onClick={() => {
-                          setView('links');
-                          setSelectedKeys(new Set(selectedMapaKeys));
-                          setShowNewLink(true);
-                        }}
-                      >
-                        <Link2 className="h-3 w-3" /> Gerar Link
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs text-muted-foreground"
-                        onClick={clearMapaSelection}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Banner "Aplicar preços adotados" ─────────────── */}
-                {selectedMapaKeys.size === 0 && adoptedCount > 0 && (
-                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 dark:border-emerald-800">
-                    <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <p className="text-xs text-emerald-700 dark:text-emerald-300 flex-1">
-                      <strong>{adoptedCount}/{itens.length} item{adoptedCount !== 1 ? 's' : ''}</strong> com preço adotado — clique nos preços dos fornecedores para escolher ou confirme para aplicar ao orçamento.
-                    </p>
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 shrink-0"
-                      onClick={applyAdoptedPrecos}
-                      disabled={applyingBest}
-                    >
-                      {applyingBest
-                        ? <RefreshCw className="h-3 w-3 animate-spin" />
-                        : <Check className="h-3 w-3" />}
-                      Aplicar ao orçamento
-                    </Button>
-                  </div>
-                )}
-
-                {/* ── Tabela comparativa ─────────────────────────────── */}
-                <div className="rounded-xl border overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-muted/50 border-b">
-                          {/* Checkbox selecionar todos */}
-                          <th className="pl-3 pr-1 py-2.5 w-8">
-                            <button
-                              onClick={() => selectedMapaKeys.size === itensFiltrados.length ? clearMapaSelection() : selectAllFiltered()}
-                              className="text-muted-foreground hover:text-foreground transition-colors"
-                              title={selectedMapaKeys.size === itensFiltrados.length ? 'Desmarcar todos' : 'Selecionar todos'}
-                            >
-                              {selectedMapaKeys.size === itensFiltrados.length && itensFiltrados.length > 0
-                                ? <CheckSquare className="h-3.5 w-3.5 text-primary" />
-                                : <Square className="h-3.5 w-3.5" />}
-                            </button>
-                          </th>
-                          {/* Descrição */}
-                          <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground uppercase tracking-wider min-w-[200px]">
-                            <button className="flex items-center gap-1 hover:text-foreground transition-colors" onClick={() => toggleSort('descricao')}>
-                              Insumo / Composição <SortIcon field="descricao" />
-                            </button>
-                          </th>
-                          <th className="text-center px-2 py-2.5 font-semibold text-muted-foreground uppercase tracking-wider w-14">Un</th>
-                          <th className="text-right px-2 py-2.5 font-semibold text-muted-foreground uppercase tracking-wider w-20">
-                            <button className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors" onClick={() => toggleSort('quantidade')}>
-                              Qtd <SortIcon field="quantidade" />
-                            </button>
-                          </th>
-                          {/* P.Unit coluna (editável inline) */}
-                          <th className="text-right px-2 py-2.5 font-semibold text-muted-foreground uppercase tracking-wider w-28">
-                            <button className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors" onClick={() => toggleSort('precoAtual')}>
-                              P. Unit ✏ <SortIcon field="precoAtual" />
-                            </button>
-                          </th>
-                          {/* P.Total coluna (calculada) */}
-                          <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground uppercase tracking-wider w-28 border-r">
-                            P. Total
-                          </th>
-                          {/* Coluna SINAPI Reference */}
-                          {showSinapiCol && (
-                            <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider w-32 bg-amber-50/60 dark:bg-amber-950/10 border-l border-amber-200 dark:border-amber-800">
-                              <div className="flex flex-col items-end gap-0.5">
-                                <span className="text-amber-700 dark:text-amber-400">Ref. SINAPI</span>
-                                {sinapiAssistente.running && <RefreshCw className="h-2.5 w-2.5 animate-spin text-amber-500" />}
-                              </div>
-                            </th>
-                          )}
-                          {/* Coluna Histórico de Preços */}
-                          {showHistoricoCol && (
-                            <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider w-32 bg-blue-50/60 dark:bg-blue-950/10 border-l border-blue-200 dark:border-blue-800">
-                              <div className="flex flex-col items-end gap-0.5">
-                                <span className="text-blue-700 dark:text-blue-400">Histórico</span>
-                                {loadingHistorico && <RefreshCw className="h-2.5 w-2.5 animate-spin text-blue-500" />}
-                              </div>
-                            </th>
-                          )}
-                          {/* Colunas de fornecedores unificados */}
-                          {todosFornecedores.map((forn) => (
-                            <th key={forn.id} className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider w-28 max-w-[140px] group">
-                              <div className="flex flex-col items-end gap-0.5">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-foreground truncate max-w-[100px]">{forn.nome}</span>
-                                  {forn.tipo === 'manual' && (
-                                    <button
-                                      onClick={() => handleRemoveFornecedorManual(forn.id, forn.nome)}
-                                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                                      title={`Remover ${forn.nome}`}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                </div>
-                                <Badge
-                                  variant="outline"
-                                  className={cn('text-[9px] px-1 py-0 h-4',
-                                    forn.tipo === 'manual'
-                                      ? 'border-primary/60 text-primary bg-primary/8 dark:bg-indigo-950/20'
-                                      : forn.status === 'respondido'
-                                        ? 'border-emerald-400 text-emerald-600'
-                                        : 'border-amber-400 text-amber-600'
-                                  )}
-                                >
-                                  {forn.tipo === 'manual' ? 'Manual' : forn.status === 'respondido' ? 'Respondido' : 'Aguardando'}
-                                </Badge>
-                                {/* Passo 4: chips de especialidade */}
-                                {forn.especialidades && forn.especialidades.length > 0 && (
-                                  <div className="flex flex-wrap gap-0.5 justify-end">
-                                    {forn.especialidades.slice(0, 3).map(cod => {
-                                      const cat = getCategoriaByCode(cod);
-                                      return cat ? (
-                                        <span key={cod} title={cat.nome} className="text-[10px] leading-none">{cat.emoji}</span>
-                                      ) : null;
-                                    })}
-                                    {forn.especialidades.length > 3 && (
-                                      <span className="text-[9px] text-muted-foreground">+{forn.especialidades.length - 3}</span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </th>
-                          ))}
-                          {todosFornecedores.length > 0 && (
-                            <th className="text-right px-3 py-2.5 font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider w-36 bg-emerald-50/40 dark:bg-emerald-950/10 sticky right-0 border-l border-emerald-200/50">
-                              <div className="flex flex-col items-end gap-0.5">
-                                <span>Adotado</span>
-                                <span className="text-[9px] font-normal normal-case text-emerald-600/70">clique p/ adotar</span>
-                              </div>
-                            </th>
-                          )}
-                          <th className="w-10"></th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {itensFiltrados.length === 0 ? (
-                          <tr>
-                            <td colSpan={totalCols + 1} className="py-12 text-center text-sm text-muted-foreground">
-                              Nenhum item encontrado com os filtros atuais.
-                            </td>
-                          </tr>
-                        ) : (
-                          (() => {
-                            let lastEtapa = '';
-                            return itensFiltrados.map((item) => {
-                              const showEtapa = item.etapaNome !== lastEtapa && !sortField;
-                              if (showEtapa) lastEtapa = item.etapaNome;
-                              const best = getMelhorPreco(item.key);
-                              const semPreco = !item.precoAtual || item.precoAtual === 0;
-                              const isSelected = selectedMapaKeys.has(item.key);
-                              const isEditing = editingKey === item.key;
-                              const isSaving = savingKey === item.key;
-                              const pTotal = (item.quantidade != null && item.precoAtual != null && item.precoAtual > 0)
-                                ? item.quantidade * item.precoAtual
-                                : null;
-
-                              return [
-                                showEtapa && (
-                                  <tr key={`etapa-${item.etapaNome}`} className="bg-slate-50 dark:bg-slate-900/50">
-                                    <td colSpan={totalCols + 1} className="px-3 py-1.5 pl-10">
-                                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                                        {item.etapaNome}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ),
-                                <tr
-                                  key={item.key}
-                                  className={cn(
-                                    'group border-t border-border/30 hover:bg-muted/20 transition-colors',
-                                    isSelected && 'bg-primary/8 dark:bg-indigo-950/20'
-                                  )}
-                                >
-                                  {/* Checkbox */}
-                                  <td className="pl-3 pr-1 py-1.5">
-                                    <button
-                                      onClick={() => toggleMapaKey(item.key)}
-                                      className="text-muted-foreground hover:text-primary transition-colors"
-                                    >
-                                      {isSelected
-                                        ? <CheckSquare className="h-3.5 w-3.5 text-primary" />
-                                        : <Square className="h-3.5 w-3.5 opacity-40 hover:opacity-100" />}
-                                    </button>
-                                  </td>
-                                  {/* Descrição */}
-                                  <td className="px-3 py-1.5 text-foreground">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', semPreco ? 'bg-red-500' : 'bg-emerald-500')} />
-                                      <span className="truncate max-w-[280px]">{item.descricao}</span>
-                                    </div>
-                                  </td>
-                                  {/* Unidade */}
-                                  <td className="px-2 py-1.5 text-center text-muted-foreground">{item.unidade || '—'}</td>
-                                  {/* Qtd */}
-                                  <td className="px-2 py-1.5 text-right text-muted-foreground">{item.quantidade ?? '—'}</td>
-
-                                  {/* P.Unit — editável inline */}
-                                  <td className={cn('px-2 py-1.5 text-right font-medium', semPreco ? 'text-red-500' : 'text-foreground')}>
-                                    {isEditing ? (
-                                      <div className="flex items-center gap-1 justify-end">
-                                        <div className="relative w-24">
-                                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">R$</span>
-                                          <Input
-                                            type="number"
-                                            value={editingValue}
-                                            onChange={e => setEditingValue(e.target.value)}
-                                            onKeyDown={e => {
-                                              if (e.key === 'Enter') commitEdit(item);
-                                              if (e.key === 'Escape') setEditingKey(null);
-                                            }}
-                                            onBlur={() => commitEdit(item)}
-                                            className="h-6 text-xs pl-5 pr-1 text-right"
-                                            autoFocus
-                                          />
-                                        </div>
-                                        {isSaving && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-                                      </div>
-                                    ) : (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button
-                                              className="hover:underline hover:text-primary transition-colors cursor-text w-full text-right flex items-center justify-end gap-1"
-                                              onClick={() => startEdit(item)}
-                                            >
-                                              {formatCurrency(item.precoAtual)}
-                                              <PenLine className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent side="top" className="text-xs">
-                                            Clique para editar preço unitário
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    )}
-                                  </td>
-
-                                  {/* P.Total — calculado */}
-                                  <td className="px-3 py-1.5 text-right text-muted-foreground border-r font-medium">
-                                    {pTotal != null ? formatCurrency(pTotal) : <span className="text-[10px] italic">—</span>}
-                                  </td>
-
-                                  {/* Ref. SINAPI — lê dados já salvos no banco (sem RPC) */}
-                                  {showSinapiCol && (() => {
-                                    const sinapiPreco = item.sinapiPreco;
-                                    if (!sinapiPreco || sinapiPreco <= 0) {
-                                      return (
-                                        <td className="px-3 py-1.5 text-right bg-amber-50/30 dark:bg-amber-950/10 border-l border-amber-100 dark:border-amber-900">
-                                          <span className="text-[10px] text-muted-foreground/40 italic">—</span>
-                                        </td>
-                                      );
-                                    }
-                                    const devPct = item.precoAtual && item.precoAtual > 0
-                                      ? ((item.precoAtual - sinapiPreco) / sinapiPreco) * 100
-                                      : null;
-                                    const devColor = devPct === null ? '' :
-                                      Math.abs(devPct) <= 10 ? 'text-emerald-600' :
-                                      Math.abs(devPct) <= 25 ? 'text-amber-600' : 'text-red-500';
-                                    const confidenceLabel = item.sinapiConfidence === 'alto' ? '🟢 Alta' :
-                                      item.sinapiConfidence === 'medio' ? '🟡 Média' : '🔴 Baixa';
-                                    return (
-                                      <td className="px-3 py-1.5 text-right bg-amber-50/30 dark:bg-amber-950/10 border-l border-amber-100 dark:border-amber-900">
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <div className="flex flex-col items-end gap-0.5 cursor-help">
-                                                <span className="text-amber-700 dark:text-amber-400 font-medium tabular-nums">
-                                                  {formatCurrency(sinapiPreco)}
-                                                </span>
-                                                {devPct !== null && (
-                                                  <span className={cn('text-[9px] font-semibold tabular-nums', devColor)}>
-                                                    {devPct > 0 ? '+' : ''}{devPct.toFixed(0)}%
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="left" className="text-xs max-w-[260px]">
-                                              <p className="font-semibold mb-1">
-                                                Ref. SINAPI {item.sinapiFonte === 'insumo' ? '(insumo)' : '(composição)'}
-                                                {item.sinapiCodigo ? ` #${item.sinapiCodigo}` : ''}
-                                              </p>
-                                              <p className="text-muted-foreground">Confiança: {confidenceLabel}</p>
-                                              {item.sinapiConfirmado && (
-                                                <p className="mt-0.5 text-[10px] text-emerald-600">✓ Vínculo confirmado</p>
-                                              )}
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      </td>
-                                    );
-                                  })()}
-
-                                  {/* Histórico de Preços */}
-                                  {showHistoricoCol && (() => {
-                                    const key = item.descricao.toLowerCase().trim();
-                                    const hist = historicoPrecos[key];
-                                    if (!hist) {
-                                      return (
-                                        <td className="px-3 py-1.5 text-right bg-blue-50/20 dark:bg-blue-950/10 border-l border-blue-100 dark:border-blue-900">
-                                          <span className="text-[10px] text-muted-foreground/40 italic">—</span>
-                                        </td>
-                                      );
-                                    }
-                                    const devPct = item.precoAtual && item.precoAtual > 0
-                                      ? ((item.precoAtual - hist.preco) / hist.preco) * 100
-                                      : null;
-                                    const devColor = devPct === null ? '' :
-                                      Math.abs(devPct) <= 10 ? 'text-emerald-600' :
-                                      Math.abs(devPct) <= 25 ? 'text-amber-600' : 'text-red-500';
-                                    return (
-                                      <td className="px-3 py-1.5 text-right bg-blue-50/20 dark:bg-blue-950/10 border-l border-blue-100 dark:border-blue-900">
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <div className="flex flex-col items-end gap-0.5 cursor-help">
-                                                <span className="text-blue-700 dark:text-blue-400 font-medium tabular-nums">
-                                                  {formatCurrency(hist.preco)}
-                                                </span>
-                                                {devPct !== null && (
-                                                  <span className={cn('text-[9px] font-semibold tabular-nums', devColor)}>
-                                                    {devPct > 0 ? '+' : ''}{devPct.toFixed(0)}%
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="left" className="text-xs max-w-[220px]">
-                                              <p className="font-semibold mb-1">Preço histórico</p>
-                                              <p className="text-muted-foreground">Média de {hist.ocorrencias} obra{hist.ocorrencias !== 1 ? 's' : ''} anteriores</p>
-                                              <p className="text-[10px] text-muted-foreground mt-0.5">Últimos 24 meses</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      </td>
-                                    );
-                                  })()}
-
-                                  {/* Células de cada fornecedor */}
-                                  {todosFornecedores.map((forn) => {
-                                    const p = forn.precos?.[item.key];
-                                    const isBest = best && p === best.preco && p > 0;
-                                    const isEditingThis = editingManualCell?.itemKey === item.key && editingManualCell?.fornId === forn.id;
-                                    const isSavingThis = savingManualCell === `${item.key}::${forn.id}`;
-
-                                    if (forn.tipo === 'manual') {
-                                      // Célula editável
-                                      return (
-                                        <td
-                                          key={forn.id}
-                                          className={cn('px-3 py-1.5 text-right', isBest ? 'text-emerald-600 font-semibold' : 'text-muted-foreground')}
-                                        >
-                                          {isEditingThis ? (
-                                            <div className="flex items-center gap-1 justify-end">
-                                              <div className="relative w-24">
-                                                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">R$</span>
-                                                <Input
-                                                  type="number"
-                                                  value={editingManualValue}
-                                                  onChange={e => setEditingManualValue(e.target.value)}
-                                                  onKeyDown={e => {
-                                                    if (e.key === 'Enter') commitManualEdit(item.key, forn.id, forn.nome);
-                                                    if (e.key === 'Escape') setEditingManualCell(null);
-                                                  }}
-                                                  onBlur={() => commitManualEdit(item.key, forn.id, forn.nome)}
-                                                  className="h-6 text-xs pl-5 pr-1 text-right"
-                                                  autoFocus
-                                                />
-                                              </div>
-                                              {isSavingThis && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-                                            </div>
-                                          ) : (
-                                            <div className="flex items-center justify-end gap-1 group/cell">
-                                              {p && p > 0 && (
-                                                <>
-                                                  {/* A2: badge de origem manual */}
-                                                  <span
-                                                    className="text-[9px] text-primary/80 dark:text-primary opacity-60 leading-none select-none"
-                                                    title="Preço inserido manualmente"
-                                                  >✏</span>
-                                                  <button
-                                                    onClick={() => adoptPrice(item.key, forn, p)}
-                                                    className={cn(
-                                                      'opacity-0 group-hover/cell:opacity-100 transition-all p-0.5 rounded',
-                                                      adoptedPrices[item.key]?.fornId === forn.id
-                                                        ? 'opacity-100 text-emerald-600'
-                                                        : 'text-muted-foreground hover:text-emerald-600'
-                                                    )}
-                                                    title="Adotar este preço"
-                                                  >
-                                                    <Check className="h-3 w-3" />
-                                                  </button>
-                                                </>
-                                              )}
-                                              <button
-                                                className={cn(
-                                                  'text-right transition-colors cursor-text flex-1',
-                                                  adoptedPrices[item.key]?.fornId === forn.id
-                                                    ? 'text-emerald-600 font-bold'
-                                                    : !p ? 'text-muted-foreground/40 italic' : 'hover:text-primary'
-                                                )}
-                                                onClick={() => {
-                                                  if (p && p > 0) adoptPrice(item.key, forn, p);
-                                                  else startManualEdit(item.key, forn.id, p);
-                                                }}
-                                                title={p ? 'Clique para adotar · Duplo clique para editar' : 'Clique para inserir preço'}
-                                                onDoubleClick={() => startManualEdit(item.key, forn.id, p)}
-                                              >
-                                                {p ? formatCurrency(p) : '—'}
-                                              </button>
-                                            </div>
-                                          )}
-                                        </td>
-                                      );
-                                    }
-
-                                    // Fornecedor via link — clicável para adotar
-                                    return (
-                                      <td
-                                        key={forn.id}
-                                        className={cn(
-                                          'px-3 py-1.5 text-right transition-colors',
-                                          adoptedPrices[item.key]?.fornId === forn.id
-                                            ? 'bg-emerald-50/60 dark:bg-emerald-950/20'
-                                            : ''
-                                        )}
-                                      >
-                                        {p && p > 0 ? (
-                                          <div className="flex items-center justify-end gap-1">
-                                            {/* A2: badge de origem link */}
-                                            <span
-                                              className="text-[9px] text-blue-400 dark:text-blue-600 opacity-60 leading-none select-none"
-                                              title="Preço respondido via link de cotação"
-                                            >🔗</span>
-                                            <button
-                                              className={cn(
-                                                'font-medium transition-colors',
-                                                adoptedPrices[item.key]?.fornId === forn.id
-                                                  ? 'text-emerald-600 font-bold'
-                                                  : 'text-muted-foreground hover:text-emerald-600'
-                                              )}
-                                              onClick={() => adoptPrice(item.key, forn, p)}
-                                              title="Clique para adotar este preço"
-                                            >
-                                              {formatCurrency(p)}
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <span className="text-[10px] italic text-muted-foreground/40">—</span>
-                                        )}
-                                      </td>
-                                    );
-                                  })}
-
-                                  {/* Célula Adotado — escolha consciente do usuário */}
-                                  {todosFornecedores.length > 0 && (() => {
-                                    const adopted = adoptedPrices[item.key];
-                                    return (
-                                      <td className="px-3 py-1.5 text-right bg-emerald-50/40 dark:bg-emerald-950/10 sticky right-0 border-l border-emerald-200/50">
-                                        {adopted ? (
-                                          <div className="flex flex-col items-end gap-0.5">
-                                            <span className="text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">
-                                              {formatCurrency(adopted.preco)}
-                                            </span>
-                                            <div className="flex items-center gap-1">
-                                              <span className="text-[9px] text-emerald-600/70 truncate max-w-[80px]">
-                                                {adopted.fornNome}
-                                              </span>
-                                              <button
-                                                onClick={() => clearAdopt(item.key)}
-                                                className="text-muted-foreground/40 hover:text-red-400 transition-colors"
-                                                title="Remover adoção"
-                                              >
-                                                <X className="h-2.5 w-2.5" />
-                                              </button>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <span className="text-amber-500/60 text-[10px] italic">sem adoção</span>
-                                        )}
-                                      </td>
-                                    );
-                                  })()}
-
-                                  {/* Menu de ações por linha (hover) */}
-                                  <td className="px-1 py-1.5 w-8">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <button className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted/60 transition-opacity">
-                                          <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                                        </button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end" className="w-52">
-                                        <DropdownMenuItem
-                                          className="text-xs gap-2"
-                                          onClick={() => {
-                                            setSelectedMapaKeys(new Set([item.key]));
-                                            setCotacaoDrawerMode('precos');
-                                            setCotacaoDrawerOpen(true);
-                                          }}
-                                        >
-                                          <PenLine className="h-3.5 w-3.5 mr-1" />
-                                          Inserir preço
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="text-xs gap-2"
-                                          onClick={() => {
-                                            setSelectedMapaKeys(new Set([item.key]));
-                                            setCotacaoDrawerMode('enviar');
-                                            setCotacaoDrawerOpen(true);
-                                          }}
-                                        >
-                                          <Send className="h-3.5 w-3.5 mr-1" />
-                                          Enviar cotação por link
-                                        </DropdownMenuItem>
-                                        {item.sinapiPreco && item.sinapiPreco > 0 && (
-                                          <>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem
-                                              className="text-xs gap-2"
-                                              onClick={() => startEdit(item)}
-                                            >
-                                              <Sparkles className="h-3.5 w-3.5 mr-1 text-violet-500" />
-                                              Aplicar SINAPI ({formatCurrency(item.sinapiPreco)})
-                                            </DropdownMenuItem>
-                                          </>
-                                        )}
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </td>
-                                </tr>,
-                              ];
-                            });
-                          })()
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* ── Sticky Bottom Bar: Saving e Checkout ───────────── */}
-                {todosFornecedores.length > 0 && adoptedCount > 0 && (() => {
-                  let valorTotalAdotado = 0;
-                  let valorTotalReferencia = 0;
-                  
-                  // Computar savings
-                  Object.entries(adoptedPrices).forEach(([k, val]) => {
-                    const item = itens.find(i => i.key === k);
-                    if (item && item.quantidade) {
-                      const refPreco = (item.precoAtual && item.precoAtual > 0) ? item.precoAtual : item.sinapiPreco;
-                      if (refPreco && refPreco > 0) {
-                        valorTotalReferencia += (refPreco * item.quantidade);
-                        valorTotalAdotado += (val.preco * item.quantidade);
-                      } else {
-                        valorTotalAdotado += (val.preco * item.quantidade); // sem referência
-                      }
-                    }
-                  });
-                  
-                  const saving = valorTotalReferencia - valorTotalAdotado;
-                  const savingPct = valorTotalReferencia > 0 ? (saving / valorTotalReferencia) * 100 : 0;
-                  const isGain = saving > 0;
-                  const isLoss = saving < 0;
-
-                  return (
-                    <div className="sticky bottom-4 mx-auto w-full animate-in slide-in-from-bottom flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 mt-6 rounded-xl shadow-xl border bg-background/95 backdrop-blur-md z-40 relative overflow-hidden">
-                      {isGain && <div className="absolute inset-0 bg-emerald-500/5 dark:bg-emerald-500/10" />}
-                      {isLoss && <div className="absolute inset-0 bg-red-500/5 dark:bg-red-500/10" />}
-                      
-                      <div className="flex items-center gap-5 sm:gap-8 relative">
-                        <div className="flex flex-col">
-                          <span className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider mb-0.5">Total Adotado</span>
-                          <span className="text-2xl font-bold leading-none tracking-tight">{formatCurrency(valorTotalAdotado)}</span>
-                          <span className="text-xs text-muted-foreground mt-1">
-                            {adoptedCount} {adoptedCount === 1 ? 'item adotado' : 'itens adotados'} de {itens.length}
-                          </span>
-                        </div>
-                        
-                        {(isGain || isLoss) && (
-                          <div className={cn("flex flex-col pl-5 sm:pl-8 border-l", isGain ? "text-emerald-600 dark:text-emerald-500 border-emerald-500/20" : "text-red-600 dark:text-red-500 border-red-500/20")}>
-                            <span className="text-[11px] uppercase font-bold tracking-wider mb-0.5">{isGain ? "Economia Gerada" : "Perda vs Orçamento"}</span>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-2xl font-bold leading-none tracking-tight">{isGain ? "+" : ""}{formatCurrency(saving)}</span>
-                              <Badge className={cn("h-5 px-1.5 border-0 font-bold", isGain ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400")}>
-                                {isGain ? "+" : ""}{savingPct.toFixed(1)}%
-                              </Badge>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        size="lg"
-                        className={cn(
-                          "relative shadow-md gap-2 font-bold px-8 h-12 w-full sm:w-auto transition-all", 
-                          isGain && !applyingBest ? "bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] active:scale-[0.98]" : ""
-                        )}
-                        onClick={applyAdoptedPrecos}
-                        disabled={applyingBest}
-                      >
-                        {applyingBest ? <RefreshCw className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
-                        {contexto === 'orcamento' ? 'Aplicar ao Orçamento' : 'Gerar Pedido de Compra'}
-                      </Button>
-                    </div>
-                  );
-                })()}
-
-                {/* CTA para adicionar fornecedor se não há nenhum */}
-                {todosFornecedores.length === 0 && (
-                  <div className="mt-4 flex items-center gap-3 p-4 rounded-xl border border-dashed border-primary/25 bg-primary/8/50 dark:bg-indigo-950/20 dark:border-indigo-800">
-                    <Users className="h-5 w-5 text-primary shrink-0" />
-                    <p className="text-sm text-primary dark:text-primary/60">
-                      Adicione fornecedores ao mapa ou crie links de cotação para começar a comparar preços.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+      </div>
 
         {/* ── LINKS DE COTAÇÃO ─────────────────────────────────────────────── */}
         {view === 'links' && (
@@ -2695,7 +1732,9 @@ ${fornBlocks}
 
                 {/* Seleção de itens */}
                 {(() => {
-                  const itensSelectContext = contexto === 'compra' ? itensListaSelecionada : itens;
+                  const itensSelectContext = listaSelecionada && listaSelecionada !== '__sem_lista__'
+                    ? itensListaSelecionada
+                    : (contexto === 'compra' ? itensListaSelecionada : itens);
                   return (
                     <div>
                       <div className="flex items-center justify-between mb-2">
@@ -2861,91 +1900,6 @@ ${fornBlocks}
           </div>
         )}
 
-        {/* ── COMPARATIVO DE PREÇOS ─────────────────────────────────────────── */}
-        {view === 'comparativo' && (
-          <div className="h-full overflow-auto p-4 md:p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <BarChart2 className="h-4 w-4 text-orange-500" />
-              <h2 className="text-sm font-semibold text-foreground">Comparativo de Preços por Fornecedor</h2>
-              <span className="text-xs text-muted-foreground ml-1">— cotações recebidas vs. referência SINAPI</span>
-            </div>
-
-            {todosFornecedores.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">
-                <BarChart2 className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Nenhum fornecedor adicionado ainda.</p>
-                <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setView('links')}>
-                  Criar link de cotação <ChevronRight className="h-3 w-3" />
-                </Button>
-              </div>
-            ) : (
-              <div className="rounded-xl border overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-muted/40 border-b">
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Item</th>
-                      <th className="px-2 py-2 text-center font-medium text-muted-foreground w-10">Un.</th>
-                      {todosFornecedores.map(f => (
-                        <th key={f.id} className="px-3 py-2 text-right font-medium text-muted-foreground min-w-[90px]">
-                          <div className="flex items-center justify-end gap-1">
-                            {f.tipo === 'link' && <span className="text-[9px] text-blue-400">🔗</span>}
-                            <span className="truncate max-w-[80px]">{f.nome}</span>
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {itens.slice(0, 50).map(item => {
-                      const precos = todosFornecedores.map(f => f.precos[item.key] ?? null);
-                      const minPreco = Math.min(...precos.filter(p => p !== null) as number[]);
-                      return (
-                        <tr key={item.key} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                          <td className="px-3 py-1.5 max-w-[200px]">
-                            <span className="truncate text-foreground block">{item.descricao}</span>
-                            <span className="text-[10px] text-muted-foreground">{item.etapaNome}</span>
-                          </td>
-                          <td className="px-2 py-1.5 text-center text-muted-foreground">{item.unidade || '—'}</td>
-                          {todosFornecedores.map(f => {
-                            const p = f.precos[item.key];
-                            const isBest = p != null && p > 0 && p === minPreco;
-                            const isAdopted = adoptedPrices[item.key]?.fornId === f.id;
-                            return (
-                              <td key={f.id} className={cn(
-                                'px-3 py-1.5 text-right font-medium tabular-nums',
-                                isBest ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
-                                isAdopted && 'bg-emerald-50/60 dark:bg-emerald-950/20'
-                              )}>
-                                {p != null && p > 0 ? (
-                                  <span className="flex items-center justify-end gap-1">
-                                    {isBest && <span className="text-[9px] text-emerald-500">★</span>}
-                                    {formatCurrency(p)}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground/30">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  {itens.length > 50 && (
-                    <tfoot>
-                      <tr>
-                        <td colSpan={2 + todosFornecedores.length} className="px-3 py-2 text-xs text-muted-foreground text-center">
-                          Exibindo 50 de {itens.length} itens. Use o filtro de etapa para ver grupos específicos.
-                        </td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
     </div>
 
     {/* ── CotacaoDrawer ─────────────────────────────────────────────────── */}

@@ -47,6 +47,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { OrcamentoShortcutsModal } from './OrcamentoShortcutsModal';
 import {
   Plus,
   Save,
@@ -65,6 +66,7 @@ import {
   XCircle,
   Rows3,
   ClipboardPaste,
+  ClipboardList,
   Zap,
   LayoutGrid,
   AlignJustify,
@@ -78,6 +80,8 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/data/mockData';
 import EtapaBlock from './EtapaBlock';
+import { SinapiConfigModal } from './SinapiConfigModal';
+import { formatCompetencia } from '@/utils/sinapiFormatters';
 import { COMPOSICAO_GRID } from './ComposicaoRow';
 import EtapaBlockCard from './EtapaBlockCard';
 import {
@@ -114,41 +118,9 @@ const UFS_BRASIL = [
   'RS','RO','RR','SC','SP','SE','TO',
 ];
 
-function formatCompetencia(c: string) {
-  const [ano, mes] = c.split('-');
-  const nomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  return `${nomes[parseInt(mes) - 1]}/${ano.slice(2)}`;
-}
 
-// ── Configurações SINAPI (localStorage) ──────────────────────────────────────
 
-const SINAPI_CONFIG_KEY = 'obraconectada:sinapi_config';
 
-interface SinapiConfig {
-  uf: string;
-  competencia: string;
-  regime: SinapiRegime;
-}
-
-function loadSinapiConfig(): SinapiConfig {
-  try {
-    const raw = localStorage.getItem(SINAPI_CONFIG_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      // Migrar valores legados para os corretos do banco
-      if (parsed.regime === 'normal') parsed.regime = 'SEM_DESONERACAO';
-      if (parsed.regime === 'desonerado') parsed.regime = 'COM_DESONERACAO';
-      return parsed;
-    }
-  } catch {
-    // ignore invalid localStorage data
-  }
-  return { uf: 'SP', competencia: '2026-02', regime: 'SEM_DESONERACAO' };
-}
-
-function saveSinapiConfig(cfg: SinapiConfig) {
-  localStorage.setItem(SINAPI_CONFIG_KEY, JSON.stringify(cfg));
-}
 
 // ── Wrapper sortable para DnD — passa listeners para o filho via render prop ───────
 // O EtapaBlock recebe `dragListeners` e os aplica ao seu drag handle
@@ -180,8 +152,6 @@ interface Props {
   obraNome: string;
   readOnly?: boolean;
   onBack: () => void;
-  /** Config SINAPI compartilhada do OrcamentoCentral */
-  sinapiConfig?: SinapiConfig;
   /** 3C: Navegar à aba Cotação com item pré-filtrado */
   onGoCotacao?: (descricao: string) => void;
   /** Sprint 4: versão ativa lifted do OrcamentoCentral */
@@ -328,7 +298,6 @@ export default function OrcamentoEditor({
   obraNome,
   readOnly,
   onBack,
-  sinapiConfig: sinapiConfigProp,
   onGoCotacao,
   versaoAtiva: versaoAtivaProp,
   onVersaoChange,
@@ -346,6 +315,9 @@ export default function OrcamentoEditor({
     getVersoes,
     getEtapasDaVersao,
     salvarVersao,
+    loading,
+    sinapiConfig,
+    updateSinapiConfig,
   } = useOrcamento();
 
   // Sprint 4: versão ativa — usa prop do Central quando disponível
@@ -371,6 +343,8 @@ export default function OrcamentoEditor({
   }, [obra?.orcamento_bdi_config]);
 
   const [etapas, setEtapas] = useState<OrcamentoEtapa[]>([]);
+  const etapasRef = useRef(etapas);
+  useEffect(() => { etapasRef.current = etapas; }, [etapas]);
   const undoManager = useOrcamentoUndo();
 
   const [viewMode, setViewMode] = useState<'cards' | 'excel'>(() => {
@@ -420,8 +394,9 @@ export default function OrcamentoEditor({
       if (isSavingRef.current) return;
       isSavingRef.current = true;
       setSaveStatus('saving');
-      await saveOrcamento({ obraId, etapas: nextEtapas });
-      lastSavedSnapshotRef.current = JSON.stringify(nextEtapas);
+      const currentSnapshot = nextEtapas;
+      await saveOrcamento({ obraId, etapas: currentSnapshot });
+      lastSavedSnapshotRef.current = JSON.stringify(currentSnapshot);
       setSaveStatus('saved');
       window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
     } catch (e) {
@@ -451,8 +426,9 @@ export default function OrcamentoEditor({
       if (isSavingRef.current) return;
       isSavingRef.current = true;
       setSaveStatus('saving');
-      await saveOrcamento({ obraId, etapas: nextEtapas });
-      lastSavedSnapshotRef.current = JSON.stringify(nextEtapas);
+      const currentSnapshot = nextEtapas;
+      await saveOrcamento({ obraId, etapas: currentSnapshot });
+      lastSavedSnapshotRef.current = JSON.stringify(currentSnapshot);
       setSaveStatus('saved');
       window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
     } catch (e) {
@@ -504,13 +480,73 @@ export default function OrcamentoEditor({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   /** null = indeterminate (estado individual por etapa), true/false = expandir/colapsar todas */
   const [allExpanded, setAllExpanded] = useState<boolean | undefined>(undefined);
-  const [sinapiConfig, setSinapiConfig] = useState<SinapiConfig>(() => sinapiConfigProp ?? loadSinapiConfig());
-  const [sinapiConfigOpen, setSinapiConfigOpen] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showHint, setShowHint] = useState(false);
 
-  // Sincronizar config SINAPI vinda do OrcamentoCentral
+  // 🔘 Bulk selection 🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘🔘
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const bulkActive = selectedIds.size > 0;
+  
+
+
   useEffect(() => {
-    if (sinapiConfigProp) setSinapiConfig(sinapiConfigProp);
-  }, [sinapiConfigProp]);
+    if (!localStorage.getItem('lastra_orcamento_shortcuts_hint')) {
+      setShowHint(true);
+      const timer = setTimeout(() => {
+        setShowHint(false);
+        localStorage.setItem('lastra_orcamento_shortcuts_hint', 'true');
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const dismissHint = () => {
+    setShowHint(false);
+    localStorage.setItem('lastra_orcamento_shortcuts_hint', 'true');
+  };
+
+  useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      // Ignore if inside a modal or standard input that shouldn't trigger global shortcuts
+      if (e.key === '/' && e.ctrlKey) {
+        e.preventDefault();
+        setShowShortcuts(v => !v);
+      }
+      if (e.key === 'e' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        setAllExpanded(true);
+      }
+      if (e.key === 'r' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        setAllExpanded(false);
+      }
+      if (e.key === 'Delete' && selectedIds.size > 0 && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        if (confirm(`Remover as ${selectedIds.size} linhas selecionadas?`)) {
+          const nextEtapas = etapas.map(etapa => ({
+            ...etapa,
+            composicoes: etapa.composicoes.filter(c => !selectedIds.has(c.id))
+          }));
+          setEtapasWithUndo(nextEtapas);
+          saveOrcamento({ obraId, etapas: nextEtapas });
+          setSelectedIds(new Set());
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, [selectedIds, etapas, obraId, saveOrcamento, setEtapasWithUndo]);
+
+  const [sinapiConfigOpen, setSinapiConfigOpen] = useState(false);
   // Competências realmente carregadas no banco (sinapi_referencias)
   const [sinapiReferencias, setSinapiReferencias] = useState<{ id: string; competencia: string; arquivo_nome: string }[]>([]);
 
@@ -524,15 +560,7 @@ export default function OrcamentoEditor({
       .then(({ data }: { data: SinapiReferenciaRow[] | null }) => {
         if (data && data.length > 0) {
           setSinapiReferencias(data);
-          setSinapiConfig(prev => {
-            const existe = data.some((r: SinapiReferenciaRow) => r.competencia === prev.competencia);
-            if (!existe) {
-              const next = { ...prev, competencia: data[0].competencia };
-              saveSinapiConfig(next);
-              return next;
-            }
-            return prev;
-          });
+          updateSinapiConfig({ competencia: data[0].competencia });
         }
       });
   }, []);
@@ -633,18 +661,6 @@ export default function OrcamentoEditor({
   };
   const uncertainCount = Array.from(priceBadges.values()).filter(b => b === 'sinapi_uncertain').length;
 
-  // ── Bulk selection ────────────────────────────────────────────────────────────
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-  const clearSelection = () => setSelectedIds(new Set());
-  const bulkActive = selectedIds.size > 0;
 
   // Templates de etapa (mantido para compatibilidade com JSX legado)
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
@@ -692,16 +708,66 @@ export default function OrcamentoEditor({
   const lastActionRef = useRef<{ type: string; timestamp: number } | null>(null);
   const prevEtapasRef = useRef(etapas);
 
+  const hasLoadedRef = useRef(false);
+
   useEffect(() => {
-    if (isSavingRef.current) return;
+    if (hasLoadedRef.current) return;
     const existing = getOrcamento(obraId);
     const etapasIniciais = existing ? existing.etapas : [];
-    setEtapas(etapasIniciais);
-    prevEtapasRef.current = etapasIniciais;
-    lastSavedSnapshotRef.current = JSON.stringify(etapasIniciais);
-    hasLoadedInitialDataRef.current = true;
-    setSaveStatus('idle');
-  }, [obraId, getOrcamento]);
+    if (etapasIniciais.length > 0 || !loading) {
+      setEtapas(etapasIniciais);
+      prevEtapasRef.current = etapasIniciais;
+      lastSavedSnapshotRef.current = JSON.stringify(etapasIniciais);
+      hasLoadedInitialDataRef.current = true;
+      hasLoadedRef.current = true;
+      setSaveStatus('idle');
+    }
+  }, [obraId, getOrcamento, loading]);
+
+  // Estado de foco para evitar salvar durante digitação ativa
+  const isEditingRef = useRef(false);
+
+  useEffect(() => {
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        isEditingRef.current = true;
+      }
+    };
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        isEditingRef.current = false;
+        // Ao sair do input, se houver alterações pendentes, agenda save em 2s
+        const currentSnapshot = JSON.stringify(etapasRef.current);
+        if (currentSnapshot !== lastSavedSnapshotRef.current) {
+          if (autosaveTimeoutRef.current) window.clearTimeout(autosaveTimeoutRef.current);
+          setSaveStatus('saving');
+          autosaveTimeoutRef.current = window.setTimeout(async () => {
+            try {
+              isSavingRef.current = true;
+              const currentState = etapasRef.current;
+              await saveOrcamento({ obraId, etapas: currentState });
+              lastSavedSnapshotRef.current = JSON.stringify(currentState);
+              setSaveStatus('saved');
+              window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
+            } catch (error) {
+              console.error(error);
+              setSaveStatus('error');
+            } finally {
+              isSavingRef.current = false;
+            }
+          }, 2000);
+        }
+      }
+    };
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+    return () => {
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+    };
+  }, [obraId, saveOrcamento]);
 
   // Auto-save
   useEffect(() => {
@@ -717,16 +783,26 @@ export default function OrcamentoEditor({
     prevEtapasRef.current = etapas;
 
     if (autosaveTimeoutRef.current) window.clearTimeout(autosaveTimeoutRef.current);
+
+    // Se estiver digitando, aborta esse trigger intervalar para não causar race condition ou fechar combobox
+    // O evento focusout vai se encarregar de retomar o save.
+    if (isEditingRef.current) {
+      setSaveStatus('saving');
+      return;
+    }
+
     setSaveStatus('saving');
 
     const timeSinceAdd = lastActionRef.current?.type === 'addComposicao' ? Date.now() - lastActionRef.current.timestamp : 3000;
     const delay = timeSinceAdd < 3000 ? 3000 - timeSinceAdd + 2000 : 2000;
+    const safeDelay = Math.max(delay, 2000); // 2000ms minimum
 
     autosaveTimeoutRef.current = window.setTimeout(async () => {
       try {
         isSavingRef.current = true;
-        await saveOrcamento({ obraId, etapas });
-        lastSavedSnapshotRef.current = JSON.stringify(etapas);
+        const currentState = etapasRef.current; // Pega ref super atualizada
+        await saveOrcamento({ obraId, etapas: currentState });
+        lastSavedSnapshotRef.current = JSON.stringify(currentState);
         setSaveStatus('saved');
         window.setTimeout(() => setSaveStatus(p => p === 'saved' ? 'idle' : p), 1500);
       } catch (error) {
@@ -735,7 +811,7 @@ export default function OrcamentoEditor({
       } finally {
         isSavingRef.current = false;
       }
-    }, delay);
+    }, safeDelay);
 
     return () => { if (autosaveTimeoutRef.current) window.clearTimeout(autosaveTimeoutRef.current); };
   }, [etapas, obraId, saveOrcamento]);
@@ -908,11 +984,7 @@ export default function OrcamentoEditor({
     onProgress?.(100, 'Finalizado.');
   };
 
-  const updateSinapiConfig = (partial: Partial<SinapiConfig>) => {
-    const next = { ...sinapiConfig, ...partial };
-    setSinapiConfig(next);
-    saveSinapiConfig(next);
-  };
+
 
   const availableCats = catalogoEtapas.filter(c => !etapas.some(cat => cat.nome === c.nome));
   const obrasComOrcamento = orcamentos.filter(o => o.obraId !== obraId && o.etapas.length > 0);
@@ -983,6 +1055,69 @@ export default function OrcamentoEditor({
                   Nova etapa <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted border rounded font-mono">N</kbd>
                 </TooltipContent>
               </Tooltip>
+            </TooltipProvider>
+
+            <div className="mx-2 w-px h-4 bg-border/50" />
+
+            {/* SINAPI Config & Toggle */}
+            <TooltipProvider>
+              <div className="flex items-center gap-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={() => {
+                        if (sinapiConfig.referencia_id) {
+                          updateSinapiConfig({ isSinapiSearchEnabled: !sinapiConfig.isSinapiSearchEnabled });
+                        } else {
+                          setSinapiConfigOpen(true);
+                        }
+                      }}
+                      variant={sinapiConfig.referencia_id ? "outline" : "ghost"} 
+                      size="sm" 
+                      className={cn(
+                        "gap-1.5 h-7 text-xs px-2.5",
+                        sinapiConfig.referencia_id && sinapiConfig.isSinapiSearchEnabled !== false
+                          ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:text-primary rounded-r-none border-r-0"
+                          : sinapiConfig.referencia_id && sinapiConfig.isSinapiSearchEnabled === false
+                          ? "bg-muted text-muted-foreground border-border hover:bg-muted/80 rounded-r-none border-r-0"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {sinapiConfig.referencia_id 
+                        ? `SINAPI · ${sinapiConfig.uf} · ${formatCompetencia(sinapiConfig.competencia || '')}` 
+                        : "SINAPI ⚙️"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {sinapiConfig.referencia_id 
+                      ? (sinapiConfig.isSinapiSearchEnabled !== false ? "Desativar busca automática no SINAPI" : "Ativar busca automática no SINAPI")
+                      : "Configurar base SINAPI para importação"}
+                  </TooltipContent>
+                </Tooltip>
+
+                {sinapiConfig.referencia_id && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => setSinapiConfigOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-7 w-7 px-0 rounded-l-none border-l-[1px]",
+                          sinapiConfig.isSinapiSearchEnabled !== false
+                            ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:text-primary border-l-primary/20"
+                            : "bg-muted text-muted-foreground border-border hover:bg-muted/80 border-l-border"
+                        )}
+                      >
+                        <Settings2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Configurações do SINAPI
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             </TooltipProvider>
 
             <div className="mx-2 w-px h-4 bg-border/50" />
@@ -1144,7 +1279,7 @@ export default function OrcamentoEditor({
                 "h-7 text-[10px] font-semibold uppercase text-muted-foreground tracking-wider shadow-sm",
                 PLANILHA_GRID
               )}>
-                <div className="flex items-center gap-1 px-1">
+                <div className="flex items-center gap-1 px-1 bg-transparent">
                   <button
                     tabIndex={-1}
                     onClick={() => setAllExpanded(prev => !prev)}
@@ -1345,9 +1480,26 @@ export default function OrcamentoEditor({
                   </DragOverlay>
                 </DndContext>
 
+                {showHint && (
+                  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-blue-200/30 bg-blue-500/10 backdrop-blur-md shadow-lg shadow-blue-900/10">
+                      <span className="text-[13px] font-medium text-blue-100 flex items-center gap-1.5">
+                        <span className="text-blue-300/80">⌨</span> Use <kbd className="px-1.5 py-0.5 rounded-md bg-blue-900/30 text-[10px] font-mono border border-blue-400/20 text-blue-200">Tab</kbd> e <kbd className="px-1.5 py-0.5 rounded-md bg-blue-900/30 text-[10px] font-mono border border-blue-400/20 text-blue-200">Enter</kbd> para navegar <span className="text-blue-300/50 mx-1">·</span> <kbd className="px-1.5 py-0.5 rounded-md bg-blue-900/30 text-[10px] font-mono border border-blue-400/20 text-blue-200">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 rounded-md bg-blue-900/30 text-[10px] font-mono border border-blue-400/20 text-blue-200">/</kbd> atalhos
+                      </span>
+                      <button 
+                        onClick={dismissHint}
+                        className="p-1 rounded-md hover:bg-blue-900/30 text-blue-300/60 hover:text-blue-200 transition-colors ml-1"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                <OrcamentoShortcutsModal open={showShortcuts} onOpenChange={setShowShortcuts} />
                 {/* Rodapé totalizador */}
-                {selectedIds.size < 2 && (
-                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-border bg-background sticky bottom-0">
+                {selectedIds.size === 0 && (
+                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-border bg-background sticky bottom-0 z-20">
                     <div>
                       <div className="text-xs text-muted-foreground font-medium">Total Geral</div>
                       <div className="text-[10px] text-muted-foreground">{etapas.length} etapa{etapas.length !== 1 ? 's' : ''}</div>
@@ -1357,9 +1509,9 @@ export default function OrcamentoEditor({
                 )}
 
                 {/* ── Bulk action toolbar ── */}
-                {selectedIds.size >= 2 && (
+                {selectedIds.size > 0 && (
                   <div className="sticky bottom-0 z-20 flex items-center gap-3 px-4 py-2 bg-primary text-primary-foreground border-t border-primary/60 animate-in slide-in-from-bottom-2 duration-200">
-                    <span className="text-xs font-semibold">{selectedIds.size} itens selecionados</span>
+                    <span className="text-xs font-semibold">{selectedIds.size} {selectedIds.size === 1 ? 'item selecionado' : 'itens selecionados'}</span>
                     <div className="flex-1" />
                     <BulkListaDropdown 
                       obraId={obraId} 
@@ -1483,8 +1635,14 @@ export default function OrcamentoEditor({
         open={importSinapiOpen}
         onOpenChange={setImportSinapiOpen}
         etapas={etapas}
-        defaultCompetencia={sinapiConfig.competencia}
+        defaultCompetencia={sinapiConfig.competencia || ''}
         onConfirm={handleImportarSinapi}
+      />
+
+      {/* ── Modal: Configuração SINAPI ── */}
+      <SinapiConfigModal
+        open={sinapiConfigOpen}
+        onOpenChange={setSinapiConfigOpen}
       />
 
       {/* ── QuickStart Wizard (primeira visita com orçamento vazio) ─────── */}

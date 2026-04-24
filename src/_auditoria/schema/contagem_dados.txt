@@ -1,0 +1,12 @@
+obras	17
+orcamento_versoes	14
+orcamento_categorias	59
+orcamento_composicoes	102
+orcamento_subitens	29
+cronograma_tarefas	2
+pagamentos	50
+contratos	0
+diario_registros	43
+feedbacks	0
+companies	5
+profiles	6

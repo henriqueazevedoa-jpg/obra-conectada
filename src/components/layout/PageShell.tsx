@@ -40,7 +40,7 @@ export interface PageTab {
 export interface PageKPI {
   id: string;
   label: string;
-  value: string;
+  value: React.ReactNode;
   icon?: React.ReactNode;
   /** Cor de fundo do card. Ex: '#F3F2FD' */
   tint?: string;

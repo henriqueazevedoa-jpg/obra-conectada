@@ -44,9 +44,12 @@ export default function PainelObraPage() {
     if (!obra?.id) return;
     setLoadingExtras(true);
     Promise.all([
-      supabase.from('pagamentos').select('id, status, data_vencimento, valor_previsto, descricao').eq('obra_id', obra.id),
-      supabase.from('diario_registros').select('id, data, status').eq('obra_id', obra.id).order('data', { ascending: false }),
-      supabase.from('contratos').select('id, descricao, data_inicio, data_fim, valor_total, obra_contratos_periodos(id, data_referencia, status_medicao)').eq('obra_id', obra.id)
+      supabase.from('pagamentos').select('id, status, data_vencimento, valor_previsto, descricao').eq('obra_id', obra.id)
+        .then(({ data, error }) => { if (error) console.error('[DEBUG página pagamentos]', error); return { data, error }; }),
+      supabase.from('diario_registros').select('id, data, status').eq('obra_id', obra.id).order('data', { ascending: false })
+        .then(({ data, error }) => { if (error) console.error('[DEBUG página diario]', error); return { data, error }; }),
+      supabase.from('contratos').select('id, descricao, data_inicio, data_fim, valor_total, contratos_medicoes(id, data_referencia, status)').eq('obra_id', obra.id)
+        .then(({ data, error }) => { if (error) console.error('[DEBUG página contratos]', error); return { data, error }; })
     ]).then(([resPag, resDia, resCont]) => {
       setPagamentos(resPag.data || []);
       setDiarios(resDia.data || []);
@@ -106,10 +109,10 @@ export default function PainelObraPage() {
   const etapasIniciandoMes = tarefas.filter(t => t.data_inicio && (t.percentual_concluido || 0) === 0 &&
     isAfter(parseISO(t.data_inicio), addDays(inicioMes, -1)) && isBefore(parseISO(t.data_inicio), addDays(fimMes, 1)));
   const contratosAtivosSemMedicao = contratos.filter(c => {
-    const purs = c.obra_contratos_periodos || [];
+    const purs = c.contratos_medicoes || [];
     if (purs.length === 0) return true;
     const last = [...purs].sort((a: any, b: any) => new Date(b.data_referencia).getTime() - new Date(a.data_referencia).getTime())[0];
-    return differenceInDays(hoje, parseISO(last.data_referencia)) >= 25 && last.status_medicao !== 'concluida';
+    return differenceInDays(hoje, parseISO(last.data_referencia)) >= 25 && last.status !== 'concluida';
   });
 
   // --- INTELIGÊNCIA DECISIONAL ---
