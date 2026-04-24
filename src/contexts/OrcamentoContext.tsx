@@ -486,7 +486,7 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
     }
 
     const etpComps = compsByEtapa;
-    const resultEtapas = etapasDb.filter(etp => !asOptionalString(etp.versao_id)).map(etp => {
+    const resultEtapas = etapasDb.map(etp => {
       const etpId = asString(etp.id);
       return dbToEtapa(etp, etpComps.get(etpId) || []);
     });
@@ -592,6 +592,8 @@ export function OrcamentoProvider({ children }: { children: React.ReactNode }) {
         percentual_cronograma: etapa.percentualCronograma ?? null,
         responsavel: etapa.responsavel || null,
         observacoes_cronograma: etapa.observacoesCronograma || null,
+        versao_id: etapa.versaoId || null,
+        estimado_valor: etapa.estimadoValor ?? null,
       });
 
       for (const comp of etapa.composicoes) {

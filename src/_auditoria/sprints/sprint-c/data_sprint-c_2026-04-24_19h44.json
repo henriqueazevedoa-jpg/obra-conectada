@@ -1,0 +1,262 @@
+{
+  "sprint": "sprint-c",
+  "timestamp": "2026-04-24_19h44",
+  "paginas": [
+    {
+      "rota": "/login",
+      "nome": "00_login",
+      "status": "ok",
+      "tempo_ms": 2617,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/calculadora",
+      "nome": "01_calculadora_publica",
+      "status": "ok",
+      "tempo_ms": 4379,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/obras",
+      "nome": "02_obras",
+      "status": "ok",
+      "tempo_ms": 1437,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/painel",
+      "nome": "03_painel",
+      "status": "ok",
+      "tempo_ms": 1829,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/dashboard",
+      "nome": "04_dashboard",
+      "status": "ok",
+      "tempo_ms": 1896,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/orcamento",
+      "nome": "05_orcamento_visao_geral",
+      "status": "ok",
+      "tempo_ms": 2262,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/orcamento?tab=planilha",
+      "nome": "06_orcamento_planilha",
+      "status": "ok",
+      "tempo_ms": 1978,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/orcamento?tab=cotacao",
+      "nome": "07_orcamento_cotacao",
+      "status": "ok",
+      "tempo_ms": 1738,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/cronograma",
+      "nome": "08_cronograma",
+      "status": "ok",
+      "tempo_ms": 1470,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/financeiro",
+      "nome": "09_financeiro",
+      "status": "ok",
+      "tempo_ms": 1490,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/financeiro?tab=pagamentos",
+      "nome": "10_financeiro_pagamentos",
+      "status": "ok",
+      "tempo_ms": 1444,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/financeiro?tab=custo-real",
+      "nome": "11_financeiro_custo_real",
+      "status": "ok",
+      "tempo_ms": 1414,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/financeiro?tab=fluxo-caixa",
+      "nome": "12_financeiro_fluxo",
+      "status": "ok",
+      "tempo_ms": 1527,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/diario",
+      "nome": "13_diario",
+      "status": "ok",
+      "tempo_ms": 1826,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/estoque",
+      "nome": "14_estoque",
+      "status": "ok",
+      "tempo_ms": 1736,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/equipe",
+      "nome": "15_equipe",
+      "status": "ok",
+      "tempo_ms": 3040,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/compras",
+      "nome": "16_compras",
+      "status": "ok",
+      "tempo_ms": 1497,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/agenda",
+      "nome": "17_agenda",
+      "status": "ok",
+      "tempo_ms": 1440,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/documentos",
+      "nome": "18_documentos",
+      "status": "ok",
+      "tempo_ms": 1812,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/contatos",
+      "nome": "19_contatos",
+      "status": "ok",
+      "tempo_ms": 1325,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/contratos",
+      "nome": "20_contratos",
+      "status": "ok",
+      "tempo_ms": 1305,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/relatorios",
+      "nome": "21_relatorios",
+      "status": "ok",
+      "tempo_ms": 1356,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/biblioteca",
+      "nome": "22_biblioteca",
+      "status": "ok",
+      "tempo_ms": 1795,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/configuracoes",
+      "nome": "23_config_empresa",
+      "status": "ok",
+      "tempo_ms": 1518,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/configuracoes?tab=calendario",
+      "nome": "24_config_calendario",
+      "status": "ok",
+      "tempo_ms": 1521,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/configuracoes?tab=orcamento",
+      "nome": "25_config_orcamento",
+      "status": "ok",
+      "tempo_ms": 1391,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/configuracoes?tab=calculadora",
+      "nome": "26_config_calculadora",
+      "status": "ok",
+      "tempo_ms": 1393,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/admin/dashboard",
+      "nome": "27_admin_dashboard",
+      "status": "ok",
+      "tempo_ms": 1472,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/admin/companies",
+      "nome": "28_admin_companies",
+      "status": "ok",
+      "tempo_ms": 1397,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/admin/calculadora",
+      "nome": "29_admin_calculadora",
+      "status": "ok",
+      "tempo_ms": 1373,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/admin/feedbacks",
+      "nome": "30_admin_feedbacks",
+      "status": "ok",
+      "tempo_ms": 1574,
+      "erros": 0,
+      "erros_detalhe": []
+    },
+    {
+      "rota": "/perfil",
+      "nome": "31_perfil",
+      "status": "ok",
+      "tempo_ms": 1320,
+      "erros": 0,
+      "erros_detalhe": []
+    }
+  ]
+}

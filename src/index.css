@@ -6,6 +6,7 @@
 
 @layer base {
   :root {
+    --content-bg: #F7F7FB;
     /* ── Base ─────────────────────────────────────────────────── */
     --background: 220 25% 97%;         /* cinza-azulado frio */
     --foreground: 224 20% 10%;

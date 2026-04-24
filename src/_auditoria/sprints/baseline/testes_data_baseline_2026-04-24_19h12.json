@@ -1,0 +1,91 @@
+{
+  "cenarios": [
+    {
+      "id": "ORC-001",
+      "nome": "Trocar obra atualiza dados do orçamento",
+      "critico": true,
+      "passou": false,
+      "motivo": "Obra 1 não encontrada — seed não aplicado?"
+    },
+    {
+      "id": "ORC-002",
+      "nome": "KPIs do orçamento refletem dados reais",
+      "critico": true,
+      "passou": false,
+      "motivo": "Total do orçamento não aparece ou está incorreto",
+      "detalhe": {
+        "totalText": null,
+        "semPrecoVisivel": true
+      }
+    },
+    {
+      "id": "ORC-003",
+      "nome": "Curva ABC exibe itens com dados reais",
+      "critico": false,
+      "passou": true,
+      "motivo": null,
+      "detalhe": {
+        "temClasseA": true,
+        "temEstrutura": true
+      }
+    },
+    {
+      "id": "ORC-004",
+      "nome": "Aba Planilha exibe etapas da obra selecionada",
+      "critico": true,
+      "passou": true,
+      "motivo": null,
+      "detalhe": {
+        "temElevador": true,
+        "temCobertura": false
+      }
+    },
+    {
+      "id": "ORC-005",
+      "nome": "Aba Cotação exibe cotações da obra",
+      "critico": false,
+      "passou": false,
+      "motivo": "Fornecedores da cotação não aparecem",
+      "detalhe": {
+        "temMetalPro": false,
+        "temConcremax": false
+      }
+    }
+  ],
+  "visual": [
+    {
+      "pagina": "/orcamento",
+      "baseline": "gerado"
+    },
+    {
+      "pagina": "/orcamento?tab=planilha",
+      "baseline": "gerado"
+    },
+    {
+      "pagina": "/orcamento?tab=cotacao",
+      "baseline": "gerado"
+    },
+    {
+      "pagina": "/cronograma",
+      "baseline": "gerado"
+    },
+    {
+      "pagina": "/financeiro",
+      "baseline": "gerado"
+    },
+    {
+      "pagina": "/painel",
+      "baseline": "gerado"
+    },
+    {
+      "pagina": "/dashboard",
+      "baseline": "gerado"
+    }
+  ],
+  "resumo": {
+    "totalCenarios": 5,
+    "passaram": 2,
+    "falharamCrit": 2,
+    "mudancasVisuais": 0
+  }
+}

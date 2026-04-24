@@ -1,0 +1,30 @@
+LASTRA — RELATÓRIO DE TESTES
+Sprint: BASELINE | Data: 24/04/2026, 16:16:40
+
+CENÁRIOS COMPORTAMENTAIS
+────────────────────────────────────────────────────────────
+Total: 5 | Passaram: 1 | Críticos com falha: 2
+
+❌ [ORC-001] Trocar obra atualiza dados do orçamento
+   ↳ Obra 1 não encontrada — seed não aplicado?
+❌ [ORC-002] KPIs do orçamento refletem dados reais
+   ↳ Total do orçamento não aparece ou está incorreto
+⚠️  [ORC-003] Curva ABC exibe itens com dados reais
+   ↳ Curva ABC não exibe itens Classe A
+✅ [ORC-004] Aba Planilha exibe etapas da obra selecionada
+⚠️  [ORC-005] Aba Cotação exibe cotações da obra
+   ↳ Fornecedores da cotação não aparecem
+
+COMPARAÇÃO VISUAL
+────────────────────────────────────────────────────────────
+⬜ /orcamento
+⬜ /orcamento?tab=planilha
+⬜ /orcamento?tab=cotacao
+⬜ /cronograma
+⬜ /financeiro
+⬜ /painel
+⬜ /dashboard
+
+RESULTADO FINAL
+────────────────────────────────────────────────────────────
+❌ FALHOU — 2 cenário(s) crítico(s) com falha

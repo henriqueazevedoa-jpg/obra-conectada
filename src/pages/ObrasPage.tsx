@@ -248,6 +248,7 @@ export default function ObrasPage() {
         {filtered.map(obra => (
           <div
             key={obra.id}
+            data-obra-id={obra.id}
             onClick={() => { setSelectedObraId(obra.id); navigate('/painel'); }}
             className="cursor-pointer"
           >

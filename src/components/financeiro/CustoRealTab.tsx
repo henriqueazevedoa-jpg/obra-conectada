@@ -519,6 +519,7 @@ export default function CustoRealTab({ obraId, isActive = true, onKpisReady }: P
   useEffect(() => {
     if (!isActive || !onKpisReady || loading) return;
     const desvioPctVal = totalOrcado > 0 ? (totalDesvio / totalOrcado) * 100 : 0;
+    const semCusto = totalRealizado === 0 && totalOrcado > 0;
     onKpisReady([
       { id: 'orcado', label: 'Orçado total', value: formatCurrency(totalOrcado),
         icon: <DollarSign style={{ width: 14, height: 14, color: '#534AB7' }} />,
@@ -527,16 +528,16 @@ export default function CustoRealTab({ obraId, isActive = true, onKpisReady }: P
         icon: <Receipt style={{ width: 14, height: 14, color: totalRealizado > 0 ? '#3B6D11' : '#888' }} />,
         tint: totalRealizado > 0 ? '#EAF3DE' : undefined,
         valueColor: totalRealizado > 0 ? '#3B6D11' : undefined },
-      { id: 'desvio', label: 'Desvio', value: `${totalDesvio > 0 ? '+' : ''}${desvioPctVal.toFixed(1)}%`,
-        icon: totalDesvio > 0
+      { id: 'desvio', label: 'Desvio', value: semCusto ? 'Sem custo registrado' : `${totalDesvio > 0 ? '+' : ''}${desvioPctVal.toFixed(1)}%`,
+        icon: semCusto ? <Minus style={{ width: 14, height: 14, color: '#888' }} /> : totalDesvio > 0
           ? <AlertTriangle style={{ width: 14, height: 14, color: '#A32D2D' }} />
           : totalDesvio < 0
           ? <CheckCircle2 style={{ width: 14, height: 14, color: '#3B6D11' }} />
           : <Minus style={{ width: 14, height: 14, color: '#888' }} />,
-        sublabel: totalDesvio > 0 ? 'acima do orçado' : totalDesvio < 0 ? 'abaixo do orçado' : 'dentro do orçado',
-        tint: totalDesvio > 0 ? '#FCEBEB' : totalDesvio < 0 ? '#EAF3DE' : undefined,
-        valueColor: totalDesvio > 0 ? '#A32D2D' : totalDesvio < 0 ? '#3B6D11' : undefined,
-        labelColor: totalDesvio > 0 ? '#A32D2D' : totalDesvio < 0 ? '#3B6D11' : undefined },
+        sublabel: semCusto ? undefined : (totalDesvio > 0 ? 'acima do orçado' : totalDesvio < 0 ? 'abaixo do orçado' : 'dentro do orçado'),
+        tint: semCusto ? '#F1F5F9' : totalDesvio > 0 ? '#FCEBEB' : totalDesvio < 0 ? '#EAF3DE' : undefined,
+        valueColor: semCusto ? '#64748B' : totalDesvio > 0 ? '#A32D2D' : totalDesvio < 0 ? '#3B6D11' : undefined,
+        labelColor: semCusto ? '#64748B' : totalDesvio > 0 ? '#A32D2D' : totalDesvio < 0 ? '#3B6D11' : undefined },
       { id: 'indiretos', label: 'Indiretos', value: formatCurrency(totalIndiretos),
         icon: <Wallet style={{ width: 14, height: 14, color: totalIndiretos > 0 ? '#854F0B' : '#888' }} />,
         tint: totalIndiretos > 0 ? '#FAEEDA' : undefined,

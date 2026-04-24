@@ -1,0 +1,43 @@
+LASTRA — RELATÓRIO DE TESTES
+Sprint: BASELINE | Data: 24/04/2026, 16:14:32
+
+CENÁRIOS COMPORTAMENTAIS
+────────────────────────────────────────────────────────────
+Total: 5 | Passaram: 0 | Críticos com falha: 3
+
+❌ [ORC-001] Trocar obra atualiza dados do orçamento
+   ↳ Obra 1 não encontrada — seed não aplicado?
+❌ [ORC-002] KPIs do orçamento refletem dados reais
+   ↳ Exceção: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-obra-id="a1000000-0000-0000-0000-000000000001"]').first()[22m
+
+⚠️  [ORC-003] Curva ABC exibe itens com dados reais
+   ↳ Exceção: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-obra-id="a3000000-0000-0000-0000-000000000001"]').first()[22m
+
+❌ [ORC-004] Aba Planilha exibe etapas da obra selecionada
+   ↳ Exceção: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-obra-id="a2000000-0000-0000-0000-000000000001"]').first()[22m
+
+⚠️  [ORC-005] Aba Cotação exibe cotações da obra
+   ↳ Exceção: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-obra-id="a3000000-0000-0000-0000-000000000001"]').first()[22m
+
+
+COMPARAÇÃO VISUAL
+────────────────────────────────────────────────────────────
+⬜ /orcamento
+⬜ /orcamento?tab=planilha
+⬜ /orcamento?tab=cotacao
+⬜ /cronograma
+⬜ /financeiro
+⬜ /painel
+⬜ /dashboard
+
+RESULTADO FINAL
+────────────────────────────────────────────────────────────
+❌ FALHOU — 3 cenário(s) crítico(s) com falha

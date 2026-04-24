@@ -849,7 +849,7 @@ export default function GanttCanvasPanel({
             ))}
 
             {/* Today line */}
-            {todayX > 0 && (
+            {todayX > 0 && visibleTarefas.length > 0 && (
               <g>
                 <line x1={todayX} y1={0} x2={todayX} y2={totalCanvasHeight}
                   stroke="#ef4444" strokeWidth={1.5} opacity={0.5}

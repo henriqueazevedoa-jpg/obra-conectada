@@ -400,7 +400,7 @@ function GroupPopoverPortal({
                     }} />
                   )}
                   <LinkIcon style={{ width: 12, height: 12, flexShrink: 0, opacity: active ? 0.85 : 0.5 }} />
-                  <span style={{ flex: 1 }}>{link.label}</span>
+                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={link.label}>{link.label}</span>
                   {active && (
                     <div style={{
                       width: 4, height: 4, borderRadius: "50%",
@@ -1179,8 +1179,8 @@ export default function AppLayout() {
                       background: active ? "rgba(83,74,183,0.15)" : "transparent",
                       color: active ? "#818CF8" : "rgba(148,140,195,0.6)",
                     }}>
-                    <Icon className="h-5 w-5" />
-                    <span className="text-center leading-tight">{link.label}</span>
+                    <Icon className="h-5 w-5 shrink-0" />
+                    <span className="text-center leading-tight truncate w-full px-1" title={link.label}>{link.label}</span>
                   </Link>
                 );
               })}
@@ -1217,7 +1217,7 @@ export default function AppLayout() {
       </nav>
 
       {/* ══ Main Content ════════════════════════════════════════════════ */}
-      <main className={`pt-14 pb-16 md:pb-0 md:ml-[60px] ${isImpersonating ? 'md:pt-[88px] pt-[88px]' : 'md:pt-14'} h-screen overflow-auto`}>
+      <main className={`pt-14 pb-16 md:pb-0 md:ml-[60px] ${isImpersonating ? 'md:pt-[88px] pt-[88px]' : 'md:pt-14'} h-screen overflow-auto bg-[#F7F7FB]`}>
         <div className="h-full">
           <Outlet />
         </div>

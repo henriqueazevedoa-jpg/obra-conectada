@@ -1,0 +1,56 @@
+LASTRA — AUDIT REPORT
+Sprint: SPRINT-C
+Data: 24/04/2026, 16:46:32
+Páginas: 32 | Com erros: 0 | Crashes: 0
+
+STATUS DAS PÁGINAS
+──────────────────────────────────────────────────────────────────────
+✅ /login                                        2617ms  0 erros
+✅ /calculadora                                  4379ms  0 erros
+✅ /obras                                        1437ms  0 erros
+✅ /painel                                       1829ms  0 erros
+✅ /dashboard                                    1896ms  0 erros
+✅ /orcamento                                    2262ms  0 erros
+✅ /orcamento?tab=planilha                       1978ms  0 erros
+✅ /orcamento?tab=cotacao                        1738ms  0 erros
+✅ /cronograma                                   1470ms  0 erros
+✅ /financeiro                                   1490ms  0 erros
+✅ /financeiro?tab=pagamentos                    1444ms  0 erros
+✅ /financeiro?tab=custo-real                    1414ms  0 erros
+✅ /financeiro?tab=fluxo-caixa                   1527ms  0 erros
+✅ /diario                                       1826ms  0 erros
+✅ /estoque                                      1736ms  0 erros
+✅ /equipe                                       3040ms  0 erros
+✅ /compras                                      1497ms  0 erros
+✅ /agenda                                       1440ms  0 erros
+✅ /documentos                                   1812ms  0 erros
+✅ /contatos                                     1325ms  0 erros
+✅ /contratos                                    1305ms  0 erros
+✅ /relatorios                                   1356ms  0 erros
+✅ /biblioteca                                   1795ms  0 erros
+✅ /configuracoes                                1518ms  0 erros
+✅ /configuracoes?tab=calendario                 1521ms  0 erros
+✅ /configuracoes?tab=orcamento                  1391ms  0 erros
+✅ /configuracoes?tab=calculadora                1393ms  0 erros
+✅ /admin/dashboard                              1472ms  0 erros
+✅ /admin/companies                              1397ms  0 erros
+✅ /admin/calculadora                            1373ms  0 erros
+✅ /admin/feedbacks                              1574ms  0 erros
+✅ /perfil                                       1320ms  0 erros
+
+ERROS TYPESCRIPT
+──────────────────────────────────────────────────────────────────────
+(executar: npx tsc --noEmit 2>&1 | head -30)
+(colar resultado aqui antes de enviar para auditoria)
+
+ARQUIVOS ALTERADOS (git diff --stat)
+──────────────────────────────────────────────────────────────────────
+(colar resultado do git diff --stat HEAD~1 aqui)
+
+CHECKLIST DE SAÍDA
+──────────────────────────────────────────────────────────────────────
+[ ] tsc --noEmit zero erros novos
+[ ] Zero crashes nas páginas
+[ ] Erros de console não aumentaram vs sprint anterior
+[ ] PLANO_GERAL_STATUS.md atualizado
+[ ] PROJECT-MEMORY.md atualizado (se houve aprendizado)

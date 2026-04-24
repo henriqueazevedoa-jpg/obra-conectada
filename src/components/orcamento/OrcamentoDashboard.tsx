@@ -692,8 +692,10 @@ const DICA_KEY = 'lastra_orcamento_dica_vista';
 
 
 export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoCotacaoClasseA, onKpisReady }: OrcamentoDashboardProps) {
-  const { getOrcamento, finalizarOrcamento } = useOrcamento();
-  const etapas = getOrcamento(obra.id)?.etapas ?? [];
+  const { getOrcamento, finalizarOrcamento, getVersaoAtiva } = useOrcamento();
+  const versaoAtiva = getVersaoAtiva(obra.id);
+  const todasEtapas = getOrcamento(obra.id)?.etapas ?? [];
+  const etapas = versaoAtiva ? todasEtapas.filter(e => e.versaoId === versaoAtiva.id) : todasEtapas.filter(e => !e.versaoId);
 
   const [finalizarOpen, setFinalizarOpen] = useState(false);
   const [finalizando, setFinalizando] = useState(false);

@@ -65,10 +65,13 @@ export default function OrcamentoCentral() {
   const obra = obras.find((o) => o.id === selectedObraId);
 
   // Badge da aba Cotação
-  const orcamentoEtapas = useMemo(() =>
-    obra ? (getOrcamento(obra.id)?.etapas ?? []) : [],
-    [obra, getOrcamento]
-  );
+  const orcamentoEtapas = useMemo(() => {
+    if (!obra) return [];
+    const orc = getOrcamento(obra.id);
+    if (!orc) return [];
+    if (versaoAtiva) return orc.etapas.filter(e => e.versaoId === versaoAtiva.id);
+    return orc.etapas.filter(e => !e.versaoId);
+  }, [obra, getOrcamento, versaoAtiva]);
 
   const stats = useMemo(() => {
     let totalGeral = 0;
@@ -138,6 +141,7 @@ export default function OrcamentoCentral() {
       id: 'total',
       label: 'Total Previsto',
       value: stats.totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      sublabel: obra?.area_construida && obra.area_construida > 0 ? `R$/m²: ${(stats.totalGeral / obra.area_construida).toFixed(2).replace('.', ',')}` : undefined,
       tint: 'rgba(83,74,183,0.08)',
       valueColor: '#534AB7',
       labelColor: '#7c75be',
@@ -154,6 +158,7 @@ export default function OrcamentoCentral() {
       id: 'sem_preco',
       label: 'Sem Preço',
       value: stats.insumosSemPreco.toString(),
+      sublabel: stats.insumosSemPreco > 0 ? 'Ver itens na planilha' : undefined,
       tint: stats.insumosSemPreco > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
       valueColor: stats.insumosSemPreco > 0 ? '#ef4444' : '#10b981',
       labelColor: stats.insumosSemPreco > 0 ? '#ef4444' : '#10b981',

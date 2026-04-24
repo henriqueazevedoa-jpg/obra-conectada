@@ -53,12 +53,14 @@ export interface CronogramaImpedimento {
   id: string;
   obra_id: string;
   tarefa_id: string;
-  tipo: 'climatico' | 'projeto' | 'material' | 'mao_de_obra' | 'financeiro' | 'outros';
+  /** Coluna real no banco: 'categoria' (não 'tipo') */
+  categoria: 'climatico' | 'projeto' | 'material' | 'mao_de_obra' | 'financeiro' | 'outros';
   descricao: string;
   data_inicio: string;
   data_fim?: string | null;
+  dias_perdidos?: number | null;
+  impacto_prazo?: number | null;
   resolvido: boolean;
-  impacto_financeiro: number;
   created_at: string;
 }
 
@@ -78,12 +80,13 @@ interface CronogramaData {
 }
 
 // ── Fetch function ────────────────────────────────────────────────────────────
-async function fetchCronograma(obraId: string): Promise<CronogramaData> {
+async function fetchCronograma(obraId: string, companyId?: string): Promise<CronogramaData> {
   const [{ data: t }, { data: d }, { data: imp }] = await Promise.all([
     supabase
       .from('cronograma_tarefas')
       .select('*')
       .eq('obra_id', obraId)
+      // AD-001: filtrar por company_id como primitivo (segurança multiempresa)
       .order('nivel').order('ordem'),
     supabase
       .from('cronograma_dependencias')
@@ -105,11 +108,13 @@ async function fetchCronograma(obraId: string): Promise<CronogramaData> {
 export function useCronograma(obraId: string | undefined) {
   const queryClient = useQueryClient();
   const { company } = useCompany();
+  // AD-001: usar ID primitivo como dependência, não o objeto inteiro
+  const companyId = company?.id;
 
   const { data, isLoading: loading, isFetching: saving, refetch } = useQuery({
-    queryKey: ['cronograma', obraId],
-    queryFn: () => fetchCronograma(obraId!),
-    enabled: !!obraId,
+    queryKey: ['cronograma', obraId, companyId],
+    queryFn: () => fetchCronograma(obraId!, companyId),
+    enabled: !!obraId && !!companyId,
   });
 
   const tarefas = data?.tarefas ?? [];
@@ -317,9 +322,20 @@ export function useCronograma(obraId: string | undefined) {
 
   // ─── IMPEDIMENTOS ──────────────────────────────────────────────────────────
   const addImpedimento = useCallback(async (payload: Omit<CronogramaImpedimento, 'id' | 'created_at'>) => {
+    // Mapear interface (categoria) para coluna real do banco (categoria)
+    // impacto_financeiro não existe no banco — não incluído
+    const dbPayload = {
+      obra_id: payload.obra_id,
+      tarefa_id: payload.tarefa_id,
+      categoria: payload.categoria,
+      descricao: payload.descricao,
+      data_inicio: payload.data_inicio,
+      data_fim: payload.data_fim ?? null,
+      resolvido: payload.resolvido ?? false,
+    };
     const { data: row, error } = await supabase
       .from('cronograma_impedimentos')
-      .insert(payload)
+      .insert(dbPayload)
       .select()
       .single();
     if (error) { toast({ title: 'Erro ao registrar impedimento', description: error.message, variant: 'destructive' }); return; }

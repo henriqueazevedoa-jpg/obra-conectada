@@ -708,21 +708,31 @@ export default function OrcamentoEditor({
   const lastActionRef = useRef<{ type: string; timestamp: number } | null>(null);
   const prevEtapasRef = useRef(etapas);
 
-  const hasLoadedRef = useRef(false);
+  const loadedObraIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (hasLoadedRef.current) return;
+    const trackingId = `${obraId}-${versaoAtiva?.id || 'default'}`;
+    if (loadedObraIdRef.current === trackingId) return;
     const existing = getOrcamento(obraId);
-    const etapasIniciais = existing ? existing.etapas : [];
+    
+    let etapasIniciais: OrcamentoEtapa[] = [];
+    if (existing) {
+      if (versaoAtiva) {
+        etapasIniciais = existing.etapas.filter(e => e.versaoId === versaoAtiva.id);
+      } else {
+        etapasIniciais = existing.etapas.filter(e => !e.versaoId);
+      }
+    }
+
     if (etapasIniciais.length > 0 || !loading) {
       setEtapas(etapasIniciais);
       prevEtapasRef.current = etapasIniciais;
       lastSavedSnapshotRef.current = JSON.stringify(etapasIniciais);
       hasLoadedInitialDataRef.current = true;
-      hasLoadedRef.current = true;
+      loadedObraIdRef.current = trackingId;
       setSaveStatus('idle');
     }
-  }, [obraId, getOrcamento, loading]);
+  }, [obraId, getOrcamento, loading, versaoAtiva]);
 
   // Estado de foco para evitar salvar durante digitação ativa
   const isEditingRef = useRef(false);

@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useCallback, forwardRef, useImperativeHandle
 import { useObras } from '@/contexts/ObrasContext';
 import { useObraSelection } from '@/contexts/ObraSelectionContext';
 import { useCronograma, CronogramaTarefa, TipoTarefa } from '@/hooks/useCronograma';
+import { useCronogramaVersoes, CronogramaVersao, TipoCronogramaVersao } from '@/hooks/useCronogramaVersoes';
 import { useRecursos } from '@/hooks/useRecursos';
 import { useGanttFinanceiro } from '@/hooks/useGanttFinanceiro';
 import { parseISO, differenceInDays, isBefore } from 'date-fns';
@@ -33,6 +34,7 @@ import MedicaoTab from '@/components/cronograma/MedicaoTab';
 import PageShell from '@/components/layout/PageShell';
 import type { PageKPI, PageAction } from '@/components/layout/PageShell';
 import DrawerEstimarDuracoes, { EstimaUpdate } from '@/components/cronograma/DrawerEstimarDuracoes';
+import CronogramaVersaoStepper from '@/components/cronograma/CronogramaVersaoStepper';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -278,16 +280,39 @@ export default function CronogramaPage() {
   const { obras } = useObras();
   const { selectedObraId } = useObraSelection();
   const { tarefas, dependencias, impedimentos, loading, saving, addTarefa, updateTarefa, deleteTarefa, addDependencia, removeDependencia, addImpedimento, updateImpedimento, deleteImpedimento, applyDateCascade, saveBaseline, unlockBaseline, stats, refresh } = useCronograma(selectedObraId);
+  const { versoes, loading: versoesLoading, criarVersao } = useCronogramaVersoes(selectedObraId);
   const { recursos, alocacoes, addAlocacao, removeAlocacao, getAlocacoesDaTarefa, recursosSupelalocados } = useRecursos(selectedObraId);
   const { byEtapa: financeiroByEtapa } = useGanttFinanceiro(selectedObraId);
 
+  // Versão ativa do cronograma (null = sem versão, exibe todas as tarefas)
+  const [versaoAtiva, setVersaoAtiva] = useState<CronogramaVersao | null>(null);
+
+  const handleSelectVersao = useCallback((versao: CronogramaVersao) => {
+    setVersaoAtiva(versao);
+  }, []);
+
+  const handleCriarVersao = useCallback(async (tipo: TipoCronogramaVersao) => {
+    const nova = await criarVersao(tipo);
+    if (nova) setVersaoAtiva(nova);
+  }, [criarVersao]);
+
+  // Tarefas filtradas pela versão ativa (null = todas as tarefas)
+  const tarefasFiltradas = useMemo(() => {
+    if (!versaoAtiva) return tarefas;
+    return tarefas.filter(t => !(t as any).versao_id || (t as any).versao_id === versaoAtiva.id);
+  }, [tarefas, versaoAtiva]);
+
   const [isAddingImpedimento, setIsAddingImpedimento] = useState(false);
-  const [newImpedimento, setNewImpedimento] = useState<any>({
+  const [newImpedimento, setNewImpedimento] = useState<{
+    tarefa_id: string;
+    categoria: 'climatico' | 'projeto' | 'material' | 'mao_de_obra' | 'financeiro' | 'outros';
+    descricao: string;
+    data_inicio: string;
+  }>({
     tarefa_id: '',
-    tipo: 'climatico',
+    categoria: 'climatico',
     descricao: '',
     data_inicio: new Date().toISOString().split('T')[0],
-    impacto_financeiro: 0
   });
 
   const obra = obras.find(o => o.id === selectedObraId);
@@ -379,7 +404,9 @@ export default function CronogramaPage() {
       id: 'atrasadas',
       label: 'Tarefas atrasadas',
       value: String(stats.tasksAtrasadas),
-      icon: <AlertTriangle style={{ width: 16, height: 16, color: stats.tasksAtrasadas > 0 ? '#A32D2D' : '#3B6D11' }}/>,
+      icon: stats.tasksAtrasadas > 0
+        ? <AlertTriangle style={{ width: 16, height: 16, color: '#A32D2D' }}/>
+        : <CheckCircle2 style={{ width: 16, height: 16, color: '#3B6D11' }}/>,
       tint: stats.tasksAtrasadas > 0 ? '#FCEBEB' : '#EAF3DE',
       valueColor: stats.tasksAtrasadas > 0 ? '#A32D2D' : '#3B6D11',
       labelColor: stats.tasksAtrasadas > 0 ? '#A32D2D' : '#3B6D11',
@@ -421,6 +448,18 @@ export default function CronogramaPage() {
   // ── Toolbar planejamento (+ Tarefa + SubViewToggle + Baseline) ─────────────
   const planejamentoToolbar = obra ? (
     <>
+      {/* Stepper de versões: Estimativo → Analítico → Execução */}
+      <CronogramaVersaoStepper
+        versoes={versoes}
+        versaoAtiva={versaoAtiva}
+        onSelectVersao={handleSelectVersao}
+        onCriarVersao={handleCriarVersao}
+        loading={versoesLoading}
+      />
+
+      {/* Separador */}
+      <div style={{ width: 1, height: 22, background: 'var(--color-border-secondary)', flexShrink: 0, opacity: 0.5 }} />
+
       {/* Split button Tarefa */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <button
@@ -675,7 +714,7 @@ export default function CronogramaPage() {
                     <div key={imp.id} className="flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex flex-col gap-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                           <Badge variant="outline" className="text-[9px] uppercase font-bold text-slate-500">{imp.tipo}</Badge>
+                           <Badge variant="outline" className="text-[9px] uppercase font-bold text-slate-500">{imp.categoria}</Badge>
                            <span className="text-sm font-semibold text-foreground truncate">{tarefa?.nome || 'Tarefa removida'}</span>
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-1">{imp.descricao}</p>
@@ -755,8 +794,8 @@ export default function CronogramaPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="tipo">Tipo</Label>
-                <Select value={newImpedimento.tipo} onValueChange={(val) => setNewImpedimento({...newImpedimento, tipo: val})}>
+                <Label htmlFor="categoria">Categoria</Label>
+                <Select value={newImpedimento.categoria} onValueChange={(val: 'climatico' | 'projeto' | 'material' | 'mao_de_obra' | 'financeiro' | 'outros') => setNewImpedimento({...newImpedimento, categoria: val})}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -801,18 +840,20 @@ export default function CronogramaPage() {
               onClick={async () => {
                 if (!newImpedimento.tarefa_id || !newImpedimento.descricao) return;
                 await addImpedimento({
-                  ...newImpedimento,
                   obra_id: selectedObraId!,
+                  tarefa_id: newImpedimento.tarefa_id,
+                  categoria: newImpedimento.categoria,
+                  descricao: newImpedimento.descricao,
+                  data_inicio: newImpedimento.data_inicio,
+                  data_fim: null,
                   resolvido: false,
-                  impacto_financeiro: 0
                 });
                 setIsAddingImpedimento(false);
                 setNewImpedimento({
                   tarefa_id: '',
-                  tipo: 'climatico',
+                  categoria: 'climatico',
                   descricao: '',
                   data_inicio: new Date().toISOString().split('T')[0],
-                  impacto_financeiro: 0
                 });
               }}
               className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700"

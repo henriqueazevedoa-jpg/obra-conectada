@@ -1,0 +1,102 @@
+{
+  "cenarios": [
+    {
+      "id": "ORC-001",
+      "nome": "Trocar obra atualiza dados do orçamento",
+      "critico": true,
+      "passou": true,
+      "motivo": null,
+      "detalhe": {
+        "etapa1": null,
+        "etapa3_visivel": true
+      }
+    },
+    {
+      "id": "ORC-002",
+      "nome": "KPIs do orçamento refletem dados reais",
+      "critico": true,
+      "passou": false,
+      "motivo": "Total do orçamento não aparece ou está incorreto",
+      "detalhe": {
+        "totalText": null,
+        "semPrecoVisivel": true
+      }
+    },
+    {
+      "id": "ORC-003",
+      "nome": "Curva ABC exibe itens com dados reais",
+      "critico": false,
+      "passou": true,
+      "motivo": null,
+      "detalhe": {
+        "temClasseA": true,
+        "temEstrutura": true
+      }
+    },
+    {
+      "id": "ORC-004",
+      "nome": "Aba Planilha exibe etapas da obra selecionada",
+      "critico": true,
+      "passou": false,
+      "motivo": "Planilha mostra dados incorretos. Elevador(Obra2): false, Telha(Obra1): false",
+      "detalhe": {
+        "temElevador": false,
+        "temCobertura": false
+      }
+    },
+    {
+      "id": "ORC-005",
+      "nome": "Aba Cotação exibe cotações da obra",
+      "critico": false,
+      "passou": false,
+      "motivo": "Fornecedores da cotação não aparecem",
+      "detalhe": {
+        "temMetalPro": false,
+        "temConcremax": false
+      }
+    }
+  ],
+  "visual": [
+    {
+      "pagina": "/orcamento",
+      "status": "mudou",
+      "diffPct": "51.0"
+    },
+    {
+      "pagina": "/orcamento?tab=planilha",
+      "status": "mudou",
+      "diffPct": "50.7"
+    },
+    {
+      "pagina": "/orcamento?tab=cotacao",
+      "status": "mudou",
+      "diffPct": "51.0"
+    },
+    {
+      "pagina": "/cronograma",
+      "status": "ok",
+      "diffPct": "0.0"
+    },
+    {
+      "pagina": "/financeiro",
+      "status": "ok",
+      "diffPct": "0.0"
+    },
+    {
+      "pagina": "/painel",
+      "status": "mudou",
+      "diffPct": "64.3"
+    },
+    {
+      "pagina": "/dashboard",
+      "status": "mudou",
+      "diffPct": "57.6"
+    }
+  ],
+  "resumo": {
+    "totalCenarios": 5,
+    "passaram": 2,
+    "falharamCrit": 2,
+    "mudancasVisuais": 5
+  }
+}

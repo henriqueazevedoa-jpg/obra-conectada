@@ -1,0 +1,30 @@
+LASTRA — RELATÓRIO DE TESTES
+Sprint: SPRINT-C | Data: 24/04/2026, 16:50:59
+
+CENÁRIOS COMPORTAMENTAIS
+────────────────────────────────────────────────────────────
+Total: 5 | Passaram: 2 | Críticos com falha: 2
+
+✅ [ORC-001] Trocar obra atualiza dados do orçamento
+❌ [ORC-002] KPIs do orçamento refletem dados reais
+   ↳ Total do orçamento não aparece ou está incorreto
+✅ [ORC-003] Curva ABC exibe itens com dados reais
+❌ [ORC-004] Aba Planilha exibe etapas da obra selecionada
+   ↳ Planilha mostra dados incorretos. Elevador(Obra2): false, Telha(Obra1): false
+⚠️  [ORC-005] Aba Cotação exibe cotações da obra
+   ↳ Fornecedores da cotação não aparecem
+
+COMPARAÇÃO VISUAL
+────────────────────────────────────────────────────────────
+⚠️  /orcamento (~51.0% diff)
+⚠️  /orcamento?tab=planilha (~50.7% diff)
+⚠️  /orcamento?tab=cotacao (~51.0% diff)
+✅ /cronograma (~0.0% diff)
+✅ /financeiro (~0.0% diff)
+⚠️  /painel (~64.3% diff)
+⚠️  /dashboard (~57.6% diff)
+
+RESULTADO FINAL
+────────────────────────────────────────────────────────────
+❌ FALHOU — 2 cenário(s) crítico(s) com falha
+⚠️  5 página(s) com mudança visual — verificar screenshots
