@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useOrcamento, OrcamentoEtapa, OrcamentoInsumo, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
 import { supabase } from '@/integrations/supabase/untyped';
 import { useAuth } from '@/contexts/AuthContext';
+import type { MapaItem, MapaFornecedor, AdoptedPrice, CotacaoLink, SortField, SortDir, StatusFilter } from '@/types/cotacao';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useCotacaoCategorias, itemPertenceAEspecialidade } from '@/hooks/useCotacaoCategorias';
 import { Button } from '@/components/ui/button';
@@ -60,68 +61,6 @@ interface CotacaoCentralProps {
   onKpisChange?: (kpis: PageKPI[]) => void;
 }
 
-/** Insumo consolidado para o mapa */
-interface MapaItem {
-  key: string;
-  descricao: string;
-  unidade: string;
-  quantidade: number | null;
-  precoAtual: number | null;
-  etapaNome: string;
-  etapaId: string;
-  /** 'SINAPI' quando o preço vem da tabela SINAPI importada */
-  fonteReferencia?: string;
-  /** true quando é uma composição sem detalhamento de insumos (não usa usaInsumos) */
-  ehComposicaoSemInsumos?: boolean;
-  /** Dados SINAPI gravados pelo assistente de IA (vêm do banco, sem RPC adicional) */
-  sinapiPreco?: number | null;
-  sinapiCodigo?: number | null;
-  sinapiFonte?: string | null;
-  sinapiConfidence?: string | null;
-  sinapiConfirmado?: boolean;
-}
-
-interface CotacaoLink {
-  id: string;
-  token: string;
-  fornecedor_nome: string;
-  fornecedor_email: string | null;
-  status: 'pendente' | 'respondido' | 'expirado';
-  itens: MapaItem[];
-  respostas: Record<string, number>;
-  created_at: string;
-  expires_at: string | null;
-}
-
-/** Fornecedor unificado: pode vir de link respondido ou de entrada manual */
-interface MapaFornecedor {
-  id: string;                           // link.id ou slug do nome para manuais
-  nome: string;
-  tipo: 'link' | 'manual';
-  status?: 'pendente' | 'respondido' | 'expirado';   // só para links
-  precos: Record<string, number>;       // item_key → preço unitário
-  especialidades?: string[];            // codigos de cotacao_categorias
-  // A2: origem por célula — cada item_key pode ter vindo de link ou manual
-  // (na prática, toda célula do mesmo fornecedor tem a mesma fonte)
-  fonte: 'link' | 'manual';
-}
-
-/** Preço adotado conscientemente pelo usuário para um item */
-interface AdoptedPrice {
-  fornId: string;
-  fornNome: string;
-  preco: number;
-}
-
-type SortField = 'descricao' | 'quantidade' | 'precoAtual' | null;
-type SortDir = 'asc' | 'desc';
-/**
- * sem_preco   — sem nenhum preço (nem SINAPI)
- * cotado      — tem preço de fornecedor real (fonte != SINAPI)
- * sinapi      — tem apenas preço de referência SINAPI
- * excluir_sinapi — tudo exceto itens SINAPI (default: oculta SINAPI da view)
- */
-type StatusFilter = 'todos' | 'sem_preco' | 'cotado' | 'sinapi' | 'excluir_sinapi';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -343,6 +282,10 @@ export default function CotacaoCentral({
   const [pastePrecoFornNome, setPastePrecoFornNome] = useState('');
   const [pastePrecoText, setPastePrecoText] = useState('');
   const [pastePrecoSaving, setPastePrecoSaving] = useState(false);
+
+  // FASE 1: Dialog de confirmação para remover fornecedor (substitui window.confirm)
+  const [confirmDeleteForn, setConfirmDeleteForn] = useState<{ fornId: string; fornNome: string } | null>(null);
+  const [deletingForn, setDeletingForn] = useState(false);
 
   // ── Carregar links e dados manuais ──────────────────────────────────────────
   const loadLinks = useCallback(async () => {
@@ -698,17 +641,26 @@ export default function CotacaoCentral({
 
   // ── Remover fornecedor manual ─────────────────────────────────────────────
   const handleRemoveFornecedorManual = async (fornId: string, fornNome: string) => {
-    if (!confirm(`Remover fornecedor "${fornNome}" e todos os seus preços do mapa?`)) return;
+    // FASE 1: Usar Dialog controlado ao invés de window.confirm()
+    setConfirmDeleteForn({ fornId, fornNome });
+  };
+
+  const handleConfirmRemoveForn = async () => {
+    if (!confirmDeleteForn) return;
+    setDeletingForn(true);
     try {
       await (supabase as any)
         .from('cotacao_precos_manuais')
         .delete()
         .eq('obra_id', obra.id)
-        .eq('fornecedor_nome', fornNome);
-      setFornecedoresManuais(prev => prev.filter(f => f.id !== fornId));
-      toast({ title: `Fornecedor "${fornNome}" removido.` });
+        .eq('fornecedor_nome', confirmDeleteForn.fornNome);
+      setFornecedoresManuais(prev => prev.filter(f => f.id !== confirmDeleteForn.fornId));
+      toast({ title: `Fornecedor "${confirmDeleteForn.fornNome}" removido.` });
+      setConfirmDeleteForn(null);
     } catch {
       toast({ title: 'Erro ao remover fornecedor', variant: 'destructive' });
+    } finally {
+      setDeletingForn(false);
     }
   };
 
@@ -1023,7 +975,12 @@ export default function CotacaoCentral({
     for (const line of lines) {
       const parts = line.split(/\t|;/).map(p => p.trim());
       if (parts.length < 2) continue;
-      const rawPreco = parts[parts.length - 1].replace(/[R$\s.]/g, '').replace(',', '.');
+      // FASE 1: Parse moeda brasileira corretamente
+      // Input: "R$ 1.850,00" → Remove R$ e espaços → "1.850,00" → Remove pontos de milhar → "1850,00" → Substitui vírgula decimal → "1850.00"
+      const rawPreco = parts[parts.length - 1]
+        .replace(/[R$\s]/g, '')     // remove símbolo, espaços
+        .replace(/\./g, '')         // remove separadores de milhar (pontos)
+        .replace(',', '.');         // vírgula decimal → ponto
       const preco = parseFloat(rawPreco);
       if (isNaN(preco) || preco <= 0) continue;
       const desc = parts.slice(0, parts.length - 1).join(' ');
@@ -1999,5 +1956,25 @@ ${fornBlocks}
       onSetManualMatch={sinapiAssistente.setManualMatch}
       onCancel={() => { setSinapiReviewOpen(false); sinapiAssistente.reset(); }}
     />
+
+    {/* FASE 1: Dialog de confirmação para remover fornecedor (substitui window.confirm) */}
+    <Dialog open={!!confirmDeleteForn} onOpenChange={(open) => { if (!open) setConfirmDeleteForn(null); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Remover fornecedor?</DialogTitle>
+          <DialogDescription>
+            Tem certeza que deseja remover o fornecedor "{confirmDeleteForn?.fornNome}" e todos os seus preços do mapa? Esta ação não pode ser desfeita.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setConfirmDeleteForn(null)} disabled={deletingForn}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={handleConfirmRemoveForn} disabled={deletingForn}>
+            {deletingForn ? 'Removendo...' : 'Remover'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </>);
 }

@@ -15,6 +15,7 @@ import { useCotacaoListas, CotacaoLista, ListaStatus } from '@/hooks/useCotacaoL
 import type { CotacaoCategoria } from '@/hooks/useCotacaoCategorias';
 import { inferirCategoriaObj } from '@/utils/cotacaoCategorias';
 import { DndContext, DragEndEvent, DragStartEvent, useDroppable, useDraggable, DragOverlay, closestCenter } from '@dnd-kit/core';
+import type { MapaItem, MapaFornecedor } from '@/types/cotacao';
 import CotacaoComparativoTable from './CotacaoComparativoTable';
 
 // ── DnD Wrappers ───────────────────────────────────────────────────────────────
@@ -36,29 +37,7 @@ function DroppableLista({ lista, isSelected, statusMeta, children, className, on
   );
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-interface MapaItem {
-  key: string;
-  descricao: string;
-  unidade: string;
-  quantidade: number | null;
-  precoAtual: number | null;
-  etapaNome: string;
-  etapaId: string;
-  fonteReferencia?: string;
-  ehComposicaoSemInsumos?: boolean;
-}
-
-export interface MapaFornecedor {
-  id: string;                           // link.id ou slug do nome para manuais
-  nome: string;
-  tipo: 'link' | 'manual';
-  status?: 'pendente' | 'respondido' | 'expirado';   // só para links
-  precos: Record<string, number>;       // item_key → preço unitário
-  especialidades?: string[];            // codigos de cotacao_categorias
-  fonte: 'link' | 'manual';
-}
+// ── Props ──────────────────────────────────────────────────────────────────────
 
 interface Props {
   itens: MapaItem[];
@@ -66,7 +45,8 @@ interface Props {
   companyId: string | undefined;
   categorias: CotacaoCategoria[];
   todosFornecedores: MapaFornecedor[];
-  historicoPrecos: Record<string, { preco: number; ocorrencias: number }>;
+  contexto?: 'orcamento' | 'compra'; // FASE 1: adicionado conforme prop real passada
+  historico: Record<string, { preco: number; ocorrencias: number }>;
   onUpdatePrecoManual: (itemKey: string, fornId: string, fornNome: string, value: number) => Promise<void>;
   onAddFornecedor: (nome: string) => Promise<void>;
   onRemoveFornecedor: (fornId: string, fornNome: string) => Promise<void>;
@@ -84,8 +64,8 @@ function normalize(s: string) {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-export default function CotacaoSplitView({ 
-  itens, obraId, companyId, categorias, todosFornecedores, historicoPrecos,
+export default function CotacaoSplitView({
+  itens, obraId, companyId, categorias, todosFornecedores, historico,
   onUpdatePrecoManual, onAddFornecedor, onRemoveFornecedor
 }: Props) {
   const {
@@ -336,10 +316,10 @@ export default function CotacaoSplitView({
 
         {/* ── PAINEL DIREITO: Tabela Comparativa (Opção B) ── */}
         <div className="flex-1 flex flex-col min-w-0 bg-white relative pt-10 md:pt-0">
-          <CotacaoComparativoTable 
+          <CotacaoComparativoTable
             itensFiltrados={itensSelected}
             todosFornecedores={todosFornecedores}
-            historicoPrecos={historicoPrecos}
+            historicoPrecos={historico}
             onUpdatePrecoManual={onUpdatePrecoManual}
             onAddFornecedor={onAddFornecedor}
             onRemoveFornecedor={onRemoveFornecedor}
