@@ -33,7 +33,7 @@ interface Recebivel {
   descricao: string;
   valor_faturado: number;
   valor_recebido: number | null;
-  status: string; // 'aberto' | 'recebido' | 'parcial' | 'cancelado'
+  status: string; // 'pendente' | 'a_vencer' | 'vencido' | 'recebido' | 'parcial' | 'cancelado'
   data_emissao: string | null;
   data_vencimento: string | null;
   data_recebimento: string | null;
@@ -59,7 +59,7 @@ function calcStatus(r: Recebivel): Recebivel['statusDinamico'] {
   if (r.status === 'recebido') return 'recebido';
   if (r.status === 'parcial')  return 'parcial';
   if (r.status === 'cancelado') return 'pendente';
-  // aberto
+  // pendente, a_vencer, vencido — verificar data de vencimento para detalhar
   if (!r.data_vencimento) return 'pendente';
   const venc = parseISO(r.data_vencimento);
   if (isAfter(new Date(), venc)) return 'vencido';

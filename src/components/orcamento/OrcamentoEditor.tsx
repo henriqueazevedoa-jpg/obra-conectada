@@ -1282,32 +1282,7 @@ export default function OrcamentoEditor({
           {/* Planilha plana — sem padding, sem space-y (linhas contíguas) */}
           <div className="flex-1 overflow-y-auto relative bg-background">
             
-            {/* Cabeçalho fixo das colunas */}
-            {etapas.length > 0 && viewMode === 'excel' && (
-              <div className={cn(
-                "sticky top-0 z-20 grid items-center gap-0 px-1 border-b border-border/70 bg-muted/60 backdrop-blur-sm",
-                "h-7 text-[10px] font-semibold uppercase text-muted-foreground tracking-wider shadow-sm",
-                PLANILHA_GRID
-              )}>
-                <div className="flex items-center gap-1 px-1 bg-transparent">
-                  <button
-                    tabIndex={-1}
-                    onClick={() => setAllExpanded(prev => !prev)}
-                    className="flex items-center justify-center h-5 w-5 rounded hover:bg-muted text-muted-foreground transition-colors"
-                    title={anyExpanded ? 'Recolher todas as etapas' : 'Expandir todas as etapas'}
-                  >
-                    {anyExpanded ? <ChevronsDownUp className="h-3.5 w-3.5" /> : <ChevronsUpDown className="h-3.5 w-3.5" />}
-                  </button>
-                  <span className="pl-1">Descrição</span>
-                </div>
-                <div className="text-center px-0 text-muted-foreground/60" title="Tipo do item">T.</div>
-                <div className="text-center px-1">UN</div>
-                <div className="text-right px-1">QTD</div>
-                <div className="text-right px-1">R$/UN</div>
-                <div className="text-right px-1">TOTAL</div>
-                <div />
-              </div>
-            )}
+            {/* Cabeçalho global removido - movido para EtapaBlock.tsx */}
 
             {/* ── Sprint 3.4: Banner de revisão SINAPI ? ── */}
             {uncertainCount > 0 && !bannerDismissed && (

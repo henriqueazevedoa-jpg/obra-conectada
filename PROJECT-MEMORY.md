@@ -261,7 +261,105 @@ Objetivo:
 
 # 9) REGISTROS
 
-> Inserir novos registros sempre no topo desta seção, do mais recente para o mais antigo.
+## [2026-04-24 21:50] [TIPO: BUGFIX] [ÁREA: CRONOGRAMA, UI] [RELEVÂNCIA: ALTA]
+**Contexto:**
+Após Sprint D3, sistema entrou em crash com Internal Server Error 500 em GanttCanvasPanel.tsx linha 771.
+
+**Problema ou oportunidade:**
+Gemini Pro High gerou JSX incompleto — elemento SVG <line> com atributos x1/y1 mas sem tag de abertura. tsc passou mesmo com erro de sintaxe JSX.
+
+**Causa raiz:**
+Vite detecta erros de sintaxe JSX em runtime/build, mas o compilador tsc não necessariamente pega JSX malformado em todos os casos de parsing.
+
+**Solução aplicada:**
+Adicionar tag <line faltante antes dos atributos.
+
+**Regra extraída:**
+Após sprints com canvas/SVG complexo, verificar manualmente no browser antes de liberar push — tsc não garante JSX sintaticamente correto em todos os casos.
+
+**Quando reutilizar:**
+qualquer sprint que mexa em componentes canvas, SVG overlay ou JSX complexo gerado por Gemini.
+
+**Promover para memória permanente?**
+PATTERNS
+
+---
+
+## [2026-04-24 21:45] [TIPO: PADRAO] [ÁREA: SUPABASE, DEMO] [RELEVÂNCIA: ALTA]
+**Contexto:**
+Seeds com IDs aleatórios causavam confusão entre obras de teste e obras reais.
+
+**Problema ou oportunidade:**
+Inconsistência nos dados de teste dificultava a depuração de fluxos entre módulos.
+
+**Causa raiz:**
+Falta de um padrão de nomenclatura e IDs determinísticos para o ambiente de desenvolvimento.
+
+**Solução aplicada:**
+IDs fixos e legíveis para todas as entidades do seed.
+
+**Regra extraída:**
+Seguir sempre o padrão:
+- company: bbbbbbbb-0000-0000-0000-000000000001
+- obras: a1000000-...-000000000001 (a1), a2...(a2), a3...(a3)
+- versões: e1..., etapas: b1..., composições: c1..., insumos: d1..., pagamentos: pa1001..., custo_real: cr1001..., recebiveis: re1001...
+- email dev: admin@applastra.com.br
+
+**Quando reutilizar:**
+qualquer seed novo de qualquer módulo.
+
+**Promover para memória permanente?**
+PATTERNS
+
+---
+
+## [2026-04-24 21:40] [TIPO: PADRAO] [ÁREA: UI, SUPABASE] [RELEVÂNCIA: ALTA]
+**Contexto:**
+Scripts Playwright capturavam tela de login em vez das páginas alvo — problema intermitente.
+
+**Problema ou oportunidade:**
+Falhas nos testes automatizados e capturas de tela inúteis para auditoria.
+
+**Causa raiz:**
+Race condition entre autenticação Supabase e navegação. Sessão expirava entre páginas ou screenshot era tirado antes do redirect completar.
+
+**Solução aplicada:**
+Criar src/_auditoria/lib/auth.mjs com funções fazerLogin(page) e autenticarENavegar(page, rota). Todos os scripts importam deste módulo central.
+
+**Regra extraída:**
+Nunca duplicar lógica de auth nos scripts — sempre importar de lib/auth.mjs.
+
+**Quando reutilizar:**
+qualquer novo script de auditoria Playwright.
+
+**Promover para memória permanente?**
+ARCHITECTURE-DECISIONS
+
+---
+
+## [2026-04-24 21:35] [TIPO: DECISAO] [ÁREA: SUPABASE] [RELEVÂNCIA: ALTA]
+**Contexto:**
+Seeds falhavam com erro de coluna porque agentes geravam SQL sem consultar schema real.
+
+**Problema ou oportunidade:**
+Bloqueio de desenvolvimento devido a erros de banco de dados evitáveis.
+
+**Causa raiz:**
+MCP do Supabase não estava sendo usado pelos agentes de forma sistemática.
+
+**Solução aplicada:**
+MCP configurado em mcp_config.json com servidor remoto oficial (mcp.supabase.com). Agentes devem usar MCP para consultar schema ANTES de qualquer INSERT.
+
+**Regra extraída:**
+Todo prompt que gera SQL deve incluir instrução explícita "consultar schema via MCP antes de escrever qualquer INSERT".
+
+**Quando reutilizar:**
+seeds, migrations, qualquer query com colunas.
+
+**Promover para memória permanente?**
+ARCHITECTURE-DECISIONS
+
+---
 
 ## [2026-04-19 19:50] [TIPO: BUGFIX] [ÁREA: UI, FINANCEIRO] [RELEVÂNCIA: ALTA]
 **Contexto:**

@@ -1,4 +1,5 @@
 import { useRef, useMemo, useState, useCallback, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   format, parseISO, differenceInDays, addDays,
   eachWeekOfInterval, eachMonthOfInterval, endOfMonth,
@@ -179,18 +180,24 @@ function DependencyArrows({ deps, tarefas, tarefaRows, dateToX, criticalIds }: A
         const markerId = isCritical ? 'arrow-critical' : 'arrow-normal';
         const isFFOrSF = dep.tipo === 'FF' || dep.tipo === 'SF';
 
-        // Geometry by dependency type (Bloco 1.2)
+        // Geometry by dependency type (Bloco 1.2/1.4)
         let x1: number, x2: number;
         if (dep.tipo === 'SS') {
-          // SS: origin = start of predecessor bar, destination = start of successor bar
           if (!orig.data_inicio || !dest.data_inicio) return null;
-          x1 = dateToX(orig.data_inicio) + 2;
-          x2 = dateToX(dest.data_inicio) - 2;
-        } else {
-          // FS (and FF/SF visual fallback): origin = end of predecessor, dest = start of successor
+          x1 = dateToX(orig.data_inicio);
+          x2 = dateToX(dest.data_inicio) - 6;
+        } else if (dep.tipo === 'FF') {
+          if (!orig.data_fim || !dest.data_fim) return null;
+          x1 = dateToX(orig.data_fim) + 8;
+          x2 = dateToX(dest.data_fim) + 8;
+        } else if (dep.tipo === 'SF') {
+          if (!orig.data_inicio || !dest.data_fim) return null;
+          x1 = dateToX(orig.data_inicio);
+          x2 = dateToX(dest.data_fim) + 8;
+        } else { // FS
           if (!orig.data_fim || !dest.data_inicio) return null;
           x1 = dateToX(orig.data_fim) + 8;
-          x2 = dateToX(dest.data_inicio) - 2;
+          x2 = dateToX(dest.data_inicio) - 6;
         }
 
         const y1 = (origRow * ROW_H) + ROW_H / 2 + 8;
@@ -207,7 +214,7 @@ function DependencyArrows({ deps, tarefas, tarefaRows, dateToX, criticalIds }: A
               strokeWidth={isCritical ? 1.5 : 1}
               strokeDasharray={isDashed ? '4 2' : undefined}
               markerEnd={`url(#${markerId})`}
-              opacity={0.7}
+              opacity={isCritical ? 1 : 0.6}
             />
             {/* FF/SF tooltip hint — small label on midpoint */}
             {isFFOrSF && (
@@ -242,11 +249,13 @@ interface GanttBarProps {
   isSubtask?: boolean;  // subetapa: cor azul + altura reduzida
   onMouseDownMove: (e: React.MouseEvent) => void;
   onMouseDownResize: (e: React.MouseEvent) => void;
+  onMouseDownDragDep: (e: React.MouseEvent) => void;
+  onMouseEnterDropDep?: () => void;
   onDoubleClick: () => void;
   onClick: () => void;
 }
 
-function GanttBar({ tarefa, x, width, baselineX, baselineWidth, isSelected, statusKey, isSubtask, onMouseDownMove, onMouseDownResize, onDoubleClick, onClick }: GanttBarProps) {
+function GanttBar({ tarefa, x, width, baselineX, baselineWidth, isSelected, statusKey, isSubtask, onMouseDownMove, onMouseDownResize, onMouseDownDragDep, onMouseEnterDropDep, onDoubleClick, onClick }: GanttBarProps) {
   const colors = STATUS_COLORS[statusKey] ?? STATUS_COLORS.nao_iniciada;
   const isMilestone = tarefa.tipo_tarefa === 'MARCO';
 
@@ -262,17 +271,20 @@ function GanttBar({ tarefa, x, width, baselineX, baselineWidth, isSelected, stat
   const pendingColor = isSubtask ? SUBTASK_COLOR.pending : barColor;
 
   return (
-    <g>
+    <g onMouseEnter={onMouseEnterDropDep}>
+      <title>
+        {`${tarefa.nome}\nInício → Fim: ${tarefa.data_inicio ? format(parseISO(tarefa.data_inicio), 'dd/MM/yy') : '?'} → ${tarefa.data_fim ? format(parseISO(tarefa.data_fim), 'dd/MM/yy') : '?'}\nConclusão: ${tarefa.percentual_concluido}%\n${tarefa.baseline_inicio && tarefa.baseline_fim ? `Baseline: ${format(parseISO(tarefa.baseline_inicio), 'dd/MM/yy')} → ${format(parseISO(tarefa.baseline_fim), 'dd/MM/yy')}` : ''}`}
+      </title>
       {/* Baseline ghost bar */}
       {baselineX !== null && baselineWidth > 0 && (
         <rect
           x={baselineX}
-          y={offsetY + barH + 4}
+          y={offsetY + barH + 2}
           width={Math.max(baselineWidth, 4)}
           height={4}
           rx={2}
-          fill="#1E3A5F"
-          opacity={0.85}
+          fill={colors.bar}
+          opacity={0.40}
         />
       )}
 
@@ -347,10 +359,20 @@ function GanttBar({ tarefa, x, width, baselineX, baselineWidth, isSelected, stat
           <rect
             x={x + Math.max(width - 8, 0)} y={offsetY}
             width={8} height={barH}
-            rx={4}
             fill="transparent"
-            style={{ cursor: 'col-resize' }}
+            className="cursor-ew-resize"
             onMouseDown={onMouseDownResize}
+          />
+
+          {/* Dependency drag handle */}
+          <circle
+            cx={x + width}
+            cy={offsetY + barH / 2}
+            r={4}
+            fill="transparent"
+            stroke="transparent"
+            className="cursor-crosshair opacity-0 group-hover:opacity-100 hover:fill-primary transition-all"
+            onMouseDown={onMouseDownDragDep}
           />
 
           {/* Label — apenas se barra larga o suficiente */}
@@ -395,28 +417,22 @@ interface GanttCanvasPanelProps {
   selectedId: string | null;
   onSelectTarefa: (id: string) => void;
   onOpenDrawer: (tarefa: CronogramaTarefa) => void;
-  onUpdateDates: (id: string, start: string, end: string) => void;
+  onUpdateTarefa: (id: string, updates: Partial<CronogramaTarefa>) => void;
   onAddDependencia: (origemId: string, destinoId: string, tipo: TipoDep, lag: number) => void;
-  /** Bloco 6: retorna filhos de uma tarefa (para barra de composição de tarefas RESUMO) */
   childrenOf?: (parentId: string) => CronogramaTarefa[];
 }
 
 export default function GanttCanvasPanel({
-  tarefas, dependencias, selectedId, onSelectTarefa, onOpenDrawer, onUpdateDates, childrenOf,
+  tarefas, dependencias, selectedId, onSelectTarefa, onOpenDrawer, onUpdateTarefa, childrenOf, onAddDependencia
 }: GanttCanvasPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
-  // Largura real do canvas medida via ResizeObserver — evita leitura imperativa com clientWidth=0
   const [canvasWidth, setCanvasWidth] = useState(800);
   const [zoom, setZoom] = useState<ZoomLevel>('weeks');
-  // Bloco 3: flag para aplicar Fit apenas uma vez ao carregar
   const fitApplied = useRef(false);
-  // Rastreia a obra atual para detectar troca e re-aplicar Fit
   const lastObraId = useRef<string | undefined>(undefined);
-  // Bloco 3: span real em dias quando Fit está ativo (null = usa padrão do zoom)
   const [fitSpanDays, setFitSpanDays] = useState<number | null>(null);
 
-  // Bloco 3: Fit mode — inicializa viewStart na data mais cedo das tarefas (ou hoje)
   const [viewStart, setViewStart] = useState<Date>(() => {
     const earliest = tarefas
       .filter(t => t.data_inicio)
@@ -426,17 +442,17 @@ export default function GanttCanvasPanel({
     d.setDate(1);
     return d;
   });
+  
   const [drag, setDrag] = useState<DragState | null>(null);
-  const [previewDates, setPreviewDates] = useState<Record<string, { start: string; end: string }>>({})
-;
+  const [dragDep, setDragDep] = useState<{ tarefaId: string, startX: number, startY: number, currentX: number, currentY: number } | null>(null);
+  const [hoverDepDrop, setHoverDepDrop] = useState<string | null>(null);
+  const [previewDates, setPreviewDates] = useState<Record<string, { start: string; end: string }>>({});
 
   const cellPx = CELL_PX[zoom];
-  // Quando Fit está ativo usa o span real; senão usa o padrão do nível de zoom
   const defaultSpanDays = zoom === 'days' ? 30 : zoom === 'weeks' ? 70 : zoom === 'months' ? 180 : 365;
   const viewSpanDays = fitSpanDays ?? defaultSpanDays;
   const viewEnd = addDays(viewStart, viewSpanDays);
 
-  // ── Time columns ───────────────────────────────────────────────────────────
   const columns = useMemo(() => {
     if (zoom === 'months' || zoom === 'quarters') {
       return eachMonthOfInterval({ start: viewStart, end: viewEnd }).map(m => ({
@@ -452,7 +468,6 @@ export default function GanttCanvasPanel({
         spanDays: 7,
       }));
     }
-    // days
     const days: { label: string; start: Date; spanDays: number; isWeekend: boolean }[] = [];
     let cur = new Date(viewStart);
     cur.setHours(0, 0, 0, 0);
@@ -464,19 +479,6 @@ export default function GanttCanvasPanel({
     return days;
   }, [zoom, viewStart, viewEnd]);
 
-  const totalWidth = columns.reduce((s, c) => s + (c.spanDays / viewSpanDays) * (cellPx * (viewSpanDays / (zoom === 'weeks' ? 7 : zoom === 'days' ? 1 : 30))), 0);
-
-  // ── Pixel conversion ───────────────────────────────────────────────────────
-  const dateToX = useCallback((dateStr: string | null): number => {
-    if (!dateStr) return 0;
-    const d = parseISO(dateStr);
-    const totalDays = differenceInDays(viewEnd, viewStart) || 1;
-    const pxPerDay = (cellPx * (viewSpanDays / 7)) / totalDays * (totalDays / viewSpanDays);
-    const pixelsPerDay = (containerRef.current?.scrollWidth ?? 800) / viewSpanDays;
-    return Math.max(0, differenceInDays(d, viewStart) * pixelsPerDay);
-  }, [viewStart, viewEnd, viewSpanDays, cellPx]);
-
-  // ResizeObserver — mede a largura do canvas uma vez disponível e reage a mudanças
   useLayoutEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -490,28 +492,18 @@ export default function GanttCanvasPanel({
     return () => ro.disconnect();
   }, []);
 
-  // pxPerDay agora usa o state canvasWidth (reativo) em vez de leitura imperativa
   const pxPerDay = useCallback((): number => {
     return Math.max(canvasWidth, 200) / viewSpanDays;
   }, [canvasWidth, viewSpanDays]);
 
-  const dateToXv2 = useCallback((dateStr: string | null): number => {
+  const dateToX = useCallback((dateStr: string | null): number => {
     if (!dateStr) return 0;
     const d = parseISO(dateStr);
     const ppd = pxPerDay();
     return Math.max(0, differenceInDays(d, viewStart) * ppd);
   }, [viewStart, pxPerDay]);
 
-  const xToDate = useCallback((x: number): string => {
-    const ppd = pxPerDay();
-    const daysOffset = Math.round(x / ppd);
-    return format(addDays(viewStart, daysOffset), 'yyyy-MM-dd');
-  }, [viewStart, pxPerDay]);
-
-  // ── Critical path ──────────────────────────────────────────────────────────
   const criticalIds = useMemo(() => computeCriticalPath(tarefas, dependencias), [tarefas, dependencias]);
-
-  // ── Collapse state — persiste por sessão nos pais com filhos ───────────────
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set());
 
   const toggleCollapse = useCallback((parentId: string) => {
@@ -523,7 +515,6 @@ export default function GanttCanvasPanel({
     });
   }, []);
 
-  // ── Visible tasks — raízes + filhas de pais não colapsados ────────────────
   const visibleTarefas = useMemo(() => {
     const rootTasks = tarefas
       .filter(t => !t.parent_tarefa_id)
@@ -532,11 +523,9 @@ export default function GanttCanvasPanel({
     const result: (CronogramaTarefa & { _isSubtask?: boolean })[] = [];
     for (const root of rootTasks) {
       result.push(root);
-      // Se o pai NÃO está colapsado, inserir filhas com data definida
       if (!collapsedParents.has(root.id)) {
         const children = (childrenOf ? childrenOf(root.id) : []).sort((a, b) => a.ordem - b.ordem);
         for (const child of children) {
-          // Subetapas sem data de início/fim são ocultas do Gantt
           if (child.data_inicio && child.data_fim) {
             result.push({ ...child, _isSubtask: true });
           }
@@ -553,11 +542,8 @@ export default function GanttCanvasPanel({
   }, [visibleTarefas]);
 
   const totalCanvasHeight = Math.max(visibleTarefas.length * ROW_H + 32, 200);
+  const todayX = dateToX(format(new Date(), 'yyyy-MM-dd'));
 
-  // ── Today position ─────────────────────────────────────────────────────────
-  const todayX = dateToXv2(format(new Date(), 'yyyy-MM-dd'));
-
-  // ── Navigation ─────────────────────────────────────────────────────────────
   const navigate = (dir: number) => {
     const step = zoom === 'days' ? 14 : zoom === 'weeks' ? 28 : 60;
     setViewStart(prev => addDays(prev, dir * step));
@@ -569,7 +555,16 @@ export default function GanttCanvasPanel({
     setViewStart(d);
   };
 
-  // Bloco 3: Fit — ajusta a janela para cobrir TODAS as tarefas com margem
+  const goToActive = () => {
+    if (tarefas.length === 0) return;
+    const ativa = tarefas.find(t => t.data_inicio && t.data_fim && new Date() >= parseISO(t.data_inicio) && new Date() <= parseISO(t.data_fim));
+    if (ativa?.data_inicio) {
+      setViewStart(addDays(parseISO(ativa.data_inicio), -3));
+    } else {
+      goToToday();
+    }
+  };
+
   const fitToTasks = useCallback(() => {
     if (tarefas.length === 0) { goToToday(); return; }
     const dates = tarefas.flatMap(t => [t.data_inicio, t.data_fim].filter(Boolean) as string[]).map(s => parseISO(s));
@@ -577,32 +572,24 @@ export default function GanttCanvasPanel({
     const min = dates.reduce((a, b) => a < b ? a : b);
     const max = dates.reduce((a, b) => a > b ? a : b);
     const span = differenceInDays(max, min);
-    // Margem de 10% (mínimo 7 dias) de cada lado
     const margin = Math.max(7, Math.round(span * 0.05));
     const totalSpan = span + margin * 2;
-    // Escolher quião de zoom que melhor se encaixa no span
     if (totalSpan <= 35) setZoom('days');
     else if (totalSpan <= 120) setZoom('weeks');
     else if (totalSpan <= 500) setZoom('months');
     else setZoom('quarters');
-    // Salvar o span real para que viewSpanDays use esse valor
     setFitSpanDays(totalSpan);
     setViewStart(addDays(min, -margin));
   }, [tarefas]);
 
-  // Bloco 3: Fit mode como padrão — aplica automaticamente ao carregar e ao trocar de obra
   useEffect(() => {
     if (tarefas.length === 0) return;
-
     const currentObraId = tarefas[0]?.obra_id;
-
-    // Detecta troca de obra: reseta o flag para re-aplicar o Fit
     if (lastObraId.current !== undefined && lastObraId.current !== currentObraId) {
       fitApplied.current = false;
-      setFitSpanDays(null); // limpa span customizado da obra anterior
+      setFitSpanDays(null);
     }
     lastObraId.current = currentObraId;
-
     if (!fitApplied.current) {
       const hasDatedTasks = tarefas.some(t => t.data_inicio);
       if (hasDatedTasks) {
@@ -612,349 +599,177 @@ export default function GanttCanvasPanel({
     }
   }, [tarefas, fitToTasks]);
 
-  // Bloco 3: Ir para a primeira tarefa em andamento
-  const goToAtivo = () => {
-    const ativa = tarefas.find(t => t.data_inicio && t.data_fim && new Date() >= parseISO(t.data_inicio) && new Date() <= parseISO(t.data_fim));
-    if (ativa?.data_inicio) {
-      setViewStart(addDays(parseISO(ativa.data_inicio), -3));
-    } else {
-      goToToday();
-    }
+  const handleMouseDownMove = (e: React.MouseEvent, tarefa: CronogramaTarefa) => {
+    if (!tarefa.pode_editar_datas || e.button !== 0 || !tarefa.data_inicio || !tarefa.data_fim) return;
+    e.stopPropagation();
+    setDrag({ type: 'move', tarefaId: tarefa.id, startMouseX: e.clientX, originalStart: tarefa.data_inicio, originalEnd: tarefa.data_fim });
   };
 
-  // ── Drag handlers ──────────────────────────────────────────────────────────
-  const handleMouseDownMove = useCallback((e: React.MouseEvent, tarefa: CronogramaTarefa) => {
-    e.preventDefault();
+  const handleMouseDownResize = (e: React.MouseEvent, tarefa: CronogramaTarefa) => {
+    if (!tarefa.pode_editar_datas || e.button !== 0 || !tarefa.data_inicio || !tarefa.data_fim) return;
     e.stopPropagation();
-    if (!tarefa.data_inicio || !tarefa.data_fim) return;
-    setDrag({
-      type: 'move',
-      tarefaId: tarefa.id,
-      startMouseX: e.clientX,
-      originalStart: tarefa.data_inicio,
-      originalEnd: tarefa.data_fim,
-    });
-  }, []);
+    setDrag({ type: 'resize-right', tarefaId: tarefa.id, startMouseX: e.clientX, originalStart: tarefa.data_inicio, originalEnd: tarefa.data_fim });
+  };
 
-  const handleMouseDownResize = useCallback((e: React.MouseEvent, tarefa: CronogramaTarefa) => {
-    e.preventDefault();
+  const handleMouseDownDragDep = (e: React.MouseEvent, tarefa: CronogramaTarefa, rowIdx: number) => {
     e.stopPropagation();
-    if (!tarefa.data_inicio || !tarefa.data_fim) return;
-    setDrag({
-      type: 'resize-right',
-      tarefaId: tarefa.id,
-      startMouseX: e.clientX,
-      originalStart: tarefa.data_inicio,
-      originalEnd: tarefa.data_fim,
-    });
-  }, []);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || !tarefa.data_fim) return;
+    const startX = dateToX(tarefa.data_fim) + 8;
+    const startY = rowIdx * ROW_H + ROW_H / 2 + 8;
+    setDragDep({ tarefaId: tarefa.id, startX, startY, currentX: e.clientX - rect.left, currentY: e.clientY - rect.top });
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (dragDep) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setDragDep(prev => prev ? { ...prev, currentX: e.clientX - rect.left, currentY: e.clientY - rect.top } : null);
+      return;
+    }
+    if (!drag) return;
+    const deltaX = e.clientX - drag.startMouseX;
+    const deltaDays = Math.round(deltaX / pxPerDay());
+    if (deltaDays === 0) { setPreviewDates({}); return; }
+
+    if (drag.type === 'move') {
+      const newStart = format(addDays(parseISO(drag.originalStart), deltaDays), 'yyyy-MM-dd');
+      const dur = differenceInDays(parseISO(drag.originalEnd), parseISO(drag.originalStart));
+      const newEnd = format(addDays(parseISO(newStart), dur), 'yyyy-MM-dd');
+      setPreviewDates({ [drag.tarefaId]: { start: newStart, end: newEnd } });
+    } else {
+      const newEnd = format(addDays(parseISO(drag.originalEnd), deltaDays), 'yyyy-MM-dd');
+      if (newEnd <= drag.originalStart) return;
+      setPreviewDates({ [drag.tarefaId]: { start: drag.originalStart, end: newEnd } });
+    }
+  }, [drag, dragDep, pxPerDay]);
+
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    if (!drag) return;
+    const preview = previewDates[drag.tarefaId];
+    if (preview) {
+      const start = parseISO(preview.start);
+      const end = parseISO(preview.end);
+      const duracao_dias = Math.max(1, differenceInDays(end, start) + 1);
+      onUpdateTarefa(drag.tarefaId, { data_inicio: preview.start, data_fim: preview.end, duracao_dias });
+    }
+    setDrag(null);
+    setPreviewDates({});
+  }, [drag, previewDates, onUpdateTarefa]);
+
+  const handleMouseUpLocal = useCallback((e: MouseEvent) => {
+    if (dragDep) {
+      if (hoverDepDrop && hoverDepDrop !== dragDep.tarefaId) {
+        onAddDependencia(dragDep.tarefaId, hoverDepDrop, 'FS', 0);
+      }
+      setDragDep(null);
+      setHoverDepDrop(null);
+    } else {
+      handleMouseUp(e);
+    }
+  }, [dragDep, hoverDepDrop, handleMouseUp, onAddDependencia]);
 
   useEffect(() => {
-    if (!drag) return;
+    if (drag || dragDep) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUpLocal);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUpLocal);
+      };
+    }
+  }, [drag, dragDep, handleMouseMove, handleMouseUpLocal]);
 
-    const ppd = pxPerDay();
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaPx = e.clientX - drag.startMouseX;
-      const deltaDays = Math.round(deltaPx / ppd);
-
-      if (deltaDays === 0) { setPreviewDates({}); return; }
-
-      if (drag.type === 'move') {
-        const newStart = format(addDays(parseISO(drag.originalStart), deltaDays), 'yyyy-MM-dd');
-        const dur = differenceInDays(parseISO(drag.originalEnd), parseISO(drag.originalStart));
-        const newEnd = format(addDays(parseISO(newStart), dur), 'yyyy-MM-dd');
-        setPreviewDates({ [drag.tarefaId]: { start: newStart, end: newEnd } });
-      } else {
-        // resize-right: only extend the end date
-        const newEnd = format(addDays(parseISO(drag.originalEnd), deltaDays), 'yyyy-MM-dd');
-        if (newEnd <= drag.originalStart) return;
-        setPreviewDates({ [drag.tarefaId]: { start: drag.originalStart, end: newEnd } });
-      }
-    };
-
-    const handleMouseUp = () => {
-      const preview = previewDates[drag.tarefaId];
-      if (preview) {
-        onUpdateDates(drag.tarefaId, preview.start, preview.end);
-        toast({
-          title: 'Datas atualizadas',
-          description: `Tarefa movida para ${format(parseISO(preview.start), 'dd/MM/yy')} → ${format(parseISO(preview.end), 'dd/MM/yy')}`,
-        });
-      }
-      setDrag(null);
-      setPreviewDates({});
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [drag, pxPerDay, previewDates, onUpdateDates]);
-
-  // ── Column pixel positions (for the header) ────────────────────────────────
   const colPositions = useMemo(() => {
     const ppd = pxPerDay();
-    const positions: { x: number; width: number; label: string; isWeekend?: boolean }[] = [];
-    columns.forEach(col => {
-      const x = differenceInDays(col.start, viewStart) * ppd;
-      const w = col.spanDays * ppd;
-      positions.push({ x: Math.max(0, x), width: w, label: col.label, isWeekend: (col as any).isWeekend });
-    });
-    return positions;
+    return columns.map(col => ({
+      x: Math.max(0, differenceInDays(col.start, viewStart) * ppd),
+      width: col.spanDays * ppd,
+      label: col.label,
+      isWeekend: (col as any).isWeekend
+    }));
   }, [columns, viewStart, pxPerDay]);
 
-  // ─────────────────────────────────────────────────────────────────────────
+  const renderPortalTools = () => {
+    const portalElement = document.getElementById('gantt-toolbar-portal');
+    if (!portalElement) return null;
+    return createPortal(
+      <div className="flex items-center justify-between px-4 py-2 h-full">
+        <div className="flex items-center gap-1.5 text-xs">
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={fitToTasks}>Fit</Button>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={goToToday}>Hoje</Button>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={goToActive}>Ativo</Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-background rounded-md border border-border">
+            {(['days', 'weeks', 'months', 'quarters'] as ZoomLevel[]).map(z => (
+              <button
+                key={z} onClick={() => { setZoom(z); setFitSpanDays(null); }}
+                className={cn('px-3 py-1 text-xs font-medium transition-colors', zoom === z ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}
+              >
+                {z === 'days' ? 'Dias' : z === 'weeks' ? 'Semanas' : z === 'months' ? 'Meses' : 'Trim.'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>,
+      portalElement
+    );
+  };
+
   return (
-    <div
-      ref={containerRef}
-      className={cn('flex flex-col h-full select-none', drag && 'cursor-grabbing')}
-    >
-      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-card shrink-0">
-        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => navigate(-1)}>
-          <ChevronLeft className="h-3.5 w-3.5" />
-        </Button>
-        <span className="text-[11px] text-muted-foreground w-28 text-center font-medium">
-          {format(viewStart, 'MMM yyyy', { locale: ptBR })} – {format(viewEnd, 'MMM yyyy', { locale: ptBR })}
-        </span>
-        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => navigate(1)}>
-          <ChevronRight className="h-3.5 w-3.5" />
-        </Button>
-
-        <div className="flex-1" />
-
-        {/* Bloco 3: Fit, Ativo, Hoje — agrupados e visíveis */}
-        <div className="flex border border-border rounded-md overflow-hidden shrink-0">
-          <button
-            onClick={fitToTasks}
-            title="Ajustar visualização para cobrir todas as tarefas"
-            className="px-2 h-6 text-[10px] font-medium text-primary bg-primary/5 hover:bg-primary/15 transition-colors border-r border-border"
-          >
-            Fit
-          </button>
-          <button
-            onClick={goToAtivo}
-            title="Ir para a tarefa ativa"
-            className="px-2 h-6 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors border-r border-border"
-          >
-            Ativo
-          </button>
-          <button
-            onClick={goToToday}
-            title="Ir para hoje"
-            className="px-2 h-6 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            Hoje
-          </button>
-        </div>
-
-        {/* Zoom controls */}
-        <div className="flex border border-border rounded-md overflow-hidden">
-          {([['days', 'Dias'], ['weeks', 'Sem.'], ['months', 'Meses'], ['quarters', 'Trim.']] as [ZoomLevel, string][]).map(([z, label]) => (
-            <button
-              key={z}
-              onClick={() => { setZoom(z); setFitSpanDays(null); }}
-              className={cn(
-                'px-2 h-6 text-[10px] transition-colors',
-                zoom === z ? 'bg-primary text-primary-foreground font-medium' : 'hover:bg-muted text-muted-foreground'
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Legend */}
-        <div className="hidden xl:flex items-center gap-2 border-l border-border pl-2 ml-1">
-          {criticalIds.size > 0 && (
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-2 rounded-sm bg-orange-500" />
-              <span className="text-[9px] text-muted-foreground">Caminho Crítico</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-2 rounded-sm" style={{ background: '#10b981' }} />
-            <span className="text-[9px] text-muted-foreground">Etapa normal</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-2 rounded-sm" style={{ background: '#3B82F6' }} />
-            <span className="text-[9px] text-muted-foreground">Subetapa</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rotate-45" style={{ background: '#94a3b8', display: 'inline-block' }} />
-            <span className="text-[9px] text-muted-foreground">Marco</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-1 rounded-full bg-[#1E3A5F]" />
-            <span className="text-[9px] text-muted-foreground">Baseline</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Canvas ───────────────────────────────────────────────────────── */}
+    <div className="flex flex-col h-full bg-card overflow-hidden">
+      {renderPortalTools()}
       <div className="flex-1 overflow-auto scrollbar-none">
-        <div
-          ref={canvasRef}
-          className="gantt-canvas-inner relative"
-          style={{ minWidth: '100%', height: totalCanvasHeight + 32 }}
-        >
-          {/* Time header */}
+        <div ref={canvasRef} className="gantt-canvas-inner relative" style={{ minWidth: '100%', height: totalCanvasHeight + 32 }}>
           <div className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm border-b border-border" style={{ height: 28 }}>
             <svg width="100%" height={28} className="overflow-visible">
               {colPositions.map((col, i) => (
                 <g key={i}>
-                  {col.isWeekend && (
-                    <rect x={col.x} y={0} width={col.width} height={28} fill="#f1f5f9" opacity={0.5} />
-                  )}
+                  {col.isWeekend && <rect x={col.x} y={0} width={col.width} height={28} fill="#f1f5f9" opacity={0.5} />}
                   <line x1={col.x} y1={0} x2={col.x} y2={28} stroke="hsl(var(--border))" strokeWidth={0.5} />
-                  <text x={col.x + 4} y={17} fontSize="9" fill="hsl(var(--muted-foreground))" fontWeight="500">
-                    {col.label}
-                  </text>
+                  <text x={col.x + 4} y={17} fontSize="9" fill="hsl(var(--muted-foreground))" fontWeight="500">{col.label}</text>
                 </g>
               ))}
             </svg>
           </div>
-
-          {/* SVG canvas for bars + arrows */}
-          <svg
-            width="100%"
-            height={totalCanvasHeight}
-            style={{ display: 'block', overflow: 'visible' }}
-          >
-            {/* Grid columns (weekends + lines) */}
+          <svg width="100%" height={totalCanvasHeight} style={{ display: 'block', overflow: 'visible' }}>
             {colPositions.map((col, i) => (
               <g key={i}>
-                {col.isWeekend && (
-                  <rect x={col.x} y={0} width={col.width} height={totalCanvasHeight} fill="#f8fafc" opacity={0.6} />
-                )}
+                {col.isWeekend && <rect x={col.x} y={0} width={col.width} height={totalCanvasHeight} fill="#f8fafc" opacity={0.6} />}
                 <line x1={col.x} y1={0} x2={col.x} y2={totalCanvasHeight} stroke="hsl(var(--border))" strokeWidth={0.4} opacity={0.5} />
               </g>
             ))}
-
-            {/* Row alternating backgrounds */}
             {visibleTarefas.map((_, i) => (
-              <rect key={i} x={0} y={i * ROW_H} width="100%" height={ROW_H}
-                fill={i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.012)'}
-              />
+              <rect key={i} x={0} y={i * ROW_H} width="100%" height={ROW_H} fill={i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.012)'} />
             ))}
-
-            {/* Row horizontal lines */}
-            {visibleTarefas.map((_, i) => (
-              <line key={i} x1={0} y1={(i + 1) * ROW_H} x2="100%" y2={(i + 1) * ROW_H}
-                stroke="hsl(var(--border))" strokeWidth={0.4} opacity={0.4}
-              />
-            ))}
-
-            {/* Today line */}
             {todayX > 0 && visibleTarefas.length > 0 && (
               <g>
-                <line x1={todayX} y1={0} x2={todayX} y2={totalCanvasHeight}
-                  stroke="#ef4444" strokeWidth={1.5} opacity={0.5}
-                />
-                <circle cx={todayX} cy={4} r={3} fill="#ef4444" opacity={0.7} />
-                {/* Label "hoje" no topo da linha */}
-                <g transform={`translate(${todayX}, 0)`}>
-                  <rect x={-15} y={6} width={30} height={13} rx={3}
-                    fill="var(--color-background-primary)" stroke="#F09595" strokeWidth={0.5}
-                  />
-                  <text x={0} y={15.5} textAnchor="middle"
-                    fontSize={9} fontWeight={500} fill="#A32D2D"
-                    style={{ fontFamily: 'inherit', userSelect: 'none', pointerEvents: 'none' }}
-                  >
-                    hoje
-                  </text>
-                </g>
+                <line x1={todayX} y1={0} x2={todayX} y2={totalCanvasHeight} stroke="#ef4444" strokeWidth={1.5} opacity={0.5} />
               </g>
             )}
-
-            {/* Dependency arrows */}
-            <DependencyArrows
-              deps={dependencias}
-              tarefas={visibleTarefas}
-              tarefaRows={tarefaRows}
-              dateToX={dateToXv2}
-              criticalIds={criticalIds}
-            />
-
-            {/* Task bars */}
+            <DependencyArrows deps={dependencias} tarefas={visibleTarefas} tarefaRows={tarefaRows} dateToX={dateToX} criticalIds={criticalIds} />
             {visibleTarefas.map((tarefa, rowIdx) => {
               const isSubtask = !!(tarefa as any)._isSubtask;
               const indent = isSubtask ? SUB_INDENT : 0;
               const preview = previewDates[tarefa.id];
               const displayStart = preview?.start ?? tarefa.data_inicio;
               const displayEnd = preview?.end ?? tarefa.data_fim;
-
-              // Barra de composição para tarefas RESUMO (Agrupador) — só em raízes
-              const isResumo = !isSubtask && tarefa.tipo_tarefa === 'RESUMO';
-              const children = isResumo && childrenOf ? childrenOf(tarefa.id) : [];
-              const childDates = children
-                .flatMap(c => [c.data_inicio, c.data_fim].filter(Boolean) as string[])
-                .map(s => parseISO(s));
-              const compStart = childDates.length > 0 ? childDates.reduce((a, b) => a < b ? a : b) : null;
-              const compEnd   = childDates.length > 0 ? childDates.reduce((a, b) => a > b ? a : b) : null;
-              const compX  = compStart ? dateToXv2(format(compStart, 'yyyy-MM-dd')) : null;
-              const compX2 = compEnd   ? dateToXv2(format(compEnd,   'yyyy-MM-dd')) : null;
-              const compWidth = compX !== null && compX2 !== null ? Math.max(compX2 - compX + pxPerDay(), 8) : 0;
-
-              // Verificar se este pai tem filhas (para ícone de toggle)
               const hasChildren = !isSubtask && (childrenOf ? childrenOf(tarefa.id) : []).length > 0;
               const isCollapsed = collapsedParents.has(tarefa.id);
-
-              if (!displayStart || !displayEnd) {
-                return (
-                  <g key={tarefa.id} transform={`translate(0, ${rowIdx * ROW_H})`}>
-                    {/* Composition bar even without own dates */}
-                    {compX !== null && compWidth > 0 && (
-                      <g>
-                        <rect x={compX} y={BAR_OFFSET_Y + 4} width={compWidth} height={BAR_H - 8} rx={3} fill="#64748b" opacity={0.15} />
-                        <rect x={compX} y={BAR_OFFSET_Y + 4} width={compWidth} height={BAR_H - 8} rx={3} fill="none" stroke="#64748b" strokeWidth={1} opacity={0.5} />
-                      </g>
-                    )}
-                    {/* Ícone collapse/expand para pais sem data */}
-                    {hasChildren && (
-                      <text
-                        x={4} y={ROW_H / 2 + 4} fontSize="8" fill="#94a3b8"
-                        dominantBaseline="middle" style={{ cursor: 'pointer', userSelect: 'none' }}
-                        onClick={() => toggleCollapse(tarefa.id)}
-                      >{isCollapsed ? '▶' : '▼'}</text>
-                    )}
-                  </g>
-                );
-              }
-
-              const x = dateToXv2(displayStart) + indent;
-              const x2 = dateToXv2(displayEnd);
-              const width = Math.max(x2 - x + pxPerDay() - indent, 8);
-
-              const baseX = tarefa.baseline_inicio ? dateToXv2(tarefa.baseline_inicio) + indent : null;
-              const baseX2 = tarefa.baseline_fim ? dateToXv2(tarefa.baseline_fim) : null;
+              if (!displayStart || !displayEnd) return (
+                <g key={tarefa.id} transform={`translate(0, ${rowIdx * ROW_H})`}>
+                  {hasChildren && <text x={4} y={ROW_H / 2 + 4} fontSize="8" fill="#94a3b8" dominantBaseline="middle" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleCollapse(tarefa.id)}>{isCollapsed ? '▶' : '▼'}</text>}
+                </g>
+              );
+              const x = dateToX(displayStart) + indent;
+              const width = Math.max(dateToX(displayEnd) - x + pxPerDay() - indent, 8);
+              const baseX = tarefa.baseline_inicio ? dateToX(tarefa.baseline_inicio) + indent : null;
+              const baseX2 = tarefa.baseline_fim ? dateToX(tarefa.baseline_fim) : null;
               const baselineWidth = baseX !== null && baseX2 !== null ? Math.max(baseX2 - baseX + pxPerDay() - indent, 4) : 0;
-
               const statusKey = criticalIds.has(tarefa.id) ? 'critico' : computeStatus(tarefa);
-              const isDragging = drag?.tarefaId === tarefa.id;
-
               return (
-                <g
-                  key={tarefa.id}
-                  transform={`translate(0, ${rowIdx * ROW_H})`}
-                  opacity={isDragging ? 0.7 : 1}
-                >
-                  {/* Bracket de agrupador só quando o RESUMO NÃO tem datas próprias
-                      — quando tem datas, a GanttBar já representa o agrupador visualmente */}
-
-                  {/* Ícone colapsar/expandir — pais com filhas */}
-                  {hasChildren && (
-                    <text
-                      x={4} y={ROW_H / 2 + 4} fontSize="8" fill="#94a3b8"
-                      dominantBaseline="middle" style={{ cursor: 'pointer', userSelect: 'none' }}
-                      onClick={() => toggleCollapse(tarefa.id)}
-                    >{isCollapsed ? '▶' : '▼'}</text>
-                  )}
-
-                  {/* Linha de conexão vertical — subetapa */}
+                <g key={tarefa.id} transform={`translate(0, ${rowIdx * ROW_H})`}>
                   {isSubtask && (
                     <line
                       x1={SUB_INDENT - 4} y1={0}
@@ -974,12 +789,27 @@ export default function GanttCanvasPanel({
                     isSubtask={isSubtask}
                     onMouseDownMove={e => handleMouseDownMove(e, tarefa)}
                     onMouseDownResize={e => handleMouseDownResize(e, tarefa)}
+                    onMouseDownDragDep={e => handleMouseDownDragDep(e, tarefa, rowIdx)}
+                    onMouseEnterDropDep={() => dragDep ? setHoverDepDrop(tarefa.id) : null}
                     onDoubleClick={() => onOpenDrawer(tarefa)}
                     onClick={() => onSelectTarefa(tarefa.id)}
                   />
                 </g>
               );
             })}
+
+            {/* Render drag line preview */}
+            {dragDep && (
+              <path
+                d={`M ${dragDep.startX} ${dragDep.startY} C ${(dragDep.startX + dragDep.currentX)/2} ${dragDep.startY}, ${(dragDep.startX + dragDep.currentX)/2} ${dragDep.currentY}, ${dragDep.currentX} ${dragDep.currentY}`}
+                fill="none"
+                stroke="currentColor"
+                className="text-primary"
+                strokeWidth={1.5}
+                strokeDasharray="4 2"
+                pointerEvents="none"
+              />
+            )}
           </svg>
 
           {/* Empty state */}

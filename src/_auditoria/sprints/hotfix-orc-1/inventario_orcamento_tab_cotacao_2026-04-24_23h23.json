@@ -1,0 +1,16 @@
+{
+  "pagina": "/orcamento?tab=cotacao",
+  "sprint": "hotfix-orc-1",
+  "timestamp": "2026-04-24_23h23",
+  "componentes": [
+    "CotacaoCentralTab",
+    "CotacaoComparativo",
+    "FornecedorDrawer"
+  ],
+  "codigoExtraido": {},
+  "inventario": {},
+  "problemasEstaticos": [],
+  "violacoesDOM": [],
+  "escopoCaptura": [],
+  "escopoIgnorar": []
+}

@@ -2189,3 +2189,357 @@ VALIDAÇÃO 55C:
 FIM DO PLANO GERAL
 Total: 58 prompts + Fase 15 (ORCAMENTO-REFACTOR 55A/55B/55C)
 ================================================================
+===============================================================
+FASE 16 — REFINAMENTO VISUAL E ESTABILIZAÇÃO
+================================================================
+ 
+NOTA: Sprints de revisão completa por módulo.
+Cada sprint = inspeção + correções + seed + testes.
+Executar em sequência, um módulo por vez.
+ 
+----------------------------------------------------------------
+SPRINT-A — Bugs críticos globais [CONCLUÍDO 24/04/2026]
+----------------------------------------------------------------
+ 
+- Nome ObraFácil → Lastra em toda a aplicação
+- Bloco DEV na tela de login condicionado a import.meta.env.DEV
+- Sidebar: ícone ativo segue rota atual
+- Erros 400: /painel, /diario, /agenda, /admin/calculadora
+- Calculadora pública em branco
+- Tabs configurações não lendo ?tab=
+- TS2367 ComposicaoRow.tsx FonteBadge + 'sugerido'
+ 
+ 
+----------------------------------------------------------------
+SPRINT-B — Design system global [CONCLUÍDO 24/04/2026]
+----------------------------------------------------------------
+ 
+- Background conteúdo: #fff → #F7F7FB
+- Semântica de cor unificada (PT-022):
+  verde=positivo, vermelho=problema, âmbar=atenção, cinza=neutro
+- KPI cards com contexto (não só número solto)
+- Empty states compactos (ícone menor, menos altura)
+- Sidebar: labels visíveis via tooltip
+- Linha "hoje" some no Gantt empty state
+- Desvio -100% custo real: verde → cinza neutro
+- Banner compras some quando sem dados
+- KPI tarefas atrasadas=0: âmbar → verde/neutro
+ 
+ 
+----------------------------------------------------------------
+SPRINT-C — Orçamento: bugs críticos + OrcamentoContext
+[CONCLUÍDO 24/04/2026]
+----------------------------------------------------------------
+ 
+- OrcamentoContext filtrava etapas sem versao_id → corrigido
+  para carregar todas as etapas; filtragem por versão no componente
+- contratos.data_fim → data_fim_prevista (query PainelObraPage)
+- contratos.valor_total → valor_atual
+- Realtime loop useNotifications: canal com ID randomizado
+- trackingId em OrcamentoEditor: acompanha obra + versão ativa
+ 
+ 
+----------------------------------------------------------------
+SPRINT-D — Cronograma: seed + migration + correções + CRON-A
+[EM EXECUÇÃO]
+----------------------------------------------------------------
+ 
+BLOCO 1 — Seed de cronograma
+Inserir 8 tarefas para Residência Vila Nova:
+- 3 etapas pai (RESUMO): Fundações(100%), Estrutura(60%), Instalações(0%)
+- 5 tarefas filho (PADRAO + 1 MARCO)
+- 1 tarefa atrasada (Vigas e laje: data_fim passada, %<100)
+- Dependências FS entre tarefas
+- Baseline definido (estrutura com desvio visível)
+IDs fixos: ct100000-0000-0000-0000-00000000000[1-8]
+ 
+BLOCO 2 — Migration cronograma_versoes
+CREATE TABLE cronograma_versoes (
+  id, obra_id, company_id, nome, tipo (estimativo/analitico/execucao),
+  status (ativo/arquivado/baseline), versao_pai_id, descricao,
+  created_at, updated_at
+)
+RLS por company_id.
+ALTER cronograma_tarefas ADD COLUMN versao_id.
+ 
+BLOCO 3 — Correções de schema
+- Mismatch tipo/categoria em CronogramaImpedimento (interface TS)
+- Remover impacto_financeiro do payload addImpedimento
+- Adicionar filtro company_id em useCronograma fetch
+- KPI tarefas atrasadas=0: ícone AlertTriangle → CheckCircle2
+ 
+BLOCO 4 — CRON-A (stepper + seletor de versão)
+- Stepper visual: Estimativo → Analítico → Execução
+  abaixo da toolbar, fase ativa destacada
+  trocar fase cria nova versão em cronograma_versoes
+- Seletor de versão na toolbar (análogo ao VersaoSeletor do Orçamento)
+  dropdown com versões disponíveis da obra
+  ao selecionar: filtrar tarefas por versao_id
+ 
+NÃO inclui neste sprint:
+  - Wizard importação orçamento → cronograma (CRON-B)
+  - PDFs (CRON-B)
+  - Modo Apresentação (CRON-B)
+ 
+ 
+----------------------------------------------------------------
+SPRINT-E — Cronograma: CRON-B (outputs e integrações avançadas)
+[PRÓXIMO APÓS SPRINT-D]
+----------------------------------------------------------------
+ 
+ANTES DE COMEÇAR:
+Inspecionar estado pós SPRINT-D. Confirmar seed e versões funcionando.
+ 
+FEATURES:
+1. Wizard importação orçamento → cronograma
+   - Banner no topo quando orçamento tem etapas mas cronograma vazio
+   - Wizard 3 passos: selecionar etapas → estimar durações → baseline
+   - Amdahl sugerido automaticamente por composição SINAPI
+ 
+2. PDF "Proposta Comercial" (cronograma estimativo)
+   - jsPDF A4 com header dark, timeline visual, resumo financeiro
+ 
+3. PDF "Cronograma de Obra" (analítico com baseline)
+   - Gantt simplificado, progresso por etapa, marcos destacados
+ 
+4. Modo Apresentação
+   - Fullscreen via botão na toolbar
+   - Gantt centralizado sem sidebar/header
+   - Teclas: ← → para navegar entre etapas em foco
+ 
+5. Marcos vinculados a parcelas de pagamento
+   - No drawer de marco: vincular a pagamento existente
+   - Alerta no Painel quando marco vence e pagamento pendente
+ 
+6. Fluxo de caixa projetado → alimenta Financeiro
+   - Baseado no cronograma analítico com datas e valores de composições
+   - Atualiza automaticamente ao salvar baseline
+ 
+7. Previsão de atraso preventiva (SPI preditivo)
+   - Baseado no histórico de SPI das últimas 4 semanas
+   - Badge "Em risco" no KPI quando tendência é negativa
+ 
+8. Score de risco climático (INMET API pública)
+   - Buscar precipitação histórica por cidade/mês
+   - Badge "⚠ Alto risco climático" nas barras do Gantt
+   - Ativar apenas se cidade da obra estiver preenchida
+ 
+VALIDAÇÃO SPRINT-E:
+- [ ] Banner importação orçamento aparece quando aplicável
+- [ ] Wizard 3 passos funciona end-to-end
+- [ ] PDF Proposta Comercial gera sem erro
+- [ ] PDF Cronograma de Obra gera sem erro
+- [ ] Fullscreen funciona e fecha com Esc
+- [ ] Marco com pagamento vinculado aparece no Painel
+- [ ] Fluxo de caixa projetado atualiza após salvar baseline
+- [ ] Badge SPI preditivo aparece quando tendência negativa
+- [ ] tsc --noEmit zero erros novos
+ 
+ 
+================================================================
+FASE 17 — REVISÃO COMPLETA POR MÓDULO
+================================================================
+ 
+NOTA: Cada sprint = inspeção exploratória + correções + seed + testes.
+Executar SPRINT_CLOSE com auditoria antes de avançar.
+ 
+----------------------------------------------------------------
+SPRINT-F — Financeiro completo
+----------------------------------------------------------------
+ 
+Inspeção antes de implementar.
+Seed: pagamentos, custos reais, receitas para as 3 obras.
+Revisar: Dashboard, Pagamentos, Custo Real, Fluxo, DRE, Recebíveis.
+Corrigir semântica de cor, empty states, KPIs com contexto.
+ 
+ 
+----------------------------------------------------------------
+SPRINT-G — Painel da Obra
+----------------------------------------------------------------
+ 
+Depende de Cronograma (Sprint D/E) e Financeiro (Sprint F).
+Inspeção antes de implementar.
+Seed: dados suficientes para todos os widgets do painel.
+Shells do Intelligence: Score de Risco, Briefing do Dia, Checklist.
+ 
+ 
+----------------------------------------------------------------
+SPRINT-H — Canteiro (Diário, Estoque, Compras, Equipe)
+----------------------------------------------------------------
+ 
+Inspeção por sub-módulo.
+Seed: registros diários, materiais em estoque, pedidos de compra.
+Revisão visual e funcional de cada aba.
+ 
+ 
+----------------------------------------------------------------
+SPRINT-I — Contratos revisão completa
+----------------------------------------------------------------
+ 
+Inspeção do que foi implementado nos Prompts 38-44.
+Verificar fluxo completo: contrato → aditivo → medição → BM → recebível.
+Seed: 2 contratos (cliente + empreiteiro) com medições.
+ 
+ 
+----------------------------------------------------------------
+SPRINT-J — Calculadora
+----------------------------------------------------------------
+ 
+Inspeção completa da calculadora pública e integrada.
+Problemas conhecidos:
+- Estimativas fora da realidade (calibrar CUB/fatores)
+- Campos faltando (a identificar na inspeção)
+- Método C: wizard de quantitativos manuais precisa de revisão
+Seed: não necessário (calculadora não usa seed de obras).
+ 
+ 
+----------------------------------------------------------------
+SPRINT-K — Biblioteca e Agenda
+----------------------------------------------------------------
+ 
+Biblioteca: nomes SINAPI ALL CAPS → text-transform capitalize.
+Revisão visual e funcional.
+Agenda: revisão de todas as 3 views (Lista, Kanban, Calendário).
+ 
+ 
+----------------------------------------------------------------
+SPRINT-L — Admin e Perfil (revisão)
+----------------------------------------------------------------
+ 
+Prompts 45-48 já implementados — apenas revisão.
+Verificar fluxo: criar empresa → convidar usuário → permissões.
+Admin: impersonar empresa com banner.
+Perfil: foto, ART, assinatura digital.
+ 
+ 
+================================================================
+FASE 18 — PRODUTO PRONTO PARA VENDA
+================================================================
+ 
+Executar quando Fases 16-17 concluídas.
+ 
+----------------------------------------------------------------
+SPRINT-M — Onboarding (Prompt 56)
+----------------------------------------------------------------
+ 
+Stepper 3 etapas. Dados empresa → criar obra ou demo → convidar.
+Trial: banner âmbar dia 10, bloqueio suave dia 14.
+ 
+ 
+----------------------------------------------------------------
+SPRINT-N — Landing Page (Prompt 55)
+----------------------------------------------------------------
+ 
+Lastra como marca principal.
+Seção calculadora como produto público.
+Pricing com 3 planos.
+ 
+ 
+----------------------------------------------------------------
+SPRINT-O — Assistente IA shell (Prompt 57)
+----------------------------------------------------------------
+ 
+Painel lateral 380px.
+Shells sem Intelligence: score de risco manual, briefing manual.
+Controle por plano.
+ 
+ 
+================================================================
+FASE 19 — LASTRA INTELLIGENCE
+================================================================
+ 
+PRÉ-REQUISITO: Fase 0 validada com projetos reais.
+ 
+----------------------------------------------------------------
+FASE 0 — PoC (paralelo ao desenvolvimento atual)
+----------------------------------------------------------------
+ 
+Script manual: PDF → Claude Vision → JSON.
+5-8 projetos arquitetônicos reais da região.
+Custo: < R$50 em créditos de API.
+Critério GO: ≥70% precisão em tabela de áreas e esquadrias.
+Tempo estimado: 3-5 dias de trabalho.
+ 
+ 
+----------------------------------------------------------------
+INTELLIGENCE-1 — Calculadora Método C automático
+----------------------------------------------------------------
+ 
+PassoImportarProjetos como passo 4B do wizard.
+Upload PDF → extração → quantitativos pré-preenchidos.
+Badge "Dados do projeto" vs "Estimativa paramétrica".
+ 
+ 
+----------------------------------------------------------------
+INTELLIGENCE-2 — Orçamento Analítico automático
+----------------------------------------------------------------
+ 
+Botão [🧠 Importar do Projeto] no empty state do orçamento.
+Tabela mapeamento elemento → composições SINAPI.
+Geração de versão analítica com badge IA.
+Flywheel: correções dos usuários viram calibração regional.
+ 
+ 
+----------------------------------------------------------------
+INTELLIGENCE-3 — Intelligence completo
+----------------------------------------------------------------
+ 
+Briefing diário gerado por IA via contexto da obra.
+Score de risco calculado automaticamente.
+Chat IA contextual por obra.
+Fechamento diário automático sugerido.
+ 
+ 
+================================================================
+FASE 20 — BANCO DE DADOS PÚBLICO + LASTRA LICITAÇÕES
+================================================================
+ 
+----------------------------------------------------------------
+DADOS-1 — Banco estruturado
+----------------------------------------------------------------
+ 
+SINAPI completo automatizado por estado.
+CUB todos os estados automatizado.
+PNCP: ingestão de editais e planilhas públicas de licitações.
+Scraping e-commerce construção (Leroy, Telhanorte, C&C).
+TCPO, DNIT, EMOP, convenções coletivas regionais.
+ 
+ 
+----------------------------------------------------------------
+LICITACOES-1 — Lastra Licitações MVP
+----------------------------------------------------------------
+ 
+Upload PDF do edital → extração de escopo.
+Geração automática de orçamento base via SINAPI.
+Cronograma conforme prazo do edital.
+Score de viabilidade: margem estimada + riscos identificados.
+Proposta formatada conforme modelo do edital.
+Checklist de documentos de habilitação.
+Ticket: R$799-1.499/mês, mercado alvo: ~15.000 empresas.
+ 
+ 
+================================================================
+INFRAESTRUTURA DE TESTES (adicionada em 24/04/2026)
+================================================================
+ 
+Arquivos criados:
+  src/_auditoria/capturar_paginas.mjs   screenshots + resumo.txt
+  src/_auditoria/rodar_testes.mjs       cenários comportamentais
+  src/_auditoria/cenarios/cenarios_orcamento.mjs
+  src/_auditoria/seed/seed_base.sql     3 obras IDs fixos
+  src/_auditoria/seed/seed_orcamento.sql
+  src/_auditoria/seed/aplicar_seed.mjs
+ 
+Uso no SPRINT_CLOSE (obrigatório):
+  node src/_auditoria/capturar_paginas.mjs --sprint [nome]
+  node src/_auditoria/rodar_testes.mjs --sprint [nome] --modulo [modulo]
+ 
+Cenários ativos:
+  ORC-001 ✅ Trocar obra atualiza orçamento
+  ORC-003 ✅ Curva ABC com dados reais
+  ORC-004 ✅ Planilha exibe etapas da obra correta
+  ORC-002 ⬜ KPIs corretos (ajuste de valores pendente)
+  ORC-005 ⬜ Cotação com fornecedores (ajuste pendente)
+  ================================================================
+FIM DA ADIÇÃO — FASE 16 A 20
+================================================================

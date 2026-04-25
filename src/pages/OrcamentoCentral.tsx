@@ -338,6 +338,25 @@ export default function OrcamentoCentral() {
               onVersaoChange={v => setVersaoAtiva(v)}
               readOnly={!editing}
             />
+
+            {/* Sumário discreto (Bloco 1) */}
+            {!kpisExpanded && (
+              <div className="flex items-center gap-4 ml-auto text-[11px] font-medium transition-all animate-in fade-in slide-in-from-right-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Total:</span>
+                  <span className="text-foreground">{stats.totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</span>
+                </div>
+                <div className="w-px h-3 bg-border" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Cotado:</span>
+                  <span className={cn(
+                    stats.cotadoPct >= 80 ? 'text-emerald-600' : stats.cotadoPct >= 40 ? 'text-amber-600' : 'text-red-600'
+                  )}>
+                    {stats.cotadoPct}%
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

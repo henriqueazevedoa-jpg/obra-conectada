@@ -144,6 +144,16 @@ PASSO 4 — REGISTROS OBRIGATÓRIOS
 - [ ] PATTERNS.md — promover se virou padrão replicável
 - [ ] ARCHITECTURE-DECISIONS.md — promover se virou regra permanente
 
+  PASSO 4b — DECISÕES TÉCNICAS (obrigatório)
+  Se o sprint criou novo arquivo com responsabilidade específica, estabeleceu novo padrão ou tomou decisão de design relevante:
+  - Adicionar entrada em ARCHITECTURE-DECISIONS.md
+  - Usar template AD-XXX com Status, Regra, Motivo, Quando aplicar
+  Exemplos do que deve entrar:
+  - "grid centralizado em planilhaGrid.ts"
+  - "auth dos scripts em lib/auth.mjs"
+  - "BaselineConfirmModal reutilizável entre módulos"
+  Este passo NÃO é opcional — sprint sem atualização de ARCHITECTURE-DECISIONS.md quando cabível está incompleto.
+
 ================================================================
 PASSO 5 — PENDÊNCIAS
 ================================================================
@@ -415,17 +425,25 @@ Obra · Etapa · Composição · Insumo · Cotação · Pagamento · Custo Real 
 ```
 src/
 ├── components/
-│   ├── ui/           # shadcn/ui — não editar diretamente
+│   ├── ui/           # shadcn/ui — não editar diretamente (AD-009)
 │   ├── orcamento/    # referência estrutural principal
 │   └── AppLayout.tsx
 ├── contexts/         # AuthContext, CompanyContext
 ├── pages/
 │   ├── OrcamentoPage.tsx  ← referência visual e estrutural
 │   └── ...
-├── integrations/supabase/untyped.ts  ← usar para queries
-├── _auditoria/       # estado atual do sistema (não commitar)
-│   ├── screenshots/  # prints de todas as páginas
-│   └── logs/         # tsc, resumo, code smells
+├── integrations/     # Supabase clients e queries
+├── _auditoria/       # estado atual do sistema
+│   ├── lib/auth.mjs          ← auth centralizada (AD-012)
+│   ├── inventariar_pagina.mjs ← inventário DOM + handlers
+│   ├── capturar_paginas.mjs  ← screenshots de todas as páginas
+│   ├── capturar_estados.mjs  ← screenshots de estados interativos
+│   ├── rodar_testes.mjs      ← cenários comportamentais
+│   ├── seed/                 ← seeds por módulo
+│   │   ├── seed_orcamento.sql
+│   │   ├── seed_cronograma.sql
+│   │   └── seed_financeiro.sql (em andamento)
+│   └── sprints/              ← relatórios por sprint
 ```
 
 ---

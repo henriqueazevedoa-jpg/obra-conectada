@@ -18,11 +18,10 @@ import { chromium } from 'playwright';
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { fazerLogin, autenticarENavegar } from './lib/auth.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const BASE  = 'http://localhost:8080';
-const EMAIL = 'admin@obrafacil.dev';
-const SENHA = 'admin123';
 
 const args       = process.argv.slice(2);
 const SPRINT     = args.find((_, i) => args[i-1] === '--sprint') ?? 'sem-sprint';
@@ -75,15 +74,9 @@ async function run() {
   const page    = await context.newPage();
 
   // ── Login ─────────────────────────────────────────────────
-  try {
-    await page.goto(`${BASE}/login`, { timeout: 15000 });
-    await page.fill('input[type="email"]', EMAIL);
-    await page.fill('input[type="password"]', SENHA);
-    await page.click('button[type="submit"]');
-    await page.waitForURL(`${BASE}/obras`, { timeout: 10000 });
-    console.log('✅ Login OK\n');
-  } catch (e) {
-    console.error('❌ Login falhou:', e.message);
+  const successLogin = await autenticarENavegar(page, '/obras', { timeout: 15000 });
+  if (!successLogin) {
+    console.error('❌ Login falhou');
     await browser.close();
     return;
   }
@@ -131,13 +124,15 @@ async function run() {
     console.log('\n🖼  Screenshots visuais...');
 
     // Selecionar obra 1 como contexto padrão
-    await page.goto(`${BASE}/obras`).catch(() => {});
-    await page.waitForTimeout(1500);
-    await page.locator('[data-obra-id="a1000000-0000-0000-0000-000000000001"]').first().click().catch(() => {});
-    await page.waitForTimeout(1000);
+    const successObras = await autenticarENavegar(page, '/obras', { timeout: 10000 });
+    if (successObras) {
+      await page.waitForTimeout(1500);
+      await page.locator('[data-obra-id="a1000000-0000-0000-0000-000000000001"]').first().click().catch(() => {});
+      await page.waitForTimeout(1000);
+    }
 
     for (const p of PAGINAS_VISUAL) {
-      await page.goto(`${BASE}${p.rota}`, { timeout: 10000 }).catch(() => {});
+      await autenticarENavegar(page, p.rota, { timeout: 10000 });
       await page.waitForTimeout(2000);
 
       const ssPath      = join(SS_DIR,   `${p.nome}_${SPRINT}.png`);

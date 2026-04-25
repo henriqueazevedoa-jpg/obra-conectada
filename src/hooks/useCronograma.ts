@@ -202,17 +202,13 @@ export function useCronograma(obraId: string | undefined) {
     if (!obraId) return;
     const updates = tarefas.map(t => ({
       id: t.id,
+      obra_id: obraId,
       baseline_inicio: t.data_inicio,
       baseline_fim: t.data_fim,
       baseline_locked: true,
     }));
-    for (const u of updates) {
-      await (supabase.from('cronograma_tarefas') as any).update({
-        baseline_inicio: u.baseline_inicio,
-        baseline_fim: u.baseline_fim,
-        baseline_locked: u.baseline_locked,
-      }).eq('id', u.id);
-    }
+    const { error } = await supabase.from('cronograma_tarefas').upsert(updates, { onConflict: 'id' });
+    if (error) { toast({ title: 'Erro ao salvar baseline', description: error.message, variant: 'destructive' }); return; }
     invalidate();
     toast({ title: '✅ Baseline salvo', description: 'As datas planejadas foram congeladas como referência.' });
   }, [obraId, tarefas, invalidate]);
@@ -243,6 +239,36 @@ export function useCronograma(obraId: string | undefined) {
     invalidate();
   }, [invalidate]);
 
+  // ─── REORDER ─────────────────────────────────────────────────────────────────
+  const reorderTarefas = useCallback(async (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    
+    const sourceTask = tarefas.find(t => t.id === sourceId);
+    const targetTask = tarefas.find(t => t.id === targetId);
+    
+    if (!sourceTask || !targetTask) return;
+    if (sourceTask.parent_tarefa_id !== targetTask.parent_tarefa_id) return; // Filhos só reordenam dentro do mesmo pai
+
+    const siblings = tarefas
+      .filter(t => t.parent_tarefa_id === sourceTask.parent_tarefa_id)
+      .sort((a, b) => a.ordem - b.ordem);
+
+    const fromIdx = siblings.findIndex(t => t.id === sourceId);
+    const toIdx = siblings.findIndex(t => t.id === targetId);
+
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const reordered = [...siblings];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    const updates = reordered.map((t, idx) => ({ id: t.id, ordem: idx + 1 }));
+    for (const u of updates) {
+      await (supabase.from('cronograma_tarefas') as any).update({ ordem: u.ordem }).eq('id', u.id);
+    }
+    invalidate();
+  }, [tarefas, invalidate]);
+
   // ─── CASCADE DATE CALCULATION ────────────────────────────────────────────────
   const applyDateCascade = useCallback(async (changedId: string, newStart: string, newEnd: string) => {
     const successors = new Map<string, { destino: string; tipo: TipoDep; lag: number }[]>();
@@ -267,14 +293,27 @@ export function useCronograma(obraId: string | undefined) {
         const target = tarefas.find(t => t.id === destino);
         if (!target || !target.data_inicio || !target.data_fim) continue;
         const dur = differenceInDays(parseISO(target.data_fim), parseISO(target.data_inicio));
-        let requiredStart: Date;
-        if (tipo === 'FS') requiredStart = addDays(parseISO(srcDates.end), 1 + lag);
-        else if (tipo === 'SS') requiredStart = addDays(parseISO(srcDates.start), lag);
-        else requiredStart = parseISO(target.data_inicio);
+        let requiredStart: Date | null = null;
+        let requiredEnd: Date | null = null;
 
-        if (requiredStart > parseISO(target.data_inicio)) {
+        if (tipo === 'FS') {
+          requiredStart = addDays(parseISO(srcDates.end), 1 + lag);
+        } else if (tipo === 'SS') {
+          requiredStart = addDays(parseISO(srcDates.start), lag);
+        } else if (tipo === 'FF') {
+          requiredEnd = addDays(parseISO(srcDates.end), lag);
+          requiredStart = addDays(requiredEnd, -dur);
+        } else if (tipo === 'SF') {
+          requiredEnd = addDays(parseISO(srcDates.start), lag);
+          requiredStart = addDays(requiredEnd, -dur);
+        } else {
+          console.warn(`[useCronograma] Tipo de dependência desconhecido: ${tipo}`);
+          requiredStart = parseISO(target.data_inicio);
+        }
+
+        if (requiredStart && requiredStart > parseISO(target.data_inicio)) {
           const ns = format(requiredStart, 'yyyy-MM-dd');
-          const ne = format(addDays(requiredStart, dur), 'yyyy-MM-dd');
+          const ne = requiredEnd ? format(requiredEnd, 'yyyy-MM-dd') : format(addDays(requiredStart, dur), 'yyyy-MM-dd');
           overrides.set(destino, { start: ns, end: ne });
           queue.push(destino);
         }
@@ -315,7 +354,16 @@ export function useCronograma(obraId: string | undefined) {
     return parseISO(t.data_fim) < hoje;
   }).length;
   const progressoGeral = tarefas.length > 0
-    ? Math.round(tarefas.reduce((s, t) => s + (t.percentual_concluido || 0), 0) / tarefas.length)
+    ? (() => {
+        const pesoTotal = tarefas.reduce((s, t) => s + (t.peso_orcamento || 0), 0);
+        if (pesoTotal > 0) {
+          const progressoPonderado = tarefas.reduce((s, t) => s + ((t.percentual_concluido || 0) * (t.peso_orcamento || 0)), 0);
+          return Math.round(progressoPonderado / pesoTotal);
+        } else {
+          // Fallback obrigatório: peso igual
+          return Math.round(tarefas.reduce((s, t) => s + (t.percentual_concluido || 0), 0) / tarefas.length);
+        }
+      })()
     : 0;
   const hasBaseline = tarefas.some(t => !!t.baseline_inicio);
   const baselineLocked = tarefas.every(t => t.baseline_locked);
@@ -366,7 +414,7 @@ export function useCronograma(obraId: string | undefined) {
     addTarefa, updateTarefa, deleteTarefa,
     addDependencia, removeDependencia,
     addImpedimento, updateImpedimento, deleteImpedimento,
-    applyDateCascade,
+    applyDateCascade, reorderTarefas,
     saveBaseline, unlockBaseline,
     addPercentual,
     refresh: refetch,

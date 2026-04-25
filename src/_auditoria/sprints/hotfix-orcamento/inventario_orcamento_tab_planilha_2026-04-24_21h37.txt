@@ -1,0 +1,78 @@
+LASTRA — INVENTÁRIO DE ELEMENTOS INTERATIVOS
+⚠️  PRÓXIMA ETAPA: Enviar este arquivo para Claude (análise heurística)
+Página: /orcamento?tab=planilha | Sprint: hotfix-orcamento | 24/04/2026, 18:38:57
+
+════════════════════════════════════════════════════════════
+1. ANÁLISE DE CÓDIGO (Checklist Mecânico)
+════════════════════════════════════════════════════════════
+✅ Nenhum problema mecânico em 4 componentes.
+
+════════════════════════════════════════════════════════════
+2. ANÁLISE DOM (Camada 0)
+════════════════════════════════════════════════════════════
+
+[BUTTON] 4x
+  Amostra: "Entrar" — 188×32px
+  🟠 188×32px — mínimo 44px
+     Flexibilidade e eficiência de uso
+  🟡 Duplicados no DOM: "Entrar"×2
+     Consistência e padrões
+
+[ICON_BTN] 1x
+  Amostra: "Entrar" — 384×40px
+  🟠 384×40px — mínimo 44px
+     Flexibilidade e eficiência de uso
+
+════════════════════════════════════════════════════════════
+3. HANDLERS EXTRAÍDOS
+════════════════════════════════════════════════════════════
+
+[OrcamentoEditor] — src\components\orcamento\OrcamentoEditor.tsx
+  Tabelas acessadas: cotacao_lotes, cotacao_lote_itens, sinapi_referencias
+  DB writes: undone(delete), handlePriceBadge(delete), toggleTemplateCode(delete)
+  Botões: setImportDialogOpen(false)}>Cancelar
+  onClick handlers: 20
+
+[EtapaBlock] — src\components\orcamento\EtapaBlock.tsx
+  Tabelas acessadas: nenhuma
+  DB writes: EtapaBlock(delete)
+  Botões: nenhum
+  onClick handlers: 12
+
+[ComposicaoRow] — src\components\orcamento\ComposicaoRow.tsx
+  Tabelas acessadas: catalogo_composicoes, preco_historico
+  DB writes: insertPrecoHistorico(insert), next(delete)
+  Botões: nenhum
+  onClick handlers: 11
+
+[InsumoRow] — src\components\orcamento\InsumoRow.tsx
+  Tabelas acessadas: catalogo_insumos, sinapi_insumos, precos_fornecedores, fornecedores, sinapi_insumo_precos
+  DB writes: nenhum
+  Botões: Usar →
+  onClick handlers: 4
+
+════════════════════════════════════════════════════════════
+4. ESCOPO DE CAPTURA RECOMENDADO
+════════════════════════════════════════════════════════════
+Capturar 2 tipos | Ignorar 1 tipos
+Parâmetro: --escopo button,icon_btn
+
+📸 button (4x) — 2 violação(ões)
+   Estados: default, hover
+📸 icon_btn (1x) — 1 violação(ões)
+   Estados: default, hover
+
+Ignorados (sem violações):
+  ✅ input_editavel (2x)
+
+════════════════════════════════════════════════════════════
+PRÓXIMOS PASSOS
+════════════════════════════════════════════════════════════
+1. Enviar este .txt para Claude
+2. Claude faz análise heurística completa + define problemas
+3. Rodar capturar_estados.mjs (modelo: Gemini Flash ou terminal):
+   node src/_auditoria/capturar_estados.mjs \
+     --sprint hotfix-orcamento --pagina "/orcamento?tab=planilha" \
+     --escopo button,icon_btn
+4. Enviar screenshots + relatório para Claude
+5. Sprint de correção com Sonnet 4.6

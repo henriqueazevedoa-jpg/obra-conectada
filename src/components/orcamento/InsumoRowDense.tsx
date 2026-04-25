@@ -281,12 +281,12 @@ export default function InsumoRowDense({
       {/* Coluna 1: Descrição (1fr) */}
       <div className="h-full flex items-center border-r border-border/60 pl-2 pr-1 py-0.5 min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
         {readOnly ? (
-          <div className="flex items-center w-full min-w-0" style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--foreground) / 0.8)' }}>
+          <div className="flex items-center w-full min-w-0" style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}>
             {lotesIds.length > 0 && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="shrink-0 mr-1 mt-[2px]">
-                    <List className="h-3 w-3 text-muted-foreground" />
+                    <List className="h-3 w-3 text-muted-foreground/60" />
                   </TooltipTrigger>
                   <TooltipContent className="text-xs">Insumo com variantes em lista</TooltipContent>
                 </Tooltip>
@@ -300,7 +300,7 @@ export default function InsumoRowDense({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="shrink-0 pl-1 mr-1 mt-[2px]">
-                    <List className="h-3 w-3 text-muted-foreground" />
+                    <List className="h-3 w-3 text-muted-foreground/60" />
                   </TooltipTrigger>
                   <TooltipContent className="text-xs">Insumo com variantes em lista</TooltipContent>
                 </Tooltip>
@@ -316,7 +316,7 @@ export default function InsumoRowDense({
               data-field="descricao"
               placeholder="Descrição do insumo"
               className="h-6 w-full px-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
-              style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--foreground) / 0.8)' }}
+              style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}
             />
           </div>
         )}
@@ -385,7 +385,7 @@ export default function InsumoRowDense({
       {/* 4. Quantidade (72px) */}
       <div className="h-full flex items-center border-r border-border/60 px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
         {readOnly ? (
-          <div className="tabular-nums text-right w-full" style={{ fontSize: '11px', fontWeight: 400 }}>{insumo.quantidade ?? '—'}</div>
+          <div className="tabular-nums text-right w-full text-muted-foreground" style={{ fontSize: '11px', fontWeight: 400 }}>{insumo.quantidade ?? '—'}</div>
         ) : (
           <input
             ref={qInputRef}
@@ -397,7 +397,7 @@ export default function InsumoRowDense({
             onKeyDown={e => handleKeyDown(e, 'qtd')}
             data-planilha="1"
             data-field="qtd"
-            className="h-6 w-full tabular-nums text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="h-6 w-full tabular-nums text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-muted-foreground focus:text-foreground"
             placeholder="Qtd"
             style={{ fontSize: '11px', fontWeight: 400 }}
           />
@@ -423,7 +423,7 @@ export default function InsumoRowDense({
               onFocus={e => e.target.select()}
               onBlur={commitPreco}
               onKeyDown={e => handleKeyDown(e, 'preco')}
-              className="h-6 w-full tabular-nums text-right pl-4 pr-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="h-6 w-full tabular-nums text-right pl-4 pr-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-muted-foreground focus:text-foreground"
               placeholder="0,00"
               style={{ fontSize: '11px', fontWeight: 400 }}
             />
@@ -432,7 +432,7 @@ export default function InsumoRowDense({
       </div>
 
       {/* 6. Preço Total (88px) */}
-      <div className={cn('h-full flex items-center justify-end border-r border-border/60 px-1 py-0.5 tabular-nums overflow-hidden text-ellipsis whitespace-nowrap', insumo.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground/50')} style={{ fontSize: '11px', fontWeight: 400 }}>
+      <div className={cn('h-full flex items-center justify-end border-r border-border/60 px-1 py-0.5 tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground', insumo.precoTotal === 0 && 'opacity-50')} style={{ fontSize: '11px', fontWeight: 400 }}>
         {insumo.precoTotal > 999999 ? (
           <TooltipProvider>
             <Tooltip>
@@ -451,12 +451,11 @@ export default function InsumoRowDense({
 
       {/* Coluna 6: Ações */}
       <div className="h-full flex items-center justify-center px-1 shrink-0 py-0.5">
-        {/* Badge Fonte/SINAPI */}
-        {(!insumo.pending && fonteBadge && !placeholder) ? (
+        {/* Badge Fonte/SINAPI (Sugestão IA comentada - Bloco 7) */}
+        {(!insumo.pending && fonteBadge && fonteBadge !== 'sugerido' && !placeholder) ? (
           <Badge 
             variant="outline" 
             className={cn('text-[9px] px-1 py-0 h-4 shrink-0', fonteBadgeConfig[fonteBadge]?.cls)}
-            onClick={fonteBadge === 'sugerido' ? commitPreco : undefined}
           >
             {fonteBadgeConfig[fonteBadge]?.label}
           </Badge>

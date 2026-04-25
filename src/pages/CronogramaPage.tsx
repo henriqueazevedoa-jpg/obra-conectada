@@ -5,13 +5,19 @@ import { useCronograma, CronogramaTarefa, TipoTarefa } from '@/hooks/useCronogra
 import { useCronogramaVersoes, CronogramaVersao, TipoCronogramaVersao } from '@/hooks/useCronogramaVersoes';
 import { useRecursos } from '@/hooks/useRecursos';
 import { useGanttFinanceiro } from '@/hooks/useGanttFinanceiro';
+import { useCompany } from '@/contexts/CompanyContext';
 import { parseISO, differenceInDays, isBefore } from 'date-fns';
 import {
   CalendarDays, AlertTriangle, CheckCircle2, Clock, Plus,
   Save, ChevronDown, ChevronRight, BarChart3, List, Pencil,
-  Lock, Unlock, MoreHorizontal, Trash2, Link2, Users, TrendingUp, Loader2,
-  ClipboardCheck, Wand2,
+  Lock, Unlock, MoreHorizontal, Trash2, Link2, TrendingUp, Loader2,
+  ClipboardCheck, Wand2, Presentation, FileText, DollarSign,
 } from 'lucide-react';
+import ModoApresentacao from '@/components/cronograma/ModoApresentacao';
+import MarcosPanel from '@/components/cronograma/MarcosPanel';
+import FluxoProjetadoTab from '@/components/cronograma/FluxoProjetadoTab';
+import { gerarPropostaComercial } from '@/lib/pdf/propostaComercialPdf';
+import { gerarCronogramaPdf } from '@/lib/pdf/cronogramaPdf';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -25,6 +31,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import CronogramaImportWizard from '@/components/cronograma/CronogramaImportWizard';
 import { cn } from '@/lib/utils';
 import NoObraState from '@/components/obras/NoObraState';
 import TaskDetailDrawer from '@/components/cronograma/TaskDetailDrawer';
@@ -35,10 +42,11 @@ import PageShell from '@/components/layout/PageShell';
 import type { PageKPI, PageAction } from '@/components/layout/PageShell';
 import DrawerEstimarDuracoes, { EstimaUpdate } from '@/components/cronograma/DrawerEstimarDuracoes';
 import CronogramaVersaoStepper from '@/components/cronograma/CronogramaVersaoStepper';
+import CalendarioObraTab from '@/components/cronograma/CalendarioObraTab';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type MainTab = 'planejamento' | 'impedimentos' | 'medicao';
+type MainTab = 'planejamento' | 'impedimentos' | 'medicao' | 'calendario' | 'fluxo';
 type SubView = 'split' | 'list' | 'curvs';
 
 const SUBVIEW_KEY = 'lastra_cronograma_subview';
@@ -89,14 +97,11 @@ function WBSRow({ tarefa, children, isExpanded, isSelected, isCritico, isDraggin
   const status = computeStatusTarefa(tarefa);
   const cfg = STATUS_CONFIG[status];
   const hasChildren = children && children.length > 0;
-  const indent = tarefa.nivel === 1 ? '' : 'pl-6';
   const isSummary = tarefa.tipo_tarefa === 'RESUMO' || hasChildren;
   const isMilestone = tarefa.tipo_tarefa === 'MARCO';
 
   return (
     <div
-      draggable={!!onDragStart}
-      onDragStart={e => { e.stopPropagation(); onDragStart?.(); }}
       onDragOver={e => { e.preventDefault(); onDragOver?.(e); }}
       onDrop={e => { e.preventDefault(); onDrop?.(); }}
       className={cn(
@@ -108,19 +113,29 @@ function WBSRow({ tarefa, children, isExpanded, isSelected, isCritico, isDraggin
       )}
       onClick={onSelect}
     >
-      <div className="shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing" onClick={e => e.stopPropagation()}>
+      <div 
+        draggable={!!onDragStart}
+        onDragStart={e => { e.stopPropagation(); onDragStart?.(); }}
+        className="shrink-0 w-5 h-5 flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity" 
+        onClick={e => e.stopPropagation()}
+      >
         <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor">
           <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
           <circle cx="2" cy="6" r="1.2"/><circle cx="6" cy="6" r="1.2"/>
           <circle cx="2" cy="10" r="1.2"/><circle cx="6" cy="10" r="1.2"/>
         </svg>
       </div>
-      <button className={cn('h-4 w-4 shrink-0 text-muted-foreground', !hasChildren && 'opacity-0 pointer-events-none')} onClick={e => { e.stopPropagation(); onToggle(); }}>
-        {isExpanded ? <ChevronDown className="h-3.5 w-3.5"/> : <ChevronRight className="h-3.5 w-3.5"/>}
+
+      <div style={{ width: Math.min((tarefa.nivel - 1) * 16, 64) }} className="shrink-0" />
+
+      <button className={cn('h-8 w-8 flex items-center justify-center shrink-0 text-muted-foreground hover:bg-muted/50 rounded transition-colors', !hasChildren && 'opacity-0 pointer-events-none')} onClick={e => { e.stopPropagation(); onToggle(); }}>
+        {isExpanded ? <ChevronDown className="h-5 w-5"/> : <ChevronRight className="h-5 w-5"/>}
       </button>
-      <div className={cn('h-2 w-2 rounded-full shrink-0', cfg.bar, isMilestone && 'rotate-45 rounded-none h-2.5 w-2.5')}/>
+
+      <div className={cn('h-2 w-2 rounded-full shrink-0 mx-1', cfg.bar, isMilestone && 'rotate-45 rounded-none h-2.5 w-2.5')}/>
+      
       <span
-        className={cn('flex-1 text-xs truncate min-w-0', indent, isSummary ? 'font-semibold text-foreground' : 'text-foreground/90', isMilestone && 'italic')}
+        className={cn('flex-1 text-xs truncate min-w-0', isSummary ? 'font-semibold text-foreground' : 'text-foreground/90', isMilestone && 'italic')}
         title={tarefa.nome}
         onDoubleClick={e => { e.stopPropagation(); onOpenDrawer(tarefa); }}
       >
@@ -148,19 +163,30 @@ function WBSRow({ tarefa, children, isExpanded, isSelected, isCritico, isDraggin
           </TooltipContent>
         </Tooltip>
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded hover:bg-muted transition-opacity" onClick={e => e.stopPropagation()}>
-            <MoreHorizontal className="h-3 w-3 mx-auto text-muted-foreground"/>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={() => onOpenDrawer(tarefa)}><Pencil className="h-3 w-3 mr-2"/>Editar Detalhes</DropdownMenuItem>
-          <DropdownMenuItem><Link2 className="h-3 w-3 mr-2"/>Vincular ao Orçamento</DropdownMenuItem>
-          <DropdownMenuSeparator/>
-          <DropdownMenuItem className="text-destructive" onClick={() => onDelete(tarefa.id)}><Trash2 className="h-3 w-3 mr-2"/>Remover</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+
+      <div className="flex items-center gap-1 shrink-0 ml-2">
+        <button 
+          className="opacity-0 group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-muted transition-opacity text-muted-foreground hover:text-primary" 
+          onClick={e => { e.stopPropagation(); onOpenDrawer(tarefa); }}
+          title="Editar Tarefa"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="opacity-0 group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-muted transition-opacity" onClick={e => e.stopPropagation()}>
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground"/>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => onOpenDrawer(tarefa)}><Pencil className="h-3 w-3 mr-2"/>Editar Detalhes</DropdownMenuItem>
+            <DropdownMenuItem><Link2 className="h-3 w-3 mr-2"/>Vincular ao Orçamento</DropdownMenuItem>
+            <DropdownMenuSeparator/>
+            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(tarefa.id)}><Trash2 className="h-3 w-3 mr-2"/>Remover</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
@@ -279,10 +305,12 @@ const CronogramaIcon = (
 export default function CronogramaPage() {
   const { obras } = useObras();
   const { selectedObraId } = useObraSelection();
-  const { tarefas, dependencias, impedimentos, loading, saving, addTarefa, updateTarefa, deleteTarefa, addDependencia, removeDependencia, addImpedimento, updateImpedimento, deleteImpedimento, applyDateCascade, saveBaseline, unlockBaseline, stats, refresh } = useCronograma(selectedObraId);
+  const { company } = useCompany();
+  const { tarefas, dependencias, impedimentos, loading, saving, addTarefa, updateTarefa, deleteTarefa, addDependencia, removeDependencia, addImpedimento, updateImpedimento, deleteImpedimento, applyDateCascade, reorderTarefas, saveBaseline, unlockBaseline, stats, refresh } = useCronograma(selectedObraId);
   const { versoes, loading: versoesLoading, criarVersao } = useCronogramaVersoes(selectedObraId);
-  const { recursos, alocacoes, addAlocacao, removeAlocacao, getAlocacoesDaTarefa, recursosSupelalocados } = useRecursos(selectedObraId);
+  const { recursos, addAlocacao, removeAlocacao, getAlocacoesDaTarefa, recursosSupelalocados } = useRecursos(selectedObraId);
   const { byEtapa: financeiroByEtapa } = useGanttFinanceiro(selectedObraId);
+  const [apresentacaoAtiva, setApresentacaoAtiva] = useState(false);
 
   // Versão ativa do cronograma (null = sem versão, exibe todas as tarefas)
   const [versaoAtiva, setVersaoAtiva] = useState<CronogramaVersao | null>(null);
@@ -369,17 +397,7 @@ export default function CronogramaPage() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  const reorderRootTarefas = useCallback(async (sourceId: string, targetId: string) => {
-    if (sourceId === targetId) return;
-    const roots = [...rootTarefas];
-    const fromIdx = roots.findIndex(t => t.id === sourceId);
-    const toIdx = roots.findIndex(t => t.id === targetId);
-    if (fromIdx === -1 || toIdx === -1) return;
-    const reordered = [...roots];
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
-    await Promise.all(reordered.map((t, idx) => updateTarefa(t.id, { ordem: idx + 1 })));
-  }, [rootTarefas, updateTarefa]);
+  const [showImportWizard, setShowImportWizard] = useState(false);
 
   const criticalIds = useMemo(() => computeCriticalPath(tarefas, dependencias), [tarefas, dependencias]);
 
@@ -440,9 +458,31 @@ export default function CronogramaPage() {
     }] : []),
   ] : [];
 
+  // ── PDF handlers ─────────────────────────────────────────────────────────
+  const handleGerarProposta = useCallback(() => {
+    if (!obra || !company) return;
+    gerarPropostaComercial(
+      { nome: obra.nome, responsavel: (obra as any).responsavel, data_inicio: (obra as any).data_inicio, data_previsao_termino: (obra as any).data_previsao_termino },
+      tarefas,
+      { nome: company.nome, cnpj: (company as any).cnpj, email: (company as any).email, telefone: (company as any).telefone },
+      tarefas.reduce((s, t) => s + (t.peso_orcamento || 0), 0),
+    );
+  }, [obra, tarefas, company]);
+
+  const handleExportarCronograma = useCallback(() => {
+    if (!obra || !versaoAtiva || !company) return;
+    gerarCronogramaPdf(
+      { nome: obra.nome, responsavel: (obra as any).responsavel, data_inicio: (obra as any).data_inicio, data_previsao_termino: (obra as any).data_previsao_termino },
+      tarefas,
+      dependencias,
+      { tipo: versaoAtiva.tipo, numero: versaoAtiva.numero },
+      { nome: company.nome, email: (company as any).email },
+    );
+  }, [obra, tarefas, dependencias, versaoAtiva, company]);
+
   // ── Ações header ──────────────────────────────────────────────────────────
   const headerActions: PageAction[] = [
-    { label: 'Exportar', variant: 'ghost', onClick: () => {} },
+    { label: 'Apresentar', variant: 'ghost', onClick: () => setApresentacaoAtiva(true) },
   ];
 
   // ── Toolbar planejamento (+ Tarefa + SubViewToggle + Baseline) ─────────────
@@ -529,11 +569,73 @@ export default function CronogramaPage() {
 
       <div style={{ flex: 1 }}/>
 
+      {/* Botão Proposta Comercial — apenas Estimativo */}
+      {versaoAtiva?.tipo === 'estimativo' && (
+        <button
+          onClick={handleGerarProposta}
+          title="Gerar Proposta Comercial em PDF"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            height: 30, padding: '0 11px',
+            background: 'rgba(83,74,183,0.08)',
+            border: '1px solid rgba(83,74,183,0.2)',
+            borderRadius: 6, fontSize: 11, fontWeight: 600,
+            color: '#534AB7', cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(83,74,183,0.14)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(83,74,183,0.08)')}
+        >
+          <FileText style={{ width: 11, height: 11 }}/>
+          Proposta PDF
+        </button>
+      )}
+
+      {/* Botão Exportar Cronograma — Analítico + Execução */}
+      {versaoAtiva?.tipo && versaoAtiva.tipo !== 'estimativo' && (
+        <button
+          onClick={handleExportarCronograma}
+          title="Exportar Cronograma completo em PDF"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            height: 30, padding: '0 11px',
+            background: 'rgba(83,74,183,0.08)',
+            border: '1px solid rgba(83,74,183,0.2)',
+            borderRadius: 6, fontSize: 11, fontWeight: 600,
+            color: '#534AB7', cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(83,74,183,0.14)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(83,74,183,0.08)')}
+        >
+          <FileText style={{ width: 11, height: 11 }}/>
+          Exportar PDF
+        </button>
+      )}
+
       {/* SubView Toggle */}
       <SubViewToggle value={subView} onChange={handleSubViewChange} />
 
       {/* Divider */}
       <div style={{ width: 1, height: 20, background: 'var(--color-border-secondary)', flexShrink: 0 }} />
+
+      {/* Botão Apresentar */}
+      {tarefas.length > 0 && (
+        <button
+          onClick={() => setApresentacaoAtiva(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            height: 30, padding: '0 11px',
+            background: 'transparent',
+            border: '0.5px solid var(--color-border-secondary)',
+            borderRadius: 6, fontSize: 11, fontWeight: 500,
+            color: 'var(--color-text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-background-secondary)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          <Presentation style={{ width: 12, height: 12 }}/>
+          Apresentar
+        </button>
+      )}
 
       {/* Baseline */}
       <DropdownMenu>
@@ -562,11 +664,13 @@ export default function CronogramaPage() {
     </>
   ) : undefined;
 
-  // ── Abas do PageShell (3 abas principais) ─────────────────────────────────
+  // ── Abas do PageShell ─────────────────────────────────────────────────────
   const tabs = [
     { id: 'planejamento',  label: 'Planejamento',  icon: <BarChart3 style={{ width: 13, height: 13 }}/> },
     { id: 'impedimentos',  label: 'Impedimentos',  icon: <AlertTriangle style={{ width: 13, height: 13 }}/> },
     { id: 'medicao',       label: 'Acompanhamento', icon: <ClipboardCheck style={{ width: 13, height: 13 }}/> },
+    { id: 'fluxo',         label: 'Fluxo Projetado', icon: <DollarSign style={{ width: 13, height: 13 }}/> },
+    { id: 'calendario',   label: 'Calendário',    icon: <CalendarDays style={{ width: 13, height: 13 }}/> },
   ];
 
   // ── Toolbar condicional por aba ────────────────────────────────────────────
@@ -611,6 +715,26 @@ export default function CronogramaPage() {
               }}/>
             )}
 
+            {!loading && tarefas.length === 0 && (
+              <div className="bg-emerald-50 border-b border-emerald-200 p-3 px-4 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="bg-emerald-100 p-2 rounded-full"><BarChart3 className="h-4 w-4 text-emerald-600" /></div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-emerald-800">Primeiros Passos</h4>
+                    <p className="text-xs text-emerald-600">Importe seu orçamento para gerar o cronograma automaticamente.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-8 text-xs bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800" onClick={() => triggerAddTask('PADRAO')}>
+                    Criar manualmente
+                  </Button>
+                  <Button size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setShowImportWizard(true)}>
+                    Importar do Orçamento
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
 
               {/* Lista */}
@@ -638,15 +762,18 @@ export default function CronogramaPage() {
                       onToggle={() => toggleExpand(tarefa.id)} onSelect={() => setSelectedTarefaId(tarefa.id)}
                       onUpdate={updateTarefa} onDelete={deleteTarefa} onOpenDrawer={setDrawerTarefa}
                       onDragStart={() => setDragId(tarefa.id)} onDragOver={() => setDragOverId(tarefa.id)}
-                      onDrop={() => { if (dragId) reorderRootTarefas(dragId, tarefa.id); setDragId(null); setDragOverId(null); }}
+                      onDrop={() => { if (dragId) reorderTarefas(dragId, tarefa.id); setDragId(null); setDragOverId(null); }}
                       financeiroTotal={financeiroByEtapa?.[tarefa.id]?.totalPrevisto}
                     />
                     {expandedIds.has(tarefa.id) && childrenOf(tarefa.id).map(child => (
                       <WBSRow
                         key={child.id} tarefa={child} isExpanded={false}
                         isSelected={selectedTarefaId === child.id} isCritico={criticalIds.has(child.id)}
+                        isDragging={dragId === child.id} isDragOver={dragOverId === child.id}
                         onToggle={() => {}} onSelect={() => setSelectedTarefaId(child.id)}
                         onUpdate={updateTarefa} onDelete={deleteTarefa} onOpenDrawer={setDrawerTarefa}
+                        onDragStart={() => setDragId(child.id)} onDragOver={() => setDragOverId(child.id)}
+                        onDrop={() => { if (dragId) reorderTarefas(dragId, child.id); setDragId(null); setDragOverId(null); }}
                       />
                     ))}
                   </div>
@@ -654,18 +781,21 @@ export default function CronogramaPage() {
                 {!loading && <AddTaskInline ref={addTaskRef} onAdd={(nome, tipo) => addTarefa({ nome, nivel: 1, tipo_tarefa: tipo })} loading={saving}/>}
               </div>
 
-              {/* Gantt */}
-              <div className="absolute inset-0 overflow-hidden" style={{ display: subView === 'split' ? 'block' : 'none' }}>
-                <GanttCanvasPanel
-                  tarefas={tarefas} dependencias={dependencias}
-                  selectedId={selectedTarefaId} onSelectTarefa={setSelectedTarefaId}
-                  onOpenDrawer={setDrawerTarefa} childrenOf={childrenOf}
-                  onUpdateDates={(id, start, end) => {
-                    updateTarefa(id, { data_inicio: start, data_fim: end, duracao_dias: differenceInDays(parseISO(end), parseISO(start)) + 1 });
-                    applyDateCascade(id, start, end);
-                  }}
-                  onAddDependencia={addDependencia}
-                />
+              {/* Gantt + Marcos panel */}
+              <div className="absolute inset-0 overflow-hidden flex flex-col" style={{ display: subView === 'split' ? 'flex' : 'none' }}>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <GanttCanvasPanel
+                    tarefas={tarefas} dependencias={dependencias}
+                    selectedId={selectedTarefaId} onSelectTarefa={setSelectedTarefaId}
+                    onOpenDrawer={setDrawerTarefa} childrenOf={childrenOf}
+                    onUpdateDates={(id, start, end) => {
+                      updateTarefa(id, { data_inicio: start, data_fim: end, duracao_dias: differenceInDays(parseISO(end), parseISO(start)) + 1 });
+                      applyDateCascade(id, start, end);
+                    }}
+                    onAddDependencia={addDependencia}
+                  />
+                </div>
+                {selectedObraId && <MarcosPanel obraId={selectedObraId} />}
               </div>
 
               {/* Curva S */}
@@ -761,6 +891,15 @@ export default function CronogramaPage() {
               saveBaseline={saveBaseline}
               onMedicaoConfirmada={() => refresh()}
             />
+          </div>
+
+          {/* ── ABA FLUXO PROJETADO ────────────────────────────────────────── */}
+          <div className="absolute inset-0 overflow-auto" style={{ display: mainTab === 'fluxo' ? 'block' : 'none' }}>
+            {selectedObraId && <FluxoProjetadoTab obraId={selectedObraId} />}
+          </div>
+
+          <div style={{ display: mainTab === 'calendario' ? 'block' : 'none', flex: 1, overflow: 'hidden' }}>
+            {selectedObraId && <CalendarioObraTab obraId={selectedObraId} />}
           </div>
 
         </div>
@@ -877,6 +1016,19 @@ export default function CronogramaPage() {
         />
       )}
 
+      {/* Modo Apresentação */}
+      {apresentacaoAtiva && obra && (
+        <ModoApresentacao
+          tarefas={tarefas}
+          dependencias={dependencias}
+          obraNome={obra.nome}
+          progressoGeral={stats.progressoGeral}
+          tasksAtrasadas={stats.tasksAtrasadas}
+          spi={spi}
+          onClose={() => setApresentacaoAtiva(false)}
+        />
+      )}
+
       {obra && (
         <DrawerEstimarDuracoes
           open={drawerEstimarOpen}
@@ -884,6 +1036,14 @@ export default function CronogramaPage() {
           tarefas={tarefas}
           obraId={obra.id}
           onAplicar={handleAplicarEstimativas}
+        />
+      )}
+
+      {selectedObraId && (
+        <CronogramaImportWizard 
+          obraId={selectedObraId} 
+          open={showImportWizard} 
+          onOpenChange={setShowImportWizard} 
         />
       )}
     </PageShell>

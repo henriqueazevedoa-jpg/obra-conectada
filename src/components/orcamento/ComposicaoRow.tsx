@@ -313,12 +313,13 @@ export default function ComposicaoRow({
       'group/row border-b border-border/30 transition-colors',
       isSelected ? 'bg-primary/8 dark:bg-indigo-950/20' : 'hover:bg-muted/10',
       isNew && 'animate-in slide-in-from-top-1 fade-in duration-300',
-      isSinapi && 'border-l-2 border-l-blue-200 dark:border-l-blue-800',
+      'border-l-2 border-l-slate-200 dark:border-l-slate-800',
+      isSinapi && 'border-l-blue-400 dark:border-l-blue-600',
     )}>
       {/* ── Linha principal ── */}
       <div
         className={cn(
-          `grid ${PLANILHA_GRID} items-center gap-0 bg-background`,
+          `grid ${PLANILHA_GRID} items-center gap-0 bg-background pl-4`,
           isSinapi && 'bg-blue-50/20 dark:bg-blue-950/10',
         )}
         style={{ minHeight: '32px', height: '32px' }}
@@ -330,7 +331,8 @@ export default function ComposicaoRow({
           </span>
 
           <div className="flex items-center shrink-0">
-            {hasInsumos && !isInsumodireto && (
+            {/* Bloco 5: Chevron sempre visível */}
+            {!isInsumodireto && (
               <button
                 tabIndex={-1}
                 onClick={() => setInsumosExpanded(v => !v)}
@@ -351,7 +353,7 @@ export default function ComposicaoRow({
               onMouseEnter={handleDescMouseEnter} 
               onMouseLeave={() => setDescTooltip(v => ({ ...v, visible: false }))}
               className="flex-1 flex items-center px-1 truncate text-foreground h-full min-w-0" 
-              style={{ fontSize: '12px', fontWeight: 500 }}
+              style={{ fontSize: '13px', fontWeight: 500 }}
             >
               {lotesCount > 0 && (
                 <TooltipProvider>
@@ -387,7 +389,7 @@ export default function ComposicaoRow({
                 onChange={e => update('descricao', e.target.value)}
                 placeholder="Descrição"
                 className="h-full w-full px-1.5 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none"
-                style={{ fontSize: '12px', fontWeight: 500 }}
+                style={{ fontSize: '13px', fontWeight: 500 }}
               />
             </div>
           )}
@@ -413,7 +415,7 @@ export default function ComposicaoRow({
         )}
         {/* Quantidade */}
         {isFullReadOnly || isComputed ? (
-          <div className="h-full flex items-center justify-end px-1 text-right text-muted-foreground tabular-nums border-r border-border/60" style={{ fontSize: '12px' }}>{composicao.quantidade ?? '—'}</div>
+          <div className="h-full flex items-center justify-end px-1 text-right text-muted-foreground tabular-nums border-r border-border/60" style={{ fontSize: '13px' }}>{composicao.quantidade ?? '—'}</div>
         ) : (
           <div className="h-full flex items-center border-r border-border/60 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
             <input
@@ -428,14 +430,14 @@ export default function ComposicaoRow({
               data-rowid={composicao.id}
               placeholder="Qtd"
               className="h-full w-full tabular-nums px-1.5 text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              style={{ fontSize: '12px' }}
+              style={{ fontSize: '13px' }}
             />
           </div>
         )}
 
         {/* Preço unitário */}
         {isFullReadOnly || isComputed || isSinapi ? (
-          <div className="h-full flex items-center justify-end gap-1 tabular-nums px-1 text-muted-foreground border-r border-border/60" style={{ fontSize: '12px' }}>
+          <div className="h-full flex items-center justify-end gap-1 tabular-nums px-1 text-muted-foreground border-r border-border/60" style={{ fontSize: '13px' }}>
             {isSinapi && <Lock className="h-2.5 w-2.5 shrink-0 opacity-50" />}
             {composicao.precoUnitario != null ? formatCurrency(composicao.precoUnitario) : '—'}
           </div>
@@ -454,7 +456,7 @@ export default function ComposicaoRow({
               data-rowid={composicao.id}
               placeholder="0,00"
               className="h-full w-full tabular-nums pl-5 pr-1 text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              style={{ fontSize: '12px' }}
+              style={{ fontSize: '13px' }}
             />
           </div>
         )}
@@ -463,7 +465,7 @@ export default function ComposicaoRow({
         <div className={cn(
           'h-full flex items-center justify-end px-1 text-right tabular-nums border-r border-border/60 overflow-hidden text-ellipsis whitespace-nowrap',
           composicao.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground'
-        )} style={{ fontSize: '12px' }}>
+        )} style={{ fontSize: '13px' }}>
           {bdiConfig?.enabled && composicao.precoTotal > 0 ? (
             <TooltipProvider>
               <Tooltip>
@@ -577,9 +579,9 @@ export default function ComposicaoRow({
         {unidades.map(u => <option key={u} value={u} />)}
       </datalist>
 
-      {/* ── Insumos (sub-linhas com indent 24px) ── */}
-      {hasInsumos && insumosExpanded && !isInsumodireto && (
-        <div className="pl-6 bg-muted/5 border-t border-border/20">
+      {/* ── Insumos (sub-linhas com indent pl-8) ── */}
+      {insumosExpanded && !isInsumodireto && (
+        <div className="pl-8 bg-muted/5 border-t border-border/20">
           {insumosVisiveis.map((si, idx) => (
             <InsumoRowDense
               key={si.id}
@@ -594,6 +596,17 @@ export default function ComposicaoRow({
               onOpenCatalogo={onOpenCatalogo}
             />
           ))}
+          {/* Bloco 5: Placeholder se vazio */}
+          {composicao.insumos.length === 0 && !readOnly && !isSinapi && (
+             <InsumoRowDense
+                placeholder
+                insumo={makeInsumo()}
+                unidades={unidades}
+                onChange={s => { const next = { ...composicao, insumos: [s] }; onChange(next); }}
+                onRemove={() => {}}
+                readOnly={false}
+             />
+          )}
           {insumosOcultos > 0 && !showAllInsumos && (
             <button
               tabIndex={-1}
@@ -603,7 +616,7 @@ export default function ComposicaoRow({
               ver mais ({insumosOcultos}) ↓
             </button>
           )}
-          {!readOnly && !isSinapi && (
+          {!readOnly && !isSinapi && composicao.insumos.length > 0 && (
             <button
               tabIndex={-1}
               onClick={() => { const next = { ...composicao, insumos: [...composicao.insumos, makeInsumo()] }; onChange(next); }}
@@ -615,6 +628,7 @@ export default function ComposicaoRow({
           )}
         </div>
       )}
+
     </div>
   );
 }

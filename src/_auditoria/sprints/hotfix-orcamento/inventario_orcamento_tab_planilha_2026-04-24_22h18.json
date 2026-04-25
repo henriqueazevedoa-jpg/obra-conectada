@@ -1,0 +1,280 @@
+{
+  "pagina": "/orcamento?tab=planilha",
+  "sprint": "hotfix-orcamento",
+  "timestamp": "2026-04-24_22h18",
+  "componentes": [
+    "OrcamentoEditor",
+    "EtapaBlock",
+    "ComposicaoRow",
+    "InsumoRow"
+  ],
+  "codigoExtraido": {
+    "OrcamentoEditor": {
+      "arquivo": "src\\components\\orcamento\\OrcamentoEditor.tsx",
+      "linhas": 1681,
+      "onClickHandlers": [
+        "(e) => { e.preventDefault(); addToLote(lote.id, lote.titulo);",
+        "() => handleOpenCatalogo()",
+        "addEmptyEtapa",
+        "() => setSinapiConfigOpen(true)",
+        "() => toggleViewMode('cards')",
+        "() => toggleViewMode('excel')",
+        "() => applyTextFormat('title')",
+        "() => applyTextFormat('upper')",
+        "() => applyTextFormat('lower')",
+        "applyUnitNormalization",
+        "() => { const u = undoManager.undo(etapas); if (u) setEtapas(u);",
+        "() => { const r = undoManager.redo(etapas); if (r) setEtapas(r);",
+        "handleSave",
+        "() => setPasteDialogOpen(true)",
+        "handleTogglePriceSuggestion",
+        "() => setImportDialogOpen(true)",
+        "() => setAllExpanded(prev => !prev)",
+        "() => setBannerDismissed(true)",
+        "() => handleOpenCatalogo()",
+        "() => setPasteDialogOpen(true)"
+      ],
+      "dbWrites": [
+        {
+          "fn": "undone",
+          "op": "delete"
+        },
+        {
+          "fn": "handlePriceBadge",
+          "op": "delete"
+        },
+        {
+          "fn": "toggleTemplateCode",
+          "op": "delete"
+        }
+      ],
+      "btnTexts": [
+        "setImportDialogOpen(false)}>Cancelar"
+      ],
+      "tabelasAcessadas": [
+        "cotacao_lotes",
+        "cotacao_lote_itens",
+        "sinapi_referencias"
+      ]
+    },
+    "EtapaBlock": {
+      "arquivo": "src\\components\\orcamento\\EtapaBlock.tsx",
+      "linhas": 446,
+      "onClickHandlers": [
+        "() => setLocalExpanded(v => !v)",
+        "() => !readOnly && setEditingNome(true)",
+        "() => addComposicao('composicao')",
+        "() => addComposicao('insumo_direto', 'material')",
+        "() => addComposicao('insumo_direto', 'mao_obra')",
+        "() => addComposicao('insumo_direto', 'equipamento')",
+        "() => addComposicao('insumo_direto', 'servico')",
+        "() => setEditingNome(true)",
+        "() => { onOpenCatalogo(); setLocalExpanded(true);",
+        "onRemove",
+        "() => onOpenCatalogo?.()",
+        "() => onOpenCatalogo?.()"
+      ],
+      "dbWrites": [
+        {
+          "fn": "EtapaBlock",
+          "op": "delete"
+        }
+      ],
+      "btnTexts": [],
+      "tabelasAcessadas": []
+    },
+    "ComposicaoRow": {
+      "arquivo": "src\\components\\orcamento\\ComposicaoRow.tsx",
+      "linhas": 621,
+      "onClickHandlers": [
+        "() => setInsumosExpanded(v => !v)",
+        "fonteBadge === 'sugerido' ? handlePrecoBlur : undefined",
+        "e => e.stopPropagation()",
+        "handleToggleFavorita",
+        "() => { /* duplicate not implemented yet */",
+        "() => onGoCotacao(composicao.descricao)",
+        "() => onOpenCatalogo?.('sinapi', composicao.descricao)",
+        "() => toggleInsumos(!hasInsumos)",
+        "onRemove",
+        "() => setShowAllInsumos(true)",
+        "() => { const next = { ...composicao, insumos: [...composicao.insumos, makeInsumo()]"
+      ],
+      "dbWrites": [
+        {
+          "fn": "insertPrecoHistorico",
+          "op": "insert"
+        },
+        {
+          "fn": "next",
+          "op": "delete"
+        }
+      ],
+      "btnTexts": [],
+      "tabelasAcessadas": [
+        "catalogo_composicoes",
+        "preco_historico"
+      ]
+    },
+    "InsumoRow": {
+      "arquivo": "src\\components\\orcamento\\InsumoRow.tsx",
+      "linhas": 424,
+      "onClickHandlers": [
+        "e => e.stopPropagation()",
+        "() => { /* Not implemented yet */",
+        "onRemove",
+        "applyHintPrice"
+      ],
+      "dbWrites": [],
+      "btnTexts": [
+        "Usar →"
+      ],
+      "tabelasAcessadas": [
+        "catalogo_insumos",
+        "sinapi_insumos",
+        "precos_fornecedores",
+        "fornecedores",
+        "sinapi_insumo_precos"
+      ]
+    }
+  },
+  "inventario": {
+    "button": {
+      "instancias": 26,
+      "amostra": {
+        "tag": "button",
+        "texto": "",
+        "label": "Planejamento",
+        "dimensoes": {
+          "w": 40,
+          "h": 40
+        },
+        "posicao": {
+          "x": 10,
+          "y": 271
+        }
+      },
+      "violations": [
+        {
+          "tipo": "touch_target_pequeno",
+          "descricao": "40×40px — mínimo 44px",
+          "severidade": "alto",
+          "heuristica": "H7"
+        },
+        {
+          "tipo": "botao_duplicado_dom",
+          "descricao": "Duplicados no DOM: \"1\"×2 | \"Visão Geral\"×2 | \"Planilha\"×2 | \"Cotação & Preços\"×2",
+          "severidade": "medio",
+          "heuristica": "H4"
+        }
+      ],
+      "warnings": []
+    },
+    "icon_btn": {
+      "instancias": 15,
+      "amostra": {
+        "tag": "button",
+        "texto": "",
+        "label": "Planejamento",
+        "dimensoes": {
+          "w": 40,
+          "h": 40
+        },
+        "posicao": {
+          "x": 10,
+          "y": 271
+        }
+      },
+      "violations": [
+        {
+          "tipo": "touch_target_pequeno",
+          "descricao": "40×40px — mínimo 44px",
+          "severidade": "alto",
+          "heuristica": "H7"
+        }
+      ],
+      "warnings": []
+    }
+  },
+  "problemasEstaticos": [],
+  "violacoesDOM": [
+    {
+      "tipo": "button",
+      "instancias": 26,
+      "amostra": {
+        "tag": "button",
+        "texto": "",
+        "label": "Planejamento",
+        "dimensoes": {
+          "w": 40,
+          "h": 40
+        },
+        "posicao": {
+          "x": 10,
+          "y": 271
+        }
+      },
+      "violations": [
+        {
+          "tipo": "touch_target_pequeno",
+          "descricao": "40×40px — mínimo 44px",
+          "severidade": "alto",
+          "heuristica": "H7"
+        },
+        {
+          "tipo": "botao_duplicado_dom",
+          "descricao": "Duplicados no DOM: \"1\"×2 | \"Visão Geral\"×2 | \"Planilha\"×2 | \"Cotação & Preços\"×2",
+          "severidade": "medio",
+          "heuristica": "H4"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "tipo": "icon_btn",
+      "instancias": 15,
+      "amostra": {
+        "tag": "button",
+        "texto": "",
+        "label": "Planejamento",
+        "dimensoes": {
+          "w": 40,
+          "h": 40
+        },
+        "posicao": {
+          "x": 10,
+          "y": 271
+        }
+      },
+      "violations": [
+        {
+          "tipo": "touch_target_pequeno",
+          "descricao": "40×40px — mínimo 44px",
+          "severidade": "alto",
+          "heuristica": "H7"
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "escopoCaptura": [
+    {
+      "tipo": "button",
+      "instancias": 26,
+      "estados": [
+        "default",
+        "hover"
+      ],
+      "motivo": "2 violação(ões)"
+    },
+    {
+      "tipo": "icon_btn",
+      "instancias": 15,
+      "estados": [
+        "default",
+        "hover"
+      ],
+      "motivo": "1 violação(ões)"
+    }
+  ],
+  "escopoIgnorar": []
+}

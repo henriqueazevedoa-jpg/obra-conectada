@@ -11,40 +11,49 @@ export function useAmdahlSugestao() {
   const [feriados, setFeriados] = useState<Set<string>>(new Set());
   const [feriadosRecorrentes, setFeriadosRecorrentes] = useState<Set<string>>(new Set());
 
-  const loadParams = useCallback(async (categoria: string) => {
+  const loadParams = useCallback(async (categoria: string, obraId?: string) => {
     if (!company) return;
     setLoading(true);
 
     try {
-      // Busca paralela para melhor performance
-      const [calRes, feriadosRes, amdahlRes] = await Promise.all([
-        supabase
-         .from('company_calendar')
-         .select('*')
-         .eq('company_id', company.id)
-         .maybeSingle(),
-        supabase
-         .from('company_calendar_holidays')
-         .select('*')
-         .eq('company_id', company.id),
-        supabase
-         .from('amdahl_params')
-         .select('*')
-         .or(`company_id.is.null,company_id.eq.${company.id}`)
-         .eq('categoria', categoria)
-         .order('company_id', { ascending: false, nullsFirst: false })
-      ]);
+      let calData = null;
+      let feriadosData = null;
 
-      if (calRes.data) {
-        setCalendar({ dias_uteis: calRes.data.dias_uteis || [1,2,3,4,5], horas_por_dia: calRes.data.horas_por_dia || 8 });
+      if (obraId) {
+        // Tenta buscar calendário da obra
+        const [obraCalRes, obraFerRes] = await Promise.all([
+          supabase.from('obra_calendarios').select('*').eq('obra_id', obraId).maybeSingle(),
+          supabase.from('obra_calendarios_holidays').select('*').eq('obra_id', obraId)
+        ]);
+        calData = obraCalRes.data;
+        feriadosData = obraFerRes.data;
+      }
+
+      // Se não encontrou da obra, busca da empresa
+      if (!calData) {
+        const calRes = await supabase.from('company_calendar').select('*').eq('company_id', company.id).maybeSingle();
+        calData = calRes.data;
+        const ferRes = await supabase.from('company_calendar_holidays').select('*').eq('company_id', company.id);
+        feriadosData = ferRes.data;
+      }
+
+      const amdahlRes = await supabase
+        .from('amdahl_params')
+        .select('*')
+        .or(`company_id.is.null,company_id.eq.${company.id}`)
+        .eq('categoria', categoria)
+        .order('company_id', { ascending: false, nullsFirst: false });
+
+      if (calData) {
+        setCalendar({ dias_uteis: calData.dias_uteis || [1,2,3,4,5], horas_por_dia: calData.horas_por_dia || 8 });
       } else {
         setCalendar({ dias_uteis: [1,2,3,4,5], horas_por_dia: 8 });
       }
 
-      if (feriadosRes.data) {
+      if (feriadosData) {
         const fSet = new Set<string>();
         const frSet = new Set<string>();
-        feriadosRes.data.forEach((f: any) => { 
+        feriadosData.forEach((f: any) => { 
           if(f.data) {
             if (f.recorrente) {
               frSet.add(f.data.substring(5));

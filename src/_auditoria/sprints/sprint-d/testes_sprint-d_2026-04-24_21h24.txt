@@ -1,0 +1,22 @@
+LASTRA — RELATÓRIO DE TESTES
+Sprint: SPRINT-D | Data: 24/04/2026, 18:25:36
+
+CENÁRIOS COMPORTAMENTAIS
+────────────────────────────────────────────────────────────
+Total: 0 | Passaram: 0 | Críticos com falha: 0
+
+
+COMPARAÇÃO VISUAL
+────────────────────────────────────────────────────────────
+⚠️  /orcamento (~50.8% diff)
+⚠️  /orcamento?tab=planilha (~50.4% diff)
+⚠️  /orcamento?tab=cotacao (~50.7% diff)
+⚠️  /cronograma (~32.1% diff)
+✅ /financeiro (~0.4% diff)
+✅ /painel (~0.8% diff)
+✅ /dashboard (~1.7% diff)
+
+RESULTADO FINAL
+────────────────────────────────────────────────────────────
+✅ PASSOU — nenhum cenário crítico falhou
+⚠️  4 página(s) com mudança visual — verificar screenshots

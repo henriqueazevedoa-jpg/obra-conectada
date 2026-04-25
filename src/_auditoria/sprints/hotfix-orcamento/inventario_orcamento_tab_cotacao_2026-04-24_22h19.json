@@ -1,0 +1,151 @@
+{
+  "pagina": "/orcamento?tab=cotacao",
+  "sprint": "hotfix-orcamento",
+  "timestamp": "2026-04-24_22h19",
+  "componentes": [
+    "CotacaoCentralTab",
+    "CotacaoComparativo",
+    "FornecedorDrawer"
+  ],
+  "codigoExtraido": {},
+  "inventario": {
+    "button": {
+      "instancias": 26,
+      "amostra": {
+        "tag": "button",
+        "texto": "",
+        "label": "Planejamento",
+        "dimensoes": {
+          "w": 40,
+          "h": 40
+        },
+        "posicao": {
+          "x": 10,
+          "y": 271
+        }
+      },
+      "violations": [
+        {
+          "tipo": "touch_target_pequeno",
+          "descricao": "40×40px — mínimo 44px",
+          "severidade": "alto",
+          "heuristica": "H7"
+        },
+        {
+          "tipo": "botao_duplicado_dom",
+          "descricao": "Duplicados no DOM: \"1\"×2 | \"Visão Geral\"×2 | \"Planilha\"×2 | \"Cotação & Preços\"×2",
+          "severidade": "medio",
+          "heuristica": "H4"
+        }
+      ],
+      "warnings": []
+    },
+    "icon_btn": {
+      "instancias": 15,
+      "amostra": {
+        "tag": "button",
+        "texto": "",
+        "label": "Planejamento",
+        "dimensoes": {
+          "w": 40,
+          "h": 40
+        },
+        "posicao": {
+          "x": 10,
+          "y": 271
+        }
+      },
+      "violations": [
+        {
+          "tipo": "touch_target_pequeno",
+          "descricao": "40×40px — mínimo 44px",
+          "severidade": "alto",
+          "heuristica": "H7"
+        }
+      ],
+      "warnings": []
+    }
+  },
+  "problemasEstaticos": [],
+  "violacoesDOM": [
+    {
+      "tipo": "button",
+      "instancias": 26,
+      "amostra": {
+        "tag": "button",
+        "texto": "",
+        "label": "Planejamento",
+        "dimensoes": {
+          "w": 40,
+          "h": 40
+        },
+        "posicao": {
+          "x": 10,
+          "y": 271
+        }
+      },
+      "violations": [
+        {
+          "tipo": "touch_target_pequeno",
+          "descricao": "40×40px — mínimo 44px",
+          "severidade": "alto",
+          "heuristica": "H7"
+        },
+        {
+          "tipo": "botao_duplicado_dom",
+          "descricao": "Duplicados no DOM: \"1\"×2 | \"Visão Geral\"×2 | \"Planilha\"×2 | \"Cotação & Preços\"×2",
+          "severidade": "medio",
+          "heuristica": "H4"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "tipo": "icon_btn",
+      "instancias": 15,
+      "amostra": {
+        "tag": "button",
+        "texto": "",
+        "label": "Planejamento",
+        "dimensoes": {
+          "w": 40,
+          "h": 40
+        },
+        "posicao": {
+          "x": 10,
+          "y": 271
+        }
+      },
+      "violations": [
+        {
+          "tipo": "touch_target_pequeno",
+          "descricao": "40×40px — mínimo 44px",
+          "severidade": "alto",
+          "heuristica": "H7"
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "escopoCaptura": [
+    {
+      "tipo": "button",
+      "instancias": 26,
+      "estados": [
+        "default",
+        "hover"
+      ],
+      "motivo": "2 violação(ões)"
+    },
+    {
+      "tipo": "icon_btn",
+      "instancias": 15,
+      "estados": [
+        "default",
+        "hover"
+      ],
+      "motivo": "1 violação(ões)"
+    }
+  ],
+  "escopoIgnorar": []
+}

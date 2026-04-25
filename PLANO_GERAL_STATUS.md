@@ -11,7 +11,13 @@ STATUS ATUAL — Atualizado em: 24/04/2026
 ----------------------------------------------------------------
 
 ✅ CONCLUÍDOS (Prompts 1-55B):
-[conteúdo original preservado — ver versão anterior]
+  - [x] Migração inicial e Setup Supabase (5300a98)
+  - [x] Onboarding e Schema Backend (16b99ef, 594fb3e)
+  - [x] Refatoração de ObrasContext e RLS (2dabf5d, 39c30c5)
+  - [x] Onboarding Flow e Company Context (b6eedac)
+  - [x] Ações de Equipe e UI Polishing (c787f06)
+  - [x] Sprint 55A: Topbar Lastra e Sidebar Navigation
+  - [x] Sprint 55B: Wizard de Importação do Orçamento
 
 ⬜ SPRINT 55C — Cotação reformulada: split view + comparativo
 
@@ -38,6 +44,12 @@ Regra: cada sprint tem critério de saída binário antes de avançar
     - [ ] Zero erros 400 nas 4 páginas
     - [ ] /calculadora renderiza
     - [ ] /configuracoes?tab=calendario abre aba correta
+    - [x] Wizard de Importação do Orçamento
+    - [x] Correções no core de salvamento (Supabase upsert cascade)
+
+✅ SPRINT-D3 — Cronograma: Visual & Calendário
+  Escopo: Gantt Visual, Interações (Linhas, Baseline, Tooltips), Configuração de Calendário por Obra
+  Status: ✅ Concluído (Fix syntax error aplicado)
 
 ⬜ SPRINT-B — Design system global
   Escopo:
@@ -64,8 +76,44 @@ Regra: cada sprint tem critério de saída binário antes de avançar
   Escopo: 3 obras com dados ricos em todos os módulos
   Critério: nenhuma página mostra empty state indevido
 
+✅ SPRINT-D2 — Cronograma: Fixes de lógica + Wizard Importação
+  Escopo: Batch baseline, progresso com peso, FF/SF, Wizard 3 passos
+  Critério: tsc --noEmit sem erros e fluxos concluídos
+
 ⬜ SPRINT-E — Refinamento módulo a módulo
   Painel → Cronograma → Financeiro → Canteiro (um por sprint)
+
+✅ SPRINT-E (CRON-B) — Cronograma: Outputs & Integrações
+  Escopo: PDFs, modo apresentação, marcos vinculados a contratos, fluxo projetado
+  Entregue em: 24/04/2026
+  - [x] Bloco 1: PDF Proposta Comercial (gerarPropostaComercial, botão Estimativo)
+  - [x] Bloco 2: PDF Cronograma de Obra (gerarCronogramaPdf, botão Analítico/Execução)
+  - [x] Bloco 3: Modo Apresentação fullscreen (ModoApresentacao, ESC/setas)
+  - [x] Bloco 4: Marcos — migration cronograma_marcos + hook + MarcosPanel + badge ◆
+  - [x] Bloco 5: Fluxo Projetado — hook useFluxoCaixaProjetado + FluxoProjetadoTab (Curva S)
+  - [x] tsc --noEmit zero erros novos
+  Novos arquivos:
+    src/hooks/useMarcos.ts
+    src/hooks/useFluxoCaixaProjetado.ts
+    src/components/cronograma/ModoApresentacao.tsx
+    src/components/cronograma/MarcosPanel.tsx
+    src/components/cronograma/FluxoProjetadoTab.tsx
+    src/lib/pdf/propostaComercialPdf.ts
+    src/lib/pdf/cronogramaPdf.ts
+
+✅ SPRINT-F — Financeiro: Seed + Refinamentos Visuais PT-022
+  Escopo: seed realista nas 3 obras fixas + correções de semântica de cor
+  Entregue em: 25/04/2026
+  Bloco 1 — Seed (via MCP Supabase):
+  - [x] pagamentos: a1=12, a2=4, a3=10 (26 total) — pago/previsto/atrasado
+  - [x] custo_real_itens: a1=8, a2=2, a3=10 (20 total) — por categoria/etapa
+  - [x] recebiveis: a1=3, a2=1, a3=3 (7 total) — recebido/pendente
+  Bloco 2 — Refinamentos Visuais:
+  - [x] RecebiveisTab: corrigido calcStatus (status 'aberto' → 'pendente' alinhado ao banco)
+  - [x] CustoRealTab: corrigido KPI Desvio (sem orçamento = neutro, não vermelho falso)
+  - [x] Badges PT-022 já alinhados em PagamentosTab (getStatusStyle correto)
+  - [x] tsc --noEmit zero erros
+
 
 ----------------------------------------------------------------
 GRUPO J — Produto (quando sistema estável)
@@ -80,11 +128,10 @@ BACKLOG — Descobertos mas fora de escopo dos sprints ativos
 ----------------------------------------------------------------
 
 (itens descobertos durante sprints entram aqui)
-- Botões inline orçamento: substituir por menu ⋯ (descoberto Sprint-A)
-- Badge lista duplicada na coluna T. do orçamento
-- z-index rodapé planilha (linhas passam por cima)
-- Nomes SINAPI em ALL CAPS na biblioteca (text-transform)
-- Botão "Gerar PDF" em relatórios com baixo contraste
+- Fix auth scripts Playwright centralizado em lib/auth.mjs
+- GanttCanvasPanel.tsx syntax error corrigido (Sprint D3)
+- Seed financeiro pendente (Sprint F em andamento) 🔄
+- Hotfix visual orçamento pendente 🔄
 
 ----------------------------------------------------------------
 REGRAS DE OPERAÇÃO

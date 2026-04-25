@@ -245,6 +245,50 @@ Sem promoção, a memória fica fraca, difusa e pouco acionável.
 
 ---
 
+---
+
+## AD-011 — Grid da planilha centralizado em planilhaGrid.ts
+**Status:** Ativa
+
+### Regra
+As proporções de colunas da planilha do orçamento são definidas na constante `PLANILHA_GRID` em `src/components/orcamento/planilhaGrid.ts`. Nunca hardcodar `grid-template-columns` diretamente nos componentes. Sempre importar e usar `PLANILHA_GRID`.
+
+### Motivo
+Garante alinhamento perfeito entre cabeçalho, `EtapaBlock`, `ComposicaoRow` e `InsumoRowDense`.
+
+### Quando aplicar
+Qualquer alteração de layout da planilha.
+
+---
+
+## AD-012 — Scripts de auditoria usam auth centralizada
+**Status:** Ativa
+
+### Regra
+Todos os scripts em `src/_auditoria/` devem importar `fazerLogin` e `autenticarENavegar` de `src/_auditoria/lib/auth.mjs`. Nunca duplicar lógica de autenticação Playwright em scripts individuais.
+
+### Motivo
+Auth duplicada causava race conditions e screenshots da tela de login em vez das páginas alvo.
+
+### Quando aplicar
+Ao criar qualquer novo script de auditoria.
+
+---
+
+## AD-013 — Agentes devem consultar schema via MCP antes de gerar SQL
+**Status:** Ativa
+
+### Regra
+Todo prompt que gera `INSERT`, `UPDATE` ou migration deve incluir instrução explícita para o agente consultar o schema real via MCP do Supabase antes de escrever qualquer SQL. MCP configurado em `mcp_config.json` com servidor remoto oficial.
+
+### Motivo
+Agentes que geram SQL sem consultar schema produzem erros de coluna inexistente que bloqueiam execução do seed.
+
+### Quando aplicar
+Seeds, migrations, qualquer nova query com colunas específicas de tabela.
+
+---
+
 # 5) DECISÕES CANDIDATAS A FUTURA CONSOLIDAÇÃO
 
 Usar esta seção para itens fortes ainda em observação antes de promover para a seção principal.
@@ -272,4 +316,4 @@ Se a resposta for majoritariamente “sim”, a decisão provavelmente deve entr
 
 ---
 
-**Última atualização:** 2026-04-19
+**Última atualização:** 2026-04-24

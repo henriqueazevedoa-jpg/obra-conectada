@@ -1,0 +1,62 @@
+LASTRA — INVENTÁRIO DE ELEMENTOS INTERATIVOS
+⚠️  PRÓXIMA ETAPA: Enviar este arquivo para Claude (análise heurística)
+Página: /orcamento?tab=planilha | Sprint: hotfix-orc-2 | 24/04/2026, 20:29:09
+
+════════════════════════════════════════════════════════════
+1. ANÁLISE DE CÓDIGO (Checklist Mecânico)
+════════════════════════════════════════════════════════════
+✅ Nenhum problema mecânico em 4 componentes.
+
+════════════════════════════════════════════════════════════
+2. ANÁLISE DOM (Camada 0)
+════════════════════════════════════════════════════════════
+✅ Nenhuma violação DOM detectada.
+
+════════════════════════════════════════════════════════════
+3. HANDLERS EXTRAÍDOS
+════════════════════════════════════════════════════════════
+
+[OrcamentoEditor] — src\components\orcamento\OrcamentoEditor.tsx
+  Tabelas acessadas: cotacao_lotes, cotacao_lote_itens, sinapi_referencias
+  DB writes: undone(delete), handlePriceBadge(delete), toggleTemplateCode(delete)
+  Botões: setImportDialogOpen(false)}>Cancelar
+  onClick handlers: 20
+
+[EtapaBlock] — src\components\orcamento\EtapaBlock.tsx
+  Tabelas acessadas: nenhuma
+  DB writes: EtapaBlock(delete)
+  Botões: nenhum
+  onClick handlers: 12
+
+[ComposicaoRow] — src\components\orcamento\ComposicaoRow.tsx
+  Tabelas acessadas: catalogo_composicoes, preco_historico
+  DB writes: insertPrecoHistorico(insert), next(delete)
+  Botões: nenhum
+  onClick handlers: 11
+
+[InsumoRow] — src\components\orcamento\InsumoRow.tsx
+  Tabelas acessadas: catalogo_insumos, sinapi_insumos, precos_fornecedores, fornecedores, sinapi_insumo_precos
+  DB writes: nenhum
+  Botões: Usar →
+  onClick handlers: 4
+
+════════════════════════════════════════════════════════════
+4. ESCOPO DE CAPTURA RECOMENDADO
+════════════════════════════════════════════════════════════
+Capturar 0 tipos | Ignorar 0 tipos
+Parâmetro: --escopo 
+
+
+Ignorados (sem violações):
+
+════════════════════════════════════════════════════════════
+PRÓXIMOS PASSOS
+════════════════════════════════════════════════════════════
+1. Enviar este .txt para Claude
+2. Claude faz análise heurística completa + define problemas
+3. Rodar capturar_estados.mjs (modelo: Gemini Flash ou terminal):
+   node src/_auditoria/capturar_estados.mjs \
+     --sprint hotfix-orc-2 --pagina "/orcamento?tab=planilha" \
+     --escopo 
+4. Enviar screenshots + relatório para Claude
+5. Sprint de correção com Sonnet 4.6

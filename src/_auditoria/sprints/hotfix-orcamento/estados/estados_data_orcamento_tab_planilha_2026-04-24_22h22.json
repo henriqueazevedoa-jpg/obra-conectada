@@ -1,0 +1,18 @@
+{
+  "pagina": "/orcamento?tab=planilha",
+  "sprint": "hotfix-orcamento",
+  "capturas": [
+    {
+      "tipo": "button",
+      "estado": "default",
+      "descricao": "Botão em estado padrão",
+      "arquivo": "button_default_hotfix-orcamento.png"
+    },
+    {
+      "tipo": "button",
+      "estado": "hover",
+      "descricao": "Mouse sobre o botão",
+      "arquivo": "button_hover_hotfix-orcamento.png"
+    }
+  ]
+}

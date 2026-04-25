@@ -20,12 +20,11 @@
 import { chromium } from 'playwright';
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { fazerLogin, autenticarENavegar } from './lib/auth.mjs';
 
 // ── Config ────────────────────────────────────────────────────
 
 const BASE = 'http://localhost:8080';
-const EMAIL = 'admin@obrafacil.dev';
-const SENHA = 'admin123'; // ajustar se diferente
 
 // Ler args
 const args = process.argv.slice(2);
@@ -109,35 +108,21 @@ async function run() {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
 
-  // ── Login ──────────────────────────────────────────────────
-  console.log('🔐 Fazendo login...');
-  try {
-    await page.goto(`${BASE}/login`, { timeout: 15000 });
-    await page.fill('input[type="email"]', EMAIL);
-    await page.fill('input[type="password"]', SENHA);
-    await page.click('button[type="submit"]');
-    await page.waitForURL(`${BASE}/**`, { timeout: 10000 });
-    console.log('✅ Login OK\n');
-  } catch (e) {
-    console.error('❌ Login falhou:', e.message);
-    await page.screenshot({
-      path: join(SS_DIR, `LOGIN_FALHOU_${SPRINT}.png`),
-      fullPage: true
-    });
-    await browser.close();
-    return;
-  }
+  // O login inicial foi substituído pelo autenticarENavegar antes de selecionar a obra
 
   // ── Selecionar obra ────────────────────────────────────────
   try {
-    await page.goto(`${BASE}/obras`, { timeout: 10000 });
-    await page.waitForTimeout(2000);
-    const obraEl = page.locator('[data-obra-id], .obra-card, tr[data-id]').first();
-    if (await obraEl.isVisible()) {
-      await obraEl.click();
-      await page.waitForTimeout(1500);
+    const success = await autenticarENavegar(page, '/obras', { timeout: 10000 });
+    if (success) {
+      const obraEl = page.locator('[data-obra-id], .obra-card, tr[data-id]').first();
+      if (await obraEl.isVisible()) {
+        await obraEl.click();
+        await page.waitForTimeout(1500);
+      }
     }
-  } catch { }
+  } catch (e) {
+    console.warn(`Erro ao selecionar obra: ${e.message}`);
+  }
 
   // ── Capturar páginas ───────────────────────────────────────
   for (const p of PAGINAS) {
@@ -176,7 +161,8 @@ async function run() {
         await pubCtx.close();
       } else {
         const t0 = Date.now();
-        await page.goto(`${BASE}${p.rota}`, { timeout: 12000, waitUntil: 'networkidle' });
+        const success = await autenticarENavegar(page, p.rota, { timeout: 12000 });
+        if (!success) throw new Error("Falha de autenticação ao tentar navegar.");
         tempoMs = Date.now() - t0;
         await page.waitForTimeout(2000);
 

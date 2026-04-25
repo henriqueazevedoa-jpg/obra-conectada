@@ -1,0 +1,73 @@
+LASTRA — AUDIT REPORT
+Sprint: TESTE-AUTH
+Data: 24/04/2026, 19:01:57
+Páginas: 32 | Com erros: 4 | Crashes: 0
+
+STATUS DAS PÁGINAS
+──────────────────────────────────────────────────────────────────────
+✅ /login                                        2460ms  0 erros
+✅ /calculadora                                  3234ms  0 erros
+✅ /obras                                        3662ms  0 erros
+✅ /painel                                       3830ms  0 erros
+⚠️  /dashboard                                    3801ms  2 erros
+   ↳ Failed to load resource: the server responded with a status of 404 ()
+   ↳ HTTP 404 — https://ehmdwwuhhumgxhsjvvrr.supabase.co/rest/v1/custo_real
+✅ /orcamento                                    4417ms  0 erros
+✅ /orcamento?tab=planilha                       3712ms  0 erros
+✅ /orcamento?tab=cotacao                        3942ms  0 erros
+✅ /cronograma                                   3915ms  0 erros
+✅ /financeiro                                   5701ms  0 erros
+✅ /financeiro?tab=pagamentos                    3829ms  0 erros
+✅ /financeiro?tab=custo-real                    4038ms  0 erros
+✅ /financeiro?tab=fluxo-caixa                   3882ms  0 erros
+⚠️  /diario                                       4115ms  2 erros
+   ↳ Failed to load resource: the server responded with a status of 400 ()
+   ↳ HTTP 400 — https://ehmdwwuhhumgxhsjvvrr.supabase.co/rest/v1/diario_servicos
+✅ /estoque                                      5331ms  0 erros
+✅ /equipe                                       4057ms  0 erros
+✅ /compras                                      4540ms  0 erros
+✅ /agenda                                       4676ms  0 erros
+✅ /documentos                                   3626ms  0 erros
+✅ /contatos                                     3448ms  0 erros
+✅ /contratos                                    4915ms  0 erros
+✅ /relatorios                                   3554ms  0 erros
+✅ /biblioteca                                   3639ms  0 erros
+✅ /configuracoes                                4461ms  0 erros
+✅ /configuracoes?tab=calendario                 4049ms  0 erros
+✅ /configuracoes?tab=orcamento                  3749ms  0 erros
+⚠️  /configuracoes?tab=calculadora                16100ms  5 erros
+   ↳ The above error occurred in the <SelectItem> component:
+
+    at http://localhost:8080/node_modules/.vite/deps/@radix-ui_react-select.js?v=a2aab71e:849:7
+    at _c8 (http://localhost:8080/src/component
+   ↳ Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES
+   ↳ Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES
+   ↳ Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES
+   ↳ Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES
+✅ /admin/dashboard                              4574ms  0 erros
+✅ /admin/companies                              5666ms  0 erros
+⚠️  /admin/calculadora                            3280ms  5 erros
+   ↳ Failed to load resource: the server responded with a status of 400 ()
+   ↳ [DEBUG admin calc pro] {message: }
+   ↳ Failed to load resource: the server responded with a status of 400 ()
+   ↳ [DEBUG admin calc pro] {message: }
+   ↳ HTTP 400 — https://ehmdwwuhhumgxhsjvvrr.supabase.co/rest/v1/calculadora_contas
+✅ /admin/feedbacks                              3509ms  0 erros
+✅ /perfil                                       4495ms  0 erros
+
+ERROS TYPESCRIPT
+──────────────────────────────────────────────────────────────────────
+(executar: npx tsc --noEmit 2>&1 | head -30)
+(colar resultado aqui antes de enviar para auditoria)
+
+ARQUIVOS ALTERADOS (git diff --stat)
+──────────────────────────────────────────────────────────────────────
+(colar resultado do git diff --stat HEAD~1 aqui)
+
+CHECKLIST DE SAÍDA
+──────────────────────────────────────────────────────────────────────
+[ ] tsc --noEmit zero erros novos
+[ ] Zero crashes nas páginas
+[ ] Erros de console não aumentaram vs sprint anterior
+[ ] PLANO_GERAL_STATUS.md atualizado
+[ ] PROJECT-MEMORY.md atualizado (se houve aprendizado)

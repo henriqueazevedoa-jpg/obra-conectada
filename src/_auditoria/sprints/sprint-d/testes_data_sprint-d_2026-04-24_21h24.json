@@ -1,0 +1,46 @@
+{
+  "cenarios": [],
+  "visual": [
+    {
+      "pagina": "/orcamento",
+      "status": "mudou",
+      "diffPct": "50.8"
+    },
+    {
+      "pagina": "/orcamento?tab=planilha",
+      "status": "mudou",
+      "diffPct": "50.4"
+    },
+    {
+      "pagina": "/orcamento?tab=cotacao",
+      "status": "mudou",
+      "diffPct": "50.7"
+    },
+    {
+      "pagina": "/cronograma",
+      "status": "mudou",
+      "diffPct": "32.1"
+    },
+    {
+      "pagina": "/financeiro",
+      "status": "ok",
+      "diffPct": "0.4"
+    },
+    {
+      "pagina": "/painel",
+      "status": "ok",
+      "diffPct": "0.8"
+    },
+    {
+      "pagina": "/dashboard",
+      "status": "ok",
+      "diffPct": "1.7"
+    }
+  ],
+  "resumo": {
+    "totalCenarios": 0,
+    "passaram": 0,
+    "falharamCrit": 0,
+    "mudancasVisuais": 4
+  }
+}

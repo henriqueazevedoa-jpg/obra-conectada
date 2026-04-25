@@ -1,0 +1,38 @@
+LASTRA — INVENTÁRIO DE ELEMENTOS INTERATIVOS
+⚠️  PRÓXIMA ETAPA: Enviar este arquivo para Claude (análise heurística)
+Página: /orcamento?tab=cotacao | Sprint: hotfix-orc-1 | 24/04/2026, 20:23:52
+
+════════════════════════════════════════════════════════════
+1. ANÁLISE DE CÓDIGO (Checklist Mecânico)
+════════════════════════════════════════════════════════════
+✅ Nenhum problema mecânico em 3 componentes.
+
+════════════════════════════════════════════════════════════
+2. ANÁLISE DOM (Camada 0)
+════════════════════════════════════════════════════════════
+✅ Nenhuma violação DOM detectada.
+
+════════════════════════════════════════════════════════════
+3. HANDLERS EXTRAÍDOS
+════════════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════════════
+4. ESCOPO DE CAPTURA RECOMENDADO
+════════════════════════════════════════════════════════════
+Capturar 0 tipos | Ignorar 0 tipos
+Parâmetro: --escopo 
+
+
+Ignorados (sem violações):
+
+════════════════════════════════════════════════════════════
+PRÓXIMOS PASSOS
+════════════════════════════════════════════════════════════
+1. Enviar este .txt para Claude
+2. Claude faz análise heurística completa + define problemas
+3. Rodar capturar_estados.mjs (modelo: Gemini Flash ou terminal):
+   node src/_auditoria/capturar_estados.mjs \
+     --sprint hotfix-orc-1 --pagina "/orcamento?tab=cotacao" \
+     --escopo 
+4. Enviar screenshots + relatório para Claude
+5. Sprint de correção com Sonnet 4.6

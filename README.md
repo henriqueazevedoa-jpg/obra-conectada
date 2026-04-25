@@ -1,4 +1,4 @@
-# ObraConectada
+# Lastra
 
 **Plataforma SaaS de gestão de obras** para engenheiros, arquitetos e construtoras de pequeno e médio porte. Centraliza orçamento, cronograma, financeiro, diário de campo, estoque e comunicação com clientes em um único sistema.
 
@@ -6,7 +6,7 @@
 
 ## Visão Geral
 
-ObraConectada foi desenvolvido para substituir o uso fragmentado de Excel, WhatsApp e caderno nas obras brasileiras. O sistema oferece uma interface moderna e mobile-friendly que abrange todo o ciclo de vida de uma obra — do orçamento inicial à entrega final.
+ObraConectada (agora **Lastra**) foi desenvolvido para substituir o uso fragmentado de Excel, WhatsApp e caderno nas obras brasileiras. O sistema oferece uma interface moderna e mobile-friendly que abrange todo o ciclo de vida de uma obra — do orçamento inicial à entrega final.
 
 **Posicionamento:** foco em construtoras de pequeno e médio porte (2–20 obras simultâneas), com UX acessível para gestores, engenheiros, encarregados e clientes.
 
@@ -154,18 +154,19 @@ O menu lateral é organizado em 5 seções:
 | `companies` | Empresas (multitenancy) |
 | `profiles` | Usuários com role e empresa |
 | `obras` | Obras cadastradas |
-| `categorias` | Etapas/categorias do orçamento (WBS) |
-| `composicoes` | Composições de cada categoria |
-| `insumos` | Insumos de cada composição |
+| `orcamento_categorias` | Etapas/categorias do orçamento (WBS) |
+| `orcamento_composicoes` | Composições de cada categoria |
+| `orcamento_subitens` | Insumos de cada composição |
 | `pagamentos` | Lançamentos de pagamentos |
-| `custo_real_lancamentos` | Custos efetivamente realizados |
+| `custo_real_itens` | Custos efetivamente realizados |
 | `diario_registros` | Registros diários da obra |
 | `materiais` | Materiais em estoque |
 | `movimentacoes` | Movimentações de estoque |
 | `contatos` | Agenda de contatos (clientes, fornecedores, equipes) |
-| `documentos` | Documentos anexados à obra |
-| `agenda_eventos` | Eventos da agenda da obra |
+| `documentos_obra` | Documentos anexados à obra |
+| `obra_agenda` | Eventos da agenda da obra |
 | `obra_links` | Links públicos de acesso (visualização e operação) |
+| `recebiveis` | Lançamentos de recebíveis |
 | `entradas_pendentes` | Fotos de NF enviadas por funcionários aguardando processamento |
 
 ---
@@ -277,4 +278,4 @@ VITE_SUPABASE_ANON_KEY=<anon-key>
 
 ## Licença
 
-Todos os direitos reservados. © ObraConectada.
+Todos os direitos reservados. © Lastra.

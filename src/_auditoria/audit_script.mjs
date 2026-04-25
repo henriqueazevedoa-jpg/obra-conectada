@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 
 const BASE = 'http://localhost:8080';
-const EMAIL = 'admin@obrafacil.dev';
+const EMAIL = 'admin@applastra.com.br';
 const SENHA = 'admin123';
 
 async function run() {

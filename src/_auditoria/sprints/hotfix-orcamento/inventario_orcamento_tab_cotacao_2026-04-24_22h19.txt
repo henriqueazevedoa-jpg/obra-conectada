@@ -1,0 +1,53 @@
+LASTRA — INVENTÁRIO DE ELEMENTOS INTERATIVOS
+⚠️  PRÓXIMA ETAPA: Enviar este arquivo para Claude (análise heurística)
+Página: /orcamento?tab=cotacao | Sprint: hotfix-orcamento | 24/04/2026, 19:19:43
+
+════════════════════════════════════════════════════════════
+1. ANÁLISE DE CÓDIGO (Checklist Mecânico)
+════════════════════════════════════════════════════════════
+✅ Nenhum problema mecânico em 3 componentes.
+
+════════════════════════════════════════════════════════════
+2. ANÁLISE DOM (Camada 0)
+════════════════════════════════════════════════════════════
+
+[BUTTON] 26x
+  Amostra: "" — 40×40px
+  🟠 40×40px — mínimo 44px
+     Flexibilidade e eficiência de uso
+  🟡 Duplicados no DOM: "1"×2 | "Visão Geral"×2 | "Planilha"×2 | "Cotação & Preços"×2
+     Consistência e padrões
+
+[ICON_BTN] 15x
+  Amostra: "" — 40×40px
+  🟠 40×40px — mínimo 44px
+     Flexibilidade e eficiência de uso
+
+════════════════════════════════════════════════════════════
+3. HANDLERS EXTRAÍDOS
+════════════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════════════
+4. ESCOPO DE CAPTURA RECOMENDADO
+════════════════════════════════════════════════════════════
+Capturar 2 tipos | Ignorar 0 tipos
+Parâmetro: --escopo button,icon_btn
+
+📸 button (26x) — 2 violação(ões)
+   Estados: default, hover
+📸 icon_btn (15x) — 1 violação(ões)
+   Estados: default, hover
+
+Ignorados (sem violações):
+
+════════════════════════════════════════════════════════════
+PRÓXIMOS PASSOS
+════════════════════════════════════════════════════════════
+1. Enviar este .txt para Claude
+2. Claude faz análise heurística completa + define problemas
+3. Rodar capturar_estados.mjs (modelo: Gemini Flash ou terminal):
+   node src/_auditoria/capturar_estados.mjs \
+     --sprint hotfix-orcamento --pagina "/orcamento?tab=cotacao" \
+     --escopo button,icon_btn
+4. Enviar screenshots + relatório para Claude
+5. Sprint de correção com Sonnet 4.6
