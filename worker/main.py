@@ -1,3 +1,9 @@
+import urllib.request
+try:
+    urllib.request.urlopen('https://api.anthropic.com', timeout=5)
+    print("CONECTIVIDADE OK: api.anthropic.com acessível")
+except Exception as e:
+    print(f"ERRO DE CONECTIVIDADE: {e}")
 import os
 import time
 import json
