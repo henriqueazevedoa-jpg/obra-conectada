@@ -25,6 +25,13 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY").strip() if os.environ.ge
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY").strip() if os.environ.get("OPENAI_API_KEY") else None
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY").strip() if os.environ.get("GEMINI_API_KEY") else None
 
+PRECO_CLAUDE_SONNET_INPUT_PER_M = 3.00
+PRECO_CLAUDE_SONNET_OUTPUT_PER_M = 15.00
+PRECO_GEMINI_FLASH_INPUT_PER_M = 0.075
+PRECO_GEMINI_FLASH_OUTPUT_PER_M = 0.30
+PRECO_GEMINI_EMBEDDING_PER_M = 0.0
+PRECO_OPENAI_WHISPER_PER_MIN = 0.006
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("ERRO: Variáveis de ambiente do Supabase não configuradas.")
     exit(1)
@@ -37,6 +44,22 @@ anthropic = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
+
+def registrar_custo(arquivo_id, obra_id, company_id, fase, modelo, tokens_entrada=0, tokens_saida=0, unidades=0, custo_usd=0.0):
+    try:
+        supabase.table("processamento_custos").insert({
+            "arquivo_id": arquivo_id,
+            "obra_id": obra_id,
+            "company_id": company_id,
+            "fase": fase,
+            "modelo": modelo,
+            "tokens_entrada": tokens_entrada,
+            "tokens_saida": tokens_saida,
+            "unidades": unidades,
+            "custo_usd": custo_usd
+        }).execute()
+    except Exception as e:
+        print(f"[{arquivo_id}] Aviso: falha ao registrar custo ({fase}): {e}")
 
 def send_push_notification(user_id: str, titulo: str, corpo: str):
     """Dispara a Edge Function de push notifications"""
@@ -237,7 +260,7 @@ Retorne JSON com:
 }"""
     return system, instrucao
 
-def extrair_entidades_fase2(disciplina, texto_completo):
+def extrair_entidades_fase2(disciplina, texto_completo, arquivo_id, obra_id, company_id):
     try:
         if not anthropic:
             return {}
@@ -252,6 +275,12 @@ def extrair_entidades_fase2(disciplina, texto_completo):
                 "content": f"{instrucao_f2}\n\nTexto completo da prancha:\n{texto_completo}"
             }]
         )
+        
+        tokens_entrada_f2 = resposta_f2.usage.input_tokens
+        tokens_saida_f2 = resposta_f2.usage.output_tokens
+        custo_f2 = (tokens_entrada_f2 * PRECO_CLAUDE_SONNET_INPUT_PER_M + tokens_saida_f2 * PRECO_CLAUDE_SONNET_OUTPUT_PER_M) / 1_000_000
+        registrar_custo(arquivo_id, obra_id, company_id, "extracao_claude", "claude-sonnet-4-5", tokens_entrada_f2, tokens_saida_f2, 0, custo_f2)
+
         text_f2 = resposta_f2.content[0].text.replace("```json", "").replace("```", "").strip()
         return json.loads(text_f2)
     except Exception as e:
@@ -333,6 +362,12 @@ Páginas:
             try:
                 modelo_gemini = genai.GenerativeModel("gemini-2.0-flash")
                 resposta = modelo_gemini.generate_content(prompt_fase1)
+                
+                tokens_entrada_f1 = resposta.usage_metadata.prompt_token_count if hasattr(resposta, 'usage_metadata') else 0
+                tokens_saida_f1 = resposta.usage_metadata.candidates_token_count if hasattr(resposta, 'usage_metadata') else 0
+                custo_f1 = (tokens_entrada_f1 * PRECO_GEMINI_FLASH_INPUT_PER_M + tokens_saida_f1 * PRECO_GEMINI_FLASH_OUTPUT_PER_M) / 1_000_000
+                registrar_custo(arquivo_id, obra_id, company_id, "classificacao_gemini", "gemini-2.0-flash", tokens_entrada_f1, tokens_saida_f1, 0, custo_f1)
+                
                 text_response = resposta.text
                 text_response = text_response.replace("```json", "").replace("```", "").strip()
                 classificacoes = json.loads(text_response)
@@ -358,7 +393,7 @@ Páginas:
                     continue
 
                 print(f"[{arquivo_id}] Fase 2: extraindo entidades página {cls_page.get('pagina')}...")
-                entidades = extrair_entidades_fase2(cls_page.get("disciplina", "indeterminado"), texto_original)
+                entidades = extrair_entidades_fase2(cls_page.get("disciplina", "indeterminado"), texto_original, arquivo_id, obra_id, company_id)
 
                 # 2. Gerar Embedding Gemini
                 print(f"[{arquivo_id}] Gerando embedding para a página {cls_page.get('pagina')}...")
@@ -367,6 +402,8 @@ Páginas:
                     content=texto_limpo[:8000]
                 )
                 embedding_vector = emb_res['embedding']
+                
+                registrar_custo(arquivo_id, obra_id, company_id, "embedding_gemini", "text-embedding-004", len(texto_limpo[:8000].split()), 0, 1, 0.0)
                 
                 # 3. Inserir Chunk no PGVector
                 supabase.table("projeto_chunks").insert({
