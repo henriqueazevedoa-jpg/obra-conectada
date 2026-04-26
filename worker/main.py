@@ -203,7 +203,7 @@ def classificar_e_indexar(arquivo: dict):
             print(f"[{arquivo_id}] Chamando Claude para classificar Lote {i//batch_size + 1}...")
 
             resposta = anthropic.messages.create(
-                model="claude-3-7-sonnet-20250219",  # Fallback version for Sonnet if 4-6 is invalid. I will use claude-3-7-sonnet-20250219 per anthropic defaults but prompt requested claude-sonnet-4-6. I will pass it literally.
+                model="claude-sonnet-4-5",  # Fallback version for Sonnet if 4-6 is invalid. I will use claude-3-7-sonnet-20250219 per anthropic defaults but prompt requested claude-sonnet-4-6. I will pass it literally.
                 max_tokens=4000,
                 temperature=0.0,
                 system="Você é um especialista em análise de projetos de construção civil brasileiros.\nAnalise as páginas de projeto fornecidas e classifique cada uma.\nRetorne APENAS um array JSON válido (lista de objetos), sem texto adicional, sem crase de markdown.",
