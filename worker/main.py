@@ -4,8 +4,12 @@ try:
     print("CONECTIVIDADE OK: api.anthropic.com acessível")
 except Exception as e:
     print(f"Erro na fase de Classificação e Embedding: {type(e).__name__}: {e}")
-print(f"GEMINI_API_KEY presente: {bool(os.environ.get('GEMINI_API_KEY', ''))}")
-print(f"GEMINI_API_KEY prefixo: {str(os.environ.get('GEMINI_API_KEY', ''))[:10]}...")
+
+try:
+    urllib.request.urlopen('https://generativelanguage.googleapis.com', timeout=5)
+    print("CONECTIVIDADE OK: generativelanguage.googleapis.com acessível")
+except Exception as e:
+    print(f"Erro na fase de Classificação e Embedding: {type(e).__name__}: {e}")
 
 import os
 import time
