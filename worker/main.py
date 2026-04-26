@@ -167,6 +167,97 @@ def limpar_ruido_para_embedding(texto: str) -> str:
     texto_limpo = re.sub(r'\s{2,}', ' ', texto_limpo)
     return texto_limpo.strip()
 
+def montar_prompt_fase2(disciplina, texto_completo):
+    if disciplina == "estrutural":
+        system = "Você é um engenheiro estrutural especialista em projetos de concreto armado brasileiros."
+        instrucao = """Analise esta prancha estrutural e extraia TODAS as informações técnicas presentes.
+Retorne JSON com:
+{
+  "pilares": [{"id": "", "secao_cm": "", "nivel_m": 0.0, "status": "ativo|morre|muda_secao"}],
+  "vigas": [{"id": "", "secao_cm": "", "nivel_m": 0.0}],
+  "lajes": [{"tipo": "", "altura_cm": 0, "area_m2": 0.0}],
+  "armacoes": [{"elemento": "", "aco": "CA50|CA60", "diametro_mm": 0.0, "quantidade": 0, "comprimento_cm": 0, "peso_kg": 0.0}],
+  "concreto_fck_mpa": 0,
+  "volume_concreto_m3": 0.0,
+  "area_forma_m2": 0.0,
+  "normas_referencia": [],
+  "notas_construtivas": [],
+  "cobrimentos_cm": {},
+  "carregamentos": {}
+}"""
+    elif disciplina == "arquitetonico":
+        system = "Você é um arquiteto especialista em projetos residenciais e comerciais brasileiros."
+        instrucao = """Analise esta prancha arquitetônica e extraia TODAS as informações técnicas presentes.
+Retorne JSON com:
+{
+  "ambientes": [{"nome": "", "area_m2": 0.0}],
+  "pavimento": "",
+  "escala": "",
+  "cotas_principais": [],
+  "areas_totais": {},
+  "cortes_referenciados": [],
+  "esquadrias": [{"tipo": "", "codigo": "", "dimensoes": ""}]
+}"""
+    elif disciplina == "hidraulico":
+        system = "Você é um engenheiro hidrossanitário especialista em projetos brasileiros."
+        instrucao = """Analise esta prancha hidrossanitária e extraia TODAS as informações técnicas presentes.
+Retorne JSON com:
+{
+  "tubulacoes": [{"tipo": "esgoto|agua_fria|agua_quente|pluvial", "diametro_mm": 0, "material": ""}],
+  "pontos_esgoto": 0,
+  "pontos_agua": 0,
+  "caixas_inspecao": 0,
+  "caixas_gordura": 0,
+  "reservatorios": [{"tipo": "", "volume_litros": 0}],
+  "pavimento": "",
+  "notas": []
+}"""
+    elif disciplina == "eletrico":
+        system = "Você é um engenheiro eletricista especialista em projetos brasileiros."
+        instrucao = """Analise esta prancha elétrica e extraia TODAS as informações técnicas presentes.
+Retorne JSON com:
+{
+  "circuitos": [{"id": "", "descricao": "", "potencia_w": 0}],
+  "quadros_distribuicao": [{"id": "", "pavimento": ""}],
+  "pontos_tomada": 0,
+  "pontos_iluminacao": 0,
+  "pavimento": "",
+  "carga_instalada_kva": 0.0,
+  "notas": []
+}"""
+    else:
+        system = "Você é um especialista em projetos de construção civil brasileiros."
+        instrucao = """Analise esta prancha e extraia TODAS as informações técnicas presentes.
+Retorne JSON com:
+{
+  "elementos": [{"nome": "", "valor": ""}],
+  "medidas": [],
+  "especificacoes": [],
+  "observacoes": []
+}"""
+    return system, instrucao
+
+def extrair_entidades_fase2(disciplina, texto_completo):
+    try:
+        if not anthropic:
+            return {}
+        system_f2, instrucao_f2 = montar_prompt_fase2(disciplina, texto_completo)
+        resposta_f2 = anthropic.messages.create(
+            model="claude-3-5-sonnet-latest",
+            max_tokens=2000,
+            temperature=0.0,
+            system=system_f2,
+            messages=[{
+                "role": "user",
+                "content": f"{instrucao_f2}\n\nTexto completo da prancha:\n{texto_completo}"
+            }]
+        )
+        text_f2 = resposta_f2.content[0].text.replace("```json", "").replace("```", "").strip()
+        return json.loads(text_f2)
+    except Exception as e:
+        print(f"Fase 2 falhou (não bloqueante): {e}")
+        return {}
+
 def classificar_e_indexar(arquivo: dict):
     arquivo_id = arquivo['id']
     obra_id = arquivo['obra_id']
@@ -213,17 +304,11 @@ def classificar_e_indexar(arquivo: dict):
                 snippet = p['texto_extraido'][:1500]
                 prompt_paginas += f"--- PÁGINA {p['numero_pagina']} (ID: {p['id']}) ---\n{snippet}\n\n"
 
-            print(f"[{arquivo_id}] Chamando Claude para classificar Lote {i//batch_size + 1}...")
+            print(f"[{arquivo_id}] Chamando Gemini para classificar Lote {i//batch_size + 1}...")
 
-            resposta = anthropic.messages.create(
-                model="claude-sonnet-4-5",  # Fallback version for Sonnet if 4-6 is invalid. I will use claude-3-7-sonnet-20250219 per anthropic defaults but prompt requested claude-sonnet-4-6. I will pass it literally.
-                max_tokens=4000,
-                temperature=0.0,
-                system="Você é um especialista em análise de projetos de construção civil brasileiros.\nAnalise as páginas de projeto fornecidas e classifique cada uma.\nRetorne APENAS um array JSON válido (lista de objetos), sem texto adicional, sem crase de markdown.",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"""Classifique cada página abaixo de um projeto de construção civil.
+            prompt_fase1 = f"""Você é um especialista em análise de projetos de construção civil brasileiros.
+Analise as páginas de projeto fornecidas e classifique cada uma.
+Retorne APENAS um array JSON válido (lista de objetos), sem texto adicional, sem crase de markdown.
 
 Para cada página retorne ESTRITAMENTE:
 {{
@@ -235,39 +320,24 @@ Para cada página retorne ESTRITAMENTE:
   "resumo": "descrição em 1 frase do conteúdo útil desta página",
   "confianca": "alta"|"media"|"baixa",
   "pagina_par": número_da_página_anterior_se_for_continuacao_ou_null,
-  "entidades_extraidas": {{}} // JSON com base na engenharia civil: 
-                            // se quantitativo -> {{ "areas_m2": [], "elementos": [] }}
-                            // se estrutural -> {{ "pilares": [], "vigas": [], "fck": "" }}
-                            // se sondagem -> {{ "id_sondagem": "", "profundidade_max": "", "nivel_agua": "" }}
+  "entidades_extraidas": {{}}
 }}
 
-Marcar como "descartar":
-- Páginas em branco ou com menos de 20 caracteres úteis
-- Capas, índices, folhas de rosto sem informação técnica
-- Páginas com apenas elementos gráficos sem texto relevante
-
-Marcar relevancia "alta":
-- Tabelas de quantitativos, áreas, esquadrias, armação
-- Memoriais descritivos
-- Especificações técnicas de materiais
-
-Agrupamento (pagina_par):
-- Detectar quando páginas consecutivas pertencem à mesma sondagem/elemento (ex: continuação da tabela) e apontar a pagina anterior neste campo, senao null.
+Marcar como "descartar": páginas em branco, capas sem informação técnica, páginas só com elementos gráficos sem texto.
+Marcar relevancia "alta": tabelas de quantitativos, áreas, esquadrias, armação, memoriais, especificações técnicas.
+Agrupamento: detectar páginas consecutivas da mesma sondagem/elemento e apontar a página anterior em pagina_par, senão null.
 
 Páginas:
-{prompt_paginas}
-"""
-                    }
-                ]
-            )
+{prompt_paginas}"""
 
             try:
-                text_response = resposta.content[0].text
-                # Clean Markdown if Anthropic injects it
+                modelo_gemini = genai.GenerativeModel("gemini-2.0-flash")
+                resposta = modelo_gemini.generate_content(prompt_fase1)
+                text_response = resposta.text
                 text_response = text_response.replace("```json", "").replace("```", "").strip()
                 classificacoes = json.loads(text_response)
             except Exception as e_json:
-                print(f"[{arquivo_id}] Erro ao parsear JSON do Anthropic: {e_json}\nResponse bruta:\n{resposta.content[0].text}")
+                print(f"[{arquivo_id}] Erro ao parsear JSON do Gemini: {e_json}")
                 continue
 
             for cls_page in classificacoes:
@@ -286,6 +356,9 @@ Páginas:
                 
                 if len(texto_limpo) < 20:
                     continue
+
+                print(f"[{arquivo_id}] Fase 2: extraindo entidades página {cls_page.get('pagina')}...")
+                entidades = extrair_entidades_fase2(cls_page.get("disciplina", "indeterminado"), texto_original)
 
                 # 2. Gerar Embedding Gemini
                 print(f"[{arquivo_id}] Gerando embedding para a página {cls_page.get('pagina')}...")
@@ -309,7 +382,7 @@ Páginas:
                     "resumo": cls_page.get("resumo", ""),
                     "confianca": cls_page.get("confianca", "media"),
                     "pagina_par": cls_page.get("pagina_par"),
-                    "entidades_extraidas": cls_page.get("entidades_extraidas", {}),
+                    "entidades_extraidas": entidades,
                     "embedding": embedding_vector
                 }).execute()
                 
