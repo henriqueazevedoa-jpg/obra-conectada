@@ -4,6 +4,9 @@ try:
     print("CONECTIVIDADE OK: api.anthropic.com acessível")
 except Exception as e:
     print(f"Erro na fase de Classificação e Embedding: {type(e).__name__}: {e}")
+print(f"GEMINI_API_KEY presente: {bool(os.environ.get('GEMINI_API_KEY', ''))}")
+print(f"GEMINI_API_KEY prefixo: {str(os.environ.get('GEMINI_API_KEY', ''))[:10]}...")
+
 import os
 import time
 import json
