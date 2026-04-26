@@ -20,8 +20,8 @@ load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY").strip()
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY").strip()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("ERRO: Variáveis de ambiente do Supabase não configuradas.")
