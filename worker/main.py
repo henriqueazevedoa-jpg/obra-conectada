@@ -92,6 +92,14 @@ def processar_pdf(arquivo: dict):
     company_id = arquivo['company_id']
     user_id = arquivo.get('user_id')
     
+    tentativas_ext = arquivo.get('tentativas_extracao', 0)
+    if tentativas_ext >= 3:
+        print(f"[{arquivo_id}] Máximo de tentativas de extração atingido. Marcando como erro.")
+        supabase.table("projeto_arquivos").update({"status": "erro", "erro_mensagem": "Máximo de tentativas de extração atingido — PDF possivelmente corrompido ou muito pesado"}).eq("id", arquivo_id).execute()
+        return
+
+    supabase.table("projeto_arquivos").update({"tentativas_extracao": tentativas_ext + 1}).eq("id", arquivo_id).execute()
+    
     print(f"\n[{arquivo_id}] Iniciando processamento de: {storage_path}")
     
     try:
