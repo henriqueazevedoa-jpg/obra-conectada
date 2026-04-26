@@ -28,6 +28,8 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     exit(1)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+print(f"ANTHROPIC_API_KEY presente: {bool(ANTHROPIC_API_KEY)}")
+print(f"ANTHROPIC_API_KEY prefixo: {str(ANTHROPIC_API_KEY or '')[:10]}...")
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 openai = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
