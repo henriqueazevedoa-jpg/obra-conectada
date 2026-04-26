@@ -29,14 +29,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { BdiConfig } from './BdiPopover';
 
 
-// ── Exports mantidos para retrocompatibilidade com InsumoRow ──────────────────
+// ÔöÇÔöÇ Exports mantidos para retrocompatibilidade com InsumoRow ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 import { PLANILHA_GRID } from './planilhaGrid';
 export const COMPOSICAO_GRID = PLANILHA_GRID;
 
 export function toSinapiDisplayName(descricao: string): string {
   if (!descricao) return descricao;
-  const LOWER = new Set(['de','da','do','das','dos','e','a','o','as','os','em','no','na','nos','nas','por','para','com','ou']);
+  const LOWER = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'a', 'o', 'as', 'os', 'em', 'no', 'na', 'nos', 'nas', 'por', 'para', 'com', 'ou']);
   return descricao.toLowerCase().split(' ').map((w, i) =>
     i === 0 || !LOWER.has(w) ? w.charAt(0).toUpperCase() + w.slice(1) : w
   ).join(' ');
@@ -46,7 +46,7 @@ function normalizarDescricao(d: string) {
   return d.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
+// ÔöÇÔöÇ Props ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 interface Props {
   composicao: OrcamentoComposicao;
@@ -68,25 +68,33 @@ interface Props {
   bulkActive?: boolean;
   bdiConfig?: BdiConfig;
   onOpenCatalogo?: (tab?: string, query?: string) => void;
+  forceExpanded?: boolean;
+  onDoubleClickChevron?: (expanded: boolean) => void;
+  globalSelectedIds?: Set<string>;
+  onToggleSelectGlobal?: (id: string, childrenIdsToDeselect?: string[]) => void;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ÔöÇÔöÇ Component ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 export default function ComposicaoRow({
   composicao, unidades, onChange, onRemove, generateInsumoCodigo,
   obraId, readOnly, onGoCotacao, priceSuggestionEnabled = false,
   onPriceBadge, isNew = false,
   isSelected = false, onToggleSelect, bulkActive = false,
-  bdiConfig, onOpenCatalogo,
+  bdiConfig, onOpenCatalogo, forceExpanded, onDoubleClickChevron,
+  globalSelectedIds, onToggleSelectGlobal
 }: Props) {
   const isSinapi = composicao.fonteReferencia === 'SINAPI';
   const isInsumodireto = composicao.tipo === 'insumo_direto';
   const [insumosExpanded, setInsumosExpanded] = useState(!isSinapi);
+  const [forceApplied, setForceApplied] = useState<boolean | undefined>(undefined);
   const [showAllInsumos, setShowAllInsumos] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [lotesIds, setLotesIds] = useState<string[]>([]);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [descTooltip, setDescTooltip] = useState({ visible: false, text: '' });
+  const [selectedInsumoIds, setSelectedInsumoIds] = useState<Set<string>>(new Set());
   const descRef = useRef<HTMLDivElement>(null);
 
   const handleDescMouseEnter = () => {
@@ -114,11 +122,17 @@ export default function ComposicaoRow({
     setLocalPreco(composicao.precoUnitario != null ? String(composicao.precoUnitario) : '');
   }, [composicao.id, composicao.precoUnitario]);
 
+  // Sync forceExpanded
+  if (forceExpanded !== undefined && forceExpanded !== forceApplied) {
+    setInsumosExpanded(forceExpanded);
+    setForceApplied(forceExpanded);
+  }
+
   useEffect(() => {
     setLocalQtd(composicao.quantidade != null ? String(composicao.quantidade) : '');
   }, [composicao.id, composicao.quantidade]);
 
-  // Sugestão Automática
+  // Sugest├úo Autom├ítica
   const { suggestedPrice, clearSuggestion } = usePriceSuggestion(
     composicao.descricao,
     composicao.unidade || '',
@@ -147,7 +161,7 @@ export default function ComposicaoRow({
       .then(({ data }: { data: { id: string } | null }) => setIsFavorite(!!data));
   }, [composicao.descricao, company?.id]);
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ÔöÇÔöÇ Helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
   const recalcFromInsumos = (comp: OrcamentoComposicao) => {
     if (comp.usaInsumos) {
@@ -189,7 +203,7 @@ export default function ComposicaoRow({
     }
   }, [obraId, company?.id, composicao.descricao, composicao.unidade]);
 
-  // onBlur preço
+  // onBlur pre├ºo
   const handlePrecoBlur = () => {
     const preco = localPreco ? parseFloat(localPreco) : null;
     update('precoUnitario', preco);
@@ -210,11 +224,11 @@ export default function ComposicaoRow({
     update('quantidade', qtd);
   };
 
-  // Navegação teclado Enter → linha abaixo / Shift+Enter → linha acima
+  // Navega├º├úo teclado Enter ÔåÆ linha abaixo / Shift+Enter ÔåÆ linha acima
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, field: 'preco' | 'qtd') => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Move foco para próximo input na planilha (usando tabIndex natural)
+      // Move foco para pr├│ximo input na planilha (usando tabIndex natural)
       const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-planilha]'));
       const idx = inputs.indexOf(e.currentTarget);
       if (e.shiftKey) {
@@ -278,7 +292,7 @@ export default function ComposicaoRow({
           is_modelo: false, origem: 'favorito', obra_origem_id: obraId,
         });
         setIsFavorite(true);
-        toast({ title: '⭐ Salva na Biblioteca!' });
+        toast({ title: 'Ô¡É Salva na Biblioteca!' });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -302,7 +316,7 @@ export default function ComposicaoRow({
     historico: { label: 'Hist.', cls: 'border-emerald-300 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400' },
     manual: { label: 'Manual', cls: 'border-border text-muted-foreground' },
     sugerido: { label: 'Sugerido', cls: 'border-amber-300 text-amber-700 bg-amber-50 cursor-pointer hover:bg-amber-100 transition-colors' },
-    biblioteca: { label: 'Catálogo', cls: 'border-amber-300 text-amber-700 bg-amber-50' },
+    biblioteca: { label: 'Cat├ílogo', cls: 'border-amber-300 text-amber-700 bg-amber-50' },
   };
 
   const showFonteBadge = fonteBadge && composicao.precoUnitario != null && composicao.precoUnitario > 0;
@@ -319,28 +333,52 @@ export default function ComposicaoRow({
       {/* ── Linha principal ── */}
       <div
         className={cn(
-          `grid ${PLANILHA_GRID} items-center gap-0 bg-background pl-4`,
-          isSinapi && 'bg-blue-50/20 dark:bg-blue-950/10',
+          `grid ${PLANILHA_GRID} items-center gap-0`,
+          isSinapi && 'border-l-2 border-l-blue-300',
         )}
-        style={{ minHeight: '32px', height: '32px' }}
+        style={{ minHeight: '32px', height: '32px', backgroundColor: '#f0eef8' }}
       >
         {/* Coluna 1: Drag + Código + Chevron + Descrição */}
-        <div className="flex items-center gap-1 h-full px-1 border-r border-border/60 min-w-0">
+        <div className="flex items-center gap-1 h-full px-1 border-r border-border/60 min-w-0 pl-2">
+          {/* Checkbox bulk — hover only */}
+          {!readOnly && (
+            <div className={cn(
+              'flex items-center justify-center h-5 w-4 shrink-0 transition-opacity',
+              isSelected ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
+            )}>
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={onToggleSelect}
+                className="h-3.5 w-3.5 rounded-[2px]"
+              />
+            </div>
+          )}
           <span className="flex items-center justify-center opacity-0 group-hover/row:opacity-40 hover:!opacity-80 cursor-grab active:cursor-grabbing transition-opacity text-muted-foreground shrink-0 w-[20px]">
             <GripVertical className="h-3.5 w-3.5" />
           </span>
 
           <div className="flex items-center shrink-0">
-            {/* Bloco 5: Chevron sempre visível */}
-            {!isInsumodireto && (
-              <button
-                tabIndex={-1}
-                onClick={() => setInsumosExpanded(v => !v)}
-                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mr-1"
-              >
-                <ChevronRight className={cn('h-3 w-3 transition-transform', insumosExpanded && 'rotate-90')} />
-              </button>
-            )}
+            {/* Chevron sempre visível */}
+            <button
+              tabIndex={-1}
+              onClick={(e) => {
+                if (e.detail === 1) {
+                  clickTimerRef.current = setTimeout(() => {
+                    setInsumosExpanded(v => !v);
+                  }, 250);
+                }
+              }}
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+                const next = !insumosExpanded;
+                setInsumosExpanded(next);
+                onDoubleClickChevron?.(next);
+              }}
+              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mr-1"
+            >
+              <ChevronRight className={cn('h-3 w-3 transition-transform', insumosExpanded && 'rotate-90')} />
+            </button>
             <span className="text-[10px] font-mono text-muted-foreground truncate" title={composicao.codigo}>
               {composicao.codigo}
             </span>
@@ -368,9 +406,9 @@ export default function ComposicaoRow({
               <span className="truncate">{displayDescricao}</span>
             </div>
           ) : (
-            <div 
-              ref={descRef} 
-              onMouseEnter={handleDescMouseEnter} 
+            <div
+              ref={descRef}
+              onMouseEnter={handleDescMouseEnter}
               onMouseLeave={() => setDescTooltip(v => ({ ...v, visible: false }))}
               className="flex-1 h-full w-full flex items-center min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5"
             >
@@ -396,7 +434,71 @@ export default function ComposicaoRow({
         </div>
 
         {/* Tipo */}
-        <div className="h-full border-r border-border/60" />
+        <div className="h-full flex items-center justify-center border-r border-border/60">
+          {(() => {
+            const TIPO_STYLES: Record<string, { label: string; cls: string }> = {
+              composicao:  { label: 'C',   cls: 'bg-violet-100 text-violet-700 border-violet-300' },
+              material:    { label: 'MAT', cls: 'bg-blue-100 text-blue-700 border-blue-300' },
+              mao_obra:    { label: 'MO',  cls: 'bg-amber-100 text-amber-700 border-amber-300' },
+              equipamento: { label: 'EQP', cls: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+              servico:     { label: 'SRV', cls: 'bg-purple-100 text-purple-700 border-purple-300' },
+            };
+
+            const tipoAtual = isInsumodireto
+              ? ((composicao as any).tipo_item || 'material')
+              : 'composicao';
+            const cfg = TIPO_STYLES[tipoAtual] || TIPO_STYLES.composicao;
+
+            const handleChangeTipo = (key: string) => {
+              if (key === 'composicao') {
+                // Virar composição com insumos
+                const next = { ...composicao, tipo: 'composicao', usaInsumos: true } as any;
+                if (next.insumos.length === 0) next.insumos = [makeInsumo()];
+                onChange(next);
+                setInsumosExpanded(true);
+              } else {
+                // Virar insumo direto
+                if (composicao.usaInsumos && composicao.insumos.length > 0) {
+                  if (!window.confirm(`Esta composição tem ${composicao.insumos.length} insumo(s) detalhado(s). Ao mudar para insumo direto eles serão removidos. Confirmar?`)) return;
+                }
+                onChange({ ...composicao, tipo: 'insumo_direto', tipo_item: key, usaInsumos: false, insumos: [] } as any);
+              }
+            };
+
+            if (isFullReadOnly) {
+              return (
+                <Badge variant="outline" className={cn('text-[9px] font-bold px-1 py-0 h-4 rounded pointer-events-none', cfg.cls)}>
+                  {cfg.label}
+                </Badge>
+              );
+            }
+
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="focus:outline-none">
+                    <Badge variant="outline" className={cn('text-[9px] font-bold px-1 py-0 h-4 rounded cursor-pointer hover:opacity-80 transition-opacity', cfg.cls)}>
+                      {cfg.label}
+                    </Badge>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-44 text-[11px]">
+                  <DropdownMenuItem onClick={() => handleChangeTipo('composicao')} className="text-[11px] gap-2">
+                    <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-4', TIPO_STYLES.composicao.cls)}>C</Badge>
+                    Composição (com insumos)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {(['material', 'mao_obra', 'equipamento', 'servico'] as const).map(key => (
+                    <DropdownMenuItem key={key} onClick={() => handleChangeTipo(key)} className="text-[11px] gap-2">
+                      <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-4', TIPO_STYLES[key].cls)}>{TIPO_STYLES[key].label}</Badge>
+                      {key === 'material' ? 'Material' : key === 'mao_obra' ? 'Mão de Obra' : key === 'equipamento' ? 'Equipamento' : 'Serviço'}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          })()}
+        </div>
 
         {/* Unidade */}
         {isFullReadOnly || isSinapi ? (
@@ -409,7 +511,6 @@ export default function ComposicaoRow({
               onFocus={e => e.target.select()}
               className="h-full text-[10px] uppercase px-1 text-center bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
               placeholder="Un"
-              list={`un-comp-${composicao.id}`}
             />
           </div>
         )}
@@ -495,83 +596,65 @@ export default function ComposicaoRow({
           )}
         </div>
 
-        {/* Coluna 6: Ações */}
-        <div className="h-full flex items-center justify-center px-1 shrink-0">
-          {(!bulkActive && showFonteBadge && fonteBadge && !isSelected) ? (
-            <Badge 
-              variant="outline" 
-              className={cn('text-[9px] px-1 py-0 h-4 shrink-0', fonteBadgeConfig[fonteBadge]?.cls)}
-              onClick={fonteBadge === 'sugerido' ? handlePrecoBlur : undefined}
+        {/* Coluna 6: Ações — botões diretos */}
+        <div className="h-full flex items-center justify-center px-1 shrink-0 gap-0.5">
+          {(!bulkActive && showFonteBadge && fonteBadge && !isSelected) && (
+            <Badge
+              variant="outline"
+              className={cn('text-[9px] px-1 py-0 h-4 shrink-0 opacity-100 group-hover/row:opacity-0 transition-opacity pointer-events-none', fonteBadgeConfig[fonteBadge]?.cls)}
             >
               {fonteBadgeConfig[fonteBadge]?.label}
             </Badge>
-          ) : bulkActive || isSelected ? (
-            <div className="flex items-center justify-center h-6 w-6 opacity-100 transition-opacity">
-              <Checkbox 
-                checked={isSelected} 
-                onCheckedChange={onToggleSelect}
-                className="h-3.5 w-3.5 rounded-[2px]"
-              />
-            </div>
-          ) : !readOnly ? (
-            <Popover>
-              <PopoverTrigger asChild>
+          )}
+
+          {!readOnly && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+              <button
+                onClick={handleToggleFavorita}
+                disabled={savingFavorite}
+                className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-amber-500 hover:bg-muted transition-colors disabled:opacity-30"
+                title={isFavorite ? 'Remover Favorito' : 'Favoritar'}
+              >
+                <Star className={cn('h-3.5 w-3.5', isFavorite && 'fill-amber-500 text-amber-500')} />
+              </button>
+
+              <ListaCotacaoPopover
+                composicaoId={composicao.id}
+                insumoId={null}
+                descricao={composicao.descricao}
+                unidade={composicao.unidade}
+                qtd={composicao.quantidade}
+                precoTotal={composicao.precoTotal}
+                obraId={obraId}
+                onListasChange={() => {}}
+                addedLotesIds={lotesIds}
+              >
                 <button
-                  className="opacity-0 group-hover/row:opacity-100 h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-opacity"
+                  className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                  title="Adicionar à lista de cotação"
                 >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
+                  <ClipboardList className="h-3.5 w-3.5" />
                 </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-44 p-1" align="end" onClick={e => e.stopPropagation()}>
-                <button 
-                  onClick={handleToggleFavorita}
-                  disabled={savingFavorite}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
-                >
-                  <Star className={cn('h-3.5 w-3.5', isFavorite && 'fill-amber-500 text-amber-500')} /> {isFavorite ? 'Remover Favorito' : 'Favoritar'}
-                </button>
-                <button 
-                  onClick={() => { /* duplicate not implemented yet */ }}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
-                >
-                  <Copy className="h-3.5 w-3.5" /> Duplicar
-                </button>
-                {onGoCotacao && (
-                  <button 
-                    onClick={() => onGoCotacao(composicao.descricao)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
-                  >
-                    <ClipboardList className="h-3.5 w-3.5" /> Ir para Cotação
-                  </button>
-                )}
-                {(!composicao.precoUnitario || composicao.precoUnitario === 0) && (
-                  <button 
-                    onClick={() => onOpenCatalogo?.('sinapi', composicao.descricao)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
-                  >
-                    <Search className="h-3.5 w-3.5" /> Buscar SINAPI
-                  </button>
-                )}
-                {!isInsumodireto && (
-                  <button 
-                    onClick={() => toggleInsumos(!hasInsumos)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
-                  >
-                    <Layers className="h-3.5 w-3.5" /> {hasInsumos ? 'Remover insumos' : 'Detalhar em insumos'}
-                  </button>
-                )}
-                <div className="h-px bg-border/50 my-1 mx-1" />
-                <button 
-                  onClick={onRemove}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Excluir
-                </button>
-              </PopoverContent>
-            </Popover>
-          ) : <div className="w-6 shrink-0" />}
-      </div>
-      {/* Fecha grid container */}
+              </ListaCotacaoPopover>
+
+              <button
+                onClick={() => { /* TODO: duplicar */ }}
+                className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                title="Duplicar"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+
+              <button
+                onClick={onRemove}
+                className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Excluir"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Elementos fora do grid */}
@@ -579,9 +662,9 @@ export default function ComposicaoRow({
         {unidades.map(u => <option key={u} value={u} />)}
       </datalist>
 
-      {/* ── Insumos (sub-linhas com indent pl-8) ── */}
+      {/* ── Insumos (sub-linhas) ── */}
       {insumosExpanded && !isInsumodireto && (
-        <div className="pl-8 bg-muted/5 border-t border-border/20">
+        <div className="bg-muted/5 border-t border-border/20">
           {insumosVisiveis.map((si, idx) => (
             <InsumoRowDense
               key={si.id}
@@ -594,18 +677,21 @@ export default function ComposicaoRow({
               priceSuggestionEnabled={priceSuggestionEnabled}
               onPriceBadge={onPriceBadge}
               onOpenCatalogo={onOpenCatalogo}
+              isSelected={globalSelectedIds?.has(si.id)}
+              onToggleSelect={() => onToggleSelectGlobal?.(si.id)}
+              bulkActive={bulkActive}
             />
           ))}
-          {/* Bloco 5: Placeholder se vazio */}
+          {/* Placeholder se lista vazia */}
           {composicao.insumos.length === 0 && !readOnly && !isSinapi && (
-             <InsumoRowDense
-                placeholder
-                insumo={makeInsumo()}
-                unidades={unidades}
-                onChange={s => { const next = { ...composicao, insumos: [s] }; onChange(next); }}
-                onRemove={() => {}}
-                readOnly={false}
-             />
+            <InsumoRowDense
+              placeholder
+              insumo={makeInsumo()}
+              unidades={unidades}
+              onChange={s => { const next = { ...composicao, insumos: [s] }; onChange(next); }}
+              onRemove={() => {}}
+              readOnly={false}
+            />
           )}
           {insumosOcultos > 0 && !showAllInsumos && (
             <button
@@ -613,14 +699,14 @@ export default function ComposicaoRow({
               onClick={() => setShowAllInsumos(true)}
               className="w-full text-center py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
-              ver mais ({insumosOcultos}) ↓
+              ver mais ({insumosOcultos}) Ôåô
             </button>
           )}
           {!readOnly && !isSinapi && composicao.insumos.length > 0 && (
             <button
               tabIndex={-1}
               onClick={() => { const next = { ...composicao, insumos: [...composicao.insumos, makeInsumo()] }; onChange(next); }}
-              className="flex items-center gap-1 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover/row:opacity-100"
             >
               <Plus className="h-3 w-3" />
               Adicionar insumo

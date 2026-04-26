@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { OrcamentoInsumo } from '@/contexts/OrcamentoContext';
 import { cn } from '@/lib/utils';
-import { Search, ClipboardList, Trash2, Settings2, Box, Users, Truck, Wrench } from 'lucide-react';
+import { Trash2, Box, Users, Truck, Wrench, X, List, Copy, ClipboardList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/untyped';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { formatCurrency, formatCurrencyShort } from '@/data/mockData';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import SinapiPricePopover from './SinapiPricePopover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import ListaCotacaoPopover from './ListaCotacaoPopover';
 import { usePriceSuggestion } from '@/hooks/usePriceSuggestion';
 import { useCompany } from '@/contexts/CompanyContext';
+import { HelpCircle } from 'lucide-react';
+import { BdiConfig } from './BdiPopover';
 
 interface Props {
   insumo: OrcamentoInsumo;
@@ -26,10 +28,14 @@ interface Props {
   onPriceBadge?: (id: string, badge: string | null) => void;
   onOpenCatalogo?: (tab?: string, query?: string) => void;
   placeholder?: boolean;
+  // Bulk selection
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  bulkActive?: boolean;
+  bdiConfig?: BdiConfig;
 }
 
 import { PLANILHA_GRID } from './planilhaGrid';
-import { Clock, HelpCircle, X, List, MoreHorizontal, Copy } from 'lucide-react';
 
 export const INSUMO_DENSE_GRID = PLANILHA_GRID;
 
@@ -42,7 +48,8 @@ const TIPO_CONFIG: Record<string, { label: string; icon: any; color: string }> =
 
 export default function InsumoRowDense({
   insumo, unidades, onChange, onRemove, onDiscard, obraId, readOnly,
-  priceSuggestionEnabled = false, onPriceBadge, onOpenCatalogo, placeholder
+  priceSuggestionEnabled = false, onPriceBadge, onOpenCatalogo, placeholder,
+  isSelected = false, onToggleSelect, bulkActive = false,
 }: Props) {
   const [suggestions, setSuggestions] = useState<{ label: string; value: string }[]>([]);
   const [localQtd, setLocalQtd] = useState(insumo.quantidade != null ? String(insumo.quantidade) : '');
@@ -55,9 +62,9 @@ export default function InsumoRowDense({
   const [isMoDetected, setIsMoDetected] = useState(false);
   useEffect(() => {
     const MO_KEYWORDS = [
-      'pedreiro','servente','ajudante','operário','operario',
-      'mão de obra','mao de obra','oficial','encanador',
-      'eletricista','pintor','carpinteiro','armador'
+      'pedreiro', 'servente', 'ajudante', 'operário', 'operario',
+      'mão de obra', 'mao de obra', 'oficial', 'encanador',
+      'eletricista', 'pintor', 'carpinteiro', 'armador'
     ];
     const lower = insumo.descricao.toLowerCase();
     const isMO = MO_KEYWORDS.some(k => lower.includes(k));
@@ -71,10 +78,7 @@ export default function InsumoRowDense({
     servico: 'bg-purple-100 text-purple-700 border-purple-300',
   };
   const BADGE_LABEL: Record<string, string> = {
-    mao_obra: 'MO',
-    material: 'MAT',
-    equipamento: 'EQP',
-    servico: 'SRV',
+    mao_obra: 'MO', material: 'MAT', equipamento: 'EQP', servico: 'SRV',
   };
 
   const badgeClass = BADGE_STYLES[insumo.tipo_item] || BADGE_STYLES.material;
@@ -103,7 +107,6 @@ export default function InsumoRowDense({
 
   const { company } = useCompany();
 
-  // Sugestão Automática
   const { suggestedPrice, clearSuggestion } = usePriceSuggestion(
     insumo.descricao,
     insumo.unidade || '',
@@ -148,10 +151,7 @@ export default function InsumoRowDense({
   const handleDescricaoChange = (val: string) => update('descricao', val);
 
   const commitQtd = () => {
-    if (!localQtd) {
-      update('quantidade', null);
-      return;
-    }
+    if (!localQtd) { update('quantidade', null); return; }
     const val = parseFloat(localQtd.replace(',', '.'));
     if (!isNaN(val)) update('quantidade', val);
     else update('quantidade', null);
@@ -164,57 +164,36 @@ export default function InsumoRowDense({
       if (!isNaN(val)) preco = val;
     }
     update('precoUnitario', preco);
-    
+    // Formatar com 2 casas decimais no campo
+    if (preco != null) setLocalPreco(preco.toFixed(2));
     if (preco && preco > 0 && fonteBadge === 'sugerido') {
       setFonteBadge('manual');
       onPriceBadge?.(insumo.id, 'manual');
-      // Historico insert omitido para insumo para simplificar ou pode ser adicionado
     } else if (preco && preco > 0 && !fonteBadge) {
       setFonteBadge('manual');
       onPriceBadge?.(insumo.id, 'manual');
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, field: 'qtd' | 'preco' | 'unidade' | 'descricao') => {
-    if (e.key === 'F2') {
-      e.preventDefault();
-      const val = e.currentTarget.value;
-      e.currentTarget.setSelectionRange(val.length, val.length);
-      return;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, field: string) => {
+    if (e.key === 'Escape') { e.currentTarget.blur(); return; }
+    if (e.key === 'Enter') {
+      if (field === 'qtd') commitQtd();
+      if (field === 'preco') commitPreco();
     }
-
-    if (e.key === 'Escape') {
-      if (field === 'qtd') setLocalQtd(insumo.quantidade?.toString() ?? '');
-      if (field === 'preco') setLocalPreco(insumo.precoUnitario?.toString() ?? '');
-      e.currentTarget.blur();
-      return;
-    }
-
-    if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      if (e.key === 'Enter') e.preventDefault();
-      
-      if (e.key === 'Enter') {
-        if (field === 'qtd') commitQtd();
-        if (field === 'preco') commitPreco();
-      }
-
-      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-planilha]'));
-      const idx = inputs.indexOf(e.currentTarget as HTMLInputElement);
-      if (idx === -1) return;
-
-      if ((e.key === 'Enter' && e.shiftKey) || e.key === 'ArrowUp') {
-        const dataField = e.currentTarget.getAttribute('data-field');
-        const sameColInputs = inputs.filter(inp => inp.getAttribute('data-field') === dataField);
-        const colIdx = sameColInputs.indexOf(e.currentTarget as HTMLInputElement);
-        if (colIdx > 0) sameColInputs[colIdx - 1].focus();
-      } else if (e.key === 'Enter' || e.key === 'ArrowDown') {
-        const dataField = e.currentTarget.getAttribute('data-field');
-        const sameColInputs = inputs.filter(inp => inp.getAttribute('data-field') === dataField);
-        const colIdx = sameColInputs.indexOf(e.currentTarget as HTMLInputElement);
-        if (colIdx !== -1 && colIdx < sameColInputs.length - 1) {
-          sameColInputs[colIdx + 1].focus();
-        }
-      }
+    const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-planilha]'));
+    const idx = inputs.indexOf(e.currentTarget as HTMLInputElement);
+    if (idx === -1) return;
+    if ((e.key === 'Enter' && e.shiftKey) || e.key === 'ArrowUp') {
+      const dataField = e.currentTarget.getAttribute('data-field');
+      const sameColInputs = inputs.filter(inp => inp.getAttribute('data-field') === dataField);
+      const colIdx = sameColInputs.indexOf(e.currentTarget as HTMLInputElement);
+      if (colIdx > 0) sameColInputs[colIdx - 1].focus();
+    } else if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      const dataField = e.currentTarget.getAttribute('data-field');
+      const sameColInputs = inputs.filter(inp => inp.getAttribute('data-field') === dataField);
+      const colIdx = sameColInputs.indexOf(e.currentTarget as HTMLInputElement);
+      if (colIdx !== -1 && colIdx < sameColInputs.length - 1) sameColInputs[colIdx + 1].focus();
     }
   };
 
@@ -240,94 +219,113 @@ export default function InsumoRowDense({
         .from('cotacao_lote_itens')
         .select('lote_id')
         .eq('item_origem_id', insumo.id);
-      if (data) {
-        setLotesIds(data.map(d => d.lote_id));
-      }
+      if (data) setLotesIds(data.map(d => d.lote_id));
     };
     fetchListas();
   }, [obraId, insumo.id]);
 
   const tipo = insumo.tipo_item || 'material';
   const conf = TIPO_CONFIG[tipo] || TIPO_CONFIG.material;
-  const TipoIcon = conf.icon;
 
   const temQtd = insumo.quantidade != null && insumo.quantidade > 0;
   const temPreco = insumo.precoUnitario != null && insumo.precoUnitario > 0;
 
-  let dotColor = 'bg-[#ef4444]';
-  let dotTooltip = `Sem quantidade e sem preço — ${conf.label}`;
-  let dotClass = 'opacity-100';
-
-  if (temQtd && temPreco) {
-    dotColor = 'bg-[#10b981]';
-    dotTooltip = `Preenchido — ${conf.label}`;
-    dotClass = 'opacity-40 group-hover:opacity-100 transition-opacity duration-200';
-  } else if (temQtd || temPreco) {
-    dotColor = 'bg-[#f59e0b]';
-    dotTooltip = `Falta ${temQtd ? 'preço' : 'quantidade'} — ${conf.label}`;
-    dotClass = 'opacity-100';
-  }
-
   return (
     <div className={cn(
       'grid items-center gap-0 group transition-colors border-b border-border/10 last:border-b-0',
-      'odd:bg-[#f8f9fa] even:bg-[#f2f4f6] dark:odd:bg-slate-900/40 dark:even:bg-slate-900/60 hover:bg-primary/5 focus-within:bg-primary/5 min-h-[28px] h-[28px]',
+      'odd:bg-[#faf9fd] even:bg-[#f5f3fb] dark:odd:bg-slate-900/40 dark:even:bg-slate-900/60',
+      'hover:bg-primary/5 focus-within:bg-primary/5 min-h-[28px] h-[28px]',
+      isSelected && 'bg-primary/8 dark:bg-indigo-950/20',
       insumo.pending && 'opacity-60',
       insumo.pending && insumo.sinapiCodigo && 'bg-amber-50/40 dark:bg-amber-950/20 odd:bg-amber-50/40 even:bg-amber-50/30',
       insumo.pending && !insumo.sinapiCodigo && 'bg-violet-50/40 dark:bg-violet-950/20 odd:bg-violet-50/40 even:bg-violet-50/30',
       placeholder && 'opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity',
       INSUMO_DENSE_GRID
     )}>
-      {/* Coluna 1: Descrição (1fr) */}
-      <div className="h-full flex items-center border-r border-border/60 pl-2 pr-1 py-0.5 min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
-        {readOnly ? (
-          <div className="flex items-center w-full min-w-0" style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}>
-            {lotesIds.length > 0 && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger className="shrink-0 mr-1 mt-[2px]">
-                    <List className="h-3 w-3 text-muted-foreground/60" />
-                  </TooltipTrigger>
-                  <TooltipContent className="text-xs">Insumo com variantes em lista</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+
+      {/* ── Coluna 1: Checkbox + Código + Descrição ── */}
+      {/* Indent de 32px para hierarquia visual clara abaixo da composição */}
+      <div
+        className="relative h-full flex items-center border-r border-border/60 pr-1 py-0.5 min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:z-10 focus-within:bg-primary/5 pl-8"
+      >
+        {!readOnly && (
+          <div
+            className={cn(
+              "flex items-center justify-center h-6 w-5 shrink-0 cursor-pointer mr-2 transition-opacity",
+              isSelected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"
             )}
-            <span className="truncate">{insumo.descricao}</span>
-          </div>
-        ) : (
-          <div className="flex items-center w-full min-w-0">
-            {lotesIds.length > 0 && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger className="shrink-0 pl-1 mr-1 mt-[2px]">
-                    <List className="h-3 w-3 text-muted-foreground/60" />
-                  </TooltipTrigger>
-                  <TooltipContent className="text-xs">Insumo com variantes em lista</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <AutocompleteInput
-              suggestions={suggestions}
-              value={insumo.descricao}
-              onChange={handleDescricaoChange}
-              onFocus={e => e.target.select()}
-              onKeyDown={e => handleKeyDown(e, 'descricao')}
-              data-planilha="1"
-              data-field="descricao"
-              placeholder="Descrição do insumo"
-              className="h-6 w-full px-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
-              style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSelect?.();
+            }}
+          >
+            <Checkbox
+              checked={isSelected}
+              className="h-3.5 w-3.5 rounded-[2px] pointer-events-none"
             />
           </div>
         )}
+
+        {/* Código do insumo */}
+        <span
+          className={cn("text-[10px] font-mono text-muted-foreground/50 shrink-0 mr-1 tabular-nums select-none", readOnly && "ml-7")}
+          title={insumo.codigo}
+        >
+          {insumo.codigo}
+        </span>
+
+        {/* Ícone de lista de cotação */}
+        {lotesIds.length > 0 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger className="shrink-0 mr-1">
+                <List className="h-3 w-3 text-muted-foreground/60" />
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">Insumo com variantes em lista</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Descrição */}
+        {readOnly ? (
+          <div
+            className="flex-1 truncate"
+            style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}
+          >
+            {insumo.descricao}
+          </div>
+        ) : (
+          <AutocompleteInput
+            suggestions={suggestions}
+            value={insumo.descricao}
+            onChange={handleDescricaoChange}
+            onFocus={e => e.target.select()}
+            onKeyDown={e => handleKeyDown(e, 'descricao')}
+            data-planilha="1"
+            data-field="descricao"
+            placeholder="Descrição do insumo"
+            className="h-6 flex-1 px-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none placeholder:text-transparent focus:placeholder:text-muted-foreground/50"
+            style={{ fontSize: '11px', fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}
+          />
+        )}
       </div>
 
-      {/* Coluna 2: Tipo Badge (36px) */}
+      {/* ── Coluna 2: Tipo Badge ── */}
       <div className="h-full flex items-center justify-center border-r border-border/60">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="focus:outline-none relative">
-              <Badge variant="outline" className={cn('text-[9px] font-bold px-1 py-0 h-4 rounded cursor-pointer hover:opacity-80 transition-opacity', badgeClass, insumo.pending && 'animate-pulse')}>
+            <button className="focus:outline-none relative" disabled={readOnly}>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[9px] font-bold px-1 py-0 h-4 rounded transition-opacity',
+                  badgeClass,
+                  !readOnly && 'cursor-pointer hover:opacity-80',
+                  insumo.pending && 'animate-pulse'
+                )}
+              >
                 {insumo.pending ? <HelpCircle className="w-2.5 h-2.5" /> : badgeLabel}
               </Badge>
               {(insumo.needsTypeReview || isMoDetected) && (
@@ -337,55 +335,65 @@ export default function InsumoRowDense({
                       <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive cursor-help animate-pulse" />
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-[11px] max-w-[200px]">
-                      {isMoDetected ? 'Detectamos possível mão de obra. Clique no badge para corrigir.' : 'Tipo não identificado — composição aninhada SINAPI. Clique no badge para corrigir.'}
+                      {isMoDetected
+                        ? 'Detectamos possível mão de obra. Clique no badge para corrigir.'
+                        : 'Tipo não identificado. Clique no badge para corrigir.'}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-40 text-[11px]">
-            {Object.entries(TIPO_CONFIG).map(([key, config]) => {
-              const Icon = config.icon;
-              return (
-                <DropdownMenuItem key={key} onClick={() => onChange({ ...insumo, tipo_item: key as any, needsTypeReview: false })} className="text-[11px] gap-2">
-                  <Icon className={cn('h-3 w-3', config.color)} />
-                  {config.label}
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
+          {!readOnly && (
+            <DropdownMenuContent align="start" className="w-40 text-[11px]">
+              {Object.entries(TIPO_CONFIG).map(([key, config]) => {
+                const Icon = config.icon;
+                return (
+                  <DropdownMenuItem
+                    key={key}
+                    onClick={() => onChange({ ...insumo, tipo_item: key as any, needsTypeReview: false })}
+                    className="text-[11px] gap-2"
+                  >
+                    <Icon className={cn('h-3 w-3', config.color)} />
+                    {config.label}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          )}
         </DropdownMenu>
       </div>
 
-      {/* 3. Unidade (52px) */}
+      {/* ── Coluna 3: Unidade ── */}
       <div className="h-full flex items-center justify-center border-r border-border/60 px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
         {readOnly ? (
-          <div className="text-[10px] text-muted-foreground text-center uppercase w-full">{insumo.unidade}</div>
-        ) : (
-          <div className="w-full">
-            <input
-              value={insumo.unidade}
-              onChange={(e) => update('unidade', e.target.value)}
-              onFocus={e => e.target.select()}
-              onKeyDown={e => handleKeyDown(e, 'unidade')}
-              data-planilha="1"
-              data-field="unidade"
-              className="h-6 w-full text-[10px] uppercase text-center bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none"
-              placeholder="UN"
-              list={`un-ins-${insumo.id}`}
-            />
-            <datalist id={`un-ins-${insumo.id}`}>
-              {unidades.map((u) => <option key={u} value={u} />)}
-            </datalist>
+          <div className="text-[10px] text-muted-foreground text-center uppercase w-full">
+            {insumo.unidade}
           </div>
+        ) : (
+          <input
+            value={insumo.unidade}
+            onChange={(e) => update('unidade', e.target.value)}
+            onFocus={e => e.target.select()}
+            onKeyDown={e => handleKeyDown(e, 'unidade')}
+            data-planilha="1"
+            data-field="unidade"
+            className="h-6 w-full text-[10px] uppercase text-center bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none"
+            placeholder="UN"
+            list={`un-ins-${insumo.id}`}
+          />
         )}
+        <datalist id={`un-ins-${insumo.id}`}>
+          {unidades.map((u) => <option key={u} value={u} />)}
+        </datalist>
       </div>
 
-      {/* 4. Quantidade (72px) */}
+      {/* ── Coluna 4: Quantidade ── */}
       <div className="h-full flex items-center border-r border-border/60 px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
         {readOnly ? (
-          <div className="tabular-nums text-right w-full text-muted-foreground" style={{ fontSize: '11px', fontWeight: 400 }}>{insumo.quantidade ?? '—'}</div>
+          <div className="tabular-nums text-right w-full text-muted-foreground" style={{ fontSize: '11px' }}>
+            {insumo.quantidade ?? '—'}
+          </div>
         ) : (
           <input
             ref={qInputRef}
@@ -399,15 +407,15 @@ export default function InsumoRowDense({
             data-field="qtd"
             className="h-6 w-full tabular-nums text-right bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-muted-foreground focus:text-foreground"
             placeholder="Qtd"
-            style={{ fontSize: '11px', fontWeight: 400 }}
+            style={{ fontSize: '11px' }}
           />
         )}
       </div>
 
-      {/* 5. Preço Unit (88px) */}
+      {/* ── Coluna 5: Preço Unitário ── */}
       <div className="h-full flex items-center border-r border-border/60 px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
         {readOnly ? (
-          <div className="tabular-nums text-right text-muted-foreground w-full" style={{ fontSize: '11px', fontWeight: 400 }}>
+          <div className="tabular-nums text-right text-muted-foreground w-full" style={{ fontSize: '11px' }}>
             {insumo.precoUnitario != null ? formatCurrency(insumo.precoUnitario) : '—'}
           </div>
         ) : (
@@ -425,14 +433,20 @@ export default function InsumoRowDense({
               onKeyDown={e => handleKeyDown(e, 'preco')}
               className="h-6 w-full tabular-nums text-right pl-4 pr-1 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-muted-foreground focus:text-foreground"
               placeholder="0,00"
-              style={{ fontSize: '11px', fontWeight: 400 }}
+              style={{ fontSize: '11px' }}
             />
           </div>
         )}
       </div>
 
-      {/* 6. Preço Total (88px) */}
-      <div className={cn('h-full flex items-center justify-end border-r border-border/60 px-1 py-0.5 tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground', insumo.precoTotal === 0 && 'opacity-50')} style={{ fontSize: '11px', fontWeight: 400 }}>
+      {/* ── Coluna 6: Preço Total ── */}
+      <div
+        className={cn(
+          'h-full flex items-center justify-end border-r border-border/60 px-1 py-0.5 tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground',
+          insumo.precoTotal === 0 && 'opacity-50'
+        )}
+        style={{ fontSize: '11px' }}
+      >
         {insumo.precoTotal > 999999 ? (
           <TooltipProvider>
             <Tooltip>
@@ -445,28 +459,16 @@ export default function InsumoRowDense({
             </Tooltip>
           </TooltipProvider>
         ) : (
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-full block">{formatCurrency(insumo.precoTotal)}</span>
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-full block">
+            {formatCurrency(insumo.precoTotal)}
+          </span>
         )}
       </div>
 
-      {/* Coluna 6: Ações */}
-      <div className="h-full flex items-center justify-center px-1 shrink-0 py-0.5">
-        {/* Badge Fonte/SINAPI (Sugestão IA comentada - Bloco 7) */}
-        {(!insumo.pending && fonteBadge && fonteBadge !== 'sugerido' && !placeholder) ? (
-          <Badge 
-            variant="outline" 
-            className={cn('text-[9px] px-1 py-0 h-4 shrink-0', fonteBadgeConfig[fonteBadge]?.cls)}
-          >
-            {fonteBadgeConfig[fonteBadge]?.label}
-          </Badge>
-        ) : (!insumo.pending && insumo.sinapiConfirmado && !placeholder) ? (
-          <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-4 shrink-0', fonteBadgeConfig.sinapi?.cls)}>
-            SINAPI
-          </Badge>
-        ) : null}
-
-        {/* X inline se for insumo pendente, ou Popover de Menu */}
+      {/* ── Coluna 7: Ações desaninHadas ── */}
+      <div className="h-full flex items-center justify-center gap-0.5 px-1 shrink-0">
         {insumo.pending && !readOnly && !placeholder ? (
+          /* Insumo pendente — só botão de descartar */
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -484,58 +486,88 @@ export default function InsumoRowDense({
             </Tooltip>
           </TooltipProvider>
         ) : !readOnly && !placeholder ? (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                className="opacity-0 group-hover:opacity-100 h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-opacity"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-44 p-1" align="end" onClick={e => e.stopPropagation()}>
-              <button 
-                onClick={() => { /* duplicate not implemented */ }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
-              >
-                <Copy className="h-3.5 w-3.5" /> Duplicar
-              </button>
-              
-              <button
-                onClick={() => onOpenCatalogo?.('sinapi', insumo.descricao)}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left"
-              >
-                <Search className="h-3.5 w-3.5" /> Buscar SINAPI
-              </button>
+          /* Ações diretas — desaninHadas do menu ⋯ */
+          <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity">
 
-              <ListaCotacaoPopover
-                composicaoId={null}
-                insumoId={insumo.id}
-                descricao={insumo.descricao}
-                unidade={insumo.unidade}
-                qtd={insumo.quantidade}
-                precoTotal={insumo.precoTotal}
-                obraId={obraId}
-                onListasChange={setLotesIds}
-                addedLotesIds={lotesIds}
+            {/* Badge de fonte (SINAPI/Hist/Manual) */}
+            {fonteBadge && fonteBadge !== 'sugerido' && (
+              <Badge
+                variant="outline"
+                className={cn('text-[9px] px-1 py-0 h-4 shrink-0 mr-0.5', fonteBadgeConfig[fonteBadge]?.cls)}
               >
-                <button
-                  disabled={!temQtd}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left disabled:opacity-50"
-                >
-                  <ClipboardList className="h-3.5 w-3.5" /> Adicionar à cotação
-                </button>
-              </ListaCotacaoPopover>
+                {fonteBadgeConfig[fonteBadge]?.label}
+              </Badge>
+            )}
+            {!fonteBadge && insumo.sinapiConfirmado && (
+              <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-4 shrink-0 mr-0.5', fonteBadgeConfig.sinapi?.cls)}>
+                SINAPI
+              </Badge>
+            )}
 
-              <div className="h-px bg-border/50 my-1 mx-1" />
-              <button 
-                onClick={onRemove}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted text-left text-destructive hover:bg-destructive/10"
+            {/* Buscar preço — bloqueado por ora (TODO: integrar banco de preços + SINAPI) */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    disabled
+                    className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground/40 cursor-not-allowed"
+                  >
+                    {/* Ícone de busca de preço */}
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0">
+                      <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.2" />
+                      <path d="M8 8l2 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                      <path d="M5 3.5v3M3.5 5h3" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-[11px]">
+                  Buscar preço (em breve)
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Adicionar à cotação */}
+            <ListaCotacaoPopover
+              composicaoId={null}
+              insumoId={insumo.id}
+              descricao={insumo.descricao}
+              unidade={insumo.unidade}
+              qtd={insumo.quantidade}
+              precoTotal={insumo.precoTotal}
+              obraId={obraId}
+              onListasChange={setLotesIds}
+              addedLotesIds={lotesIds}
+            >
+              <button
+                disabled={!temQtd}
+                className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Adicionar à cotação"
               >
-                <Trash2 className="h-3.5 w-3.5" /> Excluir
+                <ClipboardList className="h-3.5 w-3.5" />
               </button>
-            </PopoverContent>
-          </Popover>
-        ) : <div className="w-6 shrink-0" />}
+            </ListaCotacaoPopover>
+
+            {/* Duplicar */}
+            <button
+              onClick={() => { /* TODO: implementar duplicar insumo */ }}
+              className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+              title="Duplicar insumo"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Excluir */}
+            <button
+              onClick={onRemove}
+              className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              title="Excluir insumo"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="w-6 shrink-0" />
+        )}
       </div>
     </div>
   );
