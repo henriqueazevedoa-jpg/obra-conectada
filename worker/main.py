@@ -11,17 +11,19 @@ import io
 import fitz  # PyMuPDF
 import pdfplumber
 import re
+from datetime import datetime, timedelta, timezone
+import google.generativeai as genai
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from anthropic import Anthropic
-from openai import OpenAI
 
 load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY").strip()
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY").strip()
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY").strip() if os.environ.get("ANTHROPIC_API_KEY") else None
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY").strip() if os.environ.get("OPENAI_API_KEY") else None
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY").strip() if os.environ.get("GEMINI_API_KEY") else None
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("ERRO: Variáveis de ambiente do Supabase não configuradas.")
@@ -29,9 +31,12 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 print(f"ANTHROPIC_API_KEY presente: {bool(ANTHROPIC_API_KEY)}")
-print(f"ANTHROPIC_API_KEY prefixo: {str(ANTHROPIC_API_KEY or '')[:10]}...")
+if ANTHROPIC_API_KEY:
+    print(f"ANTHROPIC_API_KEY prefixo: {str(ANTHROPIC_API_KEY)[:10]}...")
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
-openai = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 def send_push_notification(user_id: str, titulo: str, corpo: str):
     """Dispara a Edge Function de push notifications"""
@@ -169,10 +174,18 @@ def classificar_e_indexar(arquivo: dict):
     user_id = arquivo.get('user_id')
     nome_original = arquivo.get('nome_original', 'Documento')
 
-    if not anthropic or not openai:
-        print(f"[{arquivo_id}] ERRO: API Keys do Anthropic/OpenAI não estão configuradas. Pulando classificação.")
+    if not anthropic or not GEMINI_API_KEY:
+        print(f"[{arquivo_id}] ERRO: API Keys do Anthropic/Gemini não estão configuradas. Pulando classificação.")
         time.sleep(30)
         return
+
+    tentativas = arquivo.get('tentativas_classificacao', 0)
+    if tentativas >= 3:
+        print(f"[{arquivo_id}] Máximo de tentativas atingido. Marcando como erro.")
+        supabase.table("projeto_arquivos").update({"classificado": True, "erro_mensagem": "Máximo de tentativas de classificação atingido"}).eq("id", arquivo_id).execute()
+        return
+        
+    supabase.table("projeto_arquivos").update({"tentativas_classificacao": tentativas + 1, "ultima_tentativa_em": datetime.utcnow().isoformat()}).eq("id", arquivo_id).execute()
 
     print(f"\n[{arquivo_id}] Iniciando Classificação e Embeddings...")
     
@@ -274,13 +287,13 @@ Páginas:
                 if len(texto_limpo) < 20:
                     continue
 
-                # 2. Gerar Embedding OpenAI
+                # 2. Gerar Embedding Gemini
                 print(f"[{arquivo_id}] Gerando embedding para a página {cls_page.get('pagina')}...")
-                emb_res = openai.embeddings.create(
-                    model="text-embedding-3-small",
-                    input=texto_limpo[:8000] # limite fallback
+                emb_res = genai.embed_content(
+                    model="models/text-embedding-004",
+                    content=texto_limpo[:8000]
                 )
-                embedding_vector = emb_res.data[0].embedding
+                embedding_vector = emb_res['embedding']
                 
                 # 3. Inserir Chunk no PGVector
                 supabase.table("projeto_chunks").insert({
@@ -318,11 +331,25 @@ Páginas:
             )
             
     except Exception as e:
-        print(f"[{arquivo_id}] Erro na fase de Classificação e Embedding: {e}")
+        erro_str = str(e)
+        if '429' in erro_str or 'quota' in erro_str.lower() or 'insufficient_quota' in erro_str:
+            print(f"[{arquivo_id}] Erro de quota/rate limit. Aguardando 5 minutos.")
+            time.sleep(300)
+        else:
+            print(f"[{arquivo_id}] Erro na fase de Classificação e Embedding: {erro_str}")
+            time.sleep(60)
 
 
 def worker_loop():
     print("Iniciando Worker Python de Processamento de PDFs e Indexação Vetorial...")
+    
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
+    try:
+        supabase.table("projeto_arquivos").update({"status": "aguardando", "erro_mensagem": "Reset: travado em processando"}).eq("status", "processando").lt("updated_at", cutoff).execute()
+        print("Reset de arquivos travados concluído.")
+    except Exception as reset_e:
+        print(f"Aviso no reset inicial: {reset_e}")
+        
     while True:
         try:
             # Tarefa A: Extração (aguardando)
@@ -340,7 +367,7 @@ def worker_loop():
             time.sleep(10)  # Aguarda 10s
         except Exception as e:
             print(f"Erro no loop principal: {e}")
-            time.sleep(10)
+            time.sleep(30)
 
 if __name__ == "__main__":
     worker_loop()
