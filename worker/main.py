@@ -1,3 +1,5 @@
+import logging
+logging.getLogger("pymupdf").setLevel(logging.ERROR)
 import urllib.request
 try:
     urllib.request.urlopen('https://api.anthropic.com', timeout=5)
@@ -389,6 +391,7 @@ Páginas:
                 classificacoes = json.loads(text_response)
             except Exception as e_json:
                 print(f"[{arquivo_id}] Erro ao parsear JSON do Gemini: {e_json}")
+                print(f"Stack trace: {traceback.format_exc()}")
                 continue
 
             for cls_page in classificacoes:
