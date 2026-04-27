@@ -56,6 +56,7 @@ if ANTHROPIC_API_KEY:
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
 gemini_client = genai.Client(api_key=GEMINI_API_KEY, http_options=HttpOptions(api_version="v1")) if GEMINI_API_KEY else None
+gemini_embed_client = genai.Client(api_key=GEMINI_API_KEY, http_options=HttpOptions(api_version="v1beta")) if GEMINI_API_KEY else None
 
 def registrar_custo(arquivo_id, obra_id, company_id, fase, modelo, tokens_entrada=0, tokens_saida=0, unidades=0, custo_usd=0.0):
     try:
@@ -286,7 +287,7 @@ def extrair_entidades_fase2(disciplina, texto_completo, arquivo_id, obra_id, com
             return {}
         system_f2, instrucao_f2 = montar_prompt_fase2(disciplina, texto_completo)
         resposta_f2 = anthropic.messages.create(
-            model="claude-3-5-sonnet-latest",
+            model="claude-sonnet-4-5",
             max_tokens=2000,
             temperature=0.0,
             system=system_f2,
@@ -419,7 +420,7 @@ Páginas:
 
                 # 2. Gerar Embedding Gemini
                 print(f"[{arquivo_id}] Gerando embedding para a página {cls_page.get('pagina')}...")
-                emb_res = gemini_client.models.embed_content(
+                emb_res = gemini_embed_client.models.embed_content(
                     model="text-embedding-004",
                     contents=texto_limpo[:8000]
                 )
