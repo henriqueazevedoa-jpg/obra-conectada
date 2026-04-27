@@ -380,7 +380,7 @@ Páginas:
 
             try:
                 resposta = gemini_client.models.generate_content(
-                    model="gemini-2.0-flash",
+                   model="gemini-1.5-flash",
                     contents=prompt_fase1
                 )
                 text_response = resposta.text
@@ -388,7 +388,7 @@ Páginas:
                 tokens_entrada_f1 = resposta.usage_metadata.prompt_token_count if hasattr(resposta, 'usage_metadata') else 0
                 tokens_saida_f1 = resposta.usage_metadata.candidates_token_count if hasattr(resposta, 'usage_metadata') else 0
                 custo_f1 = (tokens_entrada_f1 * PRECO_GEMINI_FLASH_INPUT_PER_M + tokens_saida_f1 * PRECO_GEMINI_FLASH_OUTPUT_PER_M) / 1_000_000
-                registrar_custo(arquivo_id, obra_id, company_id, "classificacao_gemini", "gemini-2.0-flash", tokens_entrada_f1, tokens_saida_f1, 0, custo_f1)
+                registrar_custo(arquivo_id, obra_id, company_id, "classificacao_gemini", "gemini-1.5-flash", tokens_entrada_f1, tokens_saida_f1, 0, custo_f1)
                 text_response = text_response.replace("```json", "").replace("```", "").strip()
                 classificacoes = json.loads(text_response)
             except Exception as e_json:
