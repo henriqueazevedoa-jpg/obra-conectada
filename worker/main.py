@@ -24,6 +24,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from google import genai
 from google.genai import types
+from google.genai.types import HttpOptions
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from anthropic import Anthropic
@@ -54,7 +55,7 @@ if ANTHROPIC_API_KEY:
     print(f"ANTHROPIC_API_KEY prefixo: {str(ANTHROPIC_API_KEY)[:10]}...")
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
-gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+gemini_client = genai.Client(api_key=GEMINI_API_KEY, http_options=HttpOptions(api_version="v1")) if GEMINI_API_KEY else None
 
 def registrar_custo(arquivo_id, obra_id, company_id, fase, modelo, tokens_entrada=0, tokens_saida=0, unidades=0, custo_usd=0.0):
     try:
@@ -380,7 +381,7 @@ Páginas:
 
             try:
                 resposta = gemini_client.models.generate_content(
-                   model="gemini-1.5-flash",
+                    model="gemini-2.5-flash",
                     contents=prompt_fase1
                 )
                 text_response = resposta.text
@@ -388,7 +389,7 @@ Páginas:
                 tokens_entrada_f1 = resposta.usage_metadata.prompt_token_count if hasattr(resposta, 'usage_metadata') else 0
                 tokens_saida_f1 = resposta.usage_metadata.candidates_token_count if hasattr(resposta, 'usage_metadata') else 0
                 custo_f1 = (tokens_entrada_f1 * PRECO_GEMINI_FLASH_INPUT_PER_M + tokens_saida_f1 * PRECO_GEMINI_FLASH_OUTPUT_PER_M) / 1_000_000
-                registrar_custo(arquivo_id, obra_id, company_id, "classificacao_gemini", "gemini-1.5-flash", tokens_entrada_f1, tokens_saida_f1, 0, custo_f1)
+                registrar_custo(arquivo_id, obra_id, company_id, "classificacao_gemini", "gemini-2.5-flash", tokens_entrada_f1, tokens_saida_f1, 0, custo_f1)
                 text_response = text_response.replace("```json", "").replace("```", "").strip()
                 classificacoes = json.loads(text_response)
             except Exception as e_json:
