@@ -1,4 +1,5 @@
 import logging
+import traceback    
 logging.getLogger("pymupdf").setLevel(logging.ERROR)
 import urllib.request
 try:
