@@ -378,7 +378,7 @@ Páginas:
 {prompt_paginas}"""
 
             try:
-                modelo_gemini = genai.GenerativeModel("gemini-2.0-flash")
+                modelo_gemini = genai.GenerativeModel("gemini-2.0-flash-lite")
                 resposta = modelo_gemini.generate_content(prompt_fase1)
                 
                 tokens_entrada_f1 = resposta.usage_metadata.prompt_token_count if hasattr(resposta, 'usage_metadata') else 0
