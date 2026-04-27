@@ -56,7 +56,6 @@ if ANTHROPIC_API_KEY:
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
 gemini_client = genai.Client(api_key=GEMINI_API_KEY, http_options=HttpOptions(api_version="v1")) if GEMINI_API_KEY else None
-gemini_embed_client = genai.Client(api_key=GEMINI_API_KEY, http_options=HttpOptions(api_version="v1beta")) if GEMINI_API_KEY else None
 
 def registrar_custo(arquivo_id, obra_id, company_id, fase, modelo, tokens_entrada=0, tokens_saida=0, unidades=0, custo_usd=0.0):
     try:
@@ -420,13 +419,14 @@ Páginas:
 
                 # 2. Gerar Embedding Gemini
                 print(f"[{arquivo_id}] Gerando embedding para a página {cls_page.get('pagina')}...")
-                emb_res = gemini_embed_client.models.embed_content(
-                    model="text-embedding-004",
-                    contents=texto_limpo[:8000]
+                emb_res = gemini_client.models.embed_content(
+                    model="gemini-embedding-001",
+                    contents=texto_limpo[:8000],
+                    config=types.EmbedContentConfig(output_dimensionality=768)
                 )
                 embedding_vector = emb_res.embeddings[0].values
                 
-                # registrar_custo(arquivo_id, obra_id, company_id, "embedding_gemini", "text-embedding-004", len(texto_limpo[:8000].split()), 0, 1, 0.0)
+                # registrar_custo(arquivo_id, obra_id, company_id, "embedding_gemini", "gemini-embedding-001", len(texto_limpo[:8000].split()), 0, 1, 0.0)
                 
                 # 3. Inserir Chunk no PGVector
                 supabase.table("projeto_chunks").insert({
