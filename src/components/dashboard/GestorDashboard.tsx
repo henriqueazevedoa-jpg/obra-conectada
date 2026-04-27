@@ -53,7 +53,7 @@ export default function GestorDashboard() {
       supabase.from('cronograma_tarefas').select('id, obra_id, percentual_concluido, data_fim').in('obra_id', obraIds),
       supabase.from('diario_registros').select('id, obra_id, user_id, data').in('obra_id', obraIds).order('data', { ascending: false }),
       supabase.from('pagamentos').select('id, obra_id, status, data_vencimento, valor_previsto, valor_pago').in('obra_id', obraIds),
-      supabase.from('contratos').select('id, obra_id, descricao, contratos_medicoes(data_referencia, status)').in('obra_id', obraIds),
+      supabase.from('contratos').select('id, obra_id, descricao, contratos_medicoes!contratos_medicoes_contrato_id_fkey(data_referencia, status)').in('obra_id', obraIds),
       supabase.from('custo_real').select('id, obra_id, valor').in('obra_id', obraIds),
       supabase.from('orcamento_categorias').select('id, obra_id, preco_total').in('obra_id', obraIds),
       supabase.from('profiles').select('id, user_id, nome').eq('company_id', companyId),

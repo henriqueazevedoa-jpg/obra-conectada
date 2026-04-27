@@ -49,7 +49,7 @@ export default function RelatoriosPage() {
     Promise.all([
       supabase.from('diario_registros').select('*').eq('obra_id', obra.id).order('data', { ascending: false }).limit(30),
       supabase.from('pagamentos').select('*').eq('obra_id', obra.id).neq('status', 'cancelado'),
-      supabase.from('contratos').select('id, numero, contratado, descricao, modalidade_medicao, valor_atual, tipo, medicoes:contratos_medicoes(*)').eq('obra_id', obra.id),
+      supabase.from('contratos').select('id, numero, contratado, descricao, modalidade_medicao, valor_atual, tipo, medicoes:contratos_medicoes!contratos_medicoes_contrato_id_fkey(*)').eq('obra_id', obra.id),
       supabase.from('obra_links').select('*').eq('obra_id', obra.id).limit(1).maybeSingle()
     ]).then(([diariosRes, pagsRes, contsRes, linkRes]) => {
       setDiarios(diariosRes.data || []);

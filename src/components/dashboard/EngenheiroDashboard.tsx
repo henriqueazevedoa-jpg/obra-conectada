@@ -56,7 +56,7 @@ export default function EngenheiroDashboard() {
       supabase.from('cronograma_impedimentos').select('id, obra_id, resolvido, created_at').in('obra_id', obraIds),
       supabase.from('diario_registros').select('id, obra_id, data').in('obra_id', obraIds).order('data', { ascending: false }),
       supabase.from('pagamentos').select('id, obra_id, status, data_vencimento').in('obra_id', obraIds),
-      supabase.from('contratos').select('id, obra_id, contratos_medicoes(data_referencia, status)').in('obra_id', obraIds)
+      supabase.from('contratos').select('id, obra_id, contratos_medicoes!contratos_medicoes_contrato_id_fkey(data_referencia, status)').in('obra_id', obraIds)
     ]).then(([resT, resI, resD, resP, resC]) => {
       setDbData({
         tarefas: resT.data || [],

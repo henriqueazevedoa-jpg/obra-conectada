@@ -48,7 +48,7 @@ export default function PainelObraPage() {
         .then(({ data, error }) => { if (error) console.error('[DEBUG página pagamentos]', error); return { data, error }; }),
       supabase.from('diario_registros').select('id, data, status').eq('obra_id', obra.id).order('data', { ascending: false })
         .then(({ data, error }) => { if (error) console.error('[DEBUG página diario]', error); return { data, error }; }),
-      supabase.from('contratos').select('id, descricao, data_inicio, data_fim_prevista, valor_atual, contratos_medicoes(id, data_referencia, status)').eq('obra_id', obra.id)
+      supabase.from('contratos').select('id, descricao, data_inicio, data_fim_prevista, valor_atual, contratos_medicoes!contratos_medicoes_contrato_id_fkey(id, data_referencia, status)').eq('obra_id', obra.id)
         .then(({ data, error }) => { if (error) console.error('[DEBUG página contratos]', error); return { data, error }; })
     ]).then(([resPag, resDia, resCont]) => {
       setPagamentos(resPag.data || []);

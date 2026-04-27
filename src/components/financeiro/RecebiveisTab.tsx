@@ -231,7 +231,8 @@ export default function RecebiveisTab({ obraId, isActive = true, onKpisReady }: 
   const renderRow = (r: Recebivel) => {
     const cfg = STATUS_CFG[r.statusDinamico!] ?? STATUS_CFG.pendente;
     const StatusIcon = cfg.icon;
-    const isPendente = !['recebido', 'parcial'].includes(r.statusDinamico!);
+    const isPendente = r.statusDinamico !== 'recebido';
+    const btnLabel = r.statusDinamico === 'parcial' ? 'Receber restante' : 'Confirmar';
 
     return (
       <div
@@ -286,7 +287,7 @@ export default function RecebiveisTab({ obraId, isActive = true, onKpisReady }: 
               className="h-7 px-3 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={() => abrirConfirmacao(r)}
             >
-              Confirmar
+              {btnLabel}
             </Button>
           )}
         </div>

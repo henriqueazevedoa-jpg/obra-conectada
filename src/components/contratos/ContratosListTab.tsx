@@ -52,7 +52,7 @@ export default function ContratosListTab({ obraId, tipo, isActive = true, onKpis
 
     const { data: dbContratos, error } = await supabase
       .from('contratos')
-      .select('*, contratos_medicoes(valor_periodo, status)')
+      .select('*, contratos_medicoes!contratos_medicoes_contrato_id_fkey(valor_periodo, status)')
       .eq('obra_id', obraId)
       .eq('tipo', tipo);
 
