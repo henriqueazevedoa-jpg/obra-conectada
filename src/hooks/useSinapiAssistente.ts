@@ -131,8 +131,20 @@ export function useSinapiAssistente() {
       const itemsToMatch: ItemToMatch[] = [];
       let skippedCount = 0;
 
+      const extractComposicoes = (etapa: OrcamentoEtapa): import('@/contexts/OrcamentoContext').OrcamentoComposicao[] => {
+        let comps: import('@/contexts/OrcamentoContext').OrcamentoComposicao[] = [];
+        for (const item of etapa.items || []) {
+          if (item.tipo === 'etapa') {
+            comps = comps.concat(extractComposicoes(item as OrcamentoEtapa));
+          } else {
+            comps.push(item as import('@/contexts/OrcamentoContext').OrcamentoComposicao);
+          }
+        }
+        return comps;
+      };
+
       for (const etapa of etapas) {
-        for (const comp of etapa.composicoes || []) {
+        for (const comp of extractComposicoes(etapa)) {
           if (!comp.usaInsumos || !comp.insumos?.length) {
             // Direct composition — skip if already from SINAPI or already confirmed
             const jaVinculado =

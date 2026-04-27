@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { formatCurrency, formatDate, statusObraLabels } from '@/data/mockData';
 import { useObras } from '@/contexts/ObrasContext';
-import { useOrcamento, OrcamentoCategoria } from '@/contexts/OrcamentoContext';
+import { useOrcamento, OrcamentoEtapa, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
 import { ArrowLeft, MapPin, Calendar, User, FileText, ClipboardList, List, BarChart3 } from 'lucide-react';
 import { parseISO, differenceInDays, format, isBefore, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { IntelligencePanel } from '@/components/intelligence/IntelligencePanel';
 
 const statusEtapaLabelsLocal: Record<string, string> = {
   nao_iniciada: 'Não Iniciada',
@@ -21,17 +22,19 @@ const statusEtapaLabelsLocal: Record<string, string> = {
   atrasada: 'Atrasada',
 };
 
-function computeGanttRange(categorias: OrcamentoCategoria[]) {
+function computeGanttRange(etapas: OrcamentoEtapa[]) {
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
-  for (const cat of categorias) {
+  for (const cat of etapas) {
     const dates = [cat.dataInicioPrevista, cat.dataFimPrevista, cat.dataInicioReal, cat.dataFimReal].filter(Boolean) as string[];
     for (const d of dates) {
       const parsed = parseISO(d);
       if (!minDate || isBefore(parsed, minDate)) minDate = parsed;
       if (!maxDate || isBefore(maxDate, parsed)) maxDate = parsed;
     }
-    for (const comp of cat.composicoes) {
+    for (const item of cat.items || []) {
+      if (item.tipo === 'etapa') continue;
+      const comp = item as OrcamentoComposicao;
       const cDates = [comp.dataInicioPrevista, comp.dataFimPrevista, comp.dataInicioReal, comp.dataFimReal].filter(Boolean) as string[];
       for (const d of cDates) {
         const parsed = parseISO(d);
@@ -78,8 +81,8 @@ function GanttBar({ start, end, minDate, totalDays, color, label }: {
   );
 }
 
-function MiniGantt({ categorias }: { categorias: OrcamentoCategoria[] }) {
-  const range = computeGanttRange(categorias);
+function MiniGantt({ etapas }: { etapas: OrcamentoEtapa[] }) {
+  const range = computeGanttRange(etapas);
   if (!range) return <p className="text-sm text-muted-foreground text-center py-4">Sem datas definidas para exibir o Gantt.</p>;
 
   const { minDate, totalDays } = range;
@@ -87,7 +90,7 @@ function MiniGantt({ categorias }: { categorias: OrcamentoCategoria[] }) {
   const pxPerDay = 12;
   const chartWidth = totalDays * pxPerDay;
 
-  const statusColor = (cat: OrcamentoCategoria) => {
+  const statusColor = (cat: OrcamentoEtapa) => {
     if (cat.statusCronograma === 'concluida') return 'bg-success';
     if (cat.statusCronograma === 'atrasada') return 'bg-destructive';
     if (cat.statusCronograma === 'em_andamento') return 'bg-primary';
@@ -103,7 +106,7 @@ function MiniGantt({ categorias }: { categorias: OrcamentoCategoria[] }) {
             <div className="h-8 border-b border-border px-2 flex items-center">
               <span className="text-xs font-medium text-muted-foreground">Etapa</span>
             </div>
-            {categorias.map(cat => (
+            {etapas.map(cat => (
               <div key={cat.id} className="h-12 border-b border-border px-2 flex items-center">
                 <span className="text-xs text-foreground truncate">{cat.nome}</span>
               </div>
@@ -123,7 +126,7 @@ function MiniGantt({ categorias }: { categorias: OrcamentoCategoria[] }) {
             </div>
 
             {/* Rows */}
-            {categorias.map(cat => (
+            {etapas.map(cat => (
               <div key={cat.id} className="h-12 border-b border-border relative">
                 {/* Grid lines */}
                 {months.map((m, i) => (
@@ -185,12 +188,12 @@ export default function ObraDetalhePage() {
   if (!obra) return <div className="p-8 text-center text-muted-foreground">Obra não encontrada</div>;
 
   const orcamento = getOrcamento(obra.id);
-  const categorias = orcamento?.categorias ?? [];
+  const etapas = orcamento?.etapas ?? [];
 
-  const totalPrevisto = categorias.reduce((s, c) => s + c.precoTotal, 0);
-  const etapasComDatas = categorias.filter(c => c.dataInicioPrevista || c.dataInicioReal);
-  const progressoGeral = categorias.length > 0
-    ? Math.round(categorias.reduce((s, c) => s + (c.percentualCronograma ?? 0), 0) / categorias.length)
+  const totalPrevisto = etapas.reduce((s, c) => s + (c.precoTotal || 0), 0);
+  const etapasComDatas = etapas.filter(c => c.dataInicioPrevista || c.dataInicioReal);
+  const progressoGeral = etapas.length > 0
+    ? Math.round(etapas.reduce((s, c) => s + (c.percentualCronograma ?? 0), 0) / etapas.length)
     : obra.percentualAndamento;
 
   return (
@@ -232,9 +235,9 @@ export default function ObraDetalhePage() {
           <Progress value={progressoGeral} className="h-3" />
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
             <div><p className="text-xs text-muted-foreground">Previsto</p><p className="font-semibold text-foreground">{formatCurrency(totalPrevisto)}</p></div>
-            <div><p className="text-xs text-muted-foreground">Concluídas</p><p className="font-semibold text-success">{categorias.filter(c => c.statusCronograma === 'concluida').length}</p></div>
-            <div><p className="text-xs text-muted-foreground">Em Andamento</p><p className="font-semibold text-primary">{categorias.filter(c => c.statusCronograma === 'em_andamento' || c.statusCronograma === 'atrasada').length}</p></div>
-            <div><p className="text-xs text-muted-foreground">Não Iniciadas</p><p className="font-semibold text-muted-foreground">{categorias.filter(c => !c.statusCronograma || c.statusCronograma === 'nao_iniciada').length}</p></div>
+            <div><p className="text-xs text-muted-foreground">Concluídas</p><p className="font-semibold text-success">{etapas.filter(c => c.statusCronograma === 'concluida').length}</p></div>
+            <div><p className="text-xs text-muted-foreground">Em Andamento</p><p className="font-semibold text-primary">{etapas.filter(c => c.statusCronograma === 'em_andamento' || c.statusCronograma === 'atrasada').length}</p></div>
+            <div><p className="text-xs text-muted-foreground">Não Iniciadas</p><p className="font-semibold text-muted-foreground">{etapas.filter(c => !c.statusCronograma || c.statusCronograma === 'nao_iniciada').length}</p></div>
           </div>
         </CardContent>
       </Card>
@@ -243,10 +246,11 @@ export default function ObraDetalhePage() {
         <TabsList>
           <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
           <TabsTrigger value="orcamento">Orçamento</TabsTrigger>
+          <TabsTrigger value="intelligence" className="text-[#534AB7] data-[state=active]:text-[#534AB7]">Intelligence</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cronograma" className="mt-4 space-y-3">
-          {categorias.length > 0 && (
+          {etapas.length > 0 && (
             <div className="flex justify-end">
               <ToggleGroup type="single" value={cronogramaView} onValueChange={(v) => v && setCronogramaView(v as 'lista' | 'gantt')}>
                 <ToggleGroupItem value="lista" aria-label="Lista" size="sm">
@@ -259,9 +263,9 @@ export default function ObraDetalhePage() {
             </div>
           )}
 
-          {categorias.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada. Acesse o Orçamento para criar categorias.</p>}
+          {etapas.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma etapa cadastrada. Acesse o Orçamento para criar categorias.</p>}
 
-          {cronogramaView === 'lista' && categorias.map(cat => (
+          {cronogramaView === 'lista' && etapas.map(cat => (
             <div key={cat.id} className="flex items-center justify-between p-3 bg-card rounded-lg border border-border">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground">{cat.nome}</p>
@@ -281,11 +285,11 @@ export default function ObraDetalhePage() {
             </div>
           ))}
 
-          {cronogramaView === 'gantt' && <MiniGantt categorias={categorias} />}
+          {cronogramaView === 'gantt' && <MiniGantt etapas={etapas} />}
         </TabsContent>
 
         <TabsContent value="orcamento" className="mt-4">
-          {categorias.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma categoria no orçamento.</p>}
+          {etapas.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma categoria no orçamento.</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-border">
@@ -295,15 +299,15 @@ export default function ObraDetalhePage() {
                 <th className="text-right p-2 text-muted-foreground font-medium">Total Previsto</th>
               </tr></thead>
               <tbody>
-                {categorias.map(cat => (
+                {etapas.map(cat => (
                   <tr key={cat.id} className="border-b border-border">
                     <td className="p-2 text-muted-foreground font-mono text-xs">{cat.codigo}</td>
                     <td className="p-2 text-foreground">{cat.nome}</td>
-                    <td className="p-2 text-right text-foreground">{cat.composicoes.length}</td>
-                    <td className="p-2 text-right text-foreground">{formatCurrency(cat.precoTotal)}</td>
+                    <td className="p-2 text-right text-foreground">{cat.items?.filter(i => i.tipo !== 'etapa').length || 0}</td>
+                    <td className="p-2 text-right text-foreground">{formatCurrency(cat.precoTotal || 0)}</td>
                   </tr>
                 ))}
-                {categorias.length > 0 && (
+                {etapas.length > 0 && (
                   <tr className="font-bold">
                     <td className="p-2" colSpan={3}>Total</td>
                     <td className="p-2 text-right text-foreground">{formatCurrency(totalPrevisto)}</td>
@@ -312,6 +316,10 @@ export default function ObraDetalhePage() {
               </tbody>
             </table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="intelligence" className="mt-4">
+          <IntelligencePanel obraId={obra.id} />
         </TabsContent>
       </Tabs>
     </div>

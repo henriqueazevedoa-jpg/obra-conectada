@@ -43,13 +43,14 @@ function computeStatus(etapa: OrcamentoEtapa): GanttTask['status'] {
 
 function computeProgress(etapa: OrcamentoEtapa): number {
   if (etapa.percentualCronograma != null) return etapa.percentualCronograma;
-  if (!etapa.usaComposicoes || etapa.composicoes.length === 0) return 0;
-  const totalPeso = etapa.composicoes.reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
+  const composicoes = etapa.items?.filter(i => i.tipo !== 'etapa') as import('@/contexts/OrcamentoContext').OrcamentoComposicao[] || [];
+  if (!etapa.usaComposicoes || composicoes.length === 0) return 0;
+  const totalPeso = composicoes.reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
   if (totalPeso === 0) {
-    const done = etapa.composicoes.filter(c => c.concluida).length;
-    return Math.round((done / etapa.composicoes.length) * 100);
+    const done = composicoes.filter(c => c.concluida).length;
+    return Math.round((done / composicoes.length) * 100);
   }
-  const doneW = etapa.composicoes.filter(c => c.concluida).reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
+  const doneW = composicoes.filter(c => c.concluida).reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
   return Math.round((doneW / totalPeso) * 100);
 }
 
@@ -82,6 +83,7 @@ export default function GanttEditorChart({ etapas, onUpdateDates, onUpdateBaseli
   const { tasks, timelineStart, totalDays } = useMemo(() => {
     const allTasks: GanttTask[] = [];
     etapas.forEach(etapa => {
+      const composicoes = etapa.items?.filter(i => i.tipo !== 'etapa') as import('@/contexts/OrcamentoContext').OrcamentoComposicao[] || [];
       const group: GanttTask = {
         id: etapa.id,
         name: etapa.nome,
@@ -92,11 +94,11 @@ export default function GanttEditorChart({ etapas, onUpdateDates, onUpdateBaseli
         actualEnd: etapa.dataFimReal,
         progress: computeProgress(etapa),
         status: computeStatus(etapa),
-        isGroup: etapa.usaComposicoes && etapa.composicoes.length > 0,
+        isGroup: etapa.usaComposicoes && composicoes.length > 0,
         children: [],
       };
       if (group.isGroup && expandedGroups.has(etapa.id)) {
-        etapa.composicoes.forEach(comp => {
+        composicoes.forEach(comp => {
           group.children!.push({
             id: comp.id,
             name: comp.descricao || comp.codigo,
@@ -117,7 +119,8 @@ export default function GanttEditorChart({ etapas, onUpdateDates, onUpdateBaseli
     const allDates: string[] = [];
     etapas.forEach(e => {
       [e.dataInicioPrevista, e.dataFimPrevista, e.dataInicioReal, e.dataFimReal].forEach(d => { if (d) allDates.push(d); });
-      e.composicoes.forEach(comp => {
+      const composicoes = e.items?.filter(i => i.tipo !== 'etapa') as import('@/contexts/OrcamentoContext').OrcamentoComposicao[] || [];
+      composicoes.forEach(comp => {
         [comp.dataInicioPrevista, comp.dataFimPrevista, comp.dataInicioReal, comp.dataFimReal].forEach(d => { if (d) allDates.push(d); });
       });
     });
@@ -151,7 +154,10 @@ export default function GanttEditorChart({ etapas, onUpdateDates, onUpdateBaseli
   }, []);
 
   const expandAll = useCallback(() => {
-    setExpandedGroups(new Set(etapas.filter(e => e.usaComposicoes && e.composicoes.length > 0).map(e => e.id)));
+    setExpandedGroups(new Set(etapas.filter(e => {
+      const composicoes = e.items?.filter(i => i.tipo !== 'etapa') as import('@/contexts/OrcamentoContext').OrcamentoComposicao[] || [];
+      return e.usaComposicoes && composicoes.length > 0;
+    }).map(e => e.id)));
   }, [etapas]);
 
   const collapseAll = useCallback(() => setExpandedGroups(new Set()), []);

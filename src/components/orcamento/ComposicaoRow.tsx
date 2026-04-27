@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { OrcamentoComposicao, OrcamentoInsumo } from '@/contexts/OrcamentoContext';
+import { OrcamentoComposicao, OrcamentoInsumo, useOrcamento } from '@/contexts/OrcamentoContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,8 +15,11 @@ import {
   Trash2, Plus, ChevronRight, Star, Search, ClipboardList,
   MoreHorizontal, GripVertical, Lock, Layers,
   Box, Users, Truck, Wrench, Copy, List,
+  CheckCheck, X,
 } from 'lucide-react';
 import InsumoRowDense from './InsumoRowDense';
+import InsumoSkeletonRow from './InsumoSkeletonRow';
+import DescricaoAutocompleteCell from './DescricaoAutocompleteCell';
 import { formatCurrency, formatCurrencyShort } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/untyped';
@@ -25,14 +28,20 @@ import { useCompany } from '@/contexts/CompanyContext';
 import SinapiPricePopover from './SinapiPricePopover';
 import ListaCotacaoPopover from './ListaCotacaoPopover';
 import { usePriceSuggestion } from '@/hooks/usePriceSuggestion';
+import { useComposicaoInsumos, InsumoRascunho } from '@/hooks/useComposicaoInsumos';
+import { SearchItem } from '@/hooks/useItemSearch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BdiConfig } from './BdiPopover';
 
 
 // ÔöÇÔöÇ Exports mantidos para retrocompatibilidade com InsumoRow ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
-import { PLANILHA_GRID } from './planilhaGrid';
-export const COMPOSICAO_GRID = PLANILHA_GRID;
+import { 
+  PLANILHA_FLEX_ROW, CELL_DESC, CELL_TIPO, CELL_UN, 
+  CELL_QTD, CELL_PUNIT, CELL_TOTAL, CELL_ACOES, getNivelLayout 
+} from './planilhaGrid';
+
+export const COMPOSICAO_GRID = '[grid-template-columns:var(--wbs-cols,45fr_5fr_5fr_7fr_8fr_15fr_15fr)]';
 
 export function toSinapiDisplayName(descricao: string): string {
   if (!descricao) return descricao;
@@ -69,12 +78,16 @@ interface Props {
   bdiConfig?: BdiConfig;
   onOpenCatalogo?: (tab?: string, query?: string) => void;
   forceExpanded?: boolean;
-  onDoubleClickChevron?: (expanded: boolean) => void;
+  onDoubleClickChevron?: (expanded: boolean, depth: number, tipo: 'etapa' | 'composicao') => void;
   globalSelectedIds?: Set<string>;
   onToggleSelectGlobal?: (id: string, childrenIdsToDeselect?: string[]) => void;
+  depth?: number;
 }
 
 // ÔöÇÔöÇ Component ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export default function ComposicaoRow({
   composicao, unidades, onChange, onRemove, generateInsumoCodigo,
@@ -82,8 +95,13 @@ export default function ComposicaoRow({
   onPriceBadge, isNew = false,
   isSelected = false, onToggleSelect, bulkActive = false,
   bdiConfig, onOpenCatalogo, forceExpanded, onDoubleClickChevron,
-  globalSelectedIds, onToggleSelectGlobal
-}: Props) {
+  globalSelectedIds, onToggleSelectGlobal, depth = 2,
+  parentId
+}: Props & { parentId?: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: composicao.id,
+    data: { type: 'composicao', parentId }
+  });
   const isSinapi = composicao.fonteReferencia === 'SINAPI';
   const isInsumodireto = composicao.tipo === 'insumo_direto';
   const [insumosExpanded, setInsumosExpanded] = useState(!isSinapi);
@@ -116,6 +134,18 @@ export default function ComposicaoRow({
   const [fonteBadge, setFonteBadge] = useState<FonteBadge>(null);
 
   const { company } = useCompany();
+  const { sinapiConfig } = useOrcamento();
+  const {
+    insumos: pendingInsumos,
+    loadBiblioteca,
+    loadSinapi,
+    toggleAceito,
+    aceitarTodos,
+    rejeitarTodos,
+    limpar: limparPending,
+  } = useComposicaoInsumos();
+  const qtdInputRef = useRef<HTMLInputElement>(null);
+
 
   // Sync localPreco quando composicao muda externamente
   useEffect(() => {
@@ -321,29 +351,44 @@ export default function ComposicaoRow({
 
   const showFonteBadge = fonteBadge && composicao.precoUnitario != null && composicao.precoUnitario > 0;
   const lotesCount = lotesIds.length;
+  const { visual } = getNivelLayout(depth);
 
   return (
-    <div className={cn(
-      'group/row border-b border-border/30 transition-colors',
-      isSelected ? 'bg-primary/8 dark:bg-indigo-950/20' : 'hover:bg-muted/10',
-      isNew && 'animate-in slide-in-from-top-1 fade-in duration-300',
-      'border-l-2 border-l-slate-200 dark:border-l-slate-800',
-      isSinapi && 'border-l-blue-400 dark:border-l-blue-600',
-    )}>
+    <div 
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      className={cn(
+        'group/row border-b border-border/30 transition-colors relative',
+        isSelected ? 'bg-primary/8 dark:bg-indigo-950/20' : 'hover:bg-muted/10',
+        isNew && 'animate-in slide-in-from-top-1 fade-in duration-300',
+        'border-l-2 border-l-slate-200 dark:border-l-slate-800',
+        isSinapi && 'border-l-blue-400 dark:border-l-blue-600',
+      )}
+      {...attributes}
+    >
       {/* ── Linha principal ── */}
       <div
         className={cn(
-          `grid ${PLANILHA_GRID} items-center gap-0`,
+          `items-stretch`,
+          visual.bgClass,
+          PLANILHA_FLEX_ROW,
           isSinapi && 'border-l-2 border-l-blue-300',
         )}
-        style={{ minHeight: '32px', height: '32px', backgroundColor: '#f0eef8' }}
+        style={{ minHeight: '32px', height: '32px' }}
       >
         {/* Coluna 1: Drag + Código + Chevron + Descrição */}
-        <div className="flex items-center gap-1 h-full px-1 border-r border-border/60 min-w-0 pl-2">
+        <div className={cn(CELL_DESC, "gap-0 px-1")}>
+          {/* Spacer de Indentação exata */}
+          {depth > 1 && <div style={{ width: `${(depth - 1) * 16}px` }} className="shrink-0" />}
+
           {/* Checkbox bulk — hover only */}
           {!readOnly && (
             <div className={cn(
-              'flex items-center justify-center h-5 w-4 shrink-0 transition-opacity',
+              'flex items-center justify-center h-6 w-6 shrink-0 transition-opacity',
               isSelected ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
             )}>
               <Checkbox
@@ -353,11 +398,14 @@ export default function ComposicaoRow({
               />
             </div>
           )}
-          <span className="flex items-center justify-center opacity-0 group-hover/row:opacity-40 hover:!opacity-80 cursor-grab active:cursor-grabbing transition-opacity text-muted-foreground shrink-0 w-[20px]">
+          <span 
+            {...listeners}
+            className="flex justify-center items-center opacity-0 group-hover/row:opacity-40 hover:!opacity-80 cursor-grab active:cursor-grabbing transition-opacity text-muted-foreground shrink-0 w-5 outline-none"
+          >
             <GripVertical className="h-3.5 w-3.5" />
           </span>
 
-          <div className="flex items-center shrink-0">
+          <div className="flex justify-center shrink-0 w-5">
             {/* Chevron sempre visível */}
             <button
               tabIndex={-1}
@@ -373,24 +421,25 @@ export default function ComposicaoRow({
                 if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
                 const next = !insumosExpanded;
                 setInsumosExpanded(next);
-                onDoubleClickChevron?.(next);
+                onDoubleClickChevron?.(next, depth, 'composicao');
               }}
               className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mr-1"
             >
               <ChevronRight className={cn('h-3 w-3 transition-transform', insumosExpanded && 'rotate-90')} />
             </button>
-            <span className="text-[10px] font-mono text-muted-foreground truncate" title={composicao.codigo}>
-              {composicao.codigo}
-            </span>
           </div>
+          
+          <span className="text-[10px] font-mono text-muted-foreground shrink-0 mr-1 tabular-nums" title={composicao.codigo}>
+            {composicao.codigo}
+          </span>
 
           {/* Descrição */}
           {isFullReadOnly ? (
-            <div 
-              ref={descRef} 
-              onMouseEnter={handleDescMouseEnter} 
+            <div
+              ref={descRef}
+              onMouseEnter={handleDescMouseEnter}
               onMouseLeave={() => setDescTooltip(v => ({ ...v, visible: false }))}
-              className="flex-1 flex items-center px-1 truncate text-foreground h-full min-w-0" 
+              className="flex-1 flex items-center px-1 truncate text-foreground h-full min-w-0"
               style={{ fontSize: '13px', fontWeight: 500 }}
             >
               {lotesCount > 0 && (
@@ -422,19 +471,60 @@ export default function ComposicaoRow({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              <Input
+              <DescricaoAutocompleteCell
                 value={composicao.descricao}
-                onChange={e => update('descricao', e.target.value)}
-                placeholder="Descrição"
-                className="h-full w-full px-1.5 bg-transparent border-transparent focus:border-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 rounded-none shadow-none"
-                style={{ fontSize: '13px', fontWeight: 500 }}
+                onChange={v => update('descricao', v)}
+                sinapiConfig={sinapiConfig}
+                companyId={company?.id}
+                onSelect={(item: SearchItem) => {
+                  // Preenche campos básicos
+                  if (item.tipo === 'sinapi_composicao') {
+                    update('descricao', item.descricao);
+                    update('unidade', item.unidade);
+                    update('precoUnitario', item.custo);
+                    setFonteBadge('sinapi');
+                    // Carrega insumos SINAPI
+                    if (sinapiConfig.referencia_id) {
+                      loadSinapi(item.codigo, {
+                        referencia_id: sinapiConfig.referencia_id,
+                        uf: sinapiConfig.uf,
+                        regime: sinapiConfig.regime,
+                      });
+                    }
+                  } else if (item.tipo === 'sinapi_insumo') {
+                    update('descricao', item.descricao);
+                    update('unidade', item.unidade);
+                    update('precoUnitario', item.preco);
+                    setFonteBadge('sinapi');
+                    // Insumo direto — sem expansão de sub-insumos
+                    limparPending();
+                  } else if (item.tipo === 'biblioteca') {
+                    update('descricao', item.descricao);
+                    update('unidade', item.unidade);
+                    update('precoUnitario', item.preco_medio > 0 ? item.preco_medio : null);
+                    setFonteBadge('biblioteca');
+                    // Carrega insumos da Biblioteca
+                    if (company?.id) {
+                      loadBiblioteca(item.id, company.id);
+                    }
+                  } else if (item.tipo === 'historico') {
+                    update('descricao', item.descricao);
+                    update('unidade', item.unidade);
+                    update('precoUnitario', item.preco);
+                    setFonteBadge('historico');
+                    limparPending();
+                  }
+                  // Foca a célula de quantidade após seleção
+                  setTimeout(() => qtdInputRef.current?.focus(), 100);
+                }}
+                onTab={() => qtdInputRef.current?.focus()}
               />
             </div>
           )}
         </div>
 
         {/* Tipo */}
-        <div className="h-full flex items-center justify-center border-r border-border/60">
+        <div className={CELL_TIPO}>
           {(() => {
             const TIPO_STYLES: Record<string, { label: string; cls: string }> = {
               composicao:  { label: 'C',   cls: 'bg-violet-100 text-violet-700 border-violet-300' },
@@ -502,9 +592,9 @@ export default function ComposicaoRow({
 
         {/* Unidade */}
         {isFullReadOnly || isSinapi ? (
-          <div className="h-full flex items-center justify-center text-[10px] uppercase px-1 text-center text-muted-foreground border-r border-border/60">{composicao.unidade}</div>
+          <div className={cn(CELL_UN, "text-[10px] uppercase text-muted-foreground")}>{composicao.unidade}</div>
         ) : (
-          <div className="h-full flex items-center justify-center border-r border-border/60 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+          <div className={cn(CELL_UN, "focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5")}>
             <Input
               value={composicao.unidade}
               onChange={e => update('unidade', e.target.value)}
@@ -516,9 +606,9 @@ export default function ComposicaoRow({
         )}
         {/* Quantidade */}
         {isFullReadOnly || isComputed ? (
-          <div className="h-full flex items-center justify-end px-1 text-right text-muted-foreground tabular-nums border-r border-border/60" style={{ fontSize: '13px' }}>{composicao.quantidade ?? '—'}</div>
+          <div className={cn(CELL_QTD, "text-muted-foreground tabular-nums px-1", "text-[13px]")}>{composicao.quantidade ?? '—'}</div>
         ) : (
-          <div className="h-full flex items-center border-r border-border/60 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+          <div className={cn(CELL_QTD, "focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5")}>
             <input
               type="number"
               value={localQtd}
@@ -538,12 +628,12 @@ export default function ComposicaoRow({
 
         {/* Preço unitário */}
         {isFullReadOnly || isComputed || isSinapi ? (
-          <div className="h-full flex items-center justify-end gap-1 tabular-nums px-1 text-muted-foreground border-r border-border/60" style={{ fontSize: '13px' }}>
+          <div className={cn(CELL_PUNIT, "gap-1 tabular-nums px-1 text-muted-foreground", "text-[13px]")}>
             {isSinapi && <Lock className="h-2.5 w-2.5 shrink-0 opacity-50" />}
             {composicao.precoUnitario != null ? formatCurrency(composicao.precoUnitario) : '—'}
           </div>
         ) : (
-          <div className="relative h-full flex items-center border-r border-border/60 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+          <div className={cn(CELL_PUNIT, "relative focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5")}>
             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">R$</span>
             <input
               type="number"
@@ -564,9 +654,11 @@ export default function ComposicaoRow({
 
         {/* Preço total */}
         <div className={cn(
-          'h-full flex items-center justify-end px-1 text-right tabular-nums border-r border-border/60 overflow-hidden text-ellipsis whitespace-nowrap',
-          composicao.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground'
-        )} style={{ fontSize: '13px' }}>
+          CELL_TOTAL,
+          'px-1 tabular-nums overflow-hidden',
+          composicao.precoTotal > 0 ? 'text-foreground' : 'text-muted-foreground',
+          'text-[13px]'
+        )}>
           {bdiConfig?.enabled && composicao.precoTotal > 0 ? (
             <TooltipProvider>
               <Tooltip>
@@ -597,7 +689,7 @@ export default function ComposicaoRow({
         </div>
 
         {/* Coluna 6: Ações — botões diretos */}
-        <div className="h-full flex items-center justify-center px-1 shrink-0 gap-0.5">
+        <div className={cn(CELL_ACOES, "gap-0.5")}>
           {(!bulkActive && showFonteBadge && fonteBadge && !isSelected) && (
             <Badge
               variant="outline"
@@ -656,13 +748,135 @@ export default function ComposicaoRow({
           )}
         </div>
       </div>
-      
+
       {/* Elementos fora do grid */}
       <datalist id={`un-comp-${composicao.id}`}>
         {unidades.map(u => <option key={u} value={u} />)}
       </datalist>
 
-      {/* ── Insumos (sub-linhas) ── */}
+      {/* ── Painel de revisão de insumos (após seleção do autocomplete) ── */}
+      {pendingInsumos !== null && !isFullReadOnly && (
+        <div className="bg-muted/8 border-t border-border/30">
+          {/* Barra de controle */}
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/20 bg-muted/20">
+            <span className="text-[11px] font-medium text-foreground flex-1">
+              {pendingInsumos === 'loading'
+                ? 'Carregando insumos…'
+                : `${pendingInsumos.length} insumo${pendingInsumos.length !== 1 ? 's' : ''} disponível${pendingInsumos.length !== 1 ? 'is' : ''}`
+              }
+            </span>
+            {pendingInsumos !== 'loading' && (
+              <>
+                {pendingInsumos[0]?.origem === 'biblioteca' && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => {
+                      const aceitos = pendingInsumos.filter(i => i.aceito);
+                      const insumosConvertidos: OrcamentoInsumo[] = aceitos.map(i => ({
+                        id: crypto.randomUUID(),
+                        codigo: i.codigo ?? '',
+                        descricao: i.descricao,
+                        unidade: i.unidade ?? '',
+                        quantidade: i.quantidade,
+                        precoUnitario: i.preco_unitario,
+                        precoTotal: (i.quantidade ?? 0) * (i.preco_unitario ?? 0),
+                        tipo: 'insumo_direto' as const,
+                        tipo_item: (i.tipo_item as any) ?? 'material',
+                        insumos: [],
+                        fonteReferencia: 'BIBLIOTECA',
+                        usaInsumos: false,
+                      }));
+                      const next = { ...composicao, usaInsumos: insumosConvertidos.length > 0, insumos: insumosConvertidos };
+                      onChange(next);
+                      limparPending();
+                      setInsumosExpanded(true);
+                    }}
+                  >
+                    <CheckCheck className="h-3 w-3" />
+                    Confirmar Seleção
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[10px] gap-1"
+                  onClick={() => {
+                    const insumosConvertidos: OrcamentoInsumo[] = pendingInsumos.map(i => ({
+                      id: crypto.randomUUID(),
+                      codigo: i.codigo ?? '',
+                      descricao: i.descricao,
+                      unidade: i.unidade ?? '',
+                      quantidade: i.quantidade,
+                      precoUnitario: i.preco_unitario,
+                      precoTotal: (i.quantidade ?? 0) * (i.preco_unitario ?? 0),
+                      tipo: 'insumo_direto' as const,
+                      tipo_item: (i.tipo_item as any) ?? 'material',
+                      insumos: [],
+                      fonteReferencia: pendingInsumos[0]?.origem === 'sinapi' ? 'SINAPI' : 'BIBLIOTECA',
+                      usaInsumos: false,
+                    }));
+                    const next = { ...composicao, usaInsumos: insumosConvertidos.length > 0, insumos: insumosConvertidos };
+                    onChange(next);
+                    limparPending();
+                    setInsumosExpanded(true);
+                  }}
+                >
+                  <CheckCheck className="h-3 w-3" />
+                  Aceitar Todos
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-destructive"
+                  onClick={rejeitarTodos}
+                >
+                  <X className="h-3 w-3" />
+                  Rejeitar
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Skeleton ou lista */}
+          {pendingInsumos === 'loading' ? (
+            <InsumoSkeletonRow count={4} />
+          ) : (
+            <div className="divide-y divide-border/10">
+              {pendingInsumos.map((ins, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors',
+                    ins.aceito ? 'opacity-100' : 'opacity-40 line-through',
+                    ins.origem === 'biblioteca' && 'hover:bg-muted/10 cursor-pointer'
+                  )}
+                  onClick={() => ins.origem === 'biblioteca' && toggleAceito(idx)}
+                >
+                  {ins.origem === 'biblioteca' && (
+                    <Checkbox
+                      checked={ins.aceito}
+                      onCheckedChange={() => toggleAceito(idx)}
+                      className="h-3.5 w-3.5 shrink-0"
+                    />
+                  )}
+                  <span className="flex-1 truncate text-foreground">{ins.descricao}</span>
+                  <span className="text-muted-foreground shrink-0">{ins.unidade}</span>
+                  <span className="tabular-nums text-muted-foreground shrink-0 w-16 text-right">
+                    {ins.quantidade != null ? ins.quantidade : '—'}
+                  </span>
+                  <span className="tabular-nums text-foreground shrink-0 w-20 text-right">
+                    {ins.preco_unitario != null ? formatCurrency(ins.preco_unitario) : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Insumos confirmados (sub-linhas) ── */}
       {insumosExpanded && !isInsumodireto && (
         <div className="bg-muted/5 border-t border-border/20">
           {insumosVisiveis.map((si, idx) => (
@@ -676,13 +890,13 @@ export default function ComposicaoRow({
               readOnly={readOnly || isSinapi}
               priceSuggestionEnabled={priceSuggestionEnabled}
               onPriceBadge={onPriceBadge}
+              depth={depth + 1}
               onOpenCatalogo={onOpenCatalogo}
               isSelected={globalSelectedIds?.has(si.id)}
               onToggleSelect={() => onToggleSelectGlobal?.(si.id)}
               bulkActive={bulkActive}
             />
           ))}
-          {/* Placeholder se lista vazia */}
           {composicao.insumos.length === 0 && !readOnly && !isSinapi && (
             <InsumoRowDense
               placeholder
@@ -699,7 +913,7 @@ export default function ComposicaoRow({
               onClick={() => setShowAllInsumos(true)}
               className="w-full text-center py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
-              ver mais ({insumosOcultos}) Ôåô
+              ver mais ({insumosOcultos}) ↓
             </button>
           )}
           {!readOnly && !isSinapi && composicao.insumos.length > 0 && (

@@ -38,8 +38,9 @@ export interface OrcamentoEtapa {
   codigo: string;
   nome: string;
   precoTotal: number;
-  composicoes: OrcamentoComposicao[];
   usaComposicoes: boolean;
+  tipo: 'etapa';
+  items: Array<OrcamentoEtapa | OrcamentoComposicao>;
 }
 
 export interface OrcamentoObra {

@@ -82,48 +82,54 @@ const normalize = (s: string) =>
 /** Extrai todos os insumos / composições simples do orçamento (inclui campos SINAPI já salvos no banco) */
 function extrairItens(etapas: OrcamentoEtapa[]): MapaItem[] {
   const items: MapaItem[] = [];
-  for (const etapa of etapas) {
-    for (const comp of etapa.composicoes || []) {
-      if (comp.usaInsumos && comp.insumos?.length) {
-        for (const ins of comp.insumos) {
-          items.push({
-            key: `${comp.id}::${ins.id}`,
-            descricao: ins.descricao || `Insumo ${ins.codigo}`,
-            unidade: ins.unidade,
-            quantidade: ins.quantidade,
-            precoAtual: ins.precoUnitario,
-            etapaNome: etapa.nome,
-            etapaId: etapa.id,
-            fonteReferencia: comp.fonteReferencia,
-            // Campos SINAPI do insumo (gravados pelo assistente de IA)
-            sinapiPreco: ins.sinapiPreco,
-            sinapiCodigo: ins.sinapiCodigo,
-            sinapiFonte: ins.sinapiFonte,
-            sinapiConfidence: ins.sinapiConfidence,
-            sinapiConfirmado: ins.sinapiConfirmado,
-          });
+  const traverse = (etapasList: OrcamentoEtapa[]) => {
+    for (const etapa of etapasList) {
+      for (const item of etapa.items || []) {
+        if (item.tipo === 'etapa') {
+          traverse([item as OrcamentoEtapa]);
+        } else {
+          const comp = item as OrcamentoComposicao;
+          if (comp.usaInsumos && comp.insumos?.length) {
+            for (const ins of comp.insumos) {
+              items.push({
+                key: `${comp.id}::${ins.id}`,
+                descricao: ins.descricao || `Insumo ${ins.codigo}`,
+                unidade: ins.unidade,
+                quantidade: ins.quantidade,
+                precoAtual: ins.precoUnitario,
+                etapaNome: etapa.nome,
+                etapaId: etapa.id,
+                fonteReferencia: comp.fonteReferencia,
+                sinapiPreco: ins.sinapiPreco,
+                sinapiCodigo: ins.sinapiCodigo,
+                sinapiFonte: ins.sinapiFonte,
+                sinapiConfidence: ins.sinapiConfidence,
+                sinapiConfirmado: ins.sinapiConfirmado,
+              });
+            }
+          } else {
+            items.push({
+              key: comp.id,
+              descricao: comp.descricao || `Composição ${comp.codigo}`,
+              unidade: comp.unidade,
+              quantidade: comp.quantidade,
+              precoAtual: comp.precoUnitario,
+              etapaNome: etapa.nome,
+              etapaId: etapa.id,
+              fonteReferencia: comp.fonteReferencia,
+              ehComposicaoSemInsumos: true,
+              sinapiPreco: comp.sinapiPreco,
+              sinapiCodigo: comp.sinapiCodigo,
+              sinapiFonte: comp.sinapiFonte,
+              sinapiConfidence: comp.sinapiConfidence,
+              sinapiConfirmado: comp.sinapiConfirmado,
+            });
+          }
         }
-      } else {
-        items.push({
-          key: comp.id,
-          descricao: comp.descricao || `Composição ${comp.codigo}`,
-          unidade: comp.unidade,
-          quantidade: comp.quantidade,
-          precoAtual: comp.precoUnitario,
-          etapaNome: etapa.nome,
-          etapaId: etapa.id,
-          fonteReferencia: comp.fonteReferencia,
-          ehComposicaoSemInsumos: true, // sem detalhamento
-          // Campos SINAPI da composição (gravados pelo assistente de IA)
-          sinapiPreco: comp.sinapiPreco,
-          sinapiCodigo: comp.sinapiCodigo,
-          sinapiFonte: comp.sinapiFonte,
-          sinapiConfidence: comp.sinapiConfidence,
-          sinapiConfirmado: comp.sinapiConfirmado,
-        });
       }
     }
-  }
+  };
+  traverse(etapas);
   return items;
 }
 
@@ -219,6 +225,8 @@ export default function CotacaoCentral({
   const [incluirSinapi, setIncluirSinapi] = useState(false);
   const [incluirComPreco, setIncluirComPreco] = useState(false);
   const [incluirSemDetalhe, setIncluirSemDetalhe] = useState(false);
+  // Filtro: ocultar itens com preço (opt-out, por padrão ativado)
+  const [ocultarComPreco, setOcultarComPreco] = useState(true);
   // Filtro por especialidade de um fornecedor específico do mapa
   const [filtroRelevante, setFiltroRelevante] = useState<string | null>(null);
   // Filtro Classe A — ativado quando initialSearch === '__classe_a__'
@@ -515,29 +523,36 @@ export default function CotacaoCentral({
       if (!orcamento) return;
       const [compId, insId] = item.key.split('::');
 
-      const updatedEtapas = orcamento.etapas.map(etapa => ({
-        ...etapa,
-        composicoes: etapa.composicoes.map(comp => {
-          if (comp.id !== compId) return comp;
-          if (insId) {
-            const updatedInsumos = comp.insumos.map(ins => {
-              if (ins.id !== insId) return ins;
-              const upd = { ...ins, precoUnitario: value };
-              if (upd.quantidade) upd.precoTotal = upd.quantidade * value;
-              return upd;
-            });
-            const newPrecoTotal = updatedInsumos.reduce((s, i) => s + (i.precoTotal ?? 0), 0);
-            return { ...comp, insumos: updatedInsumos, precoTotal: newPrecoTotal };
-          } else {
-            const upd = { ...comp, precoUnitario: value };
-            if (upd.quantidade) upd.precoTotal = upd.quantidade * value;
-            return upd;
-          }
-        }),
-      })).map(etapa => ({
-        ...etapa,
-        precoTotal: etapa.composicoes.reduce((s, c) => s + c.precoTotal, 0),
-      }));
+      const processEtapas = (etapasList: OrcamentoEtapa[]): OrcamentoEtapa[] => {
+        return etapasList.map(etapa => {
+          const updatedItems = (etapa.items || []).map(item => {
+            if (item.tipo === 'etapa') {
+              return processEtapas([item as OrcamentoEtapa])[0];
+            } else {
+              const comp = item as OrcamentoComposicao;
+              if (comp.id !== compId) return comp;
+              if (insId) {
+                const updatedInsumos = comp.insumos.map(ins => {
+                  if (ins.id !== insId) return ins;
+                  const upd = { ...ins, precoUnitario: value };
+                  if (upd.quantidade) upd.precoTotal = upd.quantidade * value;
+                  return upd;
+                });
+                const newPrecoTotal = updatedInsumos.reduce((s, i) => s + (i.precoTotal ?? 0), 0);
+                return { ...comp, insumos: updatedInsumos, precoTotal: newPrecoTotal };
+              } else {
+                const upd = { ...comp, precoUnitario: value };
+                if (upd.quantidade) upd.precoTotal = upd.quantidade * value;
+                return upd;
+              }
+            }
+          });
+          const precoTotal = updatedItems.reduce((s, c) => s + ((c as any).precoTotal || 0), 0);
+          return { ...etapa, items: updatedItems, precoTotal };
+        });
+      };
+      
+      const updatedEtapas = processEtapas(orcamento.etapas);
 
       await saveOrcamento({ obraId: obra.id, etapas: updatedEtapas });
     } finally {
@@ -735,41 +750,45 @@ export default function CotacaoCentral({
       const orcamento = getOrcamento(obra.id);
       if (!orcamento) return;
 
-      const updatedEtapas = orcamento.etapas.map(etapa => ({
-        ...etapa,
-        composicoes: etapa.composicoes.map(comp => {
-          // Composição direta (sem insumos)
-          if (keysToApply.includes(comp.id) && !comp.usaInsumos) {
-            const adopted = adoptedPrices[comp.id];
-            if (adopted) {
-              const upd = { ...comp, precoUnitario: adopted.preco };
-              if (upd.quantidade) upd.precoTotal = upd.quantidade * adopted.preco;
-              return upd;
-            }
-          }
-          // Insumos da composição
-          if (comp.usaInsumos) {
-            const updatedInsumos = comp.insumos.map(ins => {
-              const key = `${comp.id}::${ins.id}`;
-              if (keysToApply.includes(key)) {
-                const adopted = adoptedPrices[key];
+      const processEtapas = (etapasList: OrcamentoEtapa[]): OrcamentoEtapa[] => {
+        return etapasList.map(etapa => {
+          const updatedItems = (etapa.items || []).map(item => {
+            if (item.tipo === 'etapa') {
+              return processEtapas([item as OrcamentoEtapa])[0];
+            } else {
+              const comp = item as OrcamentoComposicao;
+              if (keysToApply.includes(comp.id) && !comp.usaInsumos) {
+                const adopted = adoptedPrices[comp.id];
                 if (adopted) {
-                  const upd = { ...ins, precoUnitario: adopted.preco };
+                  const upd = { ...comp, precoUnitario: adopted.preco };
                   if (upd.quantidade) upd.precoTotal = upd.quantidade * adopted.preco;
                   return upd;
                 }
               }
-              return ins;
-            });
-            const newPrecoTotal = updatedInsumos.reduce((s, i) => s + (i.precoTotal ?? 0), 0);
-            return { ...comp, insumos: updatedInsumos, precoTotal: newPrecoTotal };
-          }
-          return comp;
-        }),
-      })).map(etapa => ({
-        ...etapa,
-        precoTotal: etapa.composicoes.reduce((s, c) => s + c.precoTotal, 0),
-      }));
+              if (comp.usaInsumos) {
+                const updatedInsumos = comp.insumos.map(ins => {
+                  const key = `${comp.id}::${ins.id}`;
+                  if (keysToApply.includes(key)) {
+                    const adopted = adoptedPrices[key];
+                    if (adopted) {
+                      const upd = { ...ins, precoUnitario: adopted.preco };
+                      if (upd.quantidade) upd.precoTotal = upd.quantidade * adopted.preco;
+                      return upd;
+                    }
+                  }
+                  return ins;
+                });
+                const newPrecoTotal = updatedInsumos.reduce((s, i) => s + (i.precoTotal ?? 0), 0);
+                return { ...comp, insumos: updatedInsumos, precoTotal: newPrecoTotal };
+              }
+              return comp;
+            }
+          });
+          const precoTotal = updatedItems.reduce((s, c) => s + ((c as any).precoTotal || 0), 0);
+          return { ...etapa, items: updatedItems, precoTotal };
+        });
+      };
+      const updatedEtapas = processEtapas(orcamento.etapas);
 
       await saveOrcamento({ obraId: obra.id, etapas: updatedEtapas });
 
@@ -825,39 +844,45 @@ export default function CotacaoCentral({
       const orcamento = getOrcamento(obra.id);
       if (!orcamento) return;
 
-      const updatedEtapas = orcamento.etapas.map(etapa => ({
-        ...etapa,
-        composicoes: etapa.composicoes.map(comp => {
-          if (withBest.includes(comp.id)) {
-            const best = getMelhorPreco(comp.id);
-            if (best) {
-              const upd = { ...comp, precoUnitario: best.preco };
-              if (upd.quantidade) upd.precoTotal = upd.quantidade * best.preco;
-              return upd;
-            }
-          }
-          if (comp.usaInsumos) {
-            const updatedInsumos = comp.insumos.map(ins => {
-              const key = `${comp.id}::${ins.id}`;
-              if (withBest.includes(key)) {
-                const best = getMelhorPreco(key);
+      const processEtapas = (etapasList: OrcamentoEtapa[]): OrcamentoEtapa[] => {
+        return etapasList.map(etapa => {
+          const updatedItems = (etapa.items || []).map(item => {
+            if (item.tipo === 'etapa') {
+              return processEtapas([item as OrcamentoEtapa])[0];
+            } else {
+              const comp = item as OrcamentoComposicao;
+              if (withBest.includes(comp.id)) {
+                const best = getMelhorPreco(comp.id);
                 if (best) {
-                  const upd = { ...ins, precoUnitario: best.preco };
+                  const upd = { ...comp, precoUnitario: best.preco };
                   if (upd.quantidade) upd.precoTotal = upd.quantidade * best.preco;
                   return upd;
                 }
               }
-              return ins;
-            });
-            const newPrecoTotal = updatedInsumos.reduce((s, i) => s + (i.precoTotal ?? 0), 0);
-            return { ...comp, insumos: updatedInsumos, precoTotal: newPrecoTotal };
-          }
-          return comp;
-        }),
-      })).map(etapa => ({
-        ...etapa,
-        precoTotal: etapa.composicoes.reduce((s, c) => s + c.precoTotal, 0),
-      }));
+              if (comp.usaInsumos) {
+                const updatedInsumos = comp.insumos.map(ins => {
+                  const key = `${comp.id}::${ins.id}`;
+                  if (withBest.includes(key)) {
+                    const best = getMelhorPreco(key);
+                    if (best) {
+                      const upd = { ...ins, precoUnitario: best.preco };
+                      if (upd.quantidade) upd.precoTotal = upd.quantidade * best.preco;
+                      return upd;
+                    }
+                  }
+                  return ins;
+                });
+                const newPrecoTotal = updatedInsumos.reduce((s, i) => s + (i.precoTotal ?? 0), 0);
+                return { ...comp, insumos: updatedInsumos, precoTotal: newPrecoTotal };
+              }
+              return comp;
+            }
+          });
+          const precoTotal = updatedItems.reduce((s, c) => s + ((c as any).precoTotal || 0), 0);
+          return { ...etapa, items: updatedItems, precoTotal };
+        });
+      };
+      const updatedEtapas = processEtapas(orcamento.etapas);
 
       await saveOrcamento({ obraId: obra.id, etapas: updatedEtapas });
 
@@ -1639,9 +1664,23 @@ ${fornBlocks}
       </div>
 
       {/* ── Views ──────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden flex flex-col">
         {(view === 'listas' || view === 'comparativo' || view === 'mapa') && (
-          <CotacaoSplitView
+          <>
+            {/* Filter toggle */}
+            <div className="px-4 py-2 border-b bg-card flex items-center gap-4 text-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!ocultarComPreco}
+                  onChange={(e) => setOcultarComPreco(!e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+                <span className="text-xs text-muted-foreground">Mostrar itens com preço</span>
+              </label>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <CotacaoSplitView
             itens={itens}
             contexto={contexto}
             todosFornecedores={todosFornecedores}
@@ -1652,6 +1691,8 @@ ${fornBlocks}
             companyId={company?.id}
             obraId={obra.id}
           />
+            </div>
+          </>
         )}
       </div>
 

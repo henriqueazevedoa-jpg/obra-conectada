@@ -21,6 +21,7 @@ import {
   Loader2, X, ChevronRight, Grid3X3, List, Upload, FileDown,
   BarChart3, Clock, TrendingUp,
 } from 'lucide-react';
+import { ComposicaoInlineRow } from './ComposicaoInlineRow';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -184,8 +185,20 @@ export default function ComposicoesTab({ isActive, onKpisReady, refreshTrigger =
     setDialogOpen(true);
   };
 
-  const openEdit = (item: CatalogoRow) => {
+  const openEdit = async (item: CatalogoRow) => {
     setEditingId(item.id);
+    
+    let fetchedInsumos: any[] = [];
+    if (company?.id) {
+      const { data } = await (supabase as any)
+        .from('catalogo_composicao_insumos')
+        .select('*')
+        .eq('composicao_id', item.id)
+        .eq('company_id', company.id)
+        .order('ordem');
+      if (data) fetchedInsumos = data;
+    }
+
     setForm({
       codigo: item.codigo || '',
       nome: item.nome,
@@ -193,8 +206,8 @@ export default function ComposicoesTab({ isActive, onKpisReady, refreshTrigger =
       categoria: item.categoria || '',
       preco_medio: item.preco_medio ? String(item.preco_medio) : '',
       is_modelo: item.is_modelo ?? false,
-      insumos: (item.insumos || []).map((ins: any) => ({
-        id: Math.random().toString(36).substr(2, 9),
+      insumos: fetchedInsumos.map((ins: any) => ({
+        id: ins.id || Math.random().toString(36).substr(2, 9),
         descricao: ins.descricao || '',
         unidade: ins.unidade || '',
         quantidade: ins.quantidade ? String(ins.quantidade) : '',
@@ -222,13 +235,9 @@ export default function ComposicoesTab({ isActive, onKpisReady, refreshTrigger =
       preco_medio: form.preco_medio ? parseFloat(form.preco_medio.replace(',', '.')) : null,
       is_modelo: form.is_modelo,
       origem: 'manual',
-      insumos: form.insumos.filter(ins => ins.descricao.trim() !== '').map(ins => ({
-        descricao: ins.descricao.trim(),
-        unidade: ins.unidade.trim(),
-        quantidade: ins.quantidade ? parseFloat(ins.quantidade.replace(',', '.')) : 0,
-        preco_unitario: ins.preco_unitario ? parseFloat(ins.preco_unitario.replace(',', '.')) : 0,
-      })),
     };
+
+    let compId = editingId;
 
     try {
       if (editingId) {
@@ -239,12 +248,40 @@ export default function ComposicoesTab({ isActive, onKpisReady, refreshTrigger =
         if (error) throw error;
         toast({ title: 'Composição atualizada com sucesso!' });
       } else {
-        const { error } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from('catalogo_composicoes')
-          .insert(payload);
+          .insert(payload)
+          .select('id')
+          .single();
         if (error) throw error;
+        compId = data.id;
         toast({ title: 'Composição criada na biblioteca!' });
       }
+
+      if (compId) {
+         const validInsumos = form.insumos.filter(ins => ins.descricao.trim() !== '');
+         
+         await (supabase as any)
+           .from('catalogo_composicao_insumos')
+           .delete()
+           .eq('composicao_id', compId);
+           
+         if (validInsumos.length > 0) {
+            const insumosPayload = validInsumos.map((ins, idx) => ({
+               composicao_id: compId,
+               company_id: company.id,
+               descricao: ins.descricao.trim(),
+               unidade: ins.unidade.trim(),
+               quantidade: ins.quantidade ? parseFloat(ins.quantidade.replace(',', '.')) : 0,
+               preco_unitario: ins.preco_unitario ? parseFloat(ins.preco_unitario.replace(',', '.')) : 0,
+               ordem: idx
+            }));
+            await (supabase as any)
+              .from('catalogo_composicao_insumos')
+              .insert(insumosPayload);
+         }
+      }
+
       setDialogOpen(false);
       loadItems();
     } catch {
@@ -426,92 +463,16 @@ export default function ComposicoesTab({ isActive, onKpisReady, refreshTrigger =
                 /* ── LISTA ── */
                 <div className="divide-y divide-border/50">
                   {filtered.map(item => (
-                    <div
+                    <ComposicaoInlineRow
                       key={item.id}
-                      className={cn(
-                        'flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group',
-                        selectedItem?.id === item.id && 'bg-primary/5 border-l-2 border-l-primary'
-                      )}
-                      onClick={() => setSelectedItem(prev => prev?.id === item.id ? null : item)}
-                    >
-                      {/* Ícone */}
-                      <div className={cn(
-                        'h-8 w-8 rounded-lg flex items-center justify-center shrink-0',
-                        item.is_modelo ? 'bg-violet-50 dark:bg-violet-950/30' : 'bg-muted'
-                      )}>
-                        {item.is_modelo
-                          ? <Layers className="h-4 w-4 text-violet-500" />
-                          : <Package className="h-4 w-4 text-muted-foreground" />}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          {item.is_modelo && (
-                            <Badge variant="outline" className="text-[9px] h-4 border-violet-200 text-violet-600 bg-violet-50">Modelo</Badge>
-                          )}
-                          {item.codigo && (
-                            <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1.5 rounded">{item.codigo}</span>
-                          )}
-                          {item.categoria && (
-                            <span className="text-[9px] text-muted-foreground">{item.categoria}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium text-foreground truncate">{item.nome}</p>
-                          {item.insumos && item.insumos.length > 0 && (
-                            <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">
-                              {item.insumos.length} ins.
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Unidade e preço */}
-                      <div className="text-right shrink-0 hidden sm:block">
-                        <p className="text-[10px] text-muted-foreground">{item.unidade || '—'}</p>
-                        {item.preco_medio && (
-                          <p className="text-[10px] text-emerald-600 font-medium">
-                            {item.preco_medio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Usos */}
-                      {(item.usos ?? 0) > 0 && (
-                        <Badge variant="secondary" className="text-[9px] h-4 shrink-0 hidden lg:block">
-                          {item.usos}x
-                        </Badge>
-                      )}
-
-                      {/* Ações no hover */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <button
-                          onClick={e => { e.stopPropagation(); toggleModelo(item); }}
-                          className={cn(
-                            'h-6 w-6 rounded flex items-center justify-center transition-colors',
-                            item.is_modelo ? 'text-violet-500 hover:bg-violet-50' : 'text-muted-foreground hover:bg-muted'
-                          )}
-                          title={item.is_modelo ? 'Remover de modelos' : 'Marcar como modelo'}
-                        >
-                          <Layers className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); openEdit(item); }}
-                          className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
-                          title="Editar"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); setDeleteId(item.id); }}
-                          className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                      item={item as any}
+                      selected={selectedItem?.id === item.id}
+                      onSelect={() => setSelectedItem(prev => prev?.id === item.id ? null : item)}
+                      onEdit={() => openEdit(item)}
+                      onDelete={() => setDeleteId(item.id)}
+                      onToggleModelo={() => toggleModelo(item)}
+                      onUpdateSuccess={loadItems}
+                    />
                   ))}
                 </div>
               ) : (
@@ -560,119 +521,7 @@ export default function ComposicoesTab({ isActive, onKpisReady, refreshTrigger =
               )}
             </div>
 
-            {/* ── PAINEL DE DETALHE ─────────────────────────────────────────── */}
-            {selectedItem && (
-              <div className="w-72 shrink-0 border-l border-border flex flex-col bg-card overflow-y-auto">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                  <span className="text-sm font-semibold">Detalhes</span>
-                  <button onClick={() => setSelectedItem(null)} className="text-muted-foreground hover:text-foreground">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="p-4 space-y-4">
-                  {/* Nome */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      {selectedItem.is_modelo && (
-                        <Badge variant="outline" className="text-[9px] border-violet-200 text-violet-600 bg-violet-50">Modelo</Badge>
-                      )}
-                      {selectedItem.codigo && (
-                        <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 rounded">{selectedItem.codigo}</span>
-                      )}
-                    </div>
-                    <p className="text-sm font-semibold text-foreground leading-snug">{selectedItem.nome}</p>
-                  </div>
-
-                  {/* Atributos */}
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-muted/50 rounded-lg p-2">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Unidade</p>
-                      <p className="font-medium">{selectedItem.unidade || '—'}</p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-2">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Preço médio</p>
-                      <p className="font-medium text-emerald-600">
-                        {selectedItem.preco_medio
-                          ? selectedItem.preco_medio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                          : '—'}
-                      </p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-2">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Categoria</p>
-                      <p className="font-medium">{selectedItem.categoria || '—'}</p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-2">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Usos</p>
-                      <p className="font-medium">{selectedItem.usos ?? 0}x</p>
-                    </div>
-                  </div>
-
-                  {/* Origem */}
-                  {selectedItem.origem && (
-                    <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="h-3 w-3" />
-                      Origem: <span className="capitalize">{selectedItem.origem}</span>
-                    </div>
-                  )}
-
-                  {/* Lista de Insumos */}
-                  {selectedItem.insumos && selectedItem.insumos.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold py-1">Insumos ({selectedItem.insumos.length})</p>
-                      <div className="bg-muted/30 rounded-lg border border-border/50 divide-y divide-border/50 max-h-[150px] overflow-y-auto">
-                        {selectedItem.insumos.map((ins: any, idx: number) => (
-                          <div key={idx} className="flex justify-between items-center p-2 text-[10px]">
-                            <span className="truncate flex-1 pr-2 text-slate-600" title={ins.descricao}>
-                              {ins.descricao || 'Insumo sem descrição'}
-                            </span>
-                            <span className="shrink-0 font-medium whitespace-nowrap text-slate-500">
-                              {Number(ins.quantidade ?? ins.coeficiente ?? 0).toLocaleString('pt-BR')} {ins.unidade}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Ações */}
-                  <div className="space-y-2 pt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full gap-2 h-8 text-xs"
-                      onClick={() => openEdit(selectedItem)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Editar Composição
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className={cn(
-                        'w-full gap-2 h-8 text-xs',
-                        selectedItem.is_modelo
-                          ? 'text-violet-600 border-violet-200 hover:bg-violet-50'
-                          : ''
-                      )}
-                      onClick={() => toggleModelo(selectedItem)}
-                    >
-                      <Layers className="h-3.5 w-3.5" />
-                      {selectedItem.is_modelo ? 'Remover de Modelos' : 'Marcar como Modelo'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full gap-2 h-8 text-xs text-destructive hover:bg-destructive/5 border-destructive/20"
-                      onClick={() => setDeleteId(selectedItem.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Excluir
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* PAINEL DE DETALHE REMOVIDO PARA DAR LUGAR AO INLINE EDITING */}
           </div>
         </div>
       </div>

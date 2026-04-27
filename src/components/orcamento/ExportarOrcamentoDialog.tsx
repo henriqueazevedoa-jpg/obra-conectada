@@ -34,15 +34,28 @@ export default function ExportarOrcamentoDialog({ open, onOpenChange, obraNome, 
   const [done, setDone] = useState(false);
 
   const etapasFiltradas = scope === 'all' ? etapas : etapas.filter(e => e.id === scope);
+  // Recursive helper to get all compositions
+  const extractComposicoes = (etapa: OrcamentoEtapa): import('@/contexts/OrcamentoContext').OrcamentoComposicao[] => {
+    let comps: import('@/contexts/OrcamentoContext').OrcamentoComposicao[] = [];
+    for (const item of etapa.items || []) {
+      if (item.tipo === 'etapa') {
+        comps = comps.concat(extractComposicoes(item as OrcamentoEtapa));
+      } else {
+        comps.push(item as import('@/contexts/OrcamentoContext').OrcamentoComposicao);
+      }
+    }
+    return comps;
+  };
+
   const totalGeral = etapasFiltradas.reduce((s, e) => s + (e.precoTotal || 0), 0);
-  const totalComposicoes = etapasFiltradas.reduce((s, e) => s + (e.composicoes?.length || 0), 0);
+  const totalComposicoes = etapasFiltradas.reduce((s, e) => s + extractComposicoes(e).length, 0);
 
   const handleExportCSV = () => {
     const rows: string[][] = [];
     rows.push(['Etapa', 'Cód. Etapa', 'Composição', 'Cód. Comp.', 'Insumo', 'Cód. Ins.', 'Unidade', 'Qty', 'Preço Unit.', 'Preço Total', 'Fonte']);
 
     for (const etapa of etapasFiltradas) {
-      for (const comp of etapa.composicoes || []) {
+      for (const comp of extractComposicoes(etapa)) {
         if (comp.usaInsumos && comp.insumos?.length) {
           for (const ins of comp.insumos) {
             rows.push([
@@ -93,7 +106,7 @@ export default function ExportarOrcamentoDialog({ open, onOpenChange, obraNome, 
     if (!win) return;
 
     const rows = etapasFiltradas.flatMap(etapa =>
-      (etapa.composicoes || []).flatMap(comp => {
+      extractComposicoes(etapa).flatMap(comp => {
         if (comp.usaInsumos && comp.insumos?.length) {
           return comp.insumos.map(ins => [
             etapa.nome, comp.codigo, comp.descricao,

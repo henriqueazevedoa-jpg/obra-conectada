@@ -41,6 +41,53 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          creditos: number | null
+          custo_usd: number | null
+          feature: string
+          id: string
+          metadata: Json | null
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          creditos?: number | null
+          custo_usd?: number | null
+          feature: string
+          id?: string
+          metadata?: Json | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          creditos?: number | null
+          custo_usd?: number | null
+          feature?: string
+          id?: string
+          metadata?: Json | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amdahl_grupos: {
         Row: {
           amdahl_f: number
@@ -119,6 +166,329 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculadora_configuracoes: {
+        Row: {
+          atualizacao_automatica_cub: boolean | null
+          bdi_padrao: number | null
+          company_id: string
+          contingencia_padrao: number | null
+          created_at: string
+          fator_seguranca_padrao: number | null
+          updated_at: string
+        }
+        Insert: {
+          atualizacao_automatica_cub?: boolean | null
+          bdi_padrao?: number | null
+          company_id: string
+          contingencia_padrao?: number | null
+          created_at?: string
+          fator_seguranca_padrao?: number | null
+          updated_at?: string
+        }
+        Update: {
+          atualizacao_automatica_cub?: boolean | null
+          bdi_padrao?: number | null
+          company_id?: string
+          contingencia_padrao?: number | null
+          created_at?: string
+          fator_seguranca_padrao?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculadora_configuracoes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculadora_contas: {
+        Row: {
+          company_id: string
+          created_at: string
+          data_renovacao: string
+          estimativas_geradas_mes: number | null
+          id: string
+          limite_estimativas_mes: number | null
+          permite_exportar_pdf: boolean | null
+          permite_metodo_c: boolean | null
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          data_renovacao: string
+          estimativas_geradas_mes?: number | null
+          id?: string
+          limite_estimativas_mes?: number | null
+          permite_exportar_pdf?: boolean | null
+          permite_metodo_c?: boolean | null
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          data_renovacao?: string
+          estimativas_geradas_mes?: number | null
+          id?: string
+          limite_estimativas_mes?: number | null
+          permite_exportar_pdf?: boolean | null
+          permite_metodo_c?: boolean | null
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculadora_contas_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculadora_cub: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          estado: string
+          id: string
+          mes_referencia: string
+          padrao: Database["public"]["Enums"]["calculadora_padrao_acabamento"]
+          tipo_uso: Database["public"]["Enums"]["calculadora_tipo_uso"]
+          updated_at: string
+          valor_m2: number
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          estado: string
+          id?: string
+          mes_referencia: string
+          padrao: Database["public"]["Enums"]["calculadora_padrao_acabamento"]
+          tipo_uso: Database["public"]["Enums"]["calculadora_tipo_uso"]
+          updated_at?: string
+          valor_m2: number
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          estado?: string
+          id?: string
+          mes_referencia?: string
+          padrao?: Database["public"]["Enums"]["calculadora_padrao_acabamento"]
+          tipo_uso?: Database["public"]["Enums"]["calculadora_tipo_uso"]
+          updated_at?: string
+          valor_m2?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculadora_cub_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculadora_eap_template: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          etapa_nome: string
+          id: string
+          ordem: number
+          percentual_base: number
+          percentual_maximo: number | null
+          percentual_minimo: number | null
+          tipo_uso: Database["public"]["Enums"]["calculadora_tipo_uso"]
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          etapa_nome: string
+          id?: string
+          ordem: number
+          percentual_base: number
+          percentual_maximo?: number | null
+          percentual_minimo?: number | null
+          tipo_uso: Database["public"]["Enums"]["calculadora_tipo_uso"]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          etapa_nome?: string
+          id?: string
+          ordem?: number
+          percentual_base?: number
+          percentual_maximo?: number | null
+          percentual_minimo?: number | null
+          tipo_uso?: Database["public"]["Enums"]["calculadora_tipo_uso"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculadora_eap_template_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculadora_estimativas: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          metodo_utilizado: Database["public"]["Enums"]["calculadora_metodo"]
+          obra_id: string | null
+          parametros: Json
+          resultados: Json
+          usuario_id: string
+          valor_total: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          metodo_utilizado: Database["public"]["Enums"]["calculadora_metodo"]
+          obra_id?: string | null
+          parametros: Json
+          resultados: Json
+          usuario_id: string
+          valor_total: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          metodo_utilizado?: Database["public"]["Enums"]["calculadora_metodo"]
+          obra_id?: string | null
+          parametros?: Json
+          resultados?: Json
+          usuario_id?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculadora_estimativas_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calculadora_estimativas_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calculadora_planos_config: {
+        Row: {
+          id: string
+          limite_mensal: number | null
+          metodo_a: boolean | null
+          metodo_b: boolean | null
+          metodo_c: boolean | null
+          pdf: boolean | null
+          plano: string
+          preco_mensal: number | null
+          salvar_estimativa: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          limite_mensal?: number | null
+          metodo_a?: boolean | null
+          metodo_b?: boolean | null
+          metodo_c?: boolean | null
+          pdf?: boolean | null
+          plano: string
+          preco_mensal?: number | null
+          salvar_estimativa?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          limite_mensal?: number | null
+          metodo_a?: boolean | null
+          metodo_b?: boolean | null
+          metodo_c?: boolean | null
+          pdf?: boolean | null
+          plano?: string
+          preco_mensal?: number | null
+          salvar_estimativa?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      catalogo_composicao_insumos: {
+        Row: {
+          codigo: string | null
+          company_id: string
+          composicao_id: string
+          created_at: string | null
+          descricao: string
+          id: string
+          ordem: number | null
+          preco_unitario: number | null
+          quantidade: number | null
+          tipo_item: string | null
+          unidade: string | null
+        }
+        Insert: {
+          codigo?: string | null
+          company_id: string
+          composicao_id: string
+          created_at?: string | null
+          descricao?: string
+          id?: string
+          ordem?: number | null
+          preco_unitario?: number | null
+          quantidade?: number | null
+          tipo_item?: string | null
+          unidade?: string | null
+        }
+        Update: {
+          codigo?: string | null
+          company_id?: string
+          composicao_id?: string
+          created_at?: string | null
+          descricao?: string
+          id?: string
+          ordem?: number | null
+          preco_unitario?: number | null
+          quantidade?: number | null
+          tipo_item?: string | null
+          unidade?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogo_composicao_insumos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogo_composicao_insumos_composicao_id_fkey"
+            columns: ["composicao_id"]
+            isOneToOne: false
+            referencedRelation: "catalogo_composicoes"
             referencedColumns: ["id"]
           },
         ]
@@ -254,10 +624,14 @@ export type Database = {
       }
       companies: {
         Row: {
+          ai_credits_extra: number | null
+          ai_credits_included: number | null
+          ai_credits_used_month: number | null
           cnpj: string | null
           created_at: string | null
           email: string | null
           id: string
+          logo_url: string | null
           nome: string
           plan_id: string | null
           preco_criterio: string | null
@@ -266,10 +640,14 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          ai_credits_extra?: number | null
+          ai_credits_included?: number | null
+          ai_credits_used_month?: number | null
           cnpj?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
+          logo_url?: string | null
           nome: string
           plan_id?: string | null
           preco_criterio?: string | null
@@ -278,10 +656,14 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          ai_credits_extra?: number | null
+          ai_credits_included?: number | null
+          ai_credits_used_month?: number | null
           cnpj?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
+          logo_url?: string | null
           nome?: string
           plan_id?: string | null
           preco_criterio?: string | null
@@ -598,6 +980,7 @@ export type Database = {
           updated_at: string
           valor_atual: number
           valor_inicial: number
+          versao_orcamento_id: string | null
         }
         Insert: {
           cnpj?: string | null
@@ -619,6 +1002,7 @@ export type Database = {
           updated_at?: string
           valor_atual?: number
           valor_inicial?: number
+          versao_orcamento_id?: string | null
         }
         Update: {
           cnpj?: string | null
@@ -640,6 +1024,7 @@ export type Database = {
           updated_at?: string
           valor_atual?: number
           valor_inicial?: number
+          versao_orcamento_id?: string | null
         }
         Relationships: [
           {
@@ -654,6 +1039,13 @@ export type Database = {
             columns: ["obra_id"]
             isOneToOne: false
             referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_versao_orcamento_id_fkey"
+            columns: ["versao_orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamento_versoes"
             referencedColumns: ["id"]
           },
         ]
@@ -711,10 +1103,81 @@ export type Database = {
           },
         ]
       }
+      contratos_escopo: {
+        Row: {
+          cobertura_insumos: string[] | null
+          composicao_id: string | null
+          contrato_id: string
+          created_at: string | null
+          descricao: string
+          id: string
+          obra_id: string
+          preco_unitario_contratado: number | null
+          preco_unitario_orcado: number | null
+          quantidade_contratada: number | null
+          quantidade_orcada: number | null
+          unidade: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cobertura_insumos?: string[] | null
+          composicao_id?: string | null
+          contrato_id: string
+          created_at?: string | null
+          descricao: string
+          id?: string
+          obra_id: string
+          preco_unitario_contratado?: number | null
+          preco_unitario_orcado?: number | null
+          quantidade_contratada?: number | null
+          quantidade_orcada?: number | null
+          unidade?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cobertura_insumos?: string[] | null
+          composicao_id?: string | null
+          contrato_id?: string
+          created_at?: string | null
+          descricao?: string
+          id?: string
+          obra_id?: string
+          preco_unitario_contratado?: number | null
+          preco_unitario_orcado?: number | null
+          quantidade_contratada?: number | null
+          quantidade_orcada?: number | null
+          unidade?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_escopo_composicao_id_fkey"
+            columns: ["composicao_id"]
+            isOneToOne: false
+            referencedRelation: "orcamento_composicoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_escopo_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_escopo_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contratos_medicao_itens: {
         Row: {
           created_at: string
           descricao: string
+          escopo_id: string | null
           id: string
           medicao_id: string
           percentual_acumulado: number | null
@@ -730,6 +1193,7 @@ export type Database = {
         Insert: {
           created_at?: string
           descricao?: string
+          escopo_id?: string | null
           id?: string
           medicao_id: string
           percentual_acumulado?: number | null
@@ -745,6 +1209,7 @@ export type Database = {
         Update: {
           created_at?: string
           descricao?: string
+          escopo_id?: string | null
           id?: string
           medicao_id?: string
           percentual_acumulado?: number | null
@@ -758,6 +1223,13 @@ export type Database = {
           valor_periodo?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contratos_medicao_itens_escopo_id_fkey"
+            columns: ["escopo_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_escopo"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contratos_medicao_itens_medicao_id_fkey"
             columns: ["medicao_id"]
@@ -1110,6 +1582,77 @@ export type Database = {
           },
         ]
       }
+      cotacao_precos: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          fornecedor_id: string | null
+          fornecedor_nome: string
+          id: string
+          item_key: string
+          link_id: string | null
+          obra_id: string
+          preco_unitario: number | null
+          sub_origem: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          fornecedor_id?: string | null
+          fornecedor_nome: string
+          id?: string
+          item_key: string
+          link_id?: string | null
+          obra_id: string
+          preco_unitario?: number | null
+          sub_origem?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          fornecedor_id?: string | null
+          fornecedor_nome?: string
+          id?: string
+          item_key?: string
+          link_id?: string | null
+          obra_id?: string
+          preco_unitario?: number | null
+          sub_origem?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotacao_precos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotacao_precos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotacao_precos_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "cotacao_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotacao_precos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cotacao_precos_manuais: {
         Row: {
           company_id: string
@@ -1386,42 +1929,97 @@ export type Database = {
           },
         ]
       }
-      cronograma_medicao_itens: {
+      cronograma_marcos: {
         Row: {
+          company_id: string
+          concluido: boolean
+          contrato_id: string | null
           created_at: string
-          descricao: string
+          data_prevista: string
+          data_real: string | null
           id: string
-          medicao_id: string
-          percentual_acumulado: number | null
-          percentual_anterior: number | null
-          percentual_periodo: number | null
-          quantidade_periodo: number | null
-          tarefa_id: string | null
-          valor_periodo: number | null
+          nome: string
+          obra_id: string
+          parcela_id: string | null
+          tipo: string
         }
         Insert: {
+          company_id: string
+          concluido?: boolean
+          contrato_id?: string | null
           created_at?: string
-          descricao?: string
+          data_prevista: string
+          data_real?: string | null
           id?: string
-          medicao_id: string
-          percentual_acumulado?: number | null
-          percentual_anterior?: number | null
-          percentual_periodo?: number | null
-          quantidade_periodo?: number | null
-          tarefa_id?: string | null
-          valor_periodo?: number | null
+          nome?: string
+          obra_id: string
+          parcela_id?: string | null
+          tipo?: string
         }
         Update: {
+          company_id?: string
+          concluido?: boolean
+          contrato_id?: string | null
           created_at?: string
-          descricao?: string
+          data_prevista?: string
+          data_real?: string | null
+          id?: string
+          nome?: string
+          obra_id?: string
+          parcela_id?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cronograma_marcos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cronograma_marcos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cronograma_marcos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cronograma_medicao_itens: {
+        Row: {
+          id: string
+          medicao_id: string
+          observacao: string | null
+          percentual_anterior: number
+          percentual_novo: number
+          quantidade_executada: number | null
+          tarefa_id: string
+        }
+        Insert: {
+          id?: string
+          medicao_id: string
+          observacao?: string | null
+          percentual_anterior?: number
+          percentual_novo: number
+          quantidade_executada?: number | null
+          tarefa_id: string
+        }
+        Update: {
           id?: string
           medicao_id?: string
-          percentual_acumulado?: number | null
-          percentual_anterior?: number | null
-          percentual_periodo?: number | null
-          quantidade_periodo?: number | null
-          tarefa_id?: string | null
-          valor_periodo?: number | null
+          observacao?: string | null
+          percentual_anterior?: number
+          percentual_novo?: number
+          quantidade_executada?: number | null
+          tarefa_id?: string
         }
         Relationships: [
           {
@@ -1442,43 +2040,37 @@ export type Database = {
       }
       cronograma_medicoes: {
         Row: {
-          created_at: string
-          data_referencia: string
+          company_id: string
+          created_at: string | null
+          created_by: string | null
           id: string
-          numero_medicao: number
           obra_id: string
-          observacoes: string | null
-          percentual_acumulado: number | null
-          responsavel_id: string | null
+          observacao: string | null
+          periodo_fim: string
+          periodo_inicio: string
           status: string
-          updated_at: string
-          valor_acumulado: number | null
         }
         Insert: {
-          created_at?: string
-          data_referencia: string
+          company_id: string
+          created_at?: string | null
+          created_by?: string | null
           id?: string
-          numero_medicao: number
           obra_id: string
-          observacoes?: string | null
-          percentual_acumulado?: number | null
-          responsavel_id?: string | null
+          observacao?: string | null
+          periodo_fim: string
+          periodo_inicio: string
           status?: string
-          updated_at?: string
-          valor_acumulado?: number | null
         }
         Update: {
-          created_at?: string
-          data_referencia?: string
+          company_id?: string
+          created_at?: string | null
+          created_by?: string | null
           id?: string
-          numero_medicao?: number
           obra_id?: string
-          observacoes?: string | null
-          percentual_acumulado?: number | null
-          responsavel_id?: string | null
+          observacao?: string | null
+          periodo_fim?: string
+          periodo_inicio?: string
           status?: string
-          updated_at?: string
-          valor_acumulado?: number | null
         }
         Relationships: [
           {
@@ -1530,6 +2122,7 @@ export type Database = {
           tipo_tarefa: string | null
           unidade: string | null
           updated_at: string | null
+          versao_id: string | null
         }
         Insert: {
           amdahl_confianca?: number | null
@@ -1570,6 +2163,7 @@ export type Database = {
           tipo_tarefa?: string | null
           unidade?: string | null
           updated_at?: string | null
+          versao_id?: string | null
         }
         Update: {
           amdahl_confianca?: number | null
@@ -1610,6 +2204,7 @@ export type Database = {
           tipo_tarefa?: string | null
           unidade?: string | null
           updated_at?: string | null
+          versao_id?: string | null
         }
         Relationships: [
           {
@@ -1652,6 +2247,74 @@ export type Database = {
             columns: ["parent_tarefa_id"]
             isOneToOne: false
             referencedRelation: "cronograma_tarefas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cronograma_tarefas_versao_id_fkey"
+            columns: ["versao_id"]
+            isOneToOne: false
+            referencedRelation: "cronograma_versoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cronograma_versoes: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          obra_id: string
+          status: string
+          tipo: string
+          updated_at: string | null
+          versao_pai_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          obra_id: string
+          status?: string
+          tipo?: string
+          updated_at?: string | null
+          versao_pai_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          obra_id?: string
+          status?: string
+          tipo?: string
+          updated_at?: string | null
+          versao_pai_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cronograma_versoes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cronograma_versoes_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cronograma_versoes_versao_pai_id_fkey"
+            columns: ["versao_pai_id"]
+            isOneToOne: false
+            referencedRelation: "cronograma_versoes"
             referencedColumns: ["id"]
           },
         ]
@@ -2394,6 +3057,97 @@ export type Database = {
           },
         ]
       }
+      etapa_modelos_grupo: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          etapas: Json
+          id: string
+          is_sistema: boolean | null
+          nome: string
+          tipo_obra: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          etapas?: Json
+          id?: string
+          is_sistema?: boolean | null
+          nome: string
+          tipo_obra?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          etapas?: Json
+          id?: string
+          is_sistema?: boolean | null
+          nome?: string
+          tipo_obra?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etapa_modelos_grupo_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedbacks: {
+        Row: {
+          company_id: string | null
+          contato: string | null
+          created_at: string
+          email_resposta: string | null
+          id: string
+          lido: boolean | null
+          mensagem: string
+          nota_interna: string | null
+          pagina_contexto: string | null
+          tipo: Database["public"]["Enums"]["feedback_tipo"]
+          url_origem: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          contato?: string | null
+          created_at?: string
+          email_resposta?: string | null
+          id?: string
+          lido?: boolean | null
+          mensagem: string
+          nota_interna?: string | null
+          pagina_contexto?: string | null
+          tipo: Database["public"]["Enums"]["feedback_tipo"]
+          url_origem?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          contato?: string | null
+          created_at?: string
+          email_resposta?: string | null
+          id?: string
+          lido?: boolean | null
+          mensagem?: string
+          nota_interna?: string | null
+          pagina_contexto?: string | null
+          tipo?: Database["public"]["Enums"]["feedback_tipo"]
+          url_origem?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedbacks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           categoria: string | null
@@ -3093,6 +3847,105 @@ export type Database = {
           },
         ]
       }
+      obra_calendarios: {
+        Row: {
+          created_at: string | null
+          dias_uteis: number[] | null
+          horas_por_dia: number | null
+          obra_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dias_uteis?: number[] | null
+          horas_por_dia?: number | null
+          obra_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dias_uteis?: number[] | null
+          horas_por_dia?: number | null
+          obra_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_calendarios_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: true
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obra_calendarios_holidays: {
+        Row: {
+          created_at: string | null
+          data: string
+          descricao: string
+          id: string
+          obra_id: string
+          recorrente: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          descricao: string
+          id?: string
+          obra_id: string
+          recorrente?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          descricao?: string
+          id?: string
+          obra_id?: string
+          recorrente?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_calendarios_holidays_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obra_link_mensagens: {
+        Row: {
+          created_at: string | null
+          de_cliente: boolean | null
+          id: string
+          link_id: string | null
+          texto: string
+        }
+        Insert: {
+          created_at?: string | null
+          de_cliente?: boolean | null
+          id?: string
+          link_id?: string | null
+          texto: string
+        }
+        Update: {
+          created_at?: string | null
+          de_cliente?: boolean | null
+          id?: string
+          link_id?: string | null
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_link_mensagens_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "obra_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       obra_links: {
         Row: {
           ativo: boolean
@@ -3199,6 +4052,7 @@ export type Database = {
       }
       obras: {
         Row: {
+          area_construida: number | null
           cliente: string | null
           codigo: string | null
           company_id: string | null
@@ -3213,9 +4067,11 @@ export type Database = {
           nome: string | null
           observacao_interna: string | null
           observacoes_implantacao: string | null
+          orcamento_bdi_config: Json | null
           origem_dados: Database["public"]["Enums"]["origem_dados"] | null
           percentual_andamento: number | null
           percentual_inicial: number | null
+          prazo_semanas: number | null
           responsavel: string | null
           status: string | null
           tipo_implantacao:
@@ -3224,6 +4080,7 @@ export type Database = {
           valor_gasto_anterior: number | null
         }
         Insert: {
+          area_construida?: number | null
           cliente?: string | null
           codigo?: string | null
           company_id?: string | null
@@ -3238,9 +4095,11 @@ export type Database = {
           nome?: string | null
           observacao_interna?: string | null
           observacoes_implantacao?: string | null
+          orcamento_bdi_config?: Json | null
           origem_dados?: Database["public"]["Enums"]["origem_dados"] | null
           percentual_andamento?: number | null
           percentual_inicial?: number | null
+          prazo_semanas?: number | null
           responsavel?: string | null
           status?: string | null
           tipo_implantacao?:
@@ -3249,6 +4108,7 @@ export type Database = {
           valor_gasto_anterior?: number | null
         }
         Update: {
+          area_construida?: number | null
           cliente?: string | null
           codigo?: string | null
           company_id?: string | null
@@ -3263,9 +4123,11 @@ export type Database = {
           nome?: string | null
           observacao_interna?: string | null
           observacoes_implantacao?: string | null
+          orcamento_bdi_config?: Json | null
           origem_dados?: Database["public"]["Enums"]["origem_dados"] | null
           percentual_andamento?: number | null
           percentual_inicial?: number | null
+          prazo_semanas?: number | null
           responsavel?: string | null
           status?: string | null
           tipo_implantacao?:
@@ -3289,6 +4151,7 @@ export type Database = {
           nome: string
           obra_id: string
           observacoes_cronograma: string | null
+          parent_id: string | null
           percentual_cronograma: number | null
           preco_total: number
           responsavel: string | null
@@ -3312,6 +4175,7 @@ export type Database = {
           nome: string
           obra_id: string
           observacoes_cronograma?: string | null
+          parent_id?: string | null
           percentual_cronograma?: number | null
           preco_total?: number
           responsavel?: string | null
@@ -3335,6 +4199,7 @@ export type Database = {
           nome?: string
           obra_id?: string
           observacoes_cronograma?: string | null
+          parent_id?: string | null
           percentual_cronograma?: number | null
           preco_total?: number
           responsavel?: string | null
@@ -3358,6 +4223,13 @@ export type Database = {
             columns: ["obra_id"]
             isOneToOne: false
             referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamento_categorias_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "orcamento_categorias"
             referencedColumns: ["id"]
           },
           {
@@ -3390,12 +4262,14 @@ export type Database = {
           preco_unitario: number | null
           quantidade: number | null
           referencia_competencia: string | null
+          regime_mo: string | null
           regime_referencia: string | null
           sinapi_codigo: number | null
           sinapi_confidence: string | null
           sinapi_confirmado: boolean | null
           sinapi_fonte: string | null
           tipo: string | null
+          tipo_item: string | null
           uf_referencia: string | null
           unidade: string | null
           updated_at: string
@@ -3421,12 +4295,14 @@ export type Database = {
           preco_unitario?: number | null
           quantidade?: number | null
           referencia_competencia?: string | null
+          regime_mo?: string | null
           regime_referencia?: string | null
           sinapi_codigo?: number | null
           sinapi_confidence?: string | null
           sinapi_confirmado?: boolean | null
           sinapi_fonte?: string | null
           tipo?: string | null
+          tipo_item?: string | null
           uf_referencia?: string | null
           unidade?: string | null
           updated_at?: string
@@ -3452,12 +4328,14 @@ export type Database = {
           preco_unitario?: number | null
           quantidade?: number | null
           referencia_competencia?: string | null
+          regime_mo?: string | null
           regime_referencia?: string | null
           sinapi_codigo?: number | null
           sinapi_confidence?: string | null
           sinapi_confirmado?: boolean | null
           sinapi_fonte?: string | null
           tipo?: string | null
+          tipo_item?: string | null
           uf_referencia?: string | null
           unidade?: string | null
           updated_at?: string
@@ -3627,12 +4505,15 @@ export type Database = {
       }
       orcamento_versoes: {
         Row: {
+          calculadora_estimativa_id: string | null
           company_id: string | null
           created_at: string
           descricao: string | null
           id: string
           numero_versao: string
           obra_id: string
+          origem: Database["public"]["Enums"]["orcamento_origem"] | null
+          parametros_calculadora: Json | null
           status: string
           tipo: string
           updated_at: string
@@ -3640,12 +4521,15 @@ export type Database = {
           versao_pai_id: string | null
         }
         Insert: {
+          calculadora_estimativa_id?: string | null
           company_id?: string | null
           created_at?: string
           descricao?: string | null
           id?: string
           numero_versao?: string
           obra_id: string
+          origem?: Database["public"]["Enums"]["orcamento_origem"] | null
+          parametros_calculadora?: Json | null
           status?: string
           tipo?: string
           updated_at?: string
@@ -3653,12 +4537,15 @@ export type Database = {
           versao_pai_id?: string | null
         }
         Update: {
+          calculadora_estimativa_id?: string | null
           company_id?: string | null
           created_at?: string
           descricao?: string | null
           id?: string
           numero_versao?: string
           obra_id?: string
+          origem?: Database["public"]["Enums"]["orcamento_origem"] | null
+          parametros_calculadora?: Json | null
           status?: string
           tipo?: string
           updated_at?: string
@@ -3666,6 +4553,13 @@ export type Database = {
           versao_pai_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orcamento_versoes_calculadora_estimativa_id_fkey"
+            columns: ["calculadora_estimativa_id"]
+            isOneToOne: false
+            referencedRelation: "calculadora_estimativas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orcamento_versoes_company_id_fkey"
             columns: ["company_id"]
@@ -4003,11 +4897,14 @@ export type Database = {
           data_referencia: string
           descricao_insumo: string
           descricao_normalizada: string
+          editado_por: string | null
           fornecedor_nome: string | null
           id: string
+          link_id: string | null
           obra_id: string | null
           origem: string
           preco_unitario: number
+          sub_origem: string | null
           unidade: string | null
         }
         Insert: {
@@ -4016,11 +4913,14 @@ export type Database = {
           data_referencia?: string
           descricao_insumo: string
           descricao_normalizada: string
+          editado_por?: string | null
           fornecedor_nome?: string | null
           id?: string
+          link_id?: string | null
           obra_id?: string | null
           origem?: string
           preco_unitario: number
+          sub_origem?: string | null
           unidade?: string | null
         }
         Update: {
@@ -4029,11 +4929,14 @@ export type Database = {
           data_referencia?: string
           descricao_insumo?: string
           descricao_normalizada?: string
+          editado_por?: string | null
           fornecedor_nome?: string | null
           id?: string
+          link_id?: string | null
           obra_id?: string | null
           origem?: string
           preco_unitario?: number
+          sub_origem?: string | null
           unidade?: string | null
         }
         Relationships: [
@@ -4042,6 +4945,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preco_historico_editado_por_fkey"
+            columns: ["editado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preco_historico_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "cotacao_links"
             referencedColumns: ["id"]
           },
           {
@@ -4125,6 +5042,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           company_id: string | null
           conselho_tipo: string | null
           created_at: string | null
@@ -4137,6 +5055,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          avatar_url?: string | null
           company_id?: string | null
           conselho_tipo?: string | null
           created_at?: string | null
@@ -4149,6 +5068,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          avatar_url?: string | null
           company_id?: string | null
           conselho_tipo?: string | null
           created_at?: string | null
@@ -4171,12 +5091,15 @@ export type Database = {
           data_vencimento: string | null
           descricao: string
           forma_recebimento: string | null
+          grupo_parcelas_id: string | null
           id: string
           medicao_id: string | null
           numero_nf: string | null
+          numero_parcela: number | null
           obra_id: string
           observacoes: string | null
           status: string
+          total_parcelas: number | null
           updated_at: string
           valor_faturado: number
           valor_recebido: number
@@ -4189,12 +5112,15 @@ export type Database = {
           data_vencimento?: string | null
           descricao?: string
           forma_recebimento?: string | null
+          grupo_parcelas_id?: string | null
           id?: string
           medicao_id?: string | null
           numero_nf?: string | null
+          numero_parcela?: number | null
           obra_id: string
           observacoes?: string | null
           status?: string
+          total_parcelas?: number | null
           updated_at?: string
           valor_faturado?: number
           valor_recebido?: number
@@ -4207,12 +5133,15 @@ export type Database = {
           data_vencimento?: string | null
           descricao?: string
           forma_recebimento?: string | null
+          grupo_parcelas_id?: string | null
           id?: string
           medicao_id?: string | null
           numero_nf?: string | null
+          numero_parcela?: number | null
           obra_id?: string
           observacoes?: string | null
           status?: string
+          total_parcelas?: number | null
           updated_at?: string
           valor_faturado?: number
           valor_recebido?: number
@@ -4719,6 +5648,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      insert_feedback_anonimo: { Args: { payload: Json }; Returns: undefined }
       is_obra_gestor: { Args: { _obra_id: string }; Returns: boolean }
       is_obra_member: { Args: { _obra_id: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
@@ -4773,6 +5703,36 @@ export type Database = {
     }
     Enums: {
       app_role: "gestor" | "funcionario" | "cliente" | "admin" | "engenheiro"
+      calculadora_cobertura:
+        | "aparente_ceramica"
+        | "aparente_fibrocimento"
+        | "embutida_metalica"
+        | "laje_impermeabilizada"
+      calculadora_construcao_existente: "nenhuma" | "parcial" | "total"
+      calculadora_estrutura:
+        | "alvenaria_estrutural"
+        | "concreto_armado"
+        | "estrutura_metalica"
+        | "wood_frame"
+        | "steel_frame"
+      calculadora_fundacao: "radier" | "sapata" | "estaca"
+      calculadora_metodo:
+        | "a_cub_simplificado"
+        | "b_hibrido"
+        | "c_sinapi_quantitativos"
+      calculadora_padrao_acabamento: "baixo" | "normal" | "alto"
+      calculadora_tipo_uso:
+        | "residencial_unifamiliar"
+        | "residencial_multifamiliar"
+        | "comercial"
+        | "galpao_industrial"
+        | "reforma_interiores"
+      calculadora_topografia:
+        | "plano"
+        | "aclive_leve"
+        | "aclive_forte"
+        | "declive_leve"
+        | "declive_forte"
       clima_tipo: "sol" | "nublado" | "chuva" | "chuvoso_forte"
       cronograma_status:
         | "nao_iniciada"
@@ -4780,6 +5740,7 @@ export type Database = {
         | "concluida"
         | "atrasada"
       diario_status: "pendente" | "aprovado" | "rejeitado"
+      feedback_tipo: "sugestao" | "problema" | "elogio" | "outro"
       forma_pagamento:
         | "boleto"
         | "pix"
@@ -4790,6 +5751,7 @@ export type Database = {
       movimentacao_tipo: "entrada" | "saida"
       obra_link_tipo: "visualizacao" | "operacao"
       obra_status: "planejamento" | "em_andamento" | "concluida" | "pausada"
+      orcamento_origem: "manual" | "importacao_excel" | "calculadora_estimativa"
       origem_dados:
         | "real"
         | "estimado"
@@ -4950,6 +5912,41 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["gestor", "funcionario", "cliente", "admin", "engenheiro"],
+      calculadora_cobertura: [
+        "aparente_ceramica",
+        "aparente_fibrocimento",
+        "embutida_metalica",
+        "laje_impermeabilizada",
+      ],
+      calculadora_construcao_existente: ["nenhuma", "parcial", "total"],
+      calculadora_estrutura: [
+        "alvenaria_estrutural",
+        "concreto_armado",
+        "estrutura_metalica",
+        "wood_frame",
+        "steel_frame",
+      ],
+      calculadora_fundacao: ["radier", "sapata", "estaca"],
+      calculadora_metodo: [
+        "a_cub_simplificado",
+        "b_hibrido",
+        "c_sinapi_quantitativos",
+      ],
+      calculadora_padrao_acabamento: ["baixo", "normal", "alto"],
+      calculadora_tipo_uso: [
+        "residencial_unifamiliar",
+        "residencial_multifamiliar",
+        "comercial",
+        "galpao_industrial",
+        "reforma_interiores",
+      ],
+      calculadora_topografia: [
+        "plano",
+        "aclive_leve",
+        "aclive_forte",
+        "declive_leve",
+        "declive_forte",
+      ],
       clima_tipo: ["sol", "nublado", "chuva", "chuvoso_forte"],
       cronograma_status: [
         "nao_iniciada",
@@ -4958,6 +5955,7 @@ export const Constants = {
         "atrasada",
       ],
       diario_status: ["pendente", "aprovado", "rejeitado"],
+      feedback_tipo: ["sugestao", "problema", "elogio", "outro"],
       forma_pagamento: [
         "boleto",
         "pix",
@@ -4969,6 +5967,11 @@ export const Constants = {
       movimentacao_tipo: ["entrada", "saida"],
       obra_link_tipo: ["visualizacao", "operacao"],
       obra_status: ["planejamento", "em_andamento", "concluida", "pausada"],
+      orcamento_origem: [
+        "manual",
+        "importacao_excel",
+        "calculadora_estimativa",
+      ],
       origem_dados: [
         "real",
         "estimado",

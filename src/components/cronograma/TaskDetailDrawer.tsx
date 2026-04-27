@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { X, Pencil, Link2, Users, DollarSign, Plus, Trash2, AlertTriangle, Search, CheckCircle2, Loader2, Calculator, ChevronDown, ChevronUp, Settings, RotateCcw } from 'lucide-react';
+import { X, Pencil, Link2, Users, DollarSign, Plus, Trash2, AlertTriangle, Search, CheckCircle2, Loader2, Calculator, ChevronDown, ChevronUp, Settings, RotateCcw, TrendingUp } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -304,13 +304,14 @@ interface TaskDetailDrawerProps {
   onUpdate: (id: string, changes: Partial<CronogramaTarefa>) => void;
   onAddDependencia: (origemId: string, destinoId: string, tipo: TipoDep, lag: number) => void;
   onRemoveDependencia: (id: string) => void;
+  onUpdateDependencia?: (id: string, updates: Partial<CronogramaDependencia>) => void;
   onAddAlocacao: (tarefaId: string, recursoId: string, quantidade: number, horas: number) => void;
   onRemoveAlocacao: (id: string) => void;
 }
 
 export default function TaskDetailDrawer({
   tarefa, obraId, dependencias, todasTarefas, alocacoes, recursos, recursosSupelalocados,
-  onClose, onUpdate, onAddDependencia, onRemoveDependencia, onAddAlocacao, onRemoveAlocacao,
+  onClose, onUpdate, onAddDependencia, onRemoveDependencia, onUpdateDependencia, onAddAlocacao, onRemoveAlocacao,
 }: TaskDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>('geral');
   const [newDepTipo, setNewDepTipo] = useState<TipoDep>('FS');
@@ -444,6 +445,34 @@ export default function TaskDetailDrawer({
               <div className="mt-2">
                 <Progress value={tarefa.percentual_concluido} className="h-2" />
               </div>
+              {(() => {
+                if (tarefa.percentual_concluido > 0 && tarefa.percentual_concluido < 100 && tarefa.data_inicio) {
+                  const start = parseISO(tarefa.data_inicio);
+                  const today = new Date();
+                  const elapsed = differenceInDays(today, start);
+                  if (elapsed > 0) {
+                    const velocity = tarefa.percentual_concluido / elapsed; // % per day
+                    const daysRemaining = (100 - tarefa.percentual_concluido) / velocity;
+                    const forecastDate = addDays(today, daysRemaining);
+                    const originalEnd = tarefa.data_fim ? parseISO(tarefa.data_fim) : null;
+                    const isDelayed = originalEnd ? forecastDate > originalEnd : false;
+                    
+                    return (
+                      <div className={cn("mt-3 p-2.5 rounded-md text-[10px] flex flex-col gap-1", isDelayed ? "bg-amber-50 border border-amber-200" : "bg-emerald-50 border border-emerald-200")}>
+                        <div className="flex items-center gap-1.5 font-semibold">
+                          <TrendingUp className={cn("h-3.5 w-3.5", isDelayed ? "text-amber-600" : "text-emerald-600")} />
+                          <span className={isDelayed ? "text-amber-800" : "text-emerald-800"}>Forecast (Previsão de Término)</span>
+                        </div>
+                        <p className={isDelayed ? "text-amber-700/80" : "text-emerald-700/80"}>
+                          Velocidade atual: <strong>{velocity.toFixed(1)}% / dia</strong>. 
+                          Mantendo este ritmo, a conclusão será em <strong>{format(forecastDate, 'dd/MM/yyyy')}</strong>.
+                        </p>
+                      </div>
+                    );
+                  }
+                }
+                return null;
+              })()}
             </div>
 
             <div>
@@ -494,10 +523,9 @@ export default function TaskDetailDrawer({
                     <span className="text-muted-foreground">Saldo: <strong className="text-foreground">{(tarefa.quantidade_prevista ?? 0) - (tarefa.quantidade_executada || 0)}</strong> {tarefa.unidade}</span>
                   </div>
                 )}
-                
-                <EstimativaPanel tarefa={tarefa} onUpdate={onUpdate} />
               </>
             )}
+
           </div>
         )}
 
@@ -512,10 +540,35 @@ export default function TaskDetailDrawer({
                     const origem = todasTarefas.find(t => t.id === dep.tarefa_origem_id);
                     return (
                       <div key={dep.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/30 text-xs">
-                        <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{dep.tipo}</span>
+                        {onUpdateDependencia ? (
+                          <Select value={dep.tipo} onValueChange={(v: TipoDep) => onUpdateDependencia(dep.id, { tipo: v })}>
+                            <SelectTrigger className="w-[60px] h-6 text-[10px] bg-muted px-1.5 py-0 border-0 shadow-none"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {DEP_TIPOS.map(d => <SelectItem key={d.value} value={d.value} className="text-[10px]">{d.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{dep.tipo}</span>
+                        )}
+                        
                         <span className="flex-1 truncate text-foreground" title={origem?.nome}>{origem?.nome || '—'}</span>
-                        {dep.lag_dias !== 0 && <span className="text-muted-foreground text-[10px]">{dep.lag_dias > 0 ? '+' : ''}{dep.lag_dias}d</span>}
-                        <button onClick={() => onRemoveDependencia(dep.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        
+                        {onUpdateDependencia ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground">Lag:</span>
+                            <Input 
+                              type="number" 
+                              value={dep.lag_dias} 
+                              onChange={e => onUpdateDependencia(dep.id, { lag_dias: Number(e.target.value) || 0 })}
+                              className="w-[45px] h-6 text-[10px] px-1 py-0 text-center bg-transparent border-border"
+                            />
+                            <span className="text-[10px] text-muted-foreground">d</span>
+                          </div>
+                        ) : (
+                          dep.lag_dias !== 0 && <span className="text-muted-foreground text-[10px]">{dep.lag_dias > 0 ? '+' : ''}{dep.lag_dias}d</span>
+                        )}
+                        
+                        <button onClick={() => onRemoveDependencia(dep.id)} className="text-muted-foreground hover:text-destructive transition-colors ml-1">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -533,10 +586,35 @@ export default function TaskDetailDrawer({
                     const destino = todasTarefas.find(t => t.id === dep.tarefa_destino_id);
                     return (
                       <div key={dep.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/30 text-xs">
-                        <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{dep.tipo}</span>
+                        {onUpdateDependencia ? (
+                          <Select value={dep.tipo} onValueChange={(v: TipoDep) => onUpdateDependencia(dep.id, { tipo: v })}>
+                            <SelectTrigger className="w-[60px] h-6 text-[10px] bg-muted px-1.5 py-0 border-0 shadow-none"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {DEP_TIPOS.map(d => <SelectItem key={d.value} value={d.value} className="text-[10px]">{d.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{dep.tipo}</span>
+                        )}
+                        
                         <span className="flex-1 truncate text-foreground" title={destino?.nome}>{destino?.nome || '—'}</span>
-                        {dep.lag_dias !== 0 && <span className="text-muted-foreground text-[10px]">{dep.lag_dias > 0 ? '+' : ''}{dep.lag_dias}d</span>}
-                        <button onClick={() => onRemoveDependencia(dep.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        
+                        {onUpdateDependencia ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground">Lag:</span>
+                            <Input 
+                              type="number" 
+                              value={dep.lag_dias} 
+                              onChange={e => onUpdateDependencia(dep.id, { lag_dias: Number(e.target.value) || 0 })}
+                              className="w-[45px] h-6 text-[10px] px-1 py-0 text-center bg-transparent border-border"
+                            />
+                            <span className="text-[10px] text-muted-foreground">d</span>
+                          </div>
+                        ) : (
+                          dep.lag_dias !== 0 && <span className="text-muted-foreground text-[10px]">{dep.lag_dias > 0 ? '+' : ''}{dep.lag_dias}d</span>
+                        )}
+                        
+                        <button onClick={() => onRemoveDependencia(dep.id)} className="text-muted-foreground hover:text-destructive transition-colors ml-1">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>

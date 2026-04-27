@@ -7,7 +7,7 @@
  *   - Composição simples: composicao.id
  */
 
-import type { OrcamentoEtapa } from '@/contexts/OrcamentoContext';
+import type { OrcamentoEtapa, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
 
 export type AbcClasse = 'A' | 'B' | 'C';
 export type AbcSource = 'todos' | 'insumos' | 'composicoes';
@@ -43,7 +43,9 @@ export function classificarCurvaABC(
   const raw: { key: string; descricao: string; valor: number; fonte: 'insumos' | 'composicoes' }[] = [];
 
   for (const etapa of etapas) {
-    for (const comp of etapa.composicoes || []) {
+    for (const item of etapa.items || []) {
+      if (item.tipo === 'etapa') continue;
+      const comp = item as OrcamentoComposicao;
       if (comp.usaInsumos && comp.insumos?.length) {
         for (const ins of comp.insumos) {
           const valor = ins.precoTotal ?? 0;

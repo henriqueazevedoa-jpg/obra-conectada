@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { OrcamentoEtapa, OrcamentoComposicao } from '@/contexts/OrcamentoContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,15 +24,22 @@ import {
   Wrench,
   HelpCircle,
   Clock,
-  ChevronDown
+  ChevronDown,
+  Star
 } from 'lucide-react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ComposicaoRow from './ComposicaoRow';
 import { formatCurrency } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { useEtapaDependencias } from '@/hooks/useEtapaDependencias';
 import { OrcamentoVersao } from '@/contexts/OrcamentoContext';
 import { BdiConfig } from './BdiPopover';
-import { PLANILHA_GRID } from './planilhaGrid';
+import { 
+  PLANILHA_FLEX_ROW, CELL_DESC, CELL_TIPO, CELL_UN, 
+  CELL_QTD, CELL_PUNIT, CELL_TOTAL, CELL_ACOES, getNivelLayout 
+} from './planilhaGrid';
 
 // Re-exportar para retrocompatibilidade com InsumoRow e outros
 export { COMPOSICAO_GRID, toSinapiDisplayName } from './ComposicaoRow';
@@ -61,6 +69,33 @@ interface Props {
   onToggleSelect?: (id: string) => void;
   bulkActive?: boolean;
   bdiConfig?: BdiConfig;
+  depth?: number;
+  onDoubleClickChevron?: (expanded: boolean, depth: number, tipo: 'etapa' | 'composicao') => void;
+  isFlatHeaderOnly?: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+function SortableSubetapa(props: Props & { parentId: string; idx: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.etapa.id,
+    data: { type: 'etapa', parentId: props.parentId }
+  });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      className="relative"
+      {...attributes}
+    >
+      <EtapaBlock {...props} dragListeners={listeners as React.HTMLAttributes<HTMLElement>} />
+    </div>
+  );
 }
 
 export default function EtapaBlock({
@@ -84,16 +119,22 @@ export default function EtapaBlock({
   onToggleSelect,
   bulkActive = false,
   bdiConfig,
+  depth = 1,
+  onDoubleClickChevron,
+  isFlatHeaderOnly,
+  isCollapsed,
+  onToggleCollapse,
 }: Props) {
   const [localExpanded, setLocalExpanded] = useState(true);
   const [forceApplied, setForceApplied] = useState<boolean | undefined>(undefined);
   const [editingNome, setEditingNome] = useState(false);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Rastrear IDs de composições recém-adicionadas
-  const prevComposicaoIdsRef = useRef<Set<string>>(new Set(etapa.composicoes.map(c => c.id)));
+  const prevComposicaoIdsRef = useRef<Set<string>>(new Set(etapa.items.filter(i => i.tipo !== 'etapa').map(c => c.id)));
   const newComposicaoIds = useRef<Set<string>>(new Set());
 
-  const currentIds = new Set(etapa.composicoes.map(c => c.id));
+  const currentIds = new Set(etapa.items.filter(i => i.tipo !== 'etapa').map(c => c.id));
   for (const id of Array.from(currentIds)) {
     if (!prevComposicaoIdsRef.current.has(id)) {
       newComposicaoIds.current.add(id);
@@ -109,7 +150,7 @@ export default function EtapaBlock({
   }
 
   const makeComposicao = useCallback((descricao?: string, unidade?: string, tipo: 'composicao' | 'insumo_direto' = 'composicao', tipo_item?: 'material' | 'mao_obra' | 'equipamento' | 'servico' | 'composicao'): OrcamentoComposicao => {
-    const existingCodes = etapa.composicoes.map(c => c.codigo);
+    const existingCodes = etapa.items.filter(i => i.tipo !== 'etapa').map(c => c.codigo);
     return {
       id: crypto.randomUUID(),
       codigo: generateComposicaoCodigo(etapa.codigo, existingCodes),
@@ -123,25 +164,42 @@ export default function EtapaBlock({
       tipo,
       tipo_item: tipo_item || 'material',
     };
-  }, [etapa.composicoes, etapa.codigo, generateComposicaoCodigo]);
+  }, [etapa.items, etapa.codigo, generateComposicaoCodigo]);
 
-  const recalcCategoria = (comps: OrcamentoComposicao[]) =>
-    comps.reduce((s, c) => s + c.precoTotal, 0);
+  const recalcCategoria = (items: Array<OrcamentoEtapa | OrcamentoComposicao>) =>
+    items.reduce((s, c) => s + (c.precoTotal || 0), 0);
 
-  const updateComposicao = (idx: number, comp: OrcamentoComposicao) => {
-    const comps = [...etapa.composicoes];
-    comps[idx] = comp;
-    onChange({ ...etapa, composicoes: comps, precoTotal: recalcCategoria(comps) });
-  };
+  const updateItem = useCallback((idx: number, updated: OrcamentoEtapa | OrcamentoComposicao) => {
+    const items = [...etapa.items];
+    items[idx] = updated;
+    onChange({ ...etapa, items, precoTotal: recalcCategoria(items) });
+  }, [etapa, onChange]);
 
-  const removeComposicao = (idx: number) => {
-    const comps = etapa.composicoes.filter((_, i) => i !== idx);
-    onChange({ ...etapa, composicoes: comps, precoTotal: recalcCategoria(comps) });
-  };
+  const removeItem = useCallback((idx: number) => {
+    const items = etapa.items.filter((_, i) => i !== idx);
+    onChange({ ...etapa, items, precoTotal: recalcCategoria(items) });
+  }, [etapa, onChange]);
+
+  const addSubetapa = useCallback(() => {
+    const items = [...(etapa.items || [])];
+    items.push({
+      id: crypto.randomUUID(),
+      codigo: `${etapa.codigo}.${items.filter(i => i.tipo === 'etapa').length + 1}`,
+      nome: 'Nova Subetapa',
+      precoTotal: 0,
+      usaComposicoes: true,
+      items: [],
+      tipo: 'etapa',
+      parentId: etapa.id
+    });
+    
+    onChange({ ...etapa, items });
+    setLocalExpanded(true);
+  }, [etapa, onChange]);
 
   const addComposicao = (tipo: 'composicao' | 'insumo_direto' = 'composicao', tipo_item?: 'material' | 'mao_obra' | 'equipamento' | 'servico' | 'composicao') => {
-    const comps = [...etapa.composicoes, makeComposicao('', '', tipo, tipo_item)];
-    onChange({ ...etapa, usaComposicoes: true, composicoes: comps });
+    const items = [...etapa.items, makeComposicao('', '', tipo, tipo_item)];
+    onChange({ ...etapa, usaComposicoes: true, items });
     if (!localExpanded) setLocalExpanded(true);
   };
 
@@ -149,10 +207,15 @@ export default function EtapaBlock({
     onChange({ ...etapa, nome });
   };
 
+  const { setNodeRef: setDropNodeRef, isOver } = useDroppable({
+    id: `header-${etapa.id}`,
+    data: { type: 'header', etapaId: etapa.id }
+  });
+
   // Cálculos para o header
-  const totalComps = etapa.composicoes.length;
-  const cotadasComps = etapa.composicoes.filter(
-    c => (c.precoUnitario != null && c.precoUnitario > 0) || c.usaInsumos
+  const totalComps = etapa.items.filter(i => i.tipo !== 'etapa').length;
+  const cotadasComps = etapa.items.filter(
+    c => c.tipo !== 'etapa' && (((c as OrcamentoComposicao).precoUnitario != null && (c as OrcamentoComposicao).precoUnitario! > 0) || (c as OrcamentoComposicao).usaInsumos)
   ).length;
   const pctCotado = totalComps > 0 ? Math.round((cotadasComps / totalComps) * 100) : 0;
 
@@ -161,22 +224,30 @@ export default function EtapaBlock({
       pctCotado === 100 ? 'bg-emerald-500' :
         'bg-blue-500';
 
+  const { visual, stickyStyle, headerStickyStyle } = getNivelLayout(depth);
+
   return (
     <div className="contents">
       {/* ── Linha de grupo (sticky header da etapa) ── */}
       <div
+        ref={setDropNodeRef}
         className={cn(
-          'group/etapa sticky top-0 z-20 grid items-center gap-0 border-y border-border/80 shadow-sm transition-colors',
-          'bg-slate-100 dark:bg-slate-800 border-l-4 border-l-violet-500',
+          'group/etapa sticky z-20 border-y border-border/80 shadow-sm transition-colors',
           readOnly && 'opacity-80',
-          PLANILHA_GRID
+          visual.bgClass,
+          PLANILHA_FLEX_ROW,
+          isOver && 'ring-2 ring-primary ring-inset bg-primary/5'
         )}
         style={{ 
+          ...stickyStyle,
           minHeight: '40px',
         }}
       >
         {/* Coluna 1: Checkbox + Drag + Chevron + Num + Nome */}
-        <div className="flex items-center gap-1.5 h-full px-2 border-r border-border/60 min-w-0">
+        <div className={cn(CELL_DESC, "gap-0 px-1 border-l-4", visual.borderClass)}>
+          {/* Spacer de Indentação exata */}
+          {depth > 1 && <div style={{ width: `${(depth - 1) * 16}px` }} className="shrink-0" />}
+
           {/* Checkbox de seleção */}
           {!readOnly && (
             <div className="flex items-center justify-center h-6 w-6 shrink-0">
@@ -189,10 +260,10 @@ export default function EtapaBlock({
           )}
 
           {/* Drag handle */}
-          {!readOnly && (
+          {!readOnly && dragListeners && (
             <span
-              {...(dragListeners ?? {})}
-              className="cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity shrink-0 text-muted-foreground touch-none"
+              {...dragListeners}
+              className="cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity shrink-0 text-muted-foreground touch-none flex justify-center w-5"
               title="Arrastar para reordenar"
             >
               <GripVertical className="h-3.5 w-3.5" />
@@ -202,24 +273,43 @@ export default function EtapaBlock({
           {/* Chevron expand/collapse */}
           <button
             tabIndex={-1}
-            onClick={() => setLocalExpanded(v => !v)}
-            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
-            aria-label={localExpanded ? 'Colapsar etapa' : 'Expandir etapa'}
+            onClick={(e) => {
+              e.preventDefault();
+              if (clickTimerRef.current) {
+                // É um duplo clique!
+                clearTimeout(clickTimerRef.current);
+                clickTimerRef.current = null;
+                const next = isFlatHeaderOnly ? !!isCollapsed : !localExpanded;
+                if (isFlatHeaderOnly && onToggleCollapse) onToggleCollapse();
+                else setLocalExpanded(next);
+                onDoubleClickChevron?.(next, depth, 'etapa');
+              } else {
+                // Primeiro clique, inicia o timer
+                clickTimerRef.current = setTimeout(() => {
+                  clickTimerRef.current = null;
+                  if (isFlatHeaderOnly && onToggleCollapse) {
+                    onToggleCollapse();
+                  } else {
+                    setLocalExpanded(v => !v);
+                  }
+                }, 250);
+              }
+            }}
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded flex justify-center w-5"
+            aria-label={(isFlatHeaderOnly ? isCollapsed : !localExpanded) ? 'Expandir etapa' : 'Colapsar etapa'}
           >
             <ChevronRight
               className={cn(
                 'h-3.5 w-3.5 transition-transform duration-200',
-                localExpanded && 'rotate-90'
+                (isFlatHeaderOnly ? !isCollapsed : localExpanded) && 'rotate-90'
               )}
             />
           </button>
 
-          {/* Posição */}
-          {posicao != null && (
-            <span className="text-[10px] font-bold font-mono text-muted-foreground/50 shrink-0 tabular-nums select-none">
-              #{posicao}
-            </span>
-          )}
+          {/* Código WBS */}
+          <span className="text-[10px] font-bold font-mono text-muted-foreground/50 shrink-0 tabular-nums select-none mr-1.5" title="Código WBS">
+            {etapa.codigo}
+          </span>
 
           {/* Nome da etapa */}
           {editingNome && !readOnly ? (
@@ -230,7 +320,7 @@ export default function EtapaBlock({
               onBlur={() => setEditingNome(false)}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingNome(false); }}
               className="flex-1 min-w-0 h-full bg-transparent border-transparent rounded-none px-1 focus:bg-primary/5 focus:outline focus:outline-[1.5px] focus:outline-primary focus:outline-offset-[-1px]"
-              style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.025em' }}
+              style={{ fontSize: visual.fontSize, fontWeight: visual.fontWeight, textTransform: visual.textTransform, letterSpacing: visual.letterSpacing }}
             />
           ) : (
             <span
@@ -239,13 +329,14 @@ export default function EtapaBlock({
                 'flex-1 min-w-0 truncate pr-2 focus:outline-none focus:ring-1 focus:ring-primary rounded',
                 !readOnly && 'cursor-text hover:text-primary transition-colors'
               )}
-              style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.025em', color: 'hsl(var(--foreground))' }}
+              style={{ fontSize: visual.fontSize, fontWeight: visual.fontWeight, textTransform: visual.textTransform, letterSpacing: visual.letterSpacing, color: 'hsl(var(--foreground))' }}
               title={etapa.nome || 'Sem nome'}
               onClick={() => !readOnly && setEditingNome(true)}
               onKeyDown={(e) => {
                 if (e.key === ' ') {
                   e.preventDefault();
-                  setLocalExpanded(v => !v);
+                  if (isFlatHeaderOnly && onToggleCollapse) onToggleCollapse();
+                  else setLocalExpanded(v => !v);
                 }
                 if (e.key === 'Enter' || e.key === 'F2') {
                   e.preventDefault();
@@ -259,14 +350,14 @@ export default function EtapaBlock({
         </div>
 
         {/* Coluna 2: TIPO (Vazio na etapa) */}
-        <div className="h-full border-r border-border/60" />
+        <div className={CELL_TIPO} />
         {/* Coluna 3: UN (Vazio na etapa) */}
-        <div className="h-full border-r border-border/60" />
+        <div className={CELL_UN} />
         
         {/* Coluna 4 & 5: Progresso (ocupa P.UNIT e QTD) */}
-        <div
-          className="flex items-center justify-end gap-2 h-full px-3 border-r border-border/60"
-          style={{ gridColumn: 'span 2' }}
+        <div 
+          className="shrink-0 border-r border-border/60 flex items-center justify-end gap-2 px-3"
+          style={{ width: 'calc(var(--w-qtd, 70px) + var(--w-punit, 100px))' }}
         >
           {totalComps > 0 && (
             <>
@@ -288,8 +379,8 @@ export default function EtapaBlock({
           )}
         </div>
 
-        {/* Coluna 5: Total */}
-        <div className="flex items-center justify-end h-full px-2 border-r border-border/60">
+        {/* Coluna 6: Total */}
+        <div className={cn(CELL_TOTAL, "px-2")}>
           <span className="tabular-nums text-foreground shrink-0 text-right" style={{ fontSize: '13px', fontWeight: 700 }}>
             {bdiConfig?.enabled && etapa.precoTotal > 0 ? (
               <span className="cursor-help decoration-dashed underline decoration-muted-foreground/50 underline-offset-2" title={`Base: ${formatCurrency(etapa.precoTotal)} | BDI (${bdiConfig.rate}%): ${formatCurrency(etapa.precoTotal * (bdiConfig.rate / 100))}`}>
@@ -301,8 +392,8 @@ export default function EtapaBlock({
           </span>
         </div>
 
-        {/* Coluna 6: Ações (Ações diretas: Favoritar, Duplicar, Excluir, + Comp) */}
-        <div className="flex items-center justify-center gap-0.5 h-full px-1">
+        {/* Coluna 7: Ações (Ações diretas: Favoritar, Duplicar, Excluir, + Comp) */}
+        <div className={cn(CELL_ACOES, "gap-0.5 px-1")}>
           {!readOnly && (
             <>
               {/* Favoritar */}
@@ -325,11 +416,14 @@ export default function EtapaBlock({
                     ...etapa,
                     id: crypto.randomUUID(),
                     nome: `${etapa.nome} (cópia)`,
-                    composicoes: etapa.composicoes.map(c => ({
-                      ...c,
+                    composicoes: [],
+                    items: etapa.items.map(i => i.tipo === 'etapa' ? {
+                      ...i, id: crypto.randomUUID(), items: []
+                    } : {
+                      ...i,
                       id: crypto.randomUUID(),
-                      insumos: c.insumos.map(i => ({ ...i, id: crypto.randomUUID() })),
-                    })),
+                      insumos: (i as OrcamentoComposicao).insumos.map(ins => ({ ...ins, id: crypto.randomUUID() })),
+                    }),
                   };
                   onChange({ ...etapa, __duplicate: clone } as OrcamentoEtapa & { __duplicate?: OrcamentoEtapa });
                 }}
@@ -351,7 +445,6 @@ export default function EtapaBlock({
 
               <div className="w-px h-4 bg-border/40 mx-0.5" />
 
-              {/* Adicionar Comp */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -361,56 +454,89 @@ export default function EtapaBlock({
               >
                 <Plus className="h-3.5 w-3.5 mr-1" /> Comp
               </Button>
+
+              <div className="w-px h-4 bg-border/40 mx-0.5" />
+
+              {/* Adicionar Subetapa */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={addSubetapa}
+                className="h-7 px-2 text-muted-foreground hover:text-primary text-[10px] font-bold uppercase"
+                title="Nova subetapa"
+              >
+                <Box className="h-3.5 w-3.5 mr-1" /> Sub
+              </Button>
             </>
           )}
         </div>
       </div>
 
-      {/* ── Cabeçalho de colunas sticky (Bloco 6) ── */}
-      {localExpanded && (
-        <div className={cn(
-          "sticky top-[40px] z-10 grid items-center gap-0 border-b border-border/70 bg-white dark:bg-slate-900/90 backdrop-blur-sm",
-          "h-7 text-[10px] font-semibold uppercase text-muted-foreground tracking-wider shadow-sm",
-          PLANILHA_GRID
-        )}>
-          <div className="pl-12">Descrição</div>
-          <div className="text-center px-0 text-muted-foreground/60" title="Tipo do item">T.</div>
-          <div className="text-center px-1">UN</div>
-          <div className="text-right px-1">QTD</div>
-          <div className="text-right px-1">R$/UN</div>
-          <div className="text-right px-1">TOTAL</div>
-          <div className="text-center">Ações</div>
-        </div>
-      )}
+      {/* ── Cabeçalho removido do EtapaBlock e unificado no OrcamentoEditor ── */}
 
-
-      {/* ── Composições (visíveis quando expandida) ── */}
-      {localExpanded && (
+      {/* ── Items (Mistos: Composições e Subetapas) ── */}
+      {!isFlatHeaderOnly && localExpanded && (
         <>
-          {etapa.composicoes.map((comp, idx) => (
-            <ComposicaoRow
-              key={comp.id}
-              composicao={comp}
-              unidades={unidades}
-              onChange={c => updateComposicao(idx, c)}
-              onRemove={() => removeComposicao(idx)}
-              generateInsumoCodigo={generateInsumoCodigo}
-              readOnly={readOnly}
-              obraId={obraId}
-              onGoCotacao={onGoCotacao}
-              priceSuggestionEnabled={priceSuggestionEnabled}
-              onPriceBadge={onPriceBadge}
-              isNew={newComposicaoIds.current.has(comp.id)}
-              // Bulk
-              isSelected={selectedIds?.has(comp.id) ?? false}
-              onToggleSelect={() => onToggleSelect?.(comp.id)}
-              bulkActive={bulkActive}
-              bdiConfig={bdiConfig}
-            />
-          ))}
+          <div className="flex flex-col border-b border-border/40 last:border-b-0">
+            <SortableContext items={etapa.items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+              {etapa.items.map((item, idx) => {
+                if (item.tipo === 'etapa') {
+                  return (
+                    <SortableSubetapa
+                      key={item.id}
+                      etapa={item as OrcamentoEtapa}
+                      idx={idx}
+                      parentId={etapa.id}
+                      unidades={unidades}
+                      onChange={(updated) => updateItem(idx, updated)}
+                      onRemove={() => removeItem(idx)}
+                      generateComposicaoCodigo={generateComposicaoCodigo}
+                      generateInsumoCodigo={generateInsumoCodigo}
+                      readOnly={readOnly}
+                      obraId={obraId}
+                      onGoCotacao={onGoCotacao}
+                      priceSuggestionEnabled={priceSuggestionEnabled}
+                      onPriceBadge={onPriceBadge}
+                      selectedIds={selectedIds}
+                      onToggleSelect={onToggleSelect}
+                      bulkActive={bulkActive}
+                      bdiConfig={bdiConfig}
+                      depth={depth + 1}
+                      onDoubleClickChevron={onDoubleClickChevron}
+                    />
+                  );
+                } else {
+                  const comp = item as OrcamentoComposicao;
+                  return (
+                    <ComposicaoRow
+                      key={comp.id}
+                      composicao={comp}
+                      unidades={unidades}
+                      onChange={c => updateItem(idx, c)}
+                      onRemove={() => removeItem(idx)}
+                      generateInsumoCodigo={generateInsumoCodigo}
+                      readOnly={readOnly}
+                      obraId={obraId}
+                      onGoCotacao={onGoCotacao}
+                      priceSuggestionEnabled={priceSuggestionEnabled}
+                      onPriceBadge={onPriceBadge}
+                      isNew={newComposicaoIds.current.has(comp.id)}
+                      depth={depth + 1}
+                      // Bulk
+                      isSelected={selectedIds?.has(comp.id) ?? false}
+                      onToggleSelect={() => onToggleSelect?.(comp.id)}
+                      bulkActive={bulkActive}
+                      bdiConfig={bdiConfig}
+                      parentId={etapa.id}
+                    />
+                  );
+                }
+              })}
+            </SortableContext>
+          </div>
 
           {/* Empty state */}
-          {etapa.composicoes.length === 0 && !readOnly && (
+          {etapa.items.length === 0 && !readOnly && (
             <div className="flex flex-col items-center gap-3 py-8 border-b border-border/30 bg-muted/5">
               <p className="text-xs text-muted-foreground">Nenhuma composição nesta etapa</p>
               <div className="flex items-center gap-2">

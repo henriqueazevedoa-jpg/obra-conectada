@@ -436,9 +436,10 @@ export default function PagamentosPage() {
         id: crypto.randomUUID(),
         codigo: newCode,
         nome: newEtapaNome.trim(),
-        composicoes: [],
+        items: [],
         precoTotal: 0,
         usaComposicoes: false,
+        tipo: 'etapa' as const,
       };
       const updatedOrc = {
         ...(currentOrc || { id: crypto.randomUUID(), obraId: obra.id, categorias: [] }),

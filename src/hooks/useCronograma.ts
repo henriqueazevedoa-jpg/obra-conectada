@@ -191,6 +191,41 @@ export function useCronograma(obraId: string | undefined) {
     return row as CronogramaTarefa;
   }, [invalidate]);
 
+  const shiftTaskTree = useCallback(async (parentId: string, deltaDays: number) => {
+    if (!obraId || deltaDays === 0) return;
+    
+    const descendants: CronogramaTarefa[] = [];
+    const findDescendants = (pid: string) => {
+      const children = tarefas.filter(t => t.parent_tarefa_id === pid);
+      children.forEach(c => {
+        descendants.push(c);
+        findDescendants(c.id);
+      });
+    };
+    findDescendants(parentId);
+
+    const parentNode = tarefas.find(t => t.id === parentId);
+    if (!parentNode) return;
+
+    const updates = [parentNode, ...descendants].map(t => {
+      let newInicio = t.data_inicio;
+      let newFim = t.data_fim;
+      if (newInicio) newInicio = format(addDays(parseISO(newInicio), deltaDays), 'yyyy-MM-dd');
+      if (newFim) newFim = format(addDays(parseISO(newFim), deltaDays), 'yyyy-MM-dd');
+      return {
+        id: t.id,
+        obra_id: t.obra_id,
+        data_inicio: newInicio,
+        data_fim: newFim,
+        updated_at: new Date().toISOString()
+      };
+    });
+
+    const { error } = await supabase.from('cronograma_tarefas').upsert(updates, { onConflict: 'id' });
+    if (error) { toast({ title: 'Erro ao mover pacote', description: error.message, variant: 'destructive' }); return; }
+    invalidate();
+  }, [obraId, tarefas, invalidate]);
+
   // ─── DELETE ─────────────────────────────────────────────────────────────────
   const deleteTarefa = useCallback(async (id: string) => {
     await supabase.from('cronograma_tarefas').delete().eq('id', id);
@@ -237,6 +272,11 @@ export function useCronograma(obraId: string | undefined) {
   const removeDependencia = useCallback(async (id: string) => {
     await supabase.from('cronograma_dependencias').delete().eq('id', id);
     invalidate();
+  }, [invalidate]);
+
+  const updateDependencia = useCallback(async (id: string, updates: Partial<CronogramaDependencia>) => {
+    const { error } = await supabase.from('cronograma_dependencias').update(updates).eq('id', id);
+    if (!error) invalidate();
   }, [invalidate]);
 
   // ─── REORDER ─────────────────────────────────────────────────────────────────
@@ -412,9 +452,9 @@ export function useCronograma(obraId: string | undefined) {
     tarefas, dependencias, impedimentos, loading,
     saving: false, // mantido na API por compatibilidade
     addTarefa, updateTarefa, deleteTarefa,
-    addDependencia, removeDependencia,
+    addDependencia, updateDependencia, removeDependencia,
     addImpedimento, updateImpedimento, deleteImpedimento,
-    applyDateCascade, reorderTarefas,
+    applyDateCascade, reorderTarefas, shiftTaskTree,
     saveBaseline, unlockBaseline,
     addPercentual,
     refresh: refetch,

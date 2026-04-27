@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 
 import { useOrcamento } from '@/contexts/OrcamentoContext';
 import type { OrcamentoVersao } from '@/contexts/OrcamentoContext';
@@ -98,7 +99,9 @@ export default function OrcamentoCentral() {
     };
 
     for (const etapa of orcamentoEtapas) {
-      for (const comp of etapa.composicoes || []) {
+      for (const item of etapa.items || []) {
+        if (item.tipo === 'etapa') continue;
+        const comp = item as OrcamentoComposicao;
         if (comp.usaInsumos && comp.insumos?.length) {
           for (const ins of comp.insumos) {
             totalInsumos++;
@@ -170,7 +173,9 @@ export default function OrcamentoCentral() {
     if (stats.insumosSemPreco > 0) {
       for (const etapa of orcamentoEtapas) {
         let c = 0;
-        for (const comp of etapa.composicoes || []) {
+        for (const item of etapa.items || []) {
+          if (item.tipo === 'etapa') continue;
+          const comp = item as OrcamentoComposicao;
           if (comp.usaInsumos && comp.insumos?.length) {
             for (const ins of comp.insumos) { if (!ins.precoUnitario || ins.precoUnitario === 0) c++; }
           } else { if (!comp.precoUnitario || comp.precoUnitario === 0) c++; }
@@ -306,7 +311,7 @@ export default function OrcamentoCentral() {
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={id => setActiveTab(id as OrcamentoTab)}
-      kpis={activeTab === 'overview' ? kpisOverview : kpis}
+      kpis={activeTab === 'overview' ? kpisOverview : activeTab === 'wbs' ? [] : kpis}
       actions={
         activeTab === 'overview' 
           ? [{ label: 'Exportar', onClick: () => setExportOpen(true), variant: 'ghost' }]
@@ -339,24 +344,6 @@ export default function OrcamentoCentral() {
               readOnly={!editing}
             />
 
-            {/* Sumário discreto (Bloco 1) */}
-            {!kpisExpanded && (
-              <div className="flex items-center gap-4 ml-auto text-[11px] font-medium transition-all animate-in fade-in slide-in-from-right-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Total:</span>
-                  <span className="text-foreground">{stats.totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</span>
-                </div>
-                <div className="w-px h-3 bg-border" />
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Cotado:</span>
-                  <span className={cn(
-                    stats.cotadoPct >= 80 ? 'text-emerald-600' : stats.cotadoPct >= 40 ? 'text-amber-600' : 'text-red-600'
-                  )}>
-                    {stats.cotadoPct}%
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

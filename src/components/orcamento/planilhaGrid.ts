@@ -3,18 +3,15 @@
 // Nunca hardcodar grid-template-columns diretamente nos componentes — sempre
 // importar PLANILHA_GRID daqui. (AD-011)
 
-export const PLANILHA_COLS = {
-  descricao: '45fr',
-  tipo:      '5fr',
-  un:        '5fr',
-  qtd:       '7fr',
-  punit:     '8fr',
-  ptotal:    '15fr',
-  acoes:     '15fr',
-};
+export const PLANILHA_FLEX_ROW = "flex items-stretch w-full planilha-row";
 
-export const PLANILHA_GRID =
-  "grid-cols-[45fr_5fr_5fr_7fr_8fr_15fr_15fr]";
+export const CELL_DESC = "cell-desc shrink-0 border-r border-border/60 flex items-center";
+export const CELL_TIPO = "cell-tipo shrink-0 border-r border-border/60 flex items-center justify-center";
+export const CELL_UN = "cell-un shrink-0 border-r border-border/60 flex items-center justify-center";
+export const CELL_QTD = "cell-qtd shrink-0 border-r border-border/60 flex items-center justify-end px-1";
+export const CELL_PUNIT = "cell-punit shrink-0 border-r border-border/60 flex items-center justify-end px-1";
+export const CELL_TOTAL = "cell-total shrink-0 border-r border-border/60 flex items-center justify-end px-3";
+export const CELL_ACOES = "cell-acoes shrink-0 flex items-center justify-end px-2";
 
 
 // ── Sistema de N níveis hierárquicos ─────────────────────────────────────────
@@ -31,10 +28,8 @@ export const PLANILHA_GRID =
 // Máximo de 4 níveis visíveis. Estrutura de dados suporta N níveis.
 
 export interface NivelVisual {
-  bg: string;
-  bgDark: string;
-  bgColor: string;        // cor inline para style={}
-  borderColor: string;
+  bgClass: string;
+  borderClass: string;
   fontSize: number;
   fontWeight: number;
   textTransform: 'uppercase' | 'none';
@@ -44,10 +39,8 @@ export interface NivelVisual {
 export const NIVEL_VISUAL: NivelVisual[] = [
   // nivel 0 — Superetapa
   {
-    bg: '',
-    bgDark: '',
-    bgColor: '#d8d4ee',
-    borderColor: '#6d28d9',
+    bgClass: 'bg-slate-200 dark:bg-slate-800',
+    borderClass: 'border-l-slate-500 dark:border-l-slate-400',
     fontSize: 14,
     fontWeight: 700,
     textTransform: 'uppercase',
@@ -55,10 +48,8 @@ export const NIVEL_VISUAL: NivelVisual[] = [
   },
   // nivel 1 — Etapa (padrão atual)
   {
-    bg: '',
-    bgDark: '',
-    bgColor: '#e8e6f0',
-    borderColor: '#7c3aed',
+    bgClass: 'bg-slate-100 dark:bg-slate-800/80',
+    borderClass: 'border-l-slate-400 dark:border-l-slate-500',
     fontSize: 13,
     fontWeight: 600,
     textTransform: 'uppercase',
@@ -66,23 +57,19 @@ export const NIVEL_VISUAL: NivelVisual[] = [
   },
   // nivel 2 — Subetapa
   {
-    bg: '',
-    bgDark: '',
-    bgColor: '#f0eef8',
-    borderColor: '#a78bfa',
+    bgClass: 'bg-slate-50 dark:bg-slate-900',
+    borderClass: 'border-l-slate-300 dark:border-l-slate-600',
     fontSize: 12,
-    fontWeight: 500,
+    fontWeight: 600,
     textTransform: 'none',
     letterSpacing: '0.01em',
   },
   // nivel 3 — Nível extra (fallback)
   {
-    bg: '',
-    bgDark: '',
-    bgColor: '#f5f3fb',
-    borderColor: '#c4b5fd',
+    bgClass: 'bg-white dark:bg-slate-950',
+    borderClass: 'border-l-slate-200 dark:border-l-slate-700',
     fontSize: 12,
-    fontWeight: 400,
+    fontWeight: 500,
     textTransform: 'none',
     letterSpacing: '0',
   },
@@ -106,7 +93,6 @@ export function getNivelLayout(nivel: number) {
   return {
     visual,
     // style inline — dinâmico, não sofre purge do Tailwind
-    indentStyle: { paddingLeft: (nivel - 1) * 16 } as React.CSSProperties,
     stickyStyle: {
       top: stickyTop,
       zIndex: 40 - nivel * 10,

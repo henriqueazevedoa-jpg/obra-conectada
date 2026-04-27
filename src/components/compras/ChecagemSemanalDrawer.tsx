@@ -84,6 +84,18 @@ export default function ChecagemSemanalDrawer({ open, onClose, obraId, onConclui
     const aggregated = new Map<string, MaterialAgregado>();
     const noLinkTasks: string[] = [];
 
+    const extractComposicoes = (etapa: import('@/contexts/OrcamentoContext').OrcamentoEtapa): import('@/contexts/OrcamentoContext').OrcamentoComposicao[] => {
+      let comps: import('@/contexts/OrcamentoContext').OrcamentoComposicao[] = [];
+      for (const item of etapa.items || []) {
+        if (item.tipo === 'etapa') {
+          comps = comps.concat(extractComposicoes(item as import('@/contexts/OrcamentoContext').OrcamentoEtapa));
+        } else {
+          comps.push(item as import('@/contexts/OrcamentoContext').OrcamentoComposicao);
+        }
+      }
+      return comps;
+    };
+
     // Se orçamento carregado, extrai insumos
     if (orcamento) {
       for (const t of validTasks) {
@@ -117,7 +129,7 @@ export default function ChecagemSemanalDrawer({ open, onClose, obraId, onConclui
           // Busca em todas as etapas
           let foundComps = false;
           for (const etp of orcamento.etapas) {
-            const c = etp.composicoes.find(x => x.id === t.orcamento_composicao_id);
+            const c = extractComposicoes(etp).find(x => x.id === t.orcamento_composicao_id);
             if (c) {
               processInsumos(c.insumos);
               foundComps = true;
@@ -129,7 +141,7 @@ export default function ChecagemSemanalDrawer({ open, onClose, obraId, onConclui
           // Pega todos os insumos de todas as composições da categoria
           const etp = orcamento.etapas.find(x => x.id === t.orcamento_categoria_id);
           if (etp) {
-            for (const c of etp.composicoes) {
+            for (const c of extractComposicoes(etp)) {
               processInsumos(c.insumos);
             }
           } else {

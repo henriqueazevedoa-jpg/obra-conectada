@@ -46,11 +46,13 @@ function formatCurrencyShort(value: number) {
 }
 
 function getEtapaStats(etapa: OrcamentoEtapa) {
-  const composicoes = etapa.composicoes || [];
+  const items = etapa.items || [];
   let totalInsumos = 0;
   let insumosSemPreco = 0;
 
-  for (const comp of composicoes) {
+  for (const item of items) {
+    if (item.tipo === 'etapa') continue;
+    const comp = item as OrcamentoComposicao;
     if (comp.usaInsumos && comp.insumos?.length) {
       for (const ins of comp.insumos) {
         totalInsumos++;
@@ -123,7 +125,7 @@ function GraficoDistribuicao({ etapas }: { etapas: OrcamentoEtapa[] }) {
     return etapas
       .map((e) => ({
         name: e.nome || e.codigo || 'Etapa',
-        value: (e.composicoes || []).reduce((s, c) => s + (c.precoTotal || 0), 0),
+        value: (e.items || []).reduce((s, c) => s + (c.precoTotal || 0), 0),
       }))
       .filter((d) => d.value > 0)
       .sort((a, b) => b.value - a.value);
@@ -490,9 +492,10 @@ function EtapasAccordion({ etapas, obraId, onEditWBS, abcDados }: EtapasAccordio
       {/* Lista de etapas */}
       <div className="divide-y divide-border">
         {etapas.map((etapa, i) => {
-          const composicoes = etapa.composicoes || [];
+          const items = etapa.items || [];
+          const comps = items.filter(item => item.tipo !== 'etapa');
           const etapaStats = getEtapaStats(etapa);
-          const total = composicoes.reduce((s, c) => s + (c.precoTotal || 0), 0);
+          const total = items.reduce((s, c) => s + (c.precoTotal || 0), 0);
           const pct = etapaStats.cotadoPct;
           const isEtapaOpen = expandedEtapas.has(etapa.id);
           const borderColor = pct === 100 ? '#10b981' : pct > 60 ? '#f59e0b' : '#ef4444';
@@ -553,7 +556,7 @@ function EtapasAccordion({ etapas, obraId, onEditWBS, abcDados }: EtapasAccordio
 
                 {/* Meta à direita */}
                 <div className="hidden sm:flex items-center gap-4 shrink-0 text-xs text-muted-foreground">
-                  <span>{composicoes.length} composições</span>
+                  <span>{comps.length} composições</span>
                   <span className="font-medium" style={{ color: borderColor }}>{pct}% cotado</span>
                   <span className="font-bold text-foreground tabular-nums">{formatCurrencyShort(total)}</span>
                 </div>
@@ -571,7 +574,8 @@ function EtapasAccordion({ etapas, obraId, onEditWBS, abcDados }: EtapasAccordio
               {/* ── Composições (Nível 1) ──────────────────────────────── */}
               {isEtapaOpen && (
                 <div className="bg-muted/5 divide-y divide-border/50">
-                  {composicoes.map(comp => {
+                  {comps.map(item => {
+                    const comp = item as OrcamentoComposicao;
                     const isCompOpen = expandedComps.has(comp.id);
                     const hasInsumos = comp.usaInsumos && comp.insumos && comp.insumos.length > 0;
                     const abcClasse = abcDados.get(comp.id);
@@ -730,7 +734,9 @@ export default function OrcamentoDashboard({ obra, onEditWBS, onGoCotacao, onGoC
     let totalComposicoes = 0;
 
     for (const etapa of etapas) {
-      for (const comp of etapa.composicoes || []) {
+      for (const item of etapa.items || []) {
+        if (item.tipo === 'etapa') continue;
+        const comp = item as OrcamentoComposicao;
         totalComposicoes++;
         if (comp.usaInsumos && comp.insumos?.length) {
           for (const ins of comp.insumos) {

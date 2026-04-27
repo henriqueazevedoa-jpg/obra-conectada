@@ -7,6 +7,10 @@ import CommandPalette from "@/components/CommandPalette";
 import NotificationCenter from "@/components/NotificationCenter";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useCronograma } from "@/hooks/useCronograma";
+import { ChatProvider, useChat } from "@/contexts/ChatContext";
+import ChatToggleButton from "@/components/chat/ChatToggleButton";
+import ChatPanel from "@/components/chat/ChatPanel";
+import { VoiceFAB } from "@/components/voice/VoiceFAB";
 import {
   LayoutDashboard, Building2, DollarSign, CalendarDays, BookOpen,
   Package, LogOut, Menu, HardHat, Shield, Users,
@@ -34,6 +38,39 @@ function detectLiteMode(): boolean {
 // ─── Recency helpers ───────────────────────────────────────────────────────────
 
 const RECENCY_KEY = 'lastra_group_last_access';
+
+import { useVoice } from "@/hooks/useVoice";
+import { useChatPreferences } from "@/hooks/useChatPreferences";
+
+function VoiceGlobalListener() {
+  const { preferences } = useChatPreferences();
+  const { isOpen, toggle, simulateAssistantResponse } = useChat();
+  
+  // The useVoice hook automatically starts the WakeWordDetector if enabled
+  const { startRecording, stopRecording } = useVoice({
+    wakeWordEnabled: preferences.wake_word_enabled,
+    onWakeWord: () => {
+      // Called when "Hey Lastra" is heard
+      if (!isOpen) {
+        toggle();
+      }
+      
+      // Auto record for 5 seconds after wake word (or manual stop via UI)
+      startRecording();
+      
+      setTimeout(async () => {
+        try {
+          const text = await stopRecording();
+          if (text.trim()) {
+            simulateAssistantResponse(text);
+          }
+        } catch {}
+      }, 5000);
+    }
+  });
+
+  return null;
+}
 
 function loadRecency(): Record<string, number> {
   try { return JSON.parse(localStorage.getItem(RECENCY_KEY) || '{}'); } catch { return {}; }
@@ -810,6 +847,7 @@ export default function AppLayout() {
   const activeGroup = groups.find(g => g.links.some(l => isActive(l.to)));
 
   return (
+    <ChatProvider>
     <div className="min-h-screen bg-background">
       <style>{ANIM_CSS}</style>
       
@@ -1127,6 +1165,7 @@ export default function AppLayout() {
               ⌘K
             </kbd>
           </button>
+          <ChatToggleButton />
           <NotificationCenter />
         </div>
       </header>
@@ -1156,6 +1195,9 @@ export default function AppLayout() {
           style={{ color: "rgba(148,140,195,0.6)" }}>
           <Search className="h-4 w-4" />
         </button>
+        <div className="scale-90 origin-right">
+          <ChatToggleButton />
+        </div>
         <NotificationCenter />
       </header>
 
@@ -1217,11 +1259,17 @@ export default function AppLayout() {
       </nav>
 
       {/* ══ Main Content ════════════════════════════════════════════════ */}
-      <main className={`pt-14 pb-16 md:pb-0 md:ml-[60px] ${isImpersonating ? 'md:pt-[88px] pt-[88px]' : 'md:pt-14'} h-screen overflow-auto bg-[#F7F7FB]`}>
-        <div className="h-full">
-          <Outlet />
-        </div>
-      </main>
+      <div className={`flex flex-1 pt-14 pb-16 md:pb-0 md:ml-[60px] ${isImpersonating ? 'md:pt-[88px] pt-[88px]' : 'md:pt-14'} h-screen overflow-hidden`}>
+        <main className="flex-1 overflow-auto bg-[#F7F7FB]">
+          <div className="h-full">
+            <Outlet />
+          </div>
+        </main>
+        <ChatPanel />
+        <VoiceFAB />
+        <VoiceGlobalListener />
+      </div>
     </div>
+    </ChatProvider>
   );
 }

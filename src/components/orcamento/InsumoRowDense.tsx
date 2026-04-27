@@ -34,10 +34,10 @@ interface Props {
   bulkActive?: boolean;
   bdiConfig?: BdiConfig;
 }
-
-import { PLANILHA_GRID } from './planilhaGrid';
-
-export const INSUMO_DENSE_GRID = PLANILHA_GRID;
+import { 
+  PLANILHA_FLEX_ROW, CELL_DESC, CELL_TIPO, CELL_UN, 
+  CELL_QTD, CELL_PUNIT, CELL_TOTAL, CELL_ACOES, getNivelLayout 
+} from './planilhaGrid';
 
 const TIPO_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
   material: { label: 'Material', icon: Box, color: 'text-blue-500' },
@@ -50,10 +50,11 @@ export default function InsumoRowDense({
   insumo, unidades, onChange, onRemove, onDiscard, obraId, readOnly,
   priceSuggestionEnabled = false, onPriceBadge, onOpenCatalogo, placeholder,
   isSelected = false, onToggleSelect, bulkActive = false,
+  depth = 3,
 }: Props) {
   const [suggestions, setSuggestions] = useState<{ label: string; value: string }[]>([]);
   const [localQtd, setLocalQtd] = useState(insumo.quantidade != null ? String(insumo.quantidade) : '');
-  const [localPreco, setLocalPreco] = useState(insumo.precoUnitario != null ? String(insumo.precoUnitario) : '');
+  const [localPreco, setLocalPreco] = useState(insumo.precoUnitario != null ? insumo.precoUnitario.toFixed(2) : '');
 
   const qInputRef = useRef<HTMLInputElement>(null);
   const pInputRef = useRef<HTMLInputElement>(null);
@@ -128,7 +129,7 @@ export default function InsumoRowDense({
 
   useEffect(() => {
     if (suggestedPrice != null && insumo.precoUnitario == null && priceSuggestionEnabled) {
-      setLocalPreco(String(suggestedPrice));
+      setLocalPreco(suggestedPrice.toFixed(2));
       const next = { ...insumo, precoUnitario: suggestedPrice } as OrcamentoInsumo;
       if (next.quantidade) next.precoTotal = next.quantidade * suggestedPrice;
       onChange(next);
@@ -206,7 +207,7 @@ export default function InsumoRowDense({
       next.sinapiFonte = 'SINAPI IA';
     }
     onChange(next);
-    setLocalPreco(String(preco));
+    setLocalPreco(preco.toFixed(2));
     setFonteBadge(source as FonteBadge);
     onPriceBadge?.(insumo.id, source);
   };
@@ -230,28 +231,32 @@ export default function InsumoRowDense({
   const temQtd = insumo.quantidade != null && insumo.quantidade > 0;
   const temPreco = insumo.precoUnitario != null && insumo.precoUnitario > 0;
 
+  const { visual } = getNivelLayout(depth);
+
   return (
     <div className={cn(
-      'grid items-center gap-0 group transition-colors border-b border-border/10 last:border-b-0',
-      'odd:bg-[#faf9fd] even:bg-[#f5f3fb] dark:odd:bg-slate-900/40 dark:even:bg-slate-900/60',
-      'hover:bg-primary/5 focus-within:bg-primary/5 min-h-[28px] h-[28px]',
+      "group/row text-[11px] hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors",
+      visual.bgClass,
+      'items-stretch group transition-colors border-b border-border/10 last:border-b-0',
+      'hover:bg-primary/5 focus-within:bg-primary/5 h-[28px]',
       isSelected && 'bg-primary/8 dark:bg-indigo-950/20',
       insumo.pending && 'opacity-60',
       insumo.pending && insumo.sinapiCodigo && 'bg-amber-50/40 dark:bg-amber-950/20 odd:bg-amber-50/40 even:bg-amber-50/30',
       insumo.pending && !insumo.sinapiCodigo && 'bg-violet-50/40 dark:bg-violet-950/20 odd:bg-violet-50/40 even:bg-violet-50/30',
       placeholder && 'opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity',
-      INSUMO_DENSE_GRID
+      PLANILHA_FLEX_ROW
     )}>
 
       {/* ── Coluna 1: Checkbox + Código + Descrição ── */}
-      {/* Indent de 32px para hierarquia visual clara abaixo da composição */}
       <div
-        className="relative h-full flex items-center border-r border-border/60 pr-1 py-0.5 min-w-0 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:z-10 focus-within:bg-primary/5 pl-8"
+        className={cn(CELL_DESC, "pr-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:z-10 focus-within:bg-primary/5")}
       >
+        {/* Spacer de Indentação — depth base + 16px extra em relação à composição */}
+        {depth > 1 && <div style={{ width: `${(depth - 1) * 16 + 16}px` }} className="shrink-0" />}
         {!readOnly && (
           <div
             className={cn(
-              "flex items-center justify-center h-6 w-5 shrink-0 cursor-pointer mr-2 transition-opacity",
+              "flex items-center justify-center h-6 w-6 shrink-0 cursor-pointer transition-opacity",
               isSelected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"
             )}
             onPointerDown={e => e.stopPropagation()}
@@ -267,6 +272,9 @@ export default function InsumoRowDense({
             />
           </div>
         )}
+        
+        {/* Spacer invisível substituto de Drag (w-5) e Chevron (w-5) = w-10 */}
+        <div className="shrink-0 w-10" />
 
         {/* Código do insumo */}
         <span
@@ -313,7 +321,7 @@ export default function InsumoRowDense({
       </div>
 
       {/* ── Coluna 2: Tipo Badge ── */}
-      <div className="h-full flex items-center justify-center border-r border-border/60">
+      <div className={CELL_TIPO}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="focus:outline-none relative" disabled={readOnly}>
@@ -365,7 +373,7 @@ export default function InsumoRowDense({
       </div>
 
       {/* ── Coluna 3: Unidade ── */}
-      <div className="h-full flex items-center justify-center border-r border-border/60 px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+      <div className={cn(CELL_UN, "px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5")}>
         {readOnly ? (
           <div className="text-[10px] text-muted-foreground text-center uppercase w-full">
             {insumo.unidade}
@@ -389,7 +397,7 @@ export default function InsumoRowDense({
       </div>
 
       {/* ── Coluna 4: Quantidade ── */}
-      <div className="h-full flex items-center border-r border-border/60 px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+      <div className={cn(CELL_QTD, "px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5")}>
         {readOnly ? (
           <div className="tabular-nums text-right w-full text-muted-foreground" style={{ fontSize: '11px' }}>
             {insumo.quantidade ?? '—'}
@@ -413,7 +421,7 @@ export default function InsumoRowDense({
       </div>
 
       {/* ── Coluna 5: Preço Unitário ── */}
-      <div className="h-full flex items-center border-r border-border/60 px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5">
+      <div className={cn(CELL_PUNIT, "px-1 py-0.5 focus-within:outline focus-within:outline-[1.5px] focus-within:outline-primary focus-within:outline-offset-[-1px] focus-within:relative focus-within:z-10 focus-within:bg-primary/5")}>
         {readOnly ? (
           <div className="tabular-nums text-right text-muted-foreground w-full" style={{ fontSize: '11px' }}>
             {insumo.precoUnitario != null ? formatCurrency(insumo.precoUnitario) : '—'}
@@ -442,7 +450,8 @@ export default function InsumoRowDense({
       {/* ── Coluna 6: Preço Total ── */}
       <div
         className={cn(
-          'h-full flex items-center justify-end border-r border-border/60 px-1 py-0.5 tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground',
+          CELL_TOTAL,
+          'px-1 py-0.5 tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground',
           insumo.precoTotal === 0 && 'opacity-50'
         )}
         style={{ fontSize: '11px' }}
@@ -466,7 +475,7 @@ export default function InsumoRowDense({
       </div>
 
       {/* ── Coluna 7: Ações desaninHadas ── */}
-      <div className="h-full flex items-center justify-center gap-0.5 px-1 shrink-0">
+      <div className={cn(CELL_ACOES, "gap-0.5")}>
         {insumo.pending && !readOnly && !placeholder ? (
           /* Insumo pendente — só botão de descartar */
           <TooltipProvider>

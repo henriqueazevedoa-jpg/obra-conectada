@@ -125,11 +125,11 @@ export default function EtapaBlockCard({
   const [newDepLag, setNewDepLag] = useState(0);
 
   // Rastrear IDs de composições reciém-adicionadas para animação
-  const prevComposicaoIdsRef = useRef<Set<string>>(new Set(etapa.composicoes.map(c => c.id)));
+  const prevComposicaoIdsRef = useRef<Set<string>>(new Set(etapa.items.filter(i => i.tipo !== 'etapa').map(c => c.id)));
   const newComposicaoIds = useRef<Set<string>>(new Set());
 
   // Detectar novas composições adicionadas
-  const currentIds = new Set(etapa.composicoes.map(c => c.id));
+  const currentIds = new Set(etapa.items.filter(i => i.tipo !== 'etapa').map(c => c.id));
   for (const id of Array.from(currentIds)) {
     if (!prevComposicaoIdsRef.current.has(id)) {
       newComposicaoIds.current.add(id);
@@ -151,10 +151,10 @@ export default function EtapaBlockCard({
     setForceApplied(forceExpanded);
   }
 
-  const existingDescricoes = etapa.composicoes.map(c => c.descricao);
+  const existingDescricoes = etapa.items.filter(i => i.tipo !== 'etapa').map(c => (c as OrcamentoComposicao).descricao);
 
   const makeComposicao = useCallback((descricao?: string, unidade?: string, tipo: 'composicao' | 'insumo_direto' = 'composicao'): OrcamentoComposicao => {
-    const existingCodes = etapa.composicoes.map(c => c.codigo);
+    const existingCodes = etapa.items.filter(i => i.tipo !== 'etapa').map(c => c.codigo);
     return {
       id: crypto.randomUUID(),
       codigo: generateComposicaoCodigo(etapa.codigo, existingCodes),
@@ -167,13 +167,13 @@ export default function EtapaBlockCard({
       usaInsumos: false,
       tipo,
     };
-  }, [etapa.composicoes, etapa.codigo, generateComposicaoCodigo]);
+  }, [etapa.items, etapa.codigo, generateComposicaoCodigo]);
 
   const update = useCallback((field: string, value: unknown) => {
     if (readOnly) return;
     const next = { ...etapa, [field]: value };
-    if (field === 'usaComposicoes' && value && next.composicoes.length === 0) {
-      next.composicoes = [makeComposicao()];
+    if (field === 'usaComposicoes' && value && next.items.length === 0) {
+      next.items = [makeComposicao()];
     }
     if (!next.usaComposicoes && field === 'precoTotal') {
       next.precoTotal = parseFloat(String(value)) || 0;
@@ -181,29 +181,29 @@ export default function EtapaBlockCard({
     onChange(next);
   }, [readOnly, etapa, onChange, makeComposicao]);
 
-  const recalcCategoria = (comps: OrcamentoComposicao[]) =>
-    comps.reduce((s, c) => s + c.precoTotal, 0);
+  const recalcCategoria = (items: Array<OrcamentoEtapa | OrcamentoComposicao>) =>
+    items.reduce((s, c) => s + (c.precoTotal || 0), 0);
 
-  const updateComposicao = (idx: number, comp: OrcamentoComposicao) => {
-    const comps = [...etapa.composicoes];
-    comps[idx] = comp;
-    onChange({ ...etapa, composicoes: comps, precoTotal: recalcCategoria(comps) });
+  const updateItem = (idx: number, comp: OrcamentoEtapa | OrcamentoComposicao) => {
+    const items = [...etapa.items];
+    items[idx] = comp;
+    onChange({ ...etapa, items, precoTotal: recalcCategoria(items) });
   };
 
-  const removeComposicao = (idx: number) => {
-    const comps = etapa.composicoes.filter((_, i) => i !== idx);
-    onChange({ ...etapa, composicoes: comps, precoTotal: recalcCategoria(comps) });
+  const removeItem = (idx: number) => {
+    const items = etapa.items.filter((_, i) => i !== idx);
+    onChange({ ...etapa, items, precoTotal: recalcCategoria(items) });
   };
 
   const addComposicao = (tipo: 'composicao' | 'insumo_direto' = 'composicao') => {
     // Auto-ativar composições ao adicionar manualmente
-    const comps = [...etapa.composicoes, makeComposicao('', '', tipo)];
-    onChange({ ...etapa, usaComposicoes: true, composicoes: comps });
+    const items = [...etapa.items, makeComposicao('', '', tipo)];
+    onChange({ ...etapa, usaComposicoes: true, items });
   };
 
-  const handleAddSugestoes = (items: { descricao: string; unidade: string }[]) => {
-    const comps = items.map(insumo => makeComposicao(insumo.descricao, insumo.unidade));
-    onChange({ ...etapa, usaComposicoes: true, composicoes: [...etapa.composicoes, ...comps] });
+  const handleAddSugestoes = (sugestoes: { descricao: string; unidade: string }[]) => {
+    const comps = sugestoes.map(insumo => makeComposicao(insumo.descricao, insumo.unidade));
+    onChange({ ...etapa, usaComposicoes: true, items: [...etapa.items, ...comps] });
   };
 
   const handleAddDependencia = async () => {
@@ -225,9 +225,9 @@ export default function EtapaBlockCard({
     allEtapas.find(e => e.id === id)?.nome || id.slice(0, 8);
 
   // ── Cálculos de cotação (usados no header colapsado e na barra de progresso) ──
-  const totalComps = etapa.composicoes.length;
-  const cotadasComps = etapa.composicoes.filter(
-    c => (c.precoUnitario != null && c.precoUnitario > 0) || c.usaInsumos
+  const totalComps = etapa.items.filter(i => i.tipo !== 'etapa').length;
+  const cotadasComps = etapa.items.filter(
+    c => c.tipo !== 'etapa' && (((c as OrcamentoComposicao).precoUnitario != null && (c as OrcamentoComposicao).precoUnitario! > 0) || (c as OrcamentoComposicao).usaInsumos)
   ).length;
   const pctCotado = totalComps > 0 ? Math.round((cotadasComps / totalComps) * 100) : 0;
 
@@ -283,15 +283,15 @@ export default function EtapaBlockCard({
             />
           )}
 
-          {/* Pill de posição visual #N — código interno no tooltip */}
-          {posicao != null && (
+          {/* Pill de posição visual */}
+          <div className="flex flex-col items-center justify-center shrink-0 w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary group-hover:bg-primary/20 transition-colors shadow-sm">
             <span
-              className="text-[10px] font-bold text-muted-foreground/50 bg-muted/40 px-1.5 py-0.5 rounded shrink-0 tabular-nums leading-none font-mono select-none cursor-default"
-              title={`Etapa ${posicao} · ID interno: ${etapa.codigo}`}
+              className="text-xs font-bold font-mono tabular-nums leading-none"
+              title={`Etapa ID interno: ${etapa.codigo}`}
             >
-              #{posicao}
+              {etapa.codigo}
             </span>
-          )}
+          </div>
 
           {/* Nome */}
           {readOnly ? (
@@ -315,10 +315,10 @@ export default function EtapaBlockCard({
                 {totalComps} comp.
               </span>
               {/* Badge SINAPI — visível apenas quando colapsado */}
-              {etapa.composicoes.some(c => c.fonteReferencia === 'SINAPI') && (
+              {etapa.items.some(c => c.tipo !== 'etapa' && (c as OrcamentoComposicao).fonteReferencia === 'SINAPI') && (
                 <span
                   className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:border-blue-800 dark:text-blue-400 shrink-0"
-                  title={`${etapa.composicoes.filter(c => c.fonteReferencia === 'SINAPI').length} composição(ões) SINAPI`}
+                  title={`${etapa.items.filter(c => c.tipo !== 'etapa' && (c as OrcamentoComposicao).fonteReferencia === 'SINAPI').length} composição(ões) SINAPI`}
                 >
                   SINAPI
                 </span>
@@ -541,8 +541,8 @@ export default function EtapaBlockCard({
                     variant="ghost" size="icon"
                     className="h-7 w-7 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 shrink-0 transition-opacity opacity-0 group-hover:opacity-100"
                     onClick={() => {
-                      etapa.composicoes
-                        .filter(c => !c.precoUnitario)
+                      etapa.items
+                        .filter(c => c.tipo !== 'etapa' && !(c as OrcamentoComposicao).precoUnitario)
                         .forEach(c => onPriceBadge?.(c.id, null));
                     }}
                     aria-label="Sugerir preços desta etapa"
@@ -642,7 +642,10 @@ export default function EtapaBlockCard({
 
                 {/* Composições */}
                 <div className="space-y-0.5 rounded-b-md border border-t-0 border-border/40 bg-muted/5 p-1">
-                  {etapa.composicoes.map((comp, idx) => (
+                  {etapa.items.map((item, idx) => {
+                    if (item.tipo === 'etapa') return null; // Nested etapas are not handled in card view
+                    const comp = item as OrcamentoComposicao;
+                    return (
                     <div
                       key={comp.id}
                       className={cn(
@@ -653,8 +656,8 @@ export default function EtapaBlockCard({
                       <ComposicaoRow
                         composicao={comp}
                         unidades={unidades}
-                        onChange={c => updateComposicao(idx, c)}
-                        onRemove={() => removeComposicao(idx)}
+                        onChange={c => updateItem(idx, c)}
+                        onRemove={() => removeItem(idx)}
                         generateInsumoCodigo={generateInsumoCodigo}
                         readOnly={readOnly}
                         obraId={obraId}
@@ -667,10 +670,10 @@ export default function EtapaBlockCard({
                         bulkActive={bulkActive}
                       />
                     </div>
-                  ))}
+                  )})}
 
                   {/* Estado vazio */}
-                  {etapa.composicoes.length === 0 && (
+                  {etapa.items.length === 0 && (
                     <div className="text-center py-8">
                       <p className="text-xs text-muted-foreground">Nenhuma composição adicionada.</p>
                     </div>

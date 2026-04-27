@@ -23,6 +23,7 @@ import google.generativeai as genai
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from anthropic import Anthropic
+from consolidador import consolidar_obra
 
 load_dotenv()
 
@@ -487,6 +488,13 @@ def worker_loop():
             res_cls = supabase.table("projeto_arquivos").select("*").eq("status", "concluido").eq("classificado", False).order("created_at").limit(1).execute()
             if res_cls.data and len(res_cls.data) > 0:
                 classificar_e_indexar(res_cls.data[0])
+                continue
+                
+            # Tarefa C: Consolidação de Quantitativos (obras gerando)
+            res_quant = supabase.table("obras").select("id").eq("quantitativos_status", "gerando").limit(1).execute()
+            if res_quant.data and len(res_quant.data) > 0:
+                obra_alvo = res_quant.data[0]['id']
+                consolidar_obra(obra_alvo, supabase, anthropic)
                 continue
 
             time.sleep(10)  # Aguarda 10s

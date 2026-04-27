@@ -9,7 +9,7 @@ import { useCronograma } from '@/hooks/useCronograma';
 import { supabase } from '@/integrations/supabase/untyped';
 import {
   LayoutDashboard, AlertTriangle, CheckCircle2, BookOpen,
-  CalendarDays, Wallet, Package, ArrowRight, Lightbulb, TrendingUp, AlertCircle, PlayCircle, Info, FileSignature
+  CalendarDays, Wallet, Package, ArrowRight, Lightbulb, TrendingUp, AlertCircle, PlayCircle, Info, FileSignature, Sparkles
 } from 'lucide-react';
 import PageShell, { PageKPI } from '@/components/layout/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -380,9 +380,9 @@ export default function PainelObraPage() {
                     <Wallet className="h-5 w-5" />
                     <span className="text-[11px] font-medium">Registrar Pgto</span>
                   </Button>
-                  <Button variant="outline" className="h-[72px] flex-col justify-center items-center gap-1.5 shadow-sm border-dashed hover:border-primary hover:text-primary transition-colors hover:bg-primary/5" onClick={() => navigate('/estoque')}>
-                    <Package className="h-5 w-5" />
-                    <span className="text-[11px] font-medium">+ Estoque</span>
+                  <Button variant="outline" className="h-[72px] flex-col justify-center items-center gap-1.5 shadow-sm border-dashed hover:border-[#534AB7] hover:text-[#534AB7] transition-colors hover:bg-[#534AB7]/5 text-muted-foreground" onClick={() => navigate('/intelligence')}>
+                    <Sparkles className="h-5 w-5" />
+                    <span className="text-[11px] font-medium">Intelligence</span>
                   </Button>
                 </div>
               </section>

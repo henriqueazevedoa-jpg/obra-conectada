@@ -15,6 +15,8 @@ import { SuprimentosProvider } from "@/contexts/SuprimentosContext";
 import { CommandPaletteProvider } from "@/contexts/CommandPaletteContext";
 
 import AppLayout from "@/components/AppLayout";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { NotificationPrompt } from "@/components/pwa/NotificationPrompt";
 
 import LoginPage from "@/pages/LoginPage";
 import LandingPage from "@/pages/LandingPage";
@@ -61,6 +63,7 @@ import PlaceholderPage from "@/pages/PlaceholderPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ConfiguracoesPage from "@/pages/ConfiguracoesPage";
 import ContratosPage from "@/pages/ContratosPage";
+import IntelligencePage from "@/pages/IntelligencePage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -167,6 +170,9 @@ function AppRoutes() {
           <ProtectedRoute>
             <AppProviders>
               <AppLayout />
+              {/* PWA: Onboarding de instalação e notificações */}
+              <InstallPrompt />
+              <NotificationPrompt />
             </AppProviders>
           </ProtectedRoute>
         }
@@ -207,6 +213,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="contratos" element={<ContratosPage />} />
         <Route path="configuracoes" element={<ConfiguracoesPage />} />
+        <Route path="intelligence" element={<IntelligencePage />} />
       </Route>
 
       {/* ── Rotas Públicas (sem autenticação) ───────────────────────── */}

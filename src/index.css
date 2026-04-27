@@ -172,3 +172,24 @@
   .print\:p-1 { padding: 0.25rem !important; }
   main { padding: 0 !important; margin: 0 !important; margin-left: 0 !important; }
 }
+
+.cell-desc { flex: 0 0 var(--w-desc, 350px); width: var(--w-desc, 350px); min-width: var(--w-desc, 350px); max-width: var(--w-desc, 350px); contain: layout; }
+.cell-tipo { flex: 0 0 var(--w-tipo, 40px); width: var(--w-tipo, 40px); min-width: var(--w-tipo, 40px); max-width: var(--w-tipo, 40px); contain: layout; }
+.cell-un { flex: 0 0 var(--w-un, 40px); width: var(--w-un, 40px); min-width: var(--w-un, 40px); max-width: var(--w-un, 40px); contain: layout; }
+.cell-qtd { flex: 0 0 var(--w-qtd, 70px); width: var(--w-qtd, 70px); min-width: var(--w-qtd, 70px); max-width: var(--w-qtd, 70px); contain: layout; }
+.cell-punit { flex: 0 0 var(--w-punit, 100px); width: var(--w-punit, 100px); min-width: var(--w-punit, 100px); max-width: var(--w-punit, 100px); contain: layout; }
+.cell-total { flex: 0 0 var(--w-total, 120px); width: var(--w-total, 120px); min-width: var(--w-total, 120px); max-width: var(--w-total, 120px); contain: layout; }
+.cell-acoes { flex: 0 0 var(--w-acoes, 220px); width: var(--w-acoes, 220px); min-width: var(--w-acoes, 220px); max-width: var(--w-acoes, 220px); contain: layout; overflow: hidden; }
+.planilha-row { min-width: var(--w-min-total, 1000px); contain: layout; }
+
+/* ── Animações globais ─────────────────────────────────────────────────────── */
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+

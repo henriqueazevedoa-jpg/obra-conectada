@@ -59,8 +59,24 @@ export default function CurvaS({ tarefas }: CurvaSProps) {
           plannedWeight += (elapsedDays / totalDays) * peso;
         }
 
-        // Real progress (% concluído × peso)
-        realWeight += (t.percentual_concluido / 100) * peso;
+        // Real progress (% concluído × peso) - Simulação histórica para a curva
+        if (t.percentual_concluido > 0 && !isAfter(tStart, weekEnd)) {
+          // Dias decorridos desde o início até a semana atual
+          const elapsedToWeek = Math.max(0, (weekEnd.getTime() - tStart.getTime()) / 86400000);
+          
+          // Dias decorridos desde o início até HOJE (ou data de fim se terminou antes)
+          const todayDate = new Date();
+          const referenceEnd = isBefore(todayDate, tEnd) ? todayDate : tEnd;
+          const elapsedToToday = Math.max(1, (referenceEnd.getTime() - tStart.getTime()) / 86400000);
+          
+          // Progresso histórico estimado (linear)
+          const estimatedRealPct = Math.min(
+            t.percentual_concluido / 100, // não pode passar do atual
+            (elapsedToWeek / elapsedToToday) * (t.percentual_concluido / 100)
+          );
+          
+          realWeight += estimatedRealPct * peso;
+        }
       }
 
       plannedAcc = Math.min(100, (plannedWeight / totalPeso) * 100);

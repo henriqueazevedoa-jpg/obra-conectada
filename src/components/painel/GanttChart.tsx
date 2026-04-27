@@ -20,15 +20,28 @@ function computeStatus(cat: OrcamentoEtapa): string {
   return 'nao_iniciada';
 }
 
+function extractComposicoes(etapa: OrcamentoEtapa): import('@/contexts/OrcamentoContext').OrcamentoComposicao[] {
+  let comps: import('@/contexts/OrcamentoContext').OrcamentoComposicao[] = [];
+  for (const item of etapa.items || []) {
+    if (item.tipo === 'etapa') {
+      comps = comps.concat(extractComposicoes(item as OrcamentoEtapa));
+    } else {
+      comps.push(item as import('@/contexts/OrcamentoContext').OrcamentoComposicao);
+    }
+  }
+  return comps;
+}
+
 function computePercentual(cat: OrcamentoEtapa): number {
   if (cat.percentualCronograma != null) return cat.percentualCronograma;
-  if (!cat.usaComposicoes || cat.composicoes.length === 0) return 0;
-  const totalPeso = cat.composicoes.reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
+  const comps = extractComposicoes(cat);
+  if (comps.length === 0) return 0;
+  const totalPeso = comps.reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
   if (totalPeso === 0) {
-    const done = cat.composicoes.filter(c => c.concluida).length;
-    return Math.round((done / cat.composicoes.length) * 100);
+    const done = comps.filter(c => c.concluida).length;
+    return Math.round((done / comps.length) * 100);
   }
-  const doneW = cat.composicoes.filter(c => c.concluida).reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
+  const doneW = comps.filter(c => c.concluida).reduce((s, c) => s + (c.pesoCronograma ?? 0), 0);
   return Math.round((doneW / totalPeso) * 100);
 }
 
