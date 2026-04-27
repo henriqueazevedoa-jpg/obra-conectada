@@ -1,0 +1,106 @@
+══════════════════════════════════════════════════════════════
+CHECKLIST DE CONFIGURAÇÃO COMPLETO — LASTRA INTELLIGENCE
+(Abrange Sprints 58, 59, 60, 61, 62 e 63)
+══════════════════════════════════════════════════════════════
+
+Este checklist serve como um "Guia Definitivo" para colocar todos os recursos de Inteligência e Chat da plataforma Obra Conectada em produção.
+
+=======================================================
+A. VARIÁVEIS DE AMBIENTE - FRONTEND (MÁQUINA LOCAL / VERCEL)
+=======================================================
+As variáveis abaixo devem existir no arquivo `.env` (ou na Vercel/Netlify):
+
+VITE_SUPABASE_URL=https://sua-url-do-supabase.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-anon-key-publica
+VITE_OPENAI_API_KEY=sk-sua-chave-aqui
+
+> NOTA (Sprint 62): A VITE_OPENAI_API_KEY é usada pelo frontend diretamente para usar a Engine de Voz (Web Speech API + OpenAI Whisper para transcrição e TTS para fala). Ela precisou ficar exposta no frontend temporariamente.
+
+
+=======================================================
+B. SUPABASE - BANCO DE DADOS E MIGRATIONS (Sprints 58-63)
+=======================================================
+O projeto de inteligência criou várias tabelas ao longo dos sprints. Se você não aplicou as migrations recentemente, você deve rodar os comandos abaixo no terminal da sua máquina (requer Supabase CLI):
+  
+  supabase db push
+
+Se não tiver o Supabase CLI, copie o código das migrations contidas em `supabase/migrations/` (focando nos arquivos mais recentes como `..._create_intelligence.sql`) e rode manualmente no SQL Editor do Supabase.
+
+Tabelas Principais que devem existir no banco:
+- `chat_threads` e `chat_messages` (Sprint 58)
+- `chat_preferences` (Sprint 61/62)
+- `projeto_arquivos` e `projeto_paginas_raw` (Sprint 63)
+
+> IMPORTANTE (Sprint 63): Após criar a tabela de projetos, ative o REALTIME.
+> Supabase Dashboard → Database → Replication
+> Selecione "0 tables" ou "Source" e ATIVE as tabelas:
+> - `projeto_arquivos` (Para a barra de upload carregar no frontend)
+> - `chat_messages` (Para as mensagens do robô piscarem na tela)
+
+
+=======================================================
+C. SUPABASE - STORAGE BUCKETS (Sprint 63)
+=======================================================
+O sistema de arquivos requere buckets específicos:
+- Vá para Supabase Dashboard → Storage → "New Bucket"
+- Nomeie como: "projetos"
+- Deixe o botão "Public bucket" DESMARCADO. 
+- Tamanho e restrições: Pode deixar padrão (os PDFs pesam menos de 100MB).
+
+
+=======================================================
+D. SUPABASE - EDGE FUNCTIONS (Sprint 60 e 63)
+=======================================================
+Duas funções críticas precisam de deploy no Supabase.
+
+1. lastra-chat (Engine Textual da IA - Sprint 60)
+Comando: `supabase functions deploy lastra-chat`
+Ela requer que o Supabase acesse a OpenAI internamente de forma segura.
+Configurar Secret:
+`supabase secrets set OPENAI_API_KEY=sk-sua-chave-aqui`
+
+2. processar-pdf-webhook (Webhook de Storage - Sprint 63)
+Comando: `supabase functions deploy processar-pdf-webhook`
+Ela atende ao chamado de upload e joga na fila. Precisa da master key.
+Configurar Secret:
+`supabase secrets set SUPABASE_SERVICE_ROLE_KEY=ey... (pegue no painel API)`
+
+
+=======================================================
+E. SUPABASE - WEBHOOKS DE BANCO (Sprint 63)
+=======================================================
+Para que a Edge Function de PDF saiba quando um arquivo novo entrou:
+- Supabase Dashboard → Database → Webhooks
+- Clique "Create a new Webhook"
+- Name: "processar-pdf-storage"
+- Table: "objects" (dentro do schema "storage")
+- Events: Apenas "Insert"
+- HTTP Request: "POST"
+- URL: "https://<SUA-REF>.supabase.co/functions/v1/processar-pdf-webhook"
+- Headers:
+  Content-Type: application/json
+  Authorization: Bearer <Sua anon key ou service_role key>
+
+
+=======================================================
+F. WORKER EXTERNO PYTHON - EXTRAÇÃO DE PDF (Sprint 63)
+=======================================================
+O ambiente sem servidor (Edge) do Supabase não suporta Python puro ou limites altos de processamento exigidos por OCR/Tabelas (timeout e RAM limits). Para isso, construímos o PyWorker em `worker/`.
+
+Hospedagem Recomendada: Railway.app (ou similar docker host)
+- Crie um novo "Project" no Railway -> Deploy via Repositório GitHub.
+- Escolha a pasta "worker/" como o diretório root do Serviço.
+- Adicione as seguintes VARIÁVEIS DE AMBIENTE no serviço do Railway:
+  `SUPABASE_URL` = https://sua-url-do-supabase.supabase.co
+  `SUPABASE_SERVICE_KEY` = (A mesma key Service Role)
+- O Dockerfile baixará o PyMuPDF e pdfplumber, conectará ao DB via polling de 10s e processará cada página de PDF.
+
+=======================================================
+G. TESTE DE FUMAÇA (Smoke Test)
+=======================================================
+Para certificar que tudo roda de ponta a ponta:
+1. Abra o AppLocalmente (Vite).
+2. Clique no ícone do lastra (FAB azul no canto da tela). Tente falar com ele por voz (Segure o botão) e veja se o ChatGPT responde lendo em áudio.
+3. Acesse Detalhes de alguma Obra -> Clique na Aba "Intelligence".
+4. Arraste um PDF (planta, memorial descritivo, etc) para a caixa de upload.
+5. Verifique o Status pular de "Upload" para "Extraindo (0%)". Se a % começar a andar e ir pra 100%, seu worker Python está 100% vivo!

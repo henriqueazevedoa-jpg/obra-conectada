@@ -261,6 +261,59 @@ Objetivo:
 
 # 9) REGISTROS
 
+## [2026-04-26 15:45] [TIPO: PADRAO] [ÁREA: MOBILE, AUTH, SUPABASE] [RELEVÂNCIA: ALTA]
+**Contexto:**
+SPRINT-61 — Implementação de PWA com push notifications.
+
+**Problema ou oportunidade:**
+VAPID keys são necessárias para Web Push funcionar. São geradas uma única vez e devem ser preservadas — regen invalida todas as subscriptions existentes.
+
+**Causa raiz:**
+Push não funciona sem VAPID (RFC 8292). A chave pública vai no frontend, a privada apenas na Edge Function.
+
+**Solução aplicada:**
+Gerar com `npx web-push generate-vapid-keys`.
+- Public Key → `VITE_VAPID_PUBLIC_KEY` no `.env` do frontend
+- Private Key + Email → secrets da Edge Function `send-push` no Supabase Dashboard
+  - `VAPID_PUBLIC_KEY` = mesma public key (web-push precisa dos dois)
+  - `VAPID_PRIVATE_KEY` = chave privada
+  - `VAPID_EMAIL` = `mailto:admin@applastra.com.br`
+
+**Regra extraída:**
+Nunca regen VAPID sem limpar todas as push_subscriptions — subscriptions antigas ficam inválidas e a Edge Function retorna 410 Gone (que ela já trata removendo automaticamente).
+
+**Quando reutilizar:**
+Qualquer config inicial de push no projeto, ou ao migrar de ambiente.
+
+**Promover para memória permanente?**
+PATTERNS
+
+---
+
+## [2026-04-26 15:45] [TIPO: DECISAO] [ÁREA: MOBILE] [RELEVÂNCIA: MEDIA]
+**Contexto:**
+SPRINT-61 — suporte a push em iOS.
+
+**Problema ou oportunidade:**
+iOS suporta Web Push apenas em iOS 16.4+ e somente se o app estiver instalado como PWA (standalone). Não funciona no browser Safari sem instalação.
+
+**Causa raiz:**
+Apple restringiu push para PWAs instaladas para forçar uso de nativos até 2023; liberou parcialmente no iOS 16.4.
+
+**Solução aplicada:**
+`NotificationPrompt` detecta `display-mode: standalone` e só exibe quando instalado ou mobile. O hook verifica `'PushManager' in window` antes de qualquer subscrição.
+
+**Regra extraída:**
+Sempre verificar `isSupported` antes de chamar `subscribe()`. Não exibir UI de push em desktops.
+
+**Quando reutilizar:**
+Qualquer feature de push ou notificação no Lastra.
+
+**Promover para memória permanente?**
+Não
+
+---
+
 ## [2026-04-24 21:50] [TIPO: BUGFIX] [ÁREA: CRONOGRAMA, UI] [RELEVÂNCIA: ALTA]
 **Contexto:**
 Após Sprint D3, sistema entrou em crash com Internal Server Error 500 em GanttCanvasPanel.tsx linha 771.
@@ -519,6 +572,49 @@ Páginas com tabs, dashboards, previews, KPIs e múltiplas listas dependentes do
 
 **Hipótese invalidada:**
 “Separar fetch em cada aba deixa a arquitetura automaticamente mais limpa.”
+
+**Promover para memória permanente?**
+ARCHITECTURE-DECISIONS
+
+---
+
+## [2026-04-26 14:40] [TIPO: SPRINT] [ÁREA: PIPELINE, WORKER, SUPABASE] [RELEVÂNCIA: ALTA]
+**Contexto:**
+SPRINT-63: Ingestão de projetos em PDF para Assistant Intelligence (Sem RAG ainda).
+
+**Problema ou oportunidade:**
+A ingestão e parsing de texto/tabelas de um PDF de 100MB e 500 páginas gera timeout e exige bibliotecas (PyMuPDF) que não rodam adequadamente na infraestrutura das Edge Functions (v8 engine, limites de runtime estritos do plano Free/Pro do Supabase de 150 segundos).
+
+**Solução aplicada:**
+Migrada a arquitetura de processamento PDF para uma abordagem Worker-Pull Assíncrona. 
+1. Upload pelo Cliente para o `Storage` (`projetos/`).
+2. Webhook via Tabela (Supabase) atira uma Edge Function Deno extremamente rápida (`processar-pdf-webhook`) apenas para extrair a URI e jogar na fila (`projeto_arquivos`).
+3. Worker Python externo rodando em polling no Railway. Baixa da RAM, decodifica com `fitz` e `pdfplumber`, e joga linha por linha de tabela/texto de forma segura para o Supabase PostgreSQL.
+
+**Regra extraída:**
+Processamento denso (CPU/Memória intensivo como PDF Parsing/Video/Imagens longas) deve ser enfileirado no PostgreSQL e processado por um servidor externo (Railway/Docker) enquanto o Supabase cuida da sinalização Realtime para o front-end.
+
+**Promover para memória permanente?**
+ARCHITECTURE-DECISIONS
+
+---
+
+## [2026-04-26 17:00] [TIPO: SPRINT] [ÁREA: RAG, IA, WORKER] [RELEVÂNCIA: ALTA]
+**Contexto:**
+SPRINT-64: Classificação com Sonnet e Indexação Vetorial no pgvector.
+
+**Problema ou oportunidade:**
+Fazer buscas textuais ou vetorizar todo o conteúdo de um PDF estrutural / arquitetônico geraria muito lixo (cotas soltas, carimbos sem contexto, plantas em branco). Precisávamos de uma Camada de Julgamento antes da camada de Indexação.
+
+**Solução aplicada:**
+Implementação de Pipeline Triplo:
+1. Extração local de tabelas e textos (Sprint 63).
+2. Agrupamento (Lotes de 20 páginas) e envio para `claude-sonnet-4-6`. O LLM é instruído via System Prompt a detectar sequências de plantas (pagina_par), extrair entidades próprias de engenharia (areas, materiais, aco, pilares) e marcar "descartar" para lixo.
+3. Limpeza local de Regex de sequências de números sem contexto.
+4. Geração do vetor de Embeddings de 1536 dimensões via `text-embedding-3-small` da OpenAI para as páginas salvas e injeção do vetor na tabela `projeto_chunks` com índice `ivfflat`.
+
+**Regra extraída:**
+Para RAG Corporativo de qualidade (Engenharia Civil e PDF): "Sempre filtre as páginas através de um modelo de linguagem forte (como Sonnet) e limpe metadados espúrios com Regex (cotas não documentadas) antes de gerar os embeddings Vetoriais". Reduz drasticamente custos de RAG e alucinação na busca.
 
 **Promover para memória permanente?**
 ARCHITECTURE-DECISIONS

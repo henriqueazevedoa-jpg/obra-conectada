@@ -232,11 +232,40 @@ function asStatusCronograma(
 }
 
 // --- DB mapping helpers ---
+
+/**
+ * Normaliza origem_grupo_titulo (preenchido pelo seed) para o enum interno tipo_item.
+ * Aceita variantes com e sem acento, caixa mista.
+ */
+function normalizeOrigemToTipoItem(
+  value: unknown
+): 'material' | 'mao_obra' | 'equipamento' | 'servico' | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const v = value.trim().toLowerCase();
+  if (v === 'material') return 'material';
+  if (v === 'mão de obra' || v === 'mao de obra' || v === 'mão-de-obra' || v === 'mo') return 'mao_obra';
+  if (v === 'equipamento' || v === 'equipment') return 'equipamento';
+  if (v === 'serviço' || v === 'servico' || v === 'serviços') return 'servico';
+  return undefined;
+}
 function dbToInsumo(row: DbRow): OrcamentoInsumo {
+  // Fallback de descrição: descricao → nome → string vazia
+  const descricao =
+    asOptionalString(row.descricao) ??
+    asOptionalString(row.nome) ??
+    'Insumo sem descrição';
+
+  // Fallback de tipo: tipo_item → tipo → origem_grupo_titulo → 'material'
+  const tipo_item: OrcamentoInsumo['tipo_item'] =
+    normalizeOrigemToTipoItem(row.tipo_item) ??
+    normalizeOrigemToTipoItem(row.tipo) ??
+    normalizeOrigemToTipoItem(row.origem_grupo_titulo) ??
+    'material';
+
   return {
     id: asString(row.id),
     codigo: asString(row.codigo),
-    descricao: asString(row.descricao),
+    descricao,
     unidade: asString(row.unidade),
     quantidade: asNullableNumber(row.quantidade),
     precoUnitario: asNullableNumber(row.preco_unitario),
@@ -253,7 +282,7 @@ function dbToInsumo(row: DbRow): OrcamentoInsumo {
     sinapiConfidence: asOptionalString(row.sinapi_confidence),
     sinapiConfirmado: asBoolean(row.sinapi_confirmado),
 
-    tipo_item: (row.tipo_item as any) || 'material',
+    tipo_item,
     regime_mo: (row.regime_mo as any) || null,
   };
 }

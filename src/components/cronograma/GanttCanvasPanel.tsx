@@ -46,7 +46,9 @@ const STATUS_COLORS: Record<string, { bar: string; bg: string; text: string }> =
 };
 
 // Cores fixas para subetapas (azul, independente do status)
-const SUBTASK_COLOR = { done: '#3B82F6', pending: '#BFDBFE' };
+const SUBTASK_COLOR = { done: '#60a5fa', pending: '#bfdbfe' };
+// Cores fixas para barras de RESUMO (roxo, destaque hierárquico)
+const SUMMARY_COLOR = { bar: '#7c3aed', bg: '#ede9fe', progress: '#8b5cf6' };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -206,10 +208,11 @@ interface ArrowsProps {
   dateToX: (d: string | null) => number;
   criticalIds: Set<string>;
   onRemoveDependencia: (id: string) => void;
+  onEditDependencia?: (dep: CronogramaDependencia, x: number, y: number) => void;
   connectedNodes: Set<string> | null;
 }
 
-function DependencyArrows({ deps, tarefas, tarefaRows, dateToX, criticalIds, onRemoveDependencia, connectedNodes }: ArrowsProps) {
+function DependencyArrows({ deps, tarefas, tarefaRows, dateToX, criticalIds, onRemoveDependencia, onEditDependencia, connectedNodes }: ArrowsProps) {
   const taskMap = new Map(tarefas.map(t => [t.id, t]));
   const totalHeight = (tarefas.length + 1) * ROW_H;
   const [hoveredDepId, setHoveredDepId] = useState<string | null>(null);
@@ -276,6 +279,10 @@ function DependencyArrows({ deps, tarefas, tarefaRows, dateToX, criticalIds, onR
               style={{ cursor: "pointer" }}
               onMouseEnter={() => setHoveredDepId(dep.id)}
               onMouseLeave={() => setHoveredDepId(null)}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onEditDependencia?.(dep, e.clientX, e.clientY);
+              }}
             />
             {/* Glow on hover */}
             {isHov && (
@@ -305,24 +312,6 @@ function DependencyArrows({ deps, tarefas, tarefaRows, dateToX, criticalIds, onR
                 </g>
               );
             })()}
-            {/* Delete button — visible on hover, uses SVG attr to capture clicks */}
-            {isHov && (
-              <g
-                pointerEvents="all"
-                style={{ cursor: "pointer" }}
-                onMouseEnter={() => setHoveredDepId(dep.id)}
-                onMouseLeave={() => setHoveredDepId(null)}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  onRemoveDependencia(dep.id);
-                }}
-                transform={`translate(${mx + ((dep.tipo !== "FS" || dep.lag_dias !== 0) ? 18 : 0)}, ${my - ((dep.tipo !== "FS" || dep.lag_dias !== 0) ? 12 : 0)})`}
-              >
-                <circle r={9} fill="#ef4444" stroke="#ffffff" strokeWidth={1.5} />
-                <line x1={-3.5} y1={-3.5} x2={3.5} y2={3.5} stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
-                <line x1={3.5} y1={-3.5} x2={-3.5} y2={3.5} stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
-              </g>
-            )}
           </g>
         );
       })}
@@ -366,19 +355,23 @@ interface GanttBarProps {
 
 function GanttBar({ tarefa, x, width, baselineX, baselineWidth, isSelected, statusKey, nivel = 1, isHovered, isDropTarget, dropHintSide, onBarMouseEnter, onBarMouseLeave, onPointerDownMove, onPointerDownResize, onPointerDownDragDepEnd, onPointerDownDragDepStart, onDoubleClick, onClick, isAutoSchedule, isDimmed }: GanttBarProps) {
   const isSubtask = nivel > 1;
+  const isSummary = tarefa.tipo_tarefa === 'RESUMO';
   const colors = STATUS_COLORS[statusKey] ?? STATUS_COLORS.nao_iniciada;
   const isMilestone = tarefa.tipo_tarefa === 'MARCO';
 
-  // Subetapas usam cores azuis fixas e altura reduzida
-  const barH     = isSubtask ? SUB_BAR_H : BAR_H;
-  const offsetY  = isSubtask ? SUB_BAR_OFFSET_Y : BAR_OFFSET_Y;
-  const barColor = isSubtask ? SUBTASK_COLOR.done : colors.bar;
-  const bgOpacity = isSubtask ? 0.25 : 0.22;
-  const progressOpacity = isSubtask ? 0.9 : 0.85;
+  // Three-tier visual hierarchy:
+  // RESUMO (parent groups): tall bar, purple, bold
+  // Normal tasks (nivel 1):  standard bar, status colors
+  // Subtasks (nivel > 1):    short bar, blue
+  const barH     = isSummary ? 26 : isSubtask ? SUB_BAR_H : BAR_H;
+  const offsetY  = (ROW_H - barH) / 2;
+  const barColor = isSummary ? SUMMARY_COLOR.bar : isSubtask ? SUBTASK_COLOR.done : colors.bar;
+  const bgOpacity = isSummary ? 0.18 : isSubtask ? 0.25 : 0.22;
+  const progressOpacity = isSummary ? 0.9 : isSubtask ? 0.9 : 0.85;
 
   const progressWidth = Math.max(0, (tarefa.percentual_concluido / 100) * width);
   // Subetapa: parte pendente em azul claro, parte executada em azul médio
-  const pendingColor = isSubtask ? SUBTASK_COLOR.pending : barColor;
+  const pendingColor = isSummary ? SUMMARY_COLOR.bg : isSubtask ? SUBTASK_COLOR.pending : barColor;
 
   return (
     <g className="gantt-bar-group" onMouseEnter={e => onBarMouseEnter(e)} onMouseLeave={onBarMouseLeave} style={{ opacity: isDimmed ? 0.3 : 1, transition: "opacity 0.2s" }}>
@@ -581,10 +574,14 @@ interface GanttCanvasPanelProps {
   childrenOf?: (parentId: string) => CronogramaTarefa[];
   scrollRef?: React.RefObject<HTMLDivElement>;
   isAutoSchedule?: boolean;
+  expandedIds?: Set<string>;
+  onToggleExpand?: (id: string) => void;
+  onScrollRefReady?: () => void;
+  compactMode?: boolean;
 }
 
 export default function GanttCanvasPanel({
-  tarefas, dependencias, selectedId, onSelectTarefa, onOpenDrawer, onUpdateTarefa, onShiftTree, childrenOf, onAddDependencia, onRemoveDependencia, scrollRef, isAutoSchedule = true
+  tarefas, dependencias, selectedId, onSelectTarefa, onOpenDrawer, onUpdateTarefa, onShiftTree, childrenOf, onAddDependencia, onRemoveDependencia, scrollRef, isAutoSchedule = true, expandedIds: externalExpandedIds, onToggleExpand: externalToggleExpand, onScrollRefReady, compactMode = false
 }: GanttCanvasPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -609,6 +606,7 @@ export default function GanttCanvasPanel({
   const [dragDep, setDragDep] = useState<{ tarefaId: string; fromSide: 'start' | 'end'; startX: number; startY: number; initialViewStart: Date } | null>(null);
   const dragDepLineRef = useRef<SVGPathElement>(null);
   const [hoverDepDrop, setHoverDepDrop] = useState<{ id: string; toSide: 'start' | 'end' } | null>(null);
+  const [editingDep, setEditingDep] = useState<{ dep: CronogramaDependencia, x: number, y: number } | null>(null);
   const [hoveredBarId, setHoveredBarId] = useState<string | null>(null);
   const [pendingDep, setPendingDep] = useState<{ origemId: string; destinoId: string; x: number; y: number } | null>(null);
   const [previewDates, setPreviewDates] = useState<Record<string, { start: string; end: string }>>({});
@@ -699,14 +697,12 @@ export default function GanttCanvasPanel({
     const el = wrapperRef.current;
     if (!el) return;
 
-    const handleWheel = (e: WheelEvent) => {
-      // Zoom se usar Pinch (ctrlKey) OU se for um scroll vertical comum (deltaY > deltaX)
-      if (e.ctrlKey || (!e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX))) {
-        // Pinch-to-zoom / Mouse scroll zoom
+    const handleWheelUnified = (e: WheelEvent) => {
+      // Ctrl/Meta + wheel = HORIZONTAL ZOOM (pinch-to-zoom also sends ctrlKey)
+      if (e.ctrlKey || e.metaKey) {
         if (e.cancelable) e.preventDefault();
         const zoomDelta = e.deltaY * 0.01;
         
-        // Ponto de foco (0 a 1 em relação à largura do canvas)
         const rect = el.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const P = mouseX / Math.max(rect.width, 1);
@@ -720,7 +716,6 @@ export default function GanttCanvasPanel({
           const newSpan = currentSpan * (1 + zoomDelta);
           const clampedSpan = Math.max(5, Math.min(newSpan, 3650));
           
-          // Compensa o viewStart para manter a data sob o mouse parada
           if (clampedSpan !== currentSpan) {
             setViewStart(prevStart => {
               const daysShift = (currentSpan! - clampedSpan) * P;
@@ -731,17 +726,18 @@ export default function GanttCanvasPanel({
           return clampedSpan;
         });
       } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        // Horizontal pan
+        // Shift + wheel OR horizontal trackpad = horizontal pan
         if (e.cancelable) e.preventDefault();
         const scrollAmount = e.deltaX !== 0 ? e.deltaX : e.deltaY;
         const ppd = Math.max(latestState.current.canvasWidth, 200) / latestState.current.viewSpanDays;
         const daysToShift = scrollAmount / ppd;
         setViewStart(prev => addDays(prev, daysToShift));
       }
+      // Normal vertical scroll (no modifier) → native browser scrolling (propagates)
     };
 
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
+    el.addEventListener('wheel', handleWheelUnified, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheelUnified);
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -777,16 +773,31 @@ export default function GanttCanvasPanel({
   }, [isPanning]);
 
   const criticalIds = useMemo(() => computeCriticalPath(tarefas, dependencias), [tarefas, dependencias]);
-  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set());
+  // Use external expandedIds if provided (sync with list), otherwise fallback to internal state
+  const [internalCollapsedParents, setInternalCollapsedParents] = useState<Set<string>>(new Set());
 
   const toggleCollapse = useCallback((parentId: string) => {
-    setCollapsedParents(prev => {
-      const next = new Set(prev);
-      if (next.has(parentId)) next.delete(parentId);
-      else next.add(parentId);
-      return next;
-    });
-  }, []);
+    if (externalToggleExpand) {
+      externalToggleExpand(parentId);
+    } else {
+      setInternalCollapsedParents(prev => {
+        const next = new Set(prev);
+        if (next.has(parentId)) next.delete(parentId);
+        else next.add(parentId);
+        return next;
+      });
+    }
+  }, [externalToggleExpand]);
+
+  // Determine if a node is expanded
+  const isNodeExpanded = useCallback((nodeId: string): boolean => {
+    if (externalExpandedIds) {
+      // External mode: expandedIds contains IDs that ARE expanded
+      return externalExpandedIds.has(nodeId);
+    }
+    // Internal mode: collapsedParents contains IDs that ARE collapsed
+    return !internalCollapsedParents.has(nodeId);
+  }, [externalExpandedIds, internalCollapsedParents]);
 
   // GANTT-2: traversal recursivo N-níveis
   const collectVisible = useCallback((
@@ -800,12 +811,12 @@ export default function GanttCanvasPanel({
     for (const node of nodes) {
       result.push({ ...node, _nivel: nivel });
       const hasChildren = (childrenOf ? childrenOf(node.id) : tarefas.filter(t => t.parent_tarefa_id === node.id)).length > 0;
-      if (hasChildren && !collapsedParents.has(node.id)) {
+      if (hasChildren && isNodeExpanded(node.id)) {
         result.push(...collectVisible(node.id, nivel + 1));
       }
     }
     return result;
-  }, [tarefas, collapsedParents, childrenOf]);
+  }, [tarefas, isNodeExpanded, childrenOf]);
 
   const visibleTarefas = useMemo(() => collectVisible(null, 1), [collectVisible]);
 
@@ -843,8 +854,9 @@ export default function GanttCanvasPanel({
     addSuccessors(hoveredBarId);
     return nodes;
   }, [hoveredBarId, dependencias]);
-
-  const totalCanvasHeight = Math.max(visibleTarefas.length * ROW_H + 32, 200);
+  // In compact mode, rows are shorter to match the list panel
+  const effectiveRowH = compactMode ? 28 : ROW_H;
+  const totalCanvasHeight = Math.max(visibleTarefas.length * effectiveRowH + 32, 200);
   const todayX = dateToX(format(new Date(), 'yyyy-MM-dd'));
 
 
@@ -918,7 +930,7 @@ export default function GanttCanvasPanel({
     const barStart = tarefa.data_inicio ? dateToX(tarefa.data_inicio) : 0;
     const barEnd   = tarefa.data_fim   ? dateToX(tarefa.data_fim) + 8 : barStart + 40;
     const startX = fromSide === 'end' ? barEnd : barStart;
-    const startY = rowIdx * ROW_H + ROW_H / 2 + 8;
+    const startY = rowIdx * effectiveRowH + effectiveRowH / 2 + 8;
     setDragDep({ tarefaId: tarefa.id, fromSide, startX, startY, initialViewStart: viewStart });
     setTooltip(null);
     
@@ -1117,50 +1129,8 @@ export default function GanttCanvasPanel({
     }
   }, [drag, dragDep, handleMouseMove, handleMouseUpLocal, zoom]);
 
-  // ── Semantic Zoom ──
-  const handleWheel = useCallback((e: WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const zoomLevels: ZoomLevel[] = ['days', 'weeks', 'months', 'quarters'];
-      const currentIndex = zoomLevels.indexOf(zoom);
-      
-      let nextIndex = currentIndex;
-      if (e.deltaY > 0) {
-        nextIndex = Math.min(currentIndex + 1, zoomLevels.length - 1);
-      } else if (e.deltaY < 0) {
-        nextIndex = Math.max(currentIndex - 1, 0);
-      }
-      
-      if (nextIndex !== currentIndex) {
-        const rect = wrapperRef.current?.getBoundingClientRect();
-        if (rect) {
-          const mouseX = e.clientX - rect.left;
-          const ppd = pxPerDay();
-          const daysFromStart = mouseX / ppd;
-          const mouseDate = addDays(viewStart, Math.round(daysFromStart));
-          
-          const nextZoom = zoomLevels[nextIndex];
-          const newSpanDays = nextZoom === 'days' ? 30 : nextZoom === 'weeks' ? 70 : nextZoom === 'months' ? 180 : 365;
-          const newPpd = Math.max(latestState.current.canvasWidth, 200) / newSpanDays;
-          
-          const newDaysFromStart = mouseX / newPpd;
-          const newViewStart = addDays(mouseDate, -Math.round(newDaysFromStart));
-          
-          setZoom(nextZoom);
-          setFitSpanDays(null);
-          setViewStart(newViewStart);
-        }
-      }
-    }
-  }, [zoom, viewStart, pxPerDay]);
-
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (el) {
-      el.addEventListener('wheel', handleWheel, { passive: false });
-      return () => el.removeEventListener('wheel', handleWheel);
-    }
-  }, [handleWheel]);
+  // Semantic zoom is now handled by the unified wheel handler above.
+  // The Dias/Semanas/Meses/Trim buttons still work via setZoom().
 
   const colPositions = useMemo(() => {
     const ppd = pxPerDay();
@@ -1295,8 +1265,12 @@ export default function GanttCanvasPanel({
             if (typeof scrollRef === 'function') scrollRef(el);
             else (scrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
           }
+          // Notify parent that scroll ref is ready for sync
+          if (el && onScrollRefReady) {
+            requestAnimationFrame(onScrollRefReady);
+          }
         }}
-        className={cn("flex-1 overflow-auto scrollbar-none", isPanning ? "cursor-grabbing" : "cursor-grab")}
+        className={cn("flex-1 overflow-y-auto overflow-x-hidden", isPanning ? "cursor-grabbing" : "cursor-grab")}
         style={{ minHeight: 0 }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -1312,7 +1286,7 @@ export default function GanttCanvasPanel({
               </g>
             ))}
             {visibleTarefas.map((_, i) => (
-              <rect key={i} x={0} y={i * ROW_H} width="100%" height={ROW_H} fill={i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)'} />
+              <rect key={i} x={0} y={i * effectiveRowH} width="100%" height={effectiveRowH} fill={i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)'} />
             ))}
             {/* ── Today line ── */}
             {todayX > 0 && visibleTarefas.length > 0 && (
@@ -1339,7 +1313,7 @@ export default function GanttCanvasPanel({
                 <circle cx={todayX} cy={12} r={3.5} fill="#ef4444" opacity={0.85} />
               </g>
             )}
-            <DependencyArrowsMemo deps={dependencias} tarefas={visibleTarefas} tarefaRows={tarefaRows} dateToX={dateToX} criticalIds={criticalIds} onRemoveDependencia={id => onRemoveDependencia?.(id)} connectedNodes={connectedNodes} />
+            <DependencyArrowsMemo deps={dependencias} tarefas={visibleTarefas} tarefaRows={tarefaRows} dateToX={dateToX} criticalIds={criticalIds} onRemoveDependencia={id => onRemoveDependencia?.(id)} onEditDependencia={(dep, x, y) => setEditingDep({ dep, x, y })} connectedNodes={connectedNodes} />
             {visibleTarefas.map((tarefa, rowIdx) => {
               const nivel = (tarefa as VisibleTarefa)._nivel ?? 1;
               const indent = (nivel - 1) * SUB_INDENT;
@@ -1347,12 +1321,12 @@ export default function GanttCanvasPanel({
               const displayStart = preview?.start ?? tarefa.data_inicio;
               const displayEnd = preview?.end ?? tarefa.data_fim;
               const hasChildren = (childrenOf ? childrenOf(tarefa.id) : tarefas.filter(t => t.parent_tarefa_id === tarefa.id)).length > 0;
-              const isCollapsed = collapsedParents.has(tarefa.id);
+              const isCollapsed = !isNodeExpanded(tarefa.id);
               const isHovered = hoveredBarId === tarefa.id;
               const isDropTarget = !!dragDep && hoverDepDrop?.id === tarefa.id && hoverDepDrop?.id !== dragDep?.tarefaId;
               if (!displayStart || !displayEnd) return (
-                <g key={tarefa.id} transform={`translate(0, ${rowIdx * ROW_H})`}>
-                  {hasChildren && <text x={indent + 4} y={ROW_H / 2 + 4} fontSize="8" fill="#94a3b8" dominantBaseline="middle" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleCollapse(tarefa.id)}>{isCollapsed ? '▶' : '▼'}</text>}
+                <g key={tarefa.id} transform={`translate(0, ${rowIdx * effectiveRowH})`}>
+                  {hasChildren && <text x={indent + 4} y={effectiveRowH / 2 + 4} fontSize="8" fill="#94a3b8" dominantBaseline="middle" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleCollapse(tarefa.id)}>{isCollapsed ? '▶' : '▼'}</text>}
                 </g>
               );
               const x = dateToX(displayStart) + indent;
@@ -1362,7 +1336,7 @@ export default function GanttCanvasPanel({
               const baselineWidth = baseX !== null && baseX2 !== null ? Math.max(baseX2 - baseX + pxPerDay() - indent, 4) : 0;
               const statusKey = criticalIds.has(tarefa.id) ? 'critico' : computeStatus(tarefa);
               return (
-                <g key={tarefa.id} transform={`translate(0, ${rowIdx * ROW_H})`}>
+                <g key={tarefa.id} transform={`translate(0, ${rowIdx * effectiveRowH})`}>
                   {/* Linha vertical de hierarquia */}
                   {nivel > 1 && (
                     <line
@@ -1509,6 +1483,52 @@ export default function GanttCanvasPanel({
                 </div>
               </div>
             </div>,
+            document.body
+          )}
+
+          {/* ── Dependency Editor Popover ── */}
+          {editingDep && createPortal(
+            <>
+              <div className="fixed inset-0 z-40" onPointerDown={() => setEditingDep(null)} />
+              <div 
+                className="fixed z-50 bg-background border border-border shadow-lg rounded-md p-3 flex flex-col gap-3 min-w-[200px]"
+                style={{ left: editingDep.x, top: editingDep.y, transform: 'translate(-50%, -100%)', marginTop: '-10px' }}
+                onPointerDown={e => e.stopPropagation()}
+              >
+                <div className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                  Editar Vínculo
+                  <button className="text-muted-foreground hover:text-foreground" onClick={() => setEditingDep(null)}>✕</button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-muted-foreground">Tipo de Relacionamento</label>
+                  <select 
+                    className="text-xs border border-border rounded p-1.5 bg-muted/50 focus:outline-none focus:border-primary"
+                    value={editingDep.dep.tipo}
+                    onChange={(e) => {
+                      const newType = e.target.value as TipoDep;
+                      if (onRemoveDependencia && onAddDependencia) {
+                        onRemoveDependencia(editingDep.dep.id);
+                        setTimeout(() => onAddDependencia(editingDep.dep.tarefa_origem_id, editingDep.dep.tarefa_destino_id, newType, editingDep.dep.lag_dias), 50);
+                      }
+                      setEditingDep(null);
+                    }}
+                  >
+                    <option value="FS">Término-Início (FS)</option>
+                    <option value="SS">Início-Início (SS)</option>
+                    <option value="FF">Término-Término (FF)</option>
+                    <option value="SF">Início-Término (SF)</option>
+                  </select>
+                </div>
+                <div className="flex justify-between mt-1 pt-2 border-t border-border">
+                   <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 px-2 w-full" onClick={() => {
+                     onRemoveDependencia?.(editingDep.dep.id);
+                     setEditingDep(null);
+                   }}>
+                     Excluir Vínculo
+                   </Button>
+                </div>
+              </div>
+            </>,
             document.body
           )}
 

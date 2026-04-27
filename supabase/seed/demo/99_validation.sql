@@ -1,0 +1,7 @@
+-- =====================================================
+-- 99_validation.sql
+-- Verificações de integridade após seed completo
+-- =====================================================
+-- Validações serão adicionadas conforme módulos
+-- são populados nos Sprints Seed 02-06.
+-- =====================================================

@@ -16,7 +16,7 @@ import {
   Save, ChevronDown, ChevronRight, BarChart3, List, Pencil,
   Lock, Unlock, MoreHorizontal, Trash2, Link2, TrendingUp, Loader2,
   ClipboardCheck, Wand2, Presentation, FileText, DollarSign, Play,
-  Download, LineChart, BarChart2
+  Download, LineChart, BarChart2, Layers, Filter, Minimize2, Maximize2, Eye
 } from 'lucide-react';
 import ModoApresentacao from '@/components/cronograma/ModoApresentacao';
 import ImportarOrcamentoDialog from '@/components/cronograma/ImportarOrcamentoDialog';
@@ -68,11 +68,11 @@ function readBool(key: string, fallback: boolean): boolean {
 
 // ─── Status Config ────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode; bar: string }> = {
-  nao_iniciada: { label: 'Não Iniciada', color: 'text-[#888780]', icon: <Clock className="h-3.5 w-3.5" style={{ color: '#888780' }} />,        bar: 'bg-[#888780]' },
-  em_andamento: { label: 'Em Andamento', color: 'text-[#185FA5]', icon: <CalendarDays className="h-3.5 w-3.5" style={{ color: '#185FA5' }} />, bar: 'bg-[#185FA5]' },
-  concluida:    { label: 'Concluída',    color: 'text-[#3B6D11]', icon: <CheckCircle2 className="h-3.5 w-3.5" style={{ color: '#3B6D11' }} />, bar: 'bg-[#3B6D11]' },
-  atrasada:     { label: 'Atrasada',     color: 'text-[#A32D2D]', icon: <AlertTriangle className="h-3.5 w-3.5" style={{ color: '#A32D2D' }} />, bar: 'bg-[#A32D2D]' },
+const STATUS_CONFIG: Record<string, { label: string; color: string; hex: string; icon: React.ReactNode; bar: string }> = {
+  nao_iniciada: { label: 'Não Iniciada', color: 'text-[#888780]', hex: '#888780', icon: <Clock className="h-3.5 w-3.5" style={{ color: '#888780' }} />,        bar: 'bg-[#888780]' },
+  em_andamento: { label: 'Em Andamento', color: 'text-[#185FA5]', hex: '#185FA5', icon: <CalendarDays className="h-3.5 w-3.5" style={{ color: '#185FA5' }} />, bar: 'bg-[#185FA5]' },
+  concluida:    { label: 'Concluída',    color: 'text-[#3B6D11]', hex: '#3B6D11', icon: <CheckCircle2 className="h-3.5 w-3.5" style={{ color: '#3B6D11' }} />, bar: 'bg-[#3B6D11]' },
+  atrasada:     { label: 'Atrasada',     color: 'text-[#A32D2D]', hex: '#A32D2D', icon: <AlertTriangle className="h-3.5 w-3.5" style={{ color: '#A32D2D' }} />, bar: 'bg-[#A32D2D]' },
 };
 
 function computeStatusTarefa(t: CronogramaTarefa): string {
@@ -81,6 +81,130 @@ function computeStatusTarefa(t: CronogramaTarefa): string {
   if (t.data_fim && isBefore(parseISO(t.data_fim), hoje)) return 'atrasada';
   if (t.data_inicio && isBefore(parseISO(t.data_inicio), hoje)) return 'em_andamento';
   return 'nao_iniciada';
+}
+
+// ─── Gantt Minimap ────────────────────────────────────────────────────────────
+
+interface GanttMinimapProps {
+  tarefas: CronogramaTarefa[];
+  scrollRef: React.RefObject<HTMLDivElement>;
+  height?: number;
+}
+
+function GanttMinimap({ tarefas, scrollRef, height = 36 }: GanttMinimapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [viewportFraction, setViewportFraction] = useState({ start: 0, end: 1 });
+
+  // Compute the full timeline extent
+  const extent = useMemo(() => {
+    let minDate = Infinity;
+    let maxDate = -Infinity;
+    tarefas.forEach(t => {
+      if (t.data_inicio) {
+        const d = parseISO(t.data_inicio).getTime();
+        if (d < minDate) minDate = d;
+      }
+      if (t.data_fim) {
+        const d = parseISO(t.data_fim).getTime();
+        if (d > maxDate) maxDate = d;
+      }
+    });
+    if (minDate === Infinity || maxDate === -Infinity) return null;
+    // Add 5% padding on each side
+    const range = maxDate - minDate || 1;
+    return { min: minDate - range * 0.05, max: maxDate + range * 0.05, range: range * 1.1 };
+  }, [tarefas]);
+
+  // Track scroll position to show viewport indicator
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      if (scrollHeight <= clientHeight) {
+        setViewportFraction({ start: 0, end: 1 });
+      } else {
+        setViewportFraction({
+          start: scrollTop / scrollHeight,
+          end: (scrollTop + clientHeight) / scrollHeight,
+        });
+      }
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    return () => el.removeEventListener('scroll', update);
+  }, [scrollRef.current]);
+
+  if (!extent || tarefas.length === 0) return null;
+
+  const barH = Math.max(1, Math.min(3, (height - 4) / tarefas.length));
+  const totalH = tarefas.length * barH;
+
+  const handleClick = (e: React.MouseEvent) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickY = (e.clientY - rect.top) / rect.height;
+    const target = clickY * el.scrollHeight - el.clientHeight / 2;
+    el.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onClick={handleClick}
+      style={{
+        height, width: '100%',
+        background: 'var(--color-background-secondary, #f8f8f8)',
+        borderTop: '0.5px solid var(--color-border-secondary)',
+        cursor: 'pointer',
+        position: 'relative',
+        overflow: 'hidden',
+        flexShrink: 0,
+      }}
+      title="Clique para navegar"
+    >
+      {/* Viewport indicator */}
+      <div
+        style={{
+          position: 'absolute',
+          top: `${viewportFraction.start * 100}%`,
+          height: `${Math.max(8, (viewportFraction.end - viewportFraction.start) * 100)}%`,
+          left: 0, right: 0,
+          background: 'var(--color-primary, #534AB7)',
+          opacity: 0.08,
+          borderRadius: 2,
+          transition: 'top 0.1s, height 0.1s',
+          pointerEvents: 'none',
+        }}
+      />
+      <svg width="100%" height={height} style={{ display: 'block' }}>
+        {tarefas.map((t, i) => {
+          if (!t.data_inicio || !t.data_fim) return null;
+          const start = parseISO(t.data_inicio).getTime();
+          const end = parseISO(t.data_fim).getTime();
+          const x1 = ((start - extent.min) / extent.range) * 100;
+          const x2 = ((end - extent.min) / extent.range) * 100;
+          const status = computeStatusTarefa(t);
+          const color = STATUS_CONFIG[status]?.hex ?? '#94a3b8';
+          const isSummary = t.tipo_tarefa === 'RESUMO';
+          const y = (i / tarefas.length) * height;
+          return (
+            <rect
+              key={t.id}
+              x={`${x1}%`}
+              y={y}
+              width={`${Math.max(x2 - x1, 0.5)}%`}
+              height={isSummary ? barH + 1 : barH}
+              fill={isSummary ? '#7c3aed' : color}
+              opacity={isSummary ? 0.7 : 0.5}
+              rx={0.5}
+            />
+          );
+        })}
+      </svg>
+    </div>
+  );
 }
 
 // ─── WBS Row ──────────────────────────────────────────────────────────────────
@@ -125,9 +249,11 @@ interface WBSRowProps {
   onDragOver: (id: string) => void;
   onDrop: (id: string) => void;
   onAddBelow: (parentId: string | null, nivel: number, ordem: number, tipo: TipoTarefa) => void;
+  compactMode?: boolean;
+  isDimmed?: boolean;
 }
 
-function WBSRow({ tarefa, allTarefas, expandedIds, selectedId, checkedIds, criticalIds, dragId, dragOverId, onToggleExpand, onSelect, onToggleCheck, onUpdate, onDelete, onOpenDrawer, onDragStart, onDragOver, onDrop, onAddBelow }: WBSRowProps) {
+function WBSRow({ tarefa, allTarefas, expandedIds, selectedId, checkedIds, criticalIds, dragId, dragOverId, onToggleExpand, onSelect, onToggleCheck, onUpdate, onDelete, onOpenDrawer, onDragStart, onDragOver, onDrop, onAddBelow, compactMode = false, isDimmed = false }: WBSRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const children = useMemo(() => allTarefas.filter(t => t.parent_tarefa_id === tarefa.id).sort((a,b) => a.ordem - b.ordem), [allTarefas, tarefa.id]);
   const status = computeStatusTarefa(tarefa);
@@ -142,6 +268,7 @@ function WBSRow({ tarefa, allTarefas, expandedIds, selectedId, checkedIds, criti
   const isSummary = tarefa.tipo_tarefa === 'RESUMO' || hasChildren;
   const isMilestone = tarefa.tipo_tarefa === 'MARCO';
   const indent = Math.min((tarefa.nivel - 1) * 14, 70);
+  const rowH = compactMode ? 28 : 38;
   return (
     <>
       <div
@@ -150,7 +277,12 @@ function WBSRow({ tarefa, allTarefas, expandedIds, selectedId, checkedIds, criti
         onDrop={e => { e.preventDefault(); onDrop(tarefa.id); }}
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddBelow(tarefa.parent_tarefa_id ?? null, tarefa.nivel, tarefa.ordem + 1, 'PADRAO'); } }}
         className={cn('group grid border-b border-border/50 cursor-pointer transition-colors items-center outline-none focus-visible:ring-1 focus-visible:ring-primary/40', isSelected ? 'bg-primary/[0.06] border-l-2 border-l-primary' : 'hover:bg-muted/30', isSummary && !isSelected && 'bg-muted/[0.12]', isDragging && 'opacity-40', isDragOver && 'border-t-2 border-t-primary')}
-        style={{ gridTemplateColumns: '20px 1fr 52px 52px 48px 88px', height: 38 }}
+        style={{
+          gridTemplateColumns: compactMode ? '20px 1fr 60px' : '20px 1fr 52px 52px 48px 88px',
+          height: rowH,
+          opacity: isDimmed ? 0.3 : 1,
+          transition: 'opacity 0.15s',
+        }}
         onClick={() => onSelect(tarefa.id)}
       >
         <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
@@ -178,48 +310,60 @@ function WBSRow({ tarefa, allTarefas, expandedIds, selectedId, checkedIds, criti
           <span className={cn('flex-1 text-xs truncate min-w-0', isSummary ? 'font-semibold' : 'text-foreground/90', isMilestone && 'italic')} title={tarefa.nome} onDoubleClick={e => { e.stopPropagation(); onOpenDrawer(tarefa); }}>{tarefa.nome}</span>
           {tarefa.dias_impedidos > 0 && (<Tooltip><TooltipTrigger asChild><div className="flex items-center h-3.5 px-1 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0 ml-1"><AlertTriangle className="h-2 w-2 mr-0.5"/><span className="text-[8px] font-bold">{tarefa.dias_impedidos}d</span></div></TooltipTrigger><TooltipContent side="left" className="text-[10px]">Impedido {tarefa.dias_impedidos}d</TooltipContent></Tooltip>)}
         </div>
-        <div className="flex justify-center" onClick={e => e.stopPropagation()}>
-          <InlineDateCell value={tarefa.data_inicio} onChange={v => {
-            const changes: Partial<CronogramaTarefa> = { data_inicio: v };
-            try {
-              if (tarefa.duracao_dias && tarefa.duracao_dias > 0) {
-                changes.data_fim = format(addDays(parseISO(v), tarefa.duracao_dias - 1), 'yyyy-MM-dd');
-              } else if (tarefa.data_fim) {
-                const dur = differenceInDays(parseISO(tarefa.data_fim), parseISO(v)) + 1;
-                if (dur > 0) changes.duracao_dias = dur;
-              }
-            } catch {}
-            onUpdate(tarefa.id, changes);
-          }} />
-        </div>
-        <div className="flex justify-center" onClick={e => e.stopPropagation()}>
-          <InlineDateCell value={tarefa.data_fim} onChange={v => {
-            const changes: Partial<CronogramaTarefa> = { data_fim: v };
-            try {
-              if (tarefa.data_inicio) {
-                const dur = differenceInDays(parseISO(v), parseISO(tarefa.data_inicio)) + 1;
-                if (dur > 0) changes.duracao_dias = dur;
-              }
-            } catch {}
-            onUpdate(tarefa.id, changes);
-          }} red={status === 'atrasada'} />
-        </div>
-        <div className="flex justify-center" onClick={e => e.stopPropagation()}>
-          {/* P3.5 — Duração com unidade 'd' visível */}
-          <div className="flex items-center">
-            <input type="number" min={1} value={tarefa.duracao_dias || ''} onChange={e => {
-              const dur = Number(e.target.value) || null;
-              const changes: Partial<CronogramaTarefa> = { duracao_dias: dur };
+        {!compactMode && (
+          <div className="flex justify-center" onClick={e => e.stopPropagation()}>
+            <InlineDateCell value={tarefa.data_inicio} onChange={v => {
+              const changes: Partial<CronogramaTarefa> = { data_inicio: v };
               try {
-                if (dur && dur > 0 && tarefa.data_inicio) {
-                  changes.data_fim = format(addDays(parseISO(tarefa.data_inicio), dur - 1), 'yyyy-MM-dd');
+                if (tarefa.duracao_dias && tarefa.duracao_dias > 0) {
+                  changes.data_fim = format(addDays(parseISO(v), tarefa.duracao_dias - 1), 'yyyy-MM-dd');
+                } else if (tarefa.data_fim) {
+                  const dur = differenceInDays(parseISO(tarefa.data_fim), parseISO(v)) + 1;
+                  if (dur > 0) changes.duracao_dias = dur;
                 }
               } catch {}
               onUpdate(tarefa.id, changes);
-            }} placeholder="—" className="w-9 h-6 text-center text-[10px] border border-transparent rounded-l hover:border-border focus:border-primary focus:outline-none bg-transparent tabular-nums text-muted-foreground" />
-            {tarefa.duracao_dias ? <span className="text-[9px] text-muted-foreground/50 pr-0.5">d</span> : null}
+            }} />
           </div>
-        </div>
+        )}
+        {!compactMode && (
+          <div className="flex justify-center" onClick={e => e.stopPropagation()}>
+            <InlineDateCell value={tarefa.data_fim} onChange={v => {
+              const changes: Partial<CronogramaTarefa> = { data_fim: v };
+              try {
+                if (tarefa.data_inicio) {
+                  const dur = differenceInDays(parseISO(v), parseISO(tarefa.data_inicio)) + 1;
+                  if (dur > 0) changes.duracao_dias = dur;
+                }
+              } catch {}
+              onUpdate(tarefa.id, changes);
+            }} red={status === 'atrasada'} />
+          </div>
+        )}
+        {!compactMode && (
+          <div className="flex justify-center" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center">
+              <input type="number" min={1} value={tarefa.duracao_dias || ''} onChange={e => {
+                const dur = Number(e.target.value) || null;
+                const changes: Partial<CronogramaTarefa> = { duracao_dias: dur };
+                try {
+                  if (dur && dur > 0 && tarefa.data_inicio) {
+                    changes.data_fim = format(addDays(parseISO(tarefa.data_inicio), dur - 1), 'yyyy-MM-dd');
+                  }
+                } catch {}
+                onUpdate(tarefa.id, changes);
+              }} placeholder="—" className="w-9 h-6 text-center text-[10px] border border-transparent rounded-l hover:border-border focus:border-primary focus:outline-none bg-transparent tabular-nums text-muted-foreground" />
+              {tarefa.duracao_dias ? <span className="text-[9px] text-muted-foreground/50 pr-0.5">d</span> : null}
+            </div>
+          </div>
+        )}
+        {compactMode ? (
+          /* Compact: small inline progress */
+          <div className="flex items-center gap-1 px-1">
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden"><div className={cn('h-full rounded-full', isCritico ? 'bg-orange-500' : cfg.bar)} style={{ width: `${tarefa.percentual_concluido}%` }}/></div>
+            <span className="text-[8px] text-muted-foreground tabular-nums">{tarefa.percentual_concluido}%</span>
+          </div>
+        ) : (
         <div className="flex items-center gap-0.5 px-1">
           <div className="flex items-center gap-1 flex-1 group-hover:hidden">
             <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden"><div className={cn('h-full rounded-full', isCritico ? 'bg-orange-500' : cfg.bar)} style={{ width: `${tarefa.percentual_concluido}%` }}/></div>
@@ -245,8 +389,9 @@ function WBSRow({ tarefa, allTarefas, expandedIds, selectedId, checkedIds, criti
             </DropdownMenu>
           </div>
         </div>
+        )}
       </div>
-      {isExpanded && children.map(c => <WBSRow key={c.id} tarefa={c} allTarefas={allTarefas} expandedIds={expandedIds} selectedId={selectedId} checkedIds={checkedIds} criticalIds={criticalIds} dragId={dragId} dragOverId={dragOverId} onToggleExpand={onToggleExpand} onSelect={onSelect} onToggleCheck={onToggleCheck} onUpdate={onUpdate} onDelete={onDelete} onOpenDrawer={onOpenDrawer} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onAddBelow={onAddBelow} />)}
+      {isExpanded && children.map(c => <WBSRow key={c.id} tarefa={c} allTarefas={allTarefas} expandedIds={expandedIds} selectedId={selectedId} checkedIds={checkedIds} criticalIds={criticalIds} dragId={dragId} dragOverId={dragOverId} onToggleExpand={onToggleExpand} onSelect={onSelect} onToggleCheck={onToggleCheck} onUpdate={onUpdate} onDelete={onDelete} onOpenDrawer={onOpenDrawer} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onAddBelow={onAddBelow} compactMode={compactMode} isDimmed={isDimmed} />)}
     </>
   );
 }
@@ -516,35 +661,87 @@ export default function CronogramaPage() {
   const ganttScrollRef = useRef<HTMLDivElement>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
 
-  // ── Sync Vertical Scroll ──────────────────────────────────────────────────
+  // Auto-expand all parent nodes when tarefas change (keeps list + gantt in sync)
   useEffect(() => {
+    const parentIds = new Set<string>();
+    tarefas.forEach(t => {
+      if (t.parent_tarefa_id) parentIds.add(t.parent_tarefa_id);
+    });
+    if (parentIds.size > 0) {
+      setExpandedIds(prev => {
+        // Only add newly found parents, don't remove user-collapsed ones
+        let changed = false;
+        const next = new Set(prev);
+        parentIds.forEach(id => {
+          if (!next.has(id) && !prev.has('__init__')) {
+            next.add(id);
+            changed = true;
+          }
+        });
+        // Mark as initialized so subsequent loads don't force re-expand
+        if (!prev.has('__init__') && parentIds.size > 0) {
+          parentIds.forEach(id => next.add(id));
+          next.add('__init__');
+          return next;
+        }
+        return changed ? next : prev;
+      });
+    }
+  }, [tarefas]);
+
+  // ── Sync Vertical Scroll ──────────────────────────────────────────────────
+  // We use a ref-callback approach so that when GanttCanvasPanel assigns
+  // the inner wrapper to ganttScrollRef, we reconnect the sync.
+  const syncCleanupRef = useRef<(() => void) | null>(null);
+
+  const setupScrollSync = useCallback(() => {
+    // Clean up previous listeners
+    if (syncCleanupRef.current) {
+      syncCleanupRef.current();
+      syncCleanupRef.current = null;
+    }
+
     const listEl = listScrollRef.current;
     const ganttEl = ganttScrollRef.current;
     if (!listEl || !ganttEl || !showList || !showGantt) return;
 
-    let isSyncingList = false;
-    let isSyncingGantt = false;
+    let isSyncing = false;
 
     const onListScroll = () => {
-      if (isSyncingList) { isSyncingList = false; return; }
-      isSyncingGantt = true;
+      if (isSyncing) return;
+      isSyncing = true;
       ganttEl.scrollTop = listEl.scrollTop;
+      requestAnimationFrame(() => { isSyncing = false; });
     };
 
     const onGanttScroll = () => {
-      if (isSyncingGantt) { isSyncingGantt = false; return; }
-      isSyncingList = true;
+      if (isSyncing) return;
+      isSyncing = true;
       listEl.scrollTop = ganttEl.scrollTop;
+      requestAnimationFrame(() => { isSyncing = false; });
     };
 
     listEl.addEventListener('scroll', onListScroll, { passive: true });
     ganttEl.addEventListener('scroll', onGanttScroll, { passive: true });
 
-    return () => {
+    syncCleanupRef.current = () => {
       listEl.removeEventListener('scroll', onListScroll);
       ganttEl.removeEventListener('scroll', onGanttScroll);
     };
   }, [showList, showGantt]);
+
+  // Re-setup sync when visibility changes or on mount
+  useEffect(() => {
+    // Small delay to ensure GanttCanvasPanel has assigned its ref
+    const timer = setTimeout(setupScrollSync, 50);
+    return () => {
+      clearTimeout(timer);
+      if (syncCleanupRef.current) {
+        syncCleanupRef.current();
+        syncCleanupRef.current = null;
+      }
+    };
+  }, [setupScrollSync]);
 
   // ── Bulk Actions State ──────────────────────────────────────────────────
   const [bulkProgress, setBulkProgress] = useState(100);
@@ -621,6 +818,85 @@ export default function CronogramaPage() {
 
   const rootTarefas = useMemo(() => tarefas.filter(t => !t.parent_tarefa_id).sort((a, b) => a.ordem - b.ordem), [tarefas]);
   const childrenOf = useCallback((parentId: string) => tarefas.filter(t => t.parent_tarefa_id === parentId).sort((a, b) => a.ordem - b.ordem), [tarefas]);
+
+  // ── Feature: Status filter ──────────────────────────────────────────────
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
+  // ── Feature: Compact mode ──────────────────────────────────────────────
+  const [compactMode, setCompactMode] = useState(false);
+
+  // ── Feature: Collapse by level ──────────────────────────────────────────
+  const maxNivel = useMemo(() => {
+    let max = 1;
+    tarefas.forEach(t => { if (t.nivel > max) max = t.nivel; });
+    return max;
+  }, [tarefas]);
+
+  const setExpandLevel = useCallback((level: number) => {
+    // level=1: show only roots (collapse all parents)
+    // level=2: show roots + their direct children
+    // level=Infinity: expand all
+    const parentIds = new Set<string>();
+    tarefas.forEach(t => {
+      if (t.parent_tarefa_id) parentIds.add(t.parent_tarefa_id);
+    });
+    const next = new Set<string>();
+    next.add('__init__'); // Mark as user-initiated
+    if (level > 1 || level === Infinity) {
+      tarefas.forEach(t => {
+        if (parentIds.has(t.id) && t.nivel < level) {
+          next.add(t.id);
+        }
+      });
+    }
+    setExpandedIds(next);
+  }, [tarefas]);
+
+  // ── Feature: Connected node highlight ──────────────────────────────────
+  // When a task is selected, compute the set of connected IDs (predecessors + successors)
+  const highlightedIds = useMemo<Set<string>>(() => {
+    if (!selectedTarefaId) return new Set();
+    const connected = new Set<string>();
+    connected.add(selectedTarefaId);
+    // Walk deps to find all connected tasks
+    const queue = [selectedTarefaId];
+    const visited = new Set<string>();
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      connected.add(current);
+      dependencias.forEach(d => {
+        if (d.origem_tarefa_id === current && !visited.has(d.destino_tarefa_id)) {
+          queue.push(d.destino_tarefa_id);
+        }
+        if (d.destino_tarefa_id === current && !visited.has(d.origem_tarefa_id)) {
+          queue.push(d.origem_tarefa_id);
+        }
+      });
+    }
+    return connected;
+  }, [selectedTarefaId, dependencias]);
+
+  // ── Feature: Status filter — compute filtered tasks ────────────────────
+  const filteredTarefas = useMemo(() => {
+    if (!statusFilter) return tarefas;
+    // Keep tasks matching the status + their ancestors (so the tree isn't broken)
+    const matchingIds = new Set<string>();
+    tarefas.forEach(t => {
+      if (computeStatusTarefa(t) === statusFilter) {
+        matchingIds.add(t.id);
+        // Walk up to root to keep parents visible
+        let parentId = t.parent_tarefa_id;
+        while (parentId) {
+          matchingIds.add(parentId);
+          const parent = tarefas.find(p => p.id === parentId);
+          parentId = parent?.parent_tarefa_id ?? null;
+        }
+      }
+    });
+    return tarefas.filter(t => matchingIds.has(t.id));
+  }, [tarefas, statusFilter]);
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -783,6 +1059,120 @@ export default function CronogramaPage() {
         <span className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer" onClick={() => setIsAutoSchedule(!isAutoSchedule)}>Automático</span>
       </div>
 
+      {/* ── SEPARADOR ── */}
+      <div style={{ width: 1, height: 20, background: 'var(--color-border-secondary)', flexShrink: 0, margin: '0 4px' }} />
+
+      {/* ── GRUPO: Collapse por nível ── */}
+      {tarefas.length > 0 && maxNivel > 1 && (
+        <div className="flex items-center gap-0.5">
+          <Layers style={{ width: 11, height: 11, color: 'var(--color-text-tertiary, #888)', marginRight: 2 }} />
+          {Array.from({ length: Math.min(maxNivel, 4) }, (_, i) => i + 1).map(level => (
+            <button
+              key={level}
+              onClick={() => setExpandLevel(level)}
+              style={{
+                height: 22, minWidth: 22, padding: '0 5px',
+                fontSize: 10, fontWeight: 600,
+                background: 'transparent',
+                border: '0.5px solid var(--color-border-secondary)',
+                borderRadius: 4,
+                color: 'var(--color-text-secondary)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-background-secondary)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              title={`Mostrar até nível ${level}`}
+            >
+              {level}
+            </button>
+          ))}
+          <button
+            onClick={() => setExpandLevel(Infinity)}
+            style={{
+              height: 22, padding: '0 6px',
+              fontSize: 9, fontWeight: 600,
+              background: 'transparent',
+              border: '0.5px solid var(--color-border-secondary)',
+              borderRadius: 4,
+              color: 'var(--color-text-secondary)',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-background-secondary)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            title="Expandir tudo"
+          >
+            Tudo
+          </button>
+        </div>
+      )}
+
+      {/* ── Status filter chips ── */}
+      {tarefas.length > 0 && (
+        <>
+          <div style={{ width: 1, height: 20, background: 'var(--color-border-secondary)', flexShrink: 0, margin: '0 4px' }} />
+          <div className="flex items-center gap-1">
+            <Filter style={{ width: 10, height: 10, color: 'var(--color-text-tertiary, #888)', marginRight: 1 }} />
+            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
+              const count = tarefas.filter(t => computeStatusTarefa(t) === key).length;
+              if (count === 0) return null;
+              const isActive = statusFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setStatusFilter(isActive ? null : key)}
+                  style={{
+                    height: 20, padding: '0 6px',
+                    fontSize: 9, fontWeight: isActive ? 700 : 500,
+                    background: isActive ? cfg.hex + '18' : 'transparent',
+                    border: isActive ? `1px solid ${cfg.hex}40` : '0.5px solid var(--color-border-secondary)',
+                    borderRadius: 10,
+                    color: isActive ? cfg.hex : 'var(--color-text-secondary)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex', alignItems: 'center', gap: 3,
+                    transition: 'all 0.12s',
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.hex, opacity: isActive ? 1 : 0.5 }} />
+                  {count}
+                </button>
+              );
+            })}
+            {statusFilter && (
+              <button
+                onClick={() => setStatusFilter(null)}
+                style={{ height: 20, padding: '0 6px', fontSize: 9, fontWeight: 500, background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Compact toggle ── */}
+      <div style={{ width: 1, height: 20, background: 'var(--color-border-secondary)', flexShrink: 0, margin: '0 4px' }} />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => setCompactMode(!compactMode)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              height: 26, width: 26,
+              background: compactMode ? 'var(--color-primary, #534AB7)' : 'transparent',
+              border: compactMode ? 'none' : '0.5px solid var(--color-border-secondary)',
+              borderRadius: 6,
+              color: compactMode ? '#fff' : 'var(--color-text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            {compactMode ? <Maximize2 style={{ width: 12, height: 12 }} /> : <Minimize2 style={{ width: 12, height: 12 }} />}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-[10px]">
+          {compactMode ? 'Modo Normal' : 'Modo Compacto'}
+        </TooltipContent>
+      </Tooltip>
 
       {/* ── ESPAÇO FLEXÍVEL ── */}
       <div style={{ flex: 1 }}/>
@@ -905,20 +1295,26 @@ export default function CronogramaPage() {
               {/* Lista — ocupa 40% quando split com Gantt, 100% quando sozinha */}
               {showList && (
                 <div
-                  ref={listScrollRef}
-                  className="flex flex-col overflow-y-auto border-r border-border"
-                  style={{ flex: showGantt ? '0 0 40%' : '1 1 100%', minWidth: 0 }}
+                  className="flex flex-col border-r border-border"
+                  style={{ flex: showGantt ? '0 0 40%' : '1 1 100%', minWidth: 0, overflow: 'hidden' }}
                 >
-                  <div className="grid border-b border-border bg-muted/50 shrink-0 select-none" style={{ gridTemplateColumns: '20px 1fr 52px 52px 32px 88px', height: 50 }}>
+                  {/* List header — OUTSIDE scroll area to match Gantt header position */}
+                  <div className="grid border-b border-border bg-muted/50 shrink-0 select-none" style={{ gridTemplateColumns: compactMode ? '20px 1fr 60px' : '20px 1fr 52px 52px 32px 88px', height: 50 }}>
                     <div className="flex items-center justify-center">
                       <Checkbox className="h-3.5 w-3.5" checked={checkedIds.size > 0 && checkedIds.size === tarefas.length} onCheckedChange={v => { if (v) setCheckedIds(new Set(tarefas.map(t => t.id))); else setCheckedIds(new Set()); }} />
                     </div>
                     <span className="flex items-center px-2 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Tarefa</span>
-                    <span className="flex items-center justify-center text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Início</span>
-                    <span className="flex items-center justify-center text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Fim</span>
-                    <span className="flex items-center justify-center text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Dur.</span>
-                    <span className="flex items-center px-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Progresso</span>
+                    {!compactMode && <span className="flex items-center justify-center text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Início</span>}
+                    {!compactMode && <span className="flex items-center justify-center text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Fim</span>}
+                    {!compactMode && <span className="flex items-center justify-center text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Dur.</span>}
+                    <span className="flex items-center px-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{compactMode ? '%' : 'Progresso'}</span>
                   </div>
+                  {/* Scrollable rows — synced with Gantt scroll */}
+                  <div
+                    ref={listScrollRef}
+                    className="flex-1 overflow-y-auto"
+                    style={{ minHeight: 0 }}
+                  >
                   {loading && <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground"/></div>}
                   {!loading && tarefas.length === 0 && (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center px-6">
@@ -927,9 +1323,9 @@ export default function CronogramaPage() {
                       <p className="text-xs text-muted-foreground/70">Use o botão "+ Tarefa" para começar.</p>
                     </div>
                   )}
-                  {tarefas.filter(t => !t.parent_tarefa_id).sort((a,b) => a.ordem - b.ordem).map(tarefa => (
+                  {filteredTarefas.filter(t => !t.parent_tarefa_id).sort((a,b) => a.ordem - b.ordem).map(tarefa => (
                     <WBSRow
-                      key={tarefa.id} tarefa={tarefa} allTarefas={tarefas}
+                      key={tarefa.id} tarefa={tarefa} allTarefas={filteredTarefas}
                       expandedIds={expandedIds} selectedId={selectedTarefaId}
                       checkedIds={checkedIds} criticalIds={criticalIds}
                       dragId={dragId} dragOverId={dragOverId}
@@ -938,6 +1334,8 @@ export default function CronogramaPage() {
                       onDragStart={setDragId} onDragOver={setDragOverId}
                       onDrop={targetId => { if (dragId) reorderTarefas(dragId, targetId); setDragId(null); setDragOverId(null); }}
                       onAddBelow={handleAddBelow}
+                      compactMode={compactMode}
+                      isDimmed={highlightedIds.size > 1 && !highlightedIds.has(tarefa.id)}
                     />
                   ))}
                   {!loading && <AddTaskInline ref={addTaskRef} onAdd={(nome, tipo) => addTarefa({ nome, nivel: 1, tipo_tarefa: tipo })} loading={saving}/>}
@@ -977,18 +1375,18 @@ export default function CronogramaPage() {
                        </div>
                      </div>
                    )}
-                 </div>
-               )}
+                  </div>
+                </div>
+              )}
 
               {/* Gantt — painel direito */}
               {showGantt && (
                 <div
-                  ref={ganttScrollRef}
                   className="flex flex-col overflow-hidden"
                   style={{ flex: showList ? '1 1 60%' : '1 1 100%', minWidth: 0 }}
                 >
                   <GanttCanvasPanel
-                    tarefas={tarefas}
+                    tarefas={filteredTarefas}
                     dependencias={dependencias}
                     selectedId={selectedTarefaId}
                     onSelectTarefa={setSelectedTarefaId}
@@ -999,7 +1397,16 @@ export default function CronogramaPage() {
                     onRemoveDependencia={removeDependencia}
                     scrollRef={ganttScrollRef}
                     isAutoSchedule={isAutoSchedule}
+                    childrenOf={childrenOf}
+                    expandedIds={expandedIds}
+                    onToggleExpand={toggleExpand}
+                    onScrollRefReady={setupScrollSync}
+                    compactMode={compactMode}
                   />
+                  {/* Minimap: compact overview at the bottom of the Gantt */}
+                  {filteredTarefas.length > 10 && (
+                    <GanttMinimap tarefas={filteredTarefas} scrollRef={ganttScrollRef} height={32} />
+                  )}
                 </div>
               )}
              </div>

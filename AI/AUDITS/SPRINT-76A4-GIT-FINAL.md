@@ -45,7 +45,11 @@
 
 ## git log --oneline -5
 ```
-(A preencher após o 3º commit)
+fe308a0 docs: relatório de limpeza Git sprint 76A.4
+9b8095d chore: remover log de build rastreado
+471aa39 chore: remover artefatos temporários do Vite rastreados
+66bae2d fix: corrigir FK ambígua contratos e ação para recebíveis parciais
+7fd6f34 docs: adicionar auditorias e relatórios de sanitização (sprints 75B-76A)
 ```
 
 ## Repositório pronto para próxima sprint?

@@ -1,0 +1,62 @@
+══════════════════════════════════════════════════════════════
+CHECKLIST DE CONFIGURAÇÃO COMPLETO — LASTRA RAG (SPRINT-64)
+══════════════════════════════════════════════════════════════
+
+Este checklist guia a ativação do Banco de Dados Vetorial (pgvector),
+a conexão com as Inteligências Artificiais e a liberação da Classificação Automática de PDFs.
+
+=======================================================
+1. HABILITAR EXTENSÃO PGVECTOR E RODAR MIGRATION
+=======================================================
+Para que a Inteligência possa criar as matrizes de memória (Embeddings) de forma local,
+a extensão `vector` deve ser ativada e a nova tabela instanciada.
+
+Comando:
+  `supabase db push`
+
+Se não rodar via CLI, copie a migration `20260426160000_sprint_64_pgvector.sql` na pasta `/supabase/migrations/` e execute manualmente no painel SQL do Supabase. Essa migration:
+- Cria a tabela `projeto_chunks`
+- Cria os índices IVFFlat
+- Adiciona a flag `classificado` na tabela antiga de arquivos.
+
+=======================================================
+2. VARIÁVEIS DO WORKER RAILWAY (NOVAS CHAVES DE IA)
+=======================================================
+O serviço Python foi atualizado. Além do Supabase, agora ele aciona dois LLMs.
+Adicione imediatamente as seguintes variáveis de ambiente no container do Railway:
+
+`ANTHROPIC_API_KEY`=sk-ant-api03-... (Sua chave do Claude)
+`OPENAI_API_KEY`=sk-proj-... (Sua chave da OpenAI)
+
+*O Worker não executará as classificações se essas chaves não forem configuradas.*
+
+=======================================================
+3. ACOMPANHAR O REPROCESSAMENTO AUTOMÁTICO (IMPORTANTE!)
+=======================================================
+Atenção: Os arquivos de Sprints anteriores que já haviam sido extraídos (status = 'concluido')
+mas NÃO foram classificados serão apanhados pelo loop.
+
+Quando o Railway reiniciar o Worker após o commit destas variáveis e do novo `main.py`,
+ele começará a ler o backlog de PDFs legados automaticamente.
+
+Para monitorar visualmente sem abrir os Logs do Railway, execute esta SQL 
+na aba SQL Editor do Supabase a qualquer momento:
+
+```sql
+SELECT 
+  nome_original,
+  classificado,
+  (SELECT COUNT(*) FROM projeto_chunks WHERE arquivo_id = pf.id) as chunks_gerados
+FROM projeto_arquivos pf
+WHERE status = 'concluido'
+ORDER BY created_at DESC;
+```
+Enquanto o `chunks_gerados` sobe e o status de `classificado` ainda é False, o Bot está chamando a OpenAI e Anthropic em segundo plano!
+
+=======================================================
+4. TESTE VISUAL (FRONTEND)
+=======================================================
+Entre na Obra Conectada > Painel da Obra > Aba "Intelligence".
+1. Um documento processado sem RAG exibirá a Flag de Pulso: "Claude Sonnet avaliando relevância...".
+2. Documentos com a classificação pronta mostrarão:
+   [Indexado] [ARQUITETONICO] X páginas úteis de Y totais.

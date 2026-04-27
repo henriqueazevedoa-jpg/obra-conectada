@@ -80,6 +80,9 @@ Regra: cada sprint tem critério de saída binário antes de avançar
   Escopo: Batch baseline, progresso com peso, FF/SF, Wizard 3 passos
   Critério: tsc --noEmit sem erros e fluxos concluídos
 
+✅ SPRINT-D3/D4 — Cronograma: Arquitetura Visual e UX (Concluído)
+  Escopo: Reestruturação das abas (Planejamento, Acompanhamento, Impedimentos, Desempenho), Split-view (Curva S + Fluxo), Pan to Drag com Pointer Capture, Correção visual de dependências.
+
 ⬜ SPRINT-E — Refinamento módulo a módulo
   Painel → Cronograma → Financeiro → Canteiro (um por sprint)
 
@@ -121,7 +124,61 @@ GRUPO J — Produto (quando sistema estável)
 
 ⬜ PROMPT 55 — Landing Page
 ⬜ PROMPT 56 — Onboarding
-⬜ PROMPT 57 — Assistente IA
+✅ SPRINT-58 — Assistente IA (Lastra Chat Panel UI base e mock)
+✅ SPRINT-59 — Assistente IA (Lastra Chat Backend Integration)
+✅ SPRINT-60 — Assistente IA (Metaprompts Configuráveis)
+✅ SPRINT-61 — PWA + Notificações Push
+  Escopo: vite-plugin-pwa, manifest, service worker, InstallPrompt (iOS/Android), NotificationPrompt, usePushNotifications, Edge Function send-push, push_subscriptions + push_notifications_log, seção Notificações em ChatSettings
+  Entregue em: 26/04/2026
+  - [x] vite.config.ts com VitePWA (manifest, workbox, Supabase caching)
+  - [x] Ícones PWA em public/icons/
+  - [x] Migration push_subscriptions + push_notifications_log (RLS)
+  - [x] Edge Function send-push deployada (web-push via esm.sh, VAPID, log)
+  - [x] Hook usePushNotifications (subscribe, unsubscribe, sendTestNotification)
+  - [x] InstallPrompt — banner mobile com detecção iOS/Android
+  - [x] NotificationPrompt — modal de ativação pós-login
+  - [x] App.tsx integrado com ambos os prompts (apenas ProtectedRoute)
+  - [x] ChatSettings.tsx atualizado com seção Notificações (status + ativar + testar)
+  - [x] .env.example atualizado com VITE_VAPID_PUBLIC_KEY
+  - [x] PROJECT-MEMORY.md atualizado (VAPID keys + iOS restriction)
+  - [x] tsc --noEmit zero erros novos
+  Pendente (requer ação manual):
+  - [ ] Gerar VAPID keys: npx web-push generate-vapid-keys
+  - [ ] Adicionar VITE_VAPID_PUBLIC_KEY ao .env local
+  - [ ] Configurar secrets no Supabase: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL
+
+✅ SPRINT-62 — Engine Completa de Voz
+  Escopo: Transcrição Whisper, OpenAI TTS, Wake Word "Hey Lastra", Push-to-Talk no FAB e no ChatPanel.
+  Entregue em: 26/04/2026
+  - [x] Migration de preferências (wake_word_enabled, auto_speak, voice_fab_enabled)
+  - [x] voiceService.ts (Whisper, TTS e Web Speech API)
+  - [x] useVoice.ts (MediaRecorder + integracao de serviços)
+  - [x] VoiceFAB.tsx com lógica Push-to-Talk + Tap
+  - [x] ChatPanel PTT integração e TTS pós-mensagem
+  - [x] ChatSettings atualizado com seção "Voz e Áudio"
+  - [x] AppLayout atualizado (VoiceGlobalListener + VoiceFAB)
+  - [x] tsc --noEmit (0 erros)
+  Pendente (requer ação manual):
+  - [ ] Adicionar VITE_OPENAI_API_KEY ao .env local com a chave real para habilitar a engine.
+
+✅ SPRINT-63 — Pipeline de Processamento PDF Intelligence
+  Escopo: Pipeline de upload de PDFs, Webhook via Storage Edge Function, Worker Python com PyMuPDF/pdfplumber hospedado fora, e Status Realtime no Frontend com nova aba na página ObraDetalhePage.
+  Entregue em: 26/04/2026
+  - [x] Migration de tabelas (projeto_arquivos, projeto_paginas_raw)
+  - [x] Webhook Edge Function (processar-pdf-webhook)
+  - [x] Worker Python (PyMuPDF, pdfplumber, dotenv) com polling 10s
+  - [x] ProjetoUpload.tsx (Dropzone 100MB e fallback UUIDs)
+  - [x] ProjetoProcessamentoStatus.tsx (Supabase Channel progress bar)
+  - [x] ProjetoArquivosList.tsx (Listagem da obra e remoção em cascata)
+  - [x] IntelligencePanel.tsx + inserção na ObraDetalhePage via Tabs
+  - [x] Relatório checklist-sprint-63.txt gerado
+  Pendente (requer ação manual, ver checklist-sprint-63.txt):
+  - [ ] Aplicar DB Push das tabelas.
+  - [ ] Criar o bucket 'projetos'.
+  - [ ] Deploy Edge Function webhook + secrets.
+  - [ ] Deploy Railway Worker (Python).
+  - [ ] Habilitar Replication Realtime para projeto_arquivos.
+
 
 ----------------------------------------------------------------
 BACKLOG — Descobertos mas fora de escopo dos sprints ativos
