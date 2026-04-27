@@ -22,7 +22,8 @@ import fitz  # PyMuPDF
 import pdfplumber
 import re
 from datetime import datetime, timedelta, timezone
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from anthropic import Anthropic
@@ -53,8 +54,7 @@ if ANTHROPIC_API_KEY:
     print(f"ANTHROPIC_API_KEY prefixo: {str(ANTHROPIC_API_KEY)[:10]}...")
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 def registrar_custo(arquivo_id, obra_id, company_id, fase, modelo, tokens_entrada=0, tokens_saida=0, unidades=0, custo_usd=0.0):
     try:
@@ -379,8 +379,11 @@ Páginas:
 {prompt_paginas}"""
 
             try:
-                modelo_gemini = genai.GenerativeModel("gemini-1.5-flash")
-                resposta = modelo_gemini.generate_content(prompt_fase1)
+                resposta = gemini_client.models.generate_content(
+        model="gemini-2.0-flash",
+    contents=prompt_fase1
+)
+text_response = resposta.text
                 
                 tokens_entrada_f1 = resposta.usage_metadata.prompt_token_count if hasattr(resposta, 'usage_metadata') else 0
                 tokens_saida_f1 = resposta.usage_metadata.candidates_token_count if hasattr(resposta, 'usage_metadata') else 0
@@ -417,13 +420,13 @@ Páginas:
 
                 # 2. Gerar Embedding Gemini
                 print(f"[{arquivo_id}] Gerando embedding para a página {cls_page.get('pagina')}...")
-                emb_res = genai.embed_content(
-                    model="models/text-embedding-004",
-                    content=texto_limpo[:8000]
+                emb_res = gemini_client.models.embed_content(
+                    model="text-embedding-004",
+                    contents=texto_limpo[:8000]
                 )
-                embedding_vector = emb_res['embedding']
+                embedding_vector = emb_res.embeddings[0].values
                 
-                registrar_custo(arquivo_id, obra_id, company_id, "embedding_gemini", "text-embedding-004", len(texto_limpo[:8000].split()), 0, 1, 0.0)
+                # registrar_custo(arquivo_id, obra_id, company_id, "embedding_gemini", "text-embedding-004", len(texto_limpo[:8000].split()), 0, 1, 0.0)
                 
                 # 3. Inserir Chunk no PGVector
                 supabase.table("projeto_chunks").insert({
