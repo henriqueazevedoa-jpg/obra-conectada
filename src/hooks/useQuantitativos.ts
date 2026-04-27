@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/untyped';
 
 export type QuantitativoStatus = 'nao_gerado' | 'gerando' | 'concluido' | 'erro';
 
